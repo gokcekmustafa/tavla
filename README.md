@@ -25,7 +25,7 @@ Bu proje, Supabase gerektirmeden tarayıcıda çalışan yerel bir tavla uygulam
 
 ## Supabase Gerekli mi?
 
-Bu sürüm için hayır. Supabase yalnızca şu ihtiyaçlarda gerekli olur:
+Bu sürüm için hayır.Supabase yalnızca şu ihtiyaçlarda gerekli olur:
 
 - Online eşleşme
 - Kullanıcı hesabı / giriş
