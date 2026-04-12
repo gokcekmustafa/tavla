@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tavla Legacy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="app-header">
+      <div>
+        <h1>Tavla</h1>
+        <p class="subtitle">Legacy oyun motoru</p>
+      </div>
+      <button id="new-game-btn" class="secondary-btn">Yeni Oyun</button>
+    </header>
+
+    <section class="hud">
+      <div class="turn-card">
+        <p class="label">Sira</p>
+        <p id="current-player" class="value">Beyaz</p>
+      </div>
+
+      <div class="dice-card">
+        <p class="label">Son Zar</p>
+        <div id="dice-container" class="dice-container" aria-live="polite"></div>
+      </div>
+
+      <div class="status-card">
+        <p class="label">Durum</p>
+        <p id="status-text" class="status-text">Beyaz basliyor. Zar atarak oyunu baslat.</p>
+      </div>
+
+      <div class="controls-card">
+        <p class="label">Mod ve Kontrol</p>
+        <label for="game-mode-select" class="control-label">Oyun modu</label>
+        <select id="game-mode-select" class="mode-select">
+          <option value="local">Iki Oyuncu (Local)</option>
+          <option value="bot">Bilgisayara Karsi</option>
+        </select>
+        <button id="undo-btn" class="secondary-btn">Geri Al</button>
+      </div>
+    </section>
+
+    <section class="table-wrap">
+      <aside id="off-black" class="off-area black" data-off="black">
+        <p class="off-title">Siyah Toplanan</p>
+        <p id="off-black-count" class="off-count">0 / 15</p>
+      </aside>
+
+      <div id="board-grid" class="board-grid" aria-label="Tavla tahtasi"></div>
+      <div id="center-dice-stage" class="center-dice-stage" aria-live="polite"></div>
+
+      <aside id="off-white" class="off-area white" data-off="white">
+        <p class="off-title">Beyaz Toplanan</p>
+        <p id="off-white-count" class="off-count">0 / 15</p>
+      </aside>
+    </section>
+
+    <section class="activity-wrap">
+      <section class="history-card">
+        <p class="label">Hamle Gecmisi</p>
+        <ol id="move-log" class="move-log"></ol>
+      </section>
+
+      <section class="help">
+        <p>
+          Oynamak icin once kaynak tasi sec, sonra hedef noktaya tikla.
+          Bar'da tasin varsa once bar'dan giris yapman gerekir.
+        </p>
+      </section>
+    </section>
+  </main>
+  <button id="roll-btn" class="primary-btn floating-roll-btn">Zar At</button>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const initialMode = params.get("mode");
+    window.__BOOT_MODE__ = initialMode === "bot" ? "bot" : "local";
+  </script>
+  <script src="./script.js"></script>
+</body>
+</html>

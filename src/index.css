@@ -1,0 +1,21 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at 16% 18%, #567f67 0%, transparent 36%),
+    radial-gradient(circle at 82% 4%, #1f352a 0%, transparent 33%),
+    radial-gradient(circle at 50% 120%, #3b604b 0%, transparent 45%),
+    linear-gradient(145deg, #142118 8%, #2d4a3a 100%);
+  padding: 16px;
+  background-attachment: fixed;
+}
+
+#root {
+  width: 100%;
+}

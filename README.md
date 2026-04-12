@@ -1,37 +1,47 @@
-# Tavla (Local Web Uygulaması)
+# Tavla - Vite + React + TypeScript
 
-Bu proje, Supabase gerektirmeden tarayıcıda çalışan yerel bir tavla uygulamasıdır.
+Bu repo, tavla uygulamasinin React/TypeScript tabanina gecis surumudur.
 
-## Neler Var
+## Bu Surumde Neler Var
 
-- İki oyunculu local tavla (aynı cihazda)
-- Zar atma (çift zar durumunda 4 hamle)
-- Geçerli hamle kontrolü
-- Kırma (rakip tek taşını bara gönderme)
-- Bardan oyuna giriş zorunluluğu
-- Toplama (bearing off) kuralları
-- Kazanan tespiti
-- Bilgisayara karsi oyun modu (basit bot)
-- Hamle gecmisi paneli
-- Geri al (undo)
+- Vite + React + TypeScript proje yapisi
+- Legacy tavla motoru (`public/legacy`) iframe icinde calisir
+- Oyun modu secimi (iki oyuncu / bilgisayara karsi) React kabugundan yonetilir
+- Nhost baglanti hazirlik kontrolu (`VITE_NHOST_SUBDOMAIN`, `VITE_NHOST_REGION`)
 
-## Çalıştırma
+## Gelistirme
 
-1. `index.html` dosyasını tarayıcıda aç.
-2. `Zar At` ile turu başlat.
-3. Kaynak taşı seçip hedefe tıklayarak hamle yap.
-4. Mod seciminden `Bilgisayara Karsi` acip bota karsi oynayabilirsin.
-5. `Geri Al` ile son adimi geri alabilirsin.
+```bash
+npm install
+npm run dev
+```
 
-## Supabase Gerekli mi?
+## Build
 
-Bu sürüm için hayır.Supabase yalnızca şu ihtiyaçlarda gerekli olur:
+```bash
+npm run build
+```
 
-- Online eşleşme
-- Kullanıcı hesabı / giriş
-- Maç geçmişi, istatistik, liderlik tablosu
-- Gerçek zamanlı senkronizasyon
+## Nhost Hazirligi
 
-## Sonraki Adım (İstersen)
+1. Nhost projesi olustur.
+2. Repo kokunde `.env` dosyasi ac.
+3. Asagidaki degiskenleri gir:
 
-Bir sonraki aşamada Supabase ekleyip oda tabanlı online 1v1 mimarisi kurabiliriz.
+```env
+VITE_NHOST_SUBDOMAIN=senin-subdomain
+VITE_NHOST_REGION=senin-region
+```
+
+Not: Bu asamada tam auth/chat entegrasyonu henuz eklenmedi. Sonraki adimda React tarafina Nhost auth ve sohbet katmani baglanacak.
+
+## Veritabani Baslangici
+
+- Tasinabilir Postgres semasi: [database/schema.sql](database/schema.sql)
+- Bu sema Nhost'ta calisir ve daha sonra Supabase'e tasinmasi kolaydir.
+
+## Supabase'e Sonradan Tasima Icin Not
+
+- Uygulama semasini Postgres uyumlu tut.
+- Vendor-ozel alanlardan kacin.
+- Auth disi is verilerini ayrik tablolarda tut (`profiles`, `games`, `messages`).

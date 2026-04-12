@@ -1,14 +1,16 @@
 :root {
-  --bg-1: #1c2b22;
-  --bg-2: #2f4a3a;
-  --felt: #355c45;
-  --felt-dark: #234536;
-  --wood-1: #bb7f40;
-  --wood-2: #8e5926;
+  --bg-1: #d9d9d9;
+  --bg-2: #cfcfcf;
+  --felt: #4e3928;
+  --felt-dark: #3f2d20;
+  --wood-1: #8e6b4d;
+  --wood-2: #5e432f;
+  --board-surface-1: #d6b184;
+  --board-surface-2: #c79a67;
   --ink: #1a120b;
   --light: #f6efe4;
-  --white-checker: #fff4df;
-  --black-checker: #2d1f17;
+  --white-checker: #f2ebdc;
+  --black-checker: #1c1a18;
   --highlight: #ffd447;
   --select: #66d9ff;
   --danger: #f45151;
@@ -25,8 +27,8 @@ body {
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   color: var(--light);
   background:
-    radial-gradient(circle at 20% 20%, #4f7d63 0%, transparent 35%),
-    radial-gradient(circle at 80% 5%, #1f352a 0%, transparent 30%),
+    radial-gradient(circle at 20% 20%, #f2f2f2 0%, transparent 35%),
+    radial-gradient(circle at 80% 5%, #d8d8d8 0%, transparent 30%),
     linear-gradient(140deg, var(--bg-1) 10%, var(--bg-2) 100%);
   padding: 18px;
 }
@@ -172,12 +174,15 @@ button:hover {
   grid-template-columns: 130px 1fr 130px;
   gap: 10px;
   align-items: stretch;
+  position: relative;
 }
 
 .off-area {
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(0, 0, 0, 0.24);
+  border: 3px solid #4d3828;
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.2)),
+    linear-gradient(140deg, var(--wood-1), var(--wood-2));
   box-shadow: var(--shadow);
   padding: 12px;
   display: grid;
@@ -188,11 +193,15 @@ button:hover {
 }
 
 .off-area.black {
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3), rgba(45, 30, 20, 0.45));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.24)),
+    linear-gradient(180deg, #775638, #5a412e);
 }
 
 .off-area.white {
-  background: linear-gradient(180deg, rgba(245, 235, 220, 0.08), rgba(80, 55, 35, 0.22));
+  background:
+    linear-gradient(180deg, rgba(245, 235, 220, 0.08), rgba(0, 0, 0, 0.24)),
+    linear-gradient(180deg, #846447, #634a35);
 }
 
 .off-title {
@@ -212,17 +221,23 @@ button:hover {
   grid-template-columns: repeat(13, minmax(36px, 1fr));
   grid-template-rows: minmax(180px, 230px) minmax(180px, 230px);
   gap: 4px;
-  padding: 8px;
+  padding: 10px;
   border-radius: 16px;
+  border: 8px solid #4d3828;
   background:
-    linear-gradient(140deg, var(--wood-1), var(--wood-2)),
-    repeating-linear-gradient(120deg, rgba(255, 255, 255, 0.06) 0 6px, rgba(0, 0, 0, 0.06) 6px 12px);
+    linear-gradient(155deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.1)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.08) 0 2px,
+      rgba(0, 0, 0, 0.06) 2px 4px
+    ),
+    linear-gradient(140deg, var(--board-surface-1), var(--board-surface-2));
   box-shadow: var(--shadow);
 }
 
 .point {
   border-radius: 6px;
-  background: linear-gradient(170deg, rgba(0, 0, 0, 0.35), rgba(255, 255, 255, 0.08));
+  background: linear-gradient(170deg, rgba(78, 55, 37, 0.28), rgba(255, 255, 255, 0.04));
   position: relative;
   padding: 7px 4px;
   display: flex;
@@ -252,12 +267,20 @@ button:hover {
 
 .point.top::after {
   top: 0;
-  border-top: 95px solid rgba(0, 0, 0, 0.24);
+  border-top: 95px solid #121212;
 }
 
 .point.bottom::after {
   bottom: 0;
-  border-bottom: 95px solid rgba(0, 0, 0, 0.24);
+  border-bottom: 95px solid #f7f1e5;
+}
+
+.point:nth-child(even).top::after {
+  border-top-color: #f7f1e5;
+}
+
+.point:nth-child(even).bottom::after {
+  border-bottom-color: #121212;
 }
 
 .point-label {
@@ -299,16 +322,26 @@ button:hover {
   width: 30px;
   height: 30px;
   border-radius: 999px;
-  border: 2px solid rgba(0, 0, 0, 0.3);
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+  border: 2px solid rgba(0, 0, 0, 0.42);
+  box-shadow:
+    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.checker.draggable-checker {
+  cursor: grab;
+}
+
+.checker.draggable-checker:active {
+  cursor: grabbing;
 }
 
 .checker.white {
-  background: radial-gradient(circle at 35% 30%, #ffffff, var(--white-checker));
+  background: radial-gradient(circle at 35% 30%, #ffffff, var(--white-checker) 75%);
 }
 
 .checker.black {
-  background: radial-gradient(circle at 30% 25%, #524038, var(--black-checker));
+  background: radial-gradient(circle at 30% 25%, #5a5653, var(--black-checker) 70%);
 }
 
 .count-badge {
@@ -326,7 +359,10 @@ button:hover {
   grid-row: 1 / span 2;
   border-radius: 10px;
   padding: 6px 4px;
-  background: linear-gradient(180deg, var(--felt), var(--felt-dark));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.15)),
+    linear-gradient(180deg, var(--felt), var(--felt-dark));
+  border: 1px solid rgba(0, 0, 0, 0.35);
   display: grid;
   grid-template-rows: 1fr 1fr;
   gap: 6px;
@@ -342,6 +378,10 @@ button:hover {
   gap: 5px;
   cursor: pointer;
   transition: transform 0.1s ease;
+}
+
+.bar-slot.draggable-source {
+  box-shadow: 0 0 0 2px rgba(255, 212, 71, 0.8) inset;
 }
 
 .bar-slot-title {
@@ -387,6 +427,64 @@ button:hover {
 
 .highlight-target {
   outline: 3px solid rgba(102, 217, 255, 0.7);
+}
+
+.center-dice-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.center-dice-stage.show {
+  opacity: 1;
+}
+
+.center-dice-wrap {
+  display: flex;
+  gap: 10px;
+}
+
+.center-die {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: #1b140c;
+  background: linear-gradient(145deg, #fff0c0, #f5bf45);
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+}
+
+.center-dice-wrap.rolling .center-die {
+  animation: die-spin 0.55s ease;
+}
+
+@keyframes die-spin {
+  0% { transform: rotate(0deg) scale(0.85); }
+  40% { transform: rotate(160deg) scale(1.08); }
+  75% { transform: rotate(300deg) scale(0.95); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.floating-roll-btn {
+  position: fixed;
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
+}
+
+.floating-roll-btn:hover {
+  transform: translateY(-50%) scale(1.03);
 }
 
 .blocked {
@@ -476,5 +574,16 @@ button:hover {
 
   .point.bottom::after {
     border-bottom-width: 80px;
+  }
+
+  .floating-roll-btn {
+    right: 12px;
+    bottom: 12px;
+    top: auto;
+    transform: none;
+  }
+
+  .floating-roll-btn:hover {
+    transform: scale(1.02);
   }
 }

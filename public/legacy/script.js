@@ -3,11 +3,11 @@ const BLACK = "black";
 const POINT_COUNT = 24;
 const CHECKERS_PER_PLAYER = 15;
 const BOT_DELAY_MS = 550;
-const HISTORY_LIMIT = 300;
 const LOG_LIMIT = 140;
 
 const dom = {
   boardGrid: document.getElementById("board-grid"),
+  centerDiceStage: document.getElementById("center-dice-stage"),
   currentPlayer: document.getElementById("current-player"),
   diceContainer: document.getElementById("dice-container"),
   statusText: document.getElementById("status-text"),
@@ -33,16 +33,19 @@ let selectedSource = null;
 let availableMoves = [];
 let winner = null;
 let statusMessage = "Beyaz basliyor. Zar atarak oyunu baslat.";
-let gameMode = "local";
+let gameMode = window.__BOOT_MODE__ === "bot" ? "bot" : "local";
 let moveLog = [];
-let historyStack = [];
 let pendingBotTimer = null;
+let turnUndoSnapshot = null;
+let movesMadeThisTurn = 0;
+let dragSource = null;
+let lastRolledDice = [];
 
 const botPlayer = BLACK;
 
 buildBoard();
 attachEvents();
-addLog("Yeni oyun hazir.");
+addLog(gameMode === "bot" ? "Bilgisayara karsi modda yeni oyun hazir." : "Yeni oyun hazir.");
 render();
 
 function createInitialState() {
@@ -97,6 +100,10 @@ function createBarSlot(player, title) {
   slot.dataset.source = "bar";
   slot.dataset.player = player;
   slot.addEventListener("click", onBarSlotClick);
+  slot.addEventListener("dragstart", onDragStartFromBar);
+  slot.addEventListener("dragover", onDragOverTarget);
+  slot.addEventListener("drop", onDropOnBar);
+  slot.addEventListener("dragend", onDragEnd);
 
   const label = document.createElement("p");
   label.className = "bar-slot-title";
@@ -130,6 +137,8 @@ function renderRow(rowConfig, side, gridRow) {
     pointEl.style.gridColumn = String(index + 1);
     pointEl.style.gridRow = String(gridRow);
     pointEl.addEventListener("click", onPointClick);
+    pointEl.addEventListener("dragover", onDragOverTarget);
+    pointEl.addEventListener("drop", onDropOnPoint);
 
     const label = document.createElement("p");
     label.className = "point-label";
@@ -152,10 +161,13 @@ function attachEvents() {
   dom.modeSelect.addEventListener("change", onModeChange);
   dom.offWhite.addEventListener("click", onOffAreaClick);
   dom.offBlack.addEventListener("click", onOffAreaClick);
+  dom.offWhite.addEventListener("dragover", onDragOverTarget);
+  dom.offBlack.addEventListener("dragover", onDragOverTarget);
+  dom.offWhite.addEventListener("drop", onDropOnOffArea);
+  dom.offBlack.addEventListener("drop", onDropOnOffArea);
 }
 
 function onNewGame() {
-  saveSnapshot();
   clearPendingBotTimer();
 
   gameState = createInitialState();
@@ -166,6 +178,10 @@ function onNewGame() {
   availableMoves = [];
   winner = null;
   moveLog = [];
+  turnUndoSnapshot = null;
+  movesMadeThisTurn = 0;
+  dragSource = null;
+  lastRolledDice = [];
 
   setStatus("Yeni oyun basladi. Beyaz zar atsin.");
   addLog("Yeni oyun basladi.");
@@ -178,9 +194,11 @@ function onModeChange() {
     return;
   }
 
-  saveSnapshot();
   gameMode = nextMode;
   clearPendingBotTimer();
+  turnUndoSnapshot = null;
+  movesMadeThisTurn = 0;
+  dragSource = null;
 
   if (gameMode === "bot") {
     setStatus("Bilgisayara karsi mod aktif. Siyah bot oynar.");
@@ -195,16 +213,17 @@ function onModeChange() {
 }
 
 function onUndoMove() {
-  if (!historyStack.length) {
-    setStatus("Geri alinacak adim yok.");
+  if (!canUndoCurrentTurn()) {
+    setStatus("Geri alma yalnizca ikinci hamle yapilmadan kullanilir.");
     render();
     return;
   }
 
   clearPendingBotTimer();
-  const snapshot = historyStack.pop();
-  restoreSnapshot(snapshot);
-  setStatus(`Geri alindi. ${snapshot.statusMessage}`);
+  restoreSnapshot(turnUndoSnapshot);
+  movesMadeThisTurn = 0;
+  dragSource = null;
+  setStatus("Ilk hamle geri alindi. Turuna devam edebilirsin.");
   render();
   maybeScheduleBotAction();
 }
@@ -228,13 +247,15 @@ function onRollDice(arg) {
     return;
   }
 
-  saveSnapshot();
   const first = randomDie();
   const second = randomDie();
+  lastRolledDice = [first, second];
   remainingDice = first === second ? [first, first, first, first] : [first, second];
   hasRolled = true;
+  movesMadeThisTurn = 0;
   selectedSource = null;
   availableMoves = getOptimalMoves(gameState, currentPlayer, remainingDice);
+  showCenterDiceRoll(first, second);
 
   const rolledText = first === second ? `${first}-${second} (cift)` : `${first}-${second}`;
   addLog(`${playerText(currentPlayer)} zar atti: ${rolledText}.`);
@@ -242,10 +263,12 @@ function onRollDice(arg) {
   if (!availableMoves.length) {
     setStatus(`${playerText(currentPlayer)} hamle yapamadi. Sira rakibe gecti.`);
     addLog(`${playerText(currentPlayer)} hamle yapamadi.`);
+    turnUndoSnapshot = null;
     finishTurn();
     return;
   }
 
+  turnUndoSnapshot = captureSnapshot();
   setStatus(`${playerText(currentPlayer)} icin hamle sec. Kaynak tasi tikla.`);
   render();
   maybeScheduleBotAction();
@@ -285,6 +308,97 @@ function onOffAreaClick(event) {
   }
 
   playMove(move);
+}
+
+function onDragStartFromChecker(event) {
+  if (isBotTurn() || !hasRolled) {
+    event.preventDefault();
+    return;
+  }
+  const source = Number(event.currentTarget.dataset.source);
+  dragSource = source;
+  selectedSource = source;
+  render();
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", String(source));
+}
+
+function onDragStartFromBar(event) {
+  const player = event.currentTarget.dataset.player;
+  if (player !== currentPlayer || isBotTurn() || !hasRolled) {
+    event.preventDefault();
+    return;
+  }
+  dragSource = "bar";
+  selectedSource = "bar";
+  render();
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", "bar");
+}
+
+function onDragEnd() {
+  dragSource = null;
+}
+
+function onDragOverTarget(event) {
+  if (!hasRolled || winner || isBotTurn() || dragSource === null) {
+    return;
+  }
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+}
+
+function onDropOnPoint(event) {
+  event.preventDefault();
+  if (dragSource === null) {
+    return;
+  }
+  const targetPoint = Number(event.currentTarget.dataset.point);
+  attemptMoveFromSourceToTarget(dragSource, targetPoint);
+}
+
+function onDropOnBar(event) {
+  event.preventDefault();
+  const targetPlayer = event.currentTarget.dataset.player;
+  if (targetPlayer !== currentPlayer || dragSource === null) {
+    return;
+  }
+  if (dragSource === "bar") {
+    return;
+  }
+  setStatus("Bar hedef nokta degil.");
+  render();
+}
+
+function onDropOnOffArea(event) {
+  event.preventDefault();
+  const targetPlayer = event.currentTarget.dataset.off;
+  if (targetPlayer !== currentPlayer || dragSource === null) {
+    return;
+  }
+  attemptMoveFromSourceToTarget(dragSource, "off");
+}
+
+function attemptMoveFromSourceToTarget(source, target) {
+  if (winner || isBotTurn() || !hasRolled) {
+    dragSource = null;
+    return;
+  }
+
+  const matchingMoves = availableMoves.filter(
+    (candidate) => candidate.from === source && candidate.to === target,
+  );
+
+  if (matchingMoves.length) {
+    playMove(pickPreferredMove(matchingMoves));
+    return;
+  }
+
+  if (getSelectableSources().has(source)) {
+    selectedSource = source;
+  }
+  setStatus("Bu hamle gecersiz.");
+  render();
 }
 
 function handleSourceOrDestination(target) {
@@ -347,11 +461,12 @@ function playMove(move) {
     return;
   }
 
-  saveSnapshot();
   const hit = move.to !== "off" && isHitMove(gameState, currentPlayer, move);
   gameState = applyMove(gameState, currentPlayer, move);
   remainingDice = removeOneDie(remainingDice, move.die);
+  movesMadeThisTurn += 1;
   selectedSource = null;
+  dragSource = null;
 
   addLog(formatMoveLog(currentPlayer, move, hit));
 
@@ -360,6 +475,7 @@ function playMove(move) {
     hasRolled = false;
     remainingDice = [];
     availableMoves = [];
+    turnUndoSnapshot = null;
     setStatus(`${playerText(currentPlayer)} oyunu kazandi. Tebrikler.`);
     addLog(`${playerText(currentPlayer)} oyunu kazandi.`);
     render();
@@ -391,6 +507,10 @@ function finishTurn() {
   remainingDice = [];
   availableMoves = [];
   selectedSource = null;
+  dragSource = null;
+  movesMadeThisTurn = 0;
+  turnUndoSnapshot = null;
+  lastRolledDice = [];
   currentPlayer = opponentOf(currentPlayer);
   render();
   maybeScheduleBotAction();
@@ -451,7 +571,7 @@ function renderTurnInfo() {
   dom.currentPlayer.textContent = turnLabel;
   dom.currentPlayer.classList.toggle("winner", Boolean(winner));
   dom.rollBtn.disabled = hasRolled || Boolean(winner) || isBotTurn();
-  dom.undoBtn.disabled = historyStack.length === 0;
+  dom.undoBtn.disabled = !canUndoCurrentTurn();
   dom.modeSelect.value = gameMode;
 }
 
@@ -461,11 +581,11 @@ function renderStatus() {
 
 function renderDice() {
   dom.diceContainer.innerHTML = "";
-  if (!remainingDice.length) {
+  if (!lastRolledDice.length) {
     return;
   }
 
-  remainingDice.forEach((die) => {
+  lastRolledDice.forEach((die) => {
     const chip = document.createElement("span");
     chip.className = "die-chip";
     chip.textContent = String(die);
@@ -474,6 +594,9 @@ function renderDice() {
 }
 
 function renderBoardState() {
+  const selectableSources = getSelectableSources();
+  const dragAllowed = hasRolled && !winner && !isBotTurn();
+
   for (let point = 1; point <= POINT_COUNT; point += 1) {
     const pointState = gameState.points[point - 1];
     const stack = document.getElementById(`stack-${point}`);
@@ -489,6 +612,17 @@ function renderBoardState() {
     for (let i = 0; i < displayCount; i += 1) {
       const checker = document.createElement("span");
       checker.className = `checker ${pointState.owner}`;
+      const canDragFromThisPoint =
+        dragAllowed &&
+        selectableSources.has(point) &&
+        pointState.owner === currentPlayer;
+      checker.draggable = canDragFromThisPoint;
+      if (canDragFromThisPoint) {
+        checker.classList.add("draggable-checker");
+        checker.dataset.source = String(point);
+        checker.addEventListener("dragstart", onDragStartFromChecker);
+        checker.addEventListener("dragend", onDragEnd);
+      }
       stack.appendChild(checker);
     }
 
@@ -500,6 +634,25 @@ function renderBoardState() {
     }
 
     pointEl.classList.toggle("blocked", pointState.owner !== currentPlayer && pointState.count >= 2);
+  }
+
+  for (const [player, slot] of barSlotElements.entries()) {
+    const active = player === currentPlayer;
+    slot.draggable = false;
+    slot.classList.toggle("draggable-source", false);
+    if (!active) {
+      continue;
+    }
+  }
+
+  const canDragFromBar =
+    dragAllowed &&
+    selectableSources.has("bar") &&
+    gameState.bar[currentPlayer] > 0;
+  const currentBarSlot = barSlotElements.get(currentPlayer);
+  if (currentBarSlot) {
+    currentBarSlot.draggable = canDragFromBar;
+    currentBarSlot.classList.toggle("draggable-source", canDragFromBar);
   }
 
   renderBar(BLACK);
@@ -602,8 +755,8 @@ function setStatus(text) {
   statusMessage = text;
 }
 
-function saveSnapshot() {
-  historyStack.push({
+function captureSnapshot() {
+  return {
     gameState: cloneState(gameState),
     currentPlayer,
     remainingDice: [...remainingDice],
@@ -614,11 +767,18 @@ function saveSnapshot() {
     statusMessage,
     gameMode,
     moveLog: [...moveLog],
-  });
+    lastRolledDice: [...lastRolledDice],
+  };
+}
 
-  if (historyStack.length > HISTORY_LIMIT) {
-    historyStack.shift();
-  }
+function canUndoCurrentTurn() {
+  return Boolean(
+    turnUndoSnapshot &&
+    hasRolled &&
+    !winner &&
+    !isBotTurn() &&
+    movesMadeThisTurn === 1,
+  );
 }
 
 function restoreSnapshot(snapshot) {
@@ -632,6 +792,35 @@ function restoreSnapshot(snapshot) {
   statusMessage = snapshot.statusMessage;
   gameMode = snapshot.gameMode;
   moveLog = [...snapshot.moveLog];
+  lastRolledDice = [...(snapshot.lastRolledDice || [])];
+}
+
+function showCenterDiceRoll(first, second) {
+  if (!dom.centerDiceStage) {
+    return;
+  }
+
+  dom.centerDiceStage.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = "center-dice-wrap rolling";
+
+  [first, second].forEach((die) => {
+    const dieEl = document.createElement("div");
+    dieEl.className = "center-die";
+    dieEl.textContent = String(die);
+    wrap.appendChild(dieEl);
+  });
+
+  dom.centerDiceStage.appendChild(wrap);
+  dom.centerDiceStage.classList.add("show");
+
+  window.setTimeout(() => {
+    wrap.classList.remove("rolling");
+  }, 520);
+
+  window.setTimeout(() => {
+    dom.centerDiceStage.classList.remove("show");
+  }, 1400);
 }
 
 function cloneMoves(moves) {
