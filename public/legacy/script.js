@@ -1313,7 +1313,7 @@ function showCenterDice(d1, d2, player) {
 
   window.setTimeout(() => {
     settleCenterDice(wrap, values, toneClass);
-  }, 1460);
+  }, 1960);
 }
 
 function clearCenterDiceStage() {
@@ -1346,20 +1346,20 @@ function createCenterDie3D(value, toneClass, index) {
 
   const cube = document.createElement("div");
   cube.className = `die-cube ${toneClass} rolling`;
-  cube.style.setProperty("--delay", `${index * 90}ms`);
+  cube.style.setProperty("--delay", `${index * 120}ms`);
 
-  const spinX = 1080 + Math.floor(Math.random() * 540);
-  const spinY = 1260 + Math.floor(Math.random() * 540);
-  const spinZ = 720 + Math.floor(Math.random() * 300);
-  const spinXMid = Math.round(spinX * 0.38);
-  const spinYMid = Math.round(spinY * 0.38);
-  const spinZMid = Math.round(spinZ * 0.38);
-  const spinXLate = spinX + 120;
-  const spinYLate = spinY + 90;
-  const spinZLate = spinZ + 54;
-  const tiltX = -18 + ((value % 3) - 1) * 3;
-  const tiltY = 24 + ((index % 2 === 0 ? 1 : -1) * ((value % 2) ? 5 : 9));
-  const tiltZ = index === 0 ? -5 : 5;
+  const spinX = 1320 + Math.floor(Math.random() * 640);
+  const spinY = 1500 + Math.floor(Math.random() * 700);
+  const spinZ = 900 + Math.floor(Math.random() * 380);
+  const spinXMid = Math.round(spinX * 0.42);
+  const spinYMid = Math.round(spinY * 0.42);
+  const spinZMid = Math.round(spinZ * 0.42);
+  const spinXLate = spinX + 70;
+  const spinYLate = spinY + 58;
+  const spinZLate = spinZ + 36;
+  const tiltX = -18 + ((value % 3) - 1) * 2;
+  const tiltY = 22 + ((index % 2 === 0 ? 1 : -1) * ((value % 2) ? 4 : 7));
+  const tiltZ = index === 0 ? -4 : 4;
 
   cube.style.setProperty("--spin-x", `${spinX}deg`);
   cube.style.setProperty("--spin-y", `${spinY}deg`);
