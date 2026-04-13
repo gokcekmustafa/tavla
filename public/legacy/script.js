@@ -54,6 +54,7 @@ let lastRolledDice    = [];
 let lastDicePlayer    = WHITE;
 let isAnimating       = false;
 let autoRollEnabled   = false;
+let pendingMoveChain  = [];
 
 const botPlayer = BLACK;
 
@@ -200,12 +201,14 @@ function onNewGame() {
   turnUndoSnapshot  = null;
   movesMadeThisTurn = 0;
   dragSource        = null;
+  pendingMoveChain  = [];
   lastRolledDice    = [];
   lastDicePlayer    = WHITE;
   isAnimating       = false;
   setStatus("Yeni oyun başladı. Beyaz zar atsın.");
   addLog("Yeni oyun başladı.");
   hideWinnerPopup();
+  clearCenterDiceStage();
   render();
   maybeScheduleAutoRoll();
 }
@@ -219,6 +222,7 @@ function onModeChange() {
   turnUndoSnapshot  = null;
   movesMadeThisTurn = 0;
   dragSource        = null;
+  pendingMoveChain  = [];
   if (gameMode === "bot") {
     setStatus("Bilgisayara karşı mod aktif.");
     addLog("Mod: Bilgisayara karşı.");
@@ -254,6 +258,7 @@ function onUndoMove() {
   restoreSnapshot(turnUndoSnapshot);
   movesMadeThisTurn = 0;
   dragSource        = null;
+  pendingMoveChain  = [];
   setStatus("İlk hamle geri alındı. Devam edebilirsin.");
   render();
   maybeScheduleBotAction();
@@ -275,6 +280,7 @@ function onRollDice(arg) {
   hasRolled         = true;
   movesMadeThisTurn = 0;
   selectedSource    = null;
+  pendingMoveChain  = [];
   availableMoves    = getOptimalMoves(gameState, currentPlayer, remainingDice);
 
   showCenterDice(d1, d2, currentPlayer);
@@ -310,7 +316,35 @@ function onOffAreaClick(e) {
   const tp = e.currentTarget.dataset.off;
   if (tp !== currentPlayer || selectedSource === null) return;
   const mv = pickPreferred(availableMoves.filter(c => c.from === selectedSource && c.to === "off"));
-  if (mv) playMove(mv);
+  if (mv) { playMove(mv); return; }
+  const chain = findMoveChain(selectedSource, "off");
+  if (chain) playMoveChain(chain);
+}
+
+function onCheckerDoubleClick(e) {
+  if (winner || isAnimating || isBotTurn() || !hasRolled) return;
+  const source = Number(e.currentTarget.dataset.source);
+  if (!Number.isInteger(source)) return;
+  e.preventDefault();
+  e.stopPropagation();
+
+  const move = getDoubleClickMove(source);
+  if (!move) {
+    setStatus("Bu pul icin hamle yok.");
+    render();
+    return;
+  }
+
+  pendingMoveChain = [];
+  playMove(move);
+}
+
+function getDoubleClickMove(source) {
+  const options = availableMoves.filter((m) => m.from === source);
+  if (!options.length) return null;
+  const maxDie = Math.max(...options.map((m) => m.die));
+  const best = options.filter((m) => m.die === maxDie);
+  return pickPreferred(best);
 }
 
 // ── Drag & Drop ──────────────────────────────────────────────────
@@ -389,6 +423,8 @@ function attemptMove(source, target) {
   if (winner || isBotTurn() || !hasRolled || isAnimating) return;
   const matches = availableMoves.filter(c => c.from === source && c.to === target);
   if (matches.length) { playMove(pickPreferred(matches)); return; }
+  const chain = findMoveChain(source, target);
+  if (chain) { playMoveChain(chain); return; }
   if (getSelectableSources().has(source)) selectedSource = source;
   setStatus("Bu hamle geçersiz.");
   render();
@@ -414,6 +450,8 @@ function handleSourceOrDest(target) {
 
   const matches = availableMoves.filter(c => c.from === selectedSource && c.to === target);
   if (matches.length) { playMove(pickPreferred(matches)); return; }
+  const chain = findMoveChain(selectedSource, target);
+  if (chain) { playMoveChain(chain); return; }
 
   if (sel.has(target)) { selectedSource = target; render(); return; }
 
@@ -427,6 +465,59 @@ function getQuickBearOffMove(source) {
   const offMoves = availableMoves.filter((m) => m.from === source && m.to === "off");
   if (!offMoves.length) return null;
   return pickPreferred(offMoves);
+}
+
+function playMoveChain(chain) {
+  if (!Array.isArray(chain) || !chain.length) return;
+  pendingMoveChain = [...chain];
+  const first = pendingMoveChain.shift();
+  if (first) playMove(first);
+}
+
+function findMoveChain(source, target) {
+  if (!hasRolled || winner || isAnimating) return null;
+  if (remainingDice.length < 2) return null;
+  const chain = searchMoveChain(gameState, remainingDice, source, target, []);
+  if (!chain || chain.length < 2) return null;
+  return chain;
+}
+
+function searchMoveChain(state, dice, from, target, path) {
+  if (!dice.length) return null;
+  const options = getOptimalMoves(state, currentPlayer, dice).filter((m) => m.from === from);
+  if (!options.length) return null;
+
+  const ordered = [...options].sort((a, b) => chainMoveScore(b, target) - chainMoveScore(a, target));
+
+  for (const move of ordered) {
+    const nextPath = [...path, move];
+    if (move.to === target && nextPath.length >= 2) return nextPath;
+    if (move.to === "off") continue;
+
+    const nextState = applyMove(state, currentPlayer, move);
+    const nextDice = removeOneDie(dice, move.die);
+    const found = searchMoveChain(nextState, nextDice, move.to, target, nextPath);
+    if (found) return found;
+  }
+
+  return null;
+}
+
+function chainMoveScore(move, target) {
+  let score = move.die * 3;
+  if (move.to === target) score += 120;
+  if (target === "off") {
+    if (move.to === "off") score += 26;
+    return score;
+  }
+  if (Number.isInteger(target) && Number.isInteger(move.to)) {
+    score += Math.max(0, 30 - Math.abs(target - move.to));
+  }
+  return score;
+}
+
+function isSameMove(a, b) {
+  return a && b && a.from === b.from && a.to === b.to && a.die === b.die;
 }
 
 // ── Animation ────────────────────────────────────────────────────
@@ -523,6 +614,7 @@ function executeMove(move) {
   addLog(fmtMove(currentPlayer, move, hit));
 
   if (gameState.borneOff[currentPlayer] >= CHECKERS_PER_PLAYER) {
+    pendingMoveChain = [];
     winner        = currentPlayer;
     hasRolled     = false;
     remainingDice = [];
@@ -531,8 +623,28 @@ function executeMove(move) {
     setStatus(`${playerText(currentPlayer)} kazandi!`);
     addLog(`${playerText(currentPlayer)} kazandi.`);
     showWinnerPopup(currentPlayer);
+    clearCenterDiceStage();
     render();
     return;
+  }
+
+  let recalculatedMoves = null;
+  if (pendingMoveChain.length) {
+    if (!remainingDice.length) {
+      pendingMoveChain = [];
+    } else {
+      recalculatedMoves = getOptimalMoves(gameState, currentPlayer, remainingDice);
+      const next = pendingMoveChain[0];
+      const playableNext = recalculatedMoves.find((m) => isSameMove(m, next));
+      if (playableNext) {
+        availableMoves = recalculatedMoves;
+        setStatus(`${playerText(currentPlayer)} zincir hamle devam ediyor.`);
+        render();
+        playMove(pendingMoveChain.shift());
+        return;
+      }
+      pendingMoveChain = [];
+    }
   }
 
   if (!remainingDice.length) {
@@ -541,7 +653,7 @@ function executeMove(move) {
     return;
   }
 
-  availableMoves = getOptimalMoves(gameState, currentPlayer, remainingDice);
+  availableMoves = recalculatedMoves || getOptimalMoves(gameState, currentPlayer, remainingDice);
 
   if (!availableMoves.length) {
     setStatus("Kalan zarlarla hamle yok. Sıra geçti.");
@@ -557,6 +669,7 @@ function executeMove(move) {
 
 function finishTurn() {
   clearPendingAutoRollTimer();
+  pendingMoveChain  = [];
   hasRolled         = false;
   remainingDice     = [];
   availableMoves    = [];
@@ -565,6 +678,7 @@ function finishTurn() {
   movesMadeThisTurn = 0;
   turnUndoSnapshot  = null;
   lastRolledDice    = [];
+  clearCenterDiceStage();
   currentPlayer     = opponentOf(currentPlayer);
   render();
   maybeScheduleBotAction();
@@ -705,6 +819,7 @@ function renderBoardState() {
         ch.dataset.source = String(pt);
         ch.addEventListener("dragstart", onDragStartFromChecker);
         ch.addEventListener("dragend",   onDragEnd);
+        ch.addEventListener("dblclick",  onCheckerDoubleClick);
       }
       stack.appendChild(ch);
     }
@@ -942,10 +1057,12 @@ function showCenterDice(d1, d2, player) {
   window.setTimeout(() => {
     wrap.querySelectorAll(".die-cube").forEach((d) => d.classList.remove("rolling"));
   }, 1280);
+}
 
-  window.setTimeout(() => {
-    dom.centerDiceStage.classList.remove("show", "white-turn", "black-turn");
-  }, 2700);
+function clearCenterDiceStage() {
+  if (!dom.centerDiceStage) return;
+  dom.centerDiceStage.innerHTML = "";
+  dom.centerDiceStage.classList.remove("show", "white-turn", "black-turn");
 }
 
 function createCenterDie3D(value, toneClass, index) {
@@ -965,9 +1082,9 @@ function createCenterDie3D(value, toneClass, index) {
   const spinXLate = spinX + 120;
   const spinYLate = spinY + 90;
   const spinZLate = spinZ + 54;
-  const tiltX = -28 + ((value % 3) - 1) * 4;
-  const tiltY = 34 + ((index % 2 === 0 ? 1 : -1) * ((value % 2) ? 6 : 11));
-  const tiltZ = index === 0 ? -8 : 8;
+  const tiltX = -18 + ((value % 3) - 1) * 3;
+  const tiltY = 24 + ((index % 2 === 0 ? 1 : -1) * ((value % 2) ? 5 : 9));
+  const tiltZ = index === 0 ? -5 : 5;
 
   cube.style.setProperty("--spin-x", `${spinX}deg`);
   cube.style.setProperty("--spin-y", `${spinY}deg`);

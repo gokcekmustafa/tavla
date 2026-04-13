@@ -186,6 +186,11 @@ body {
   height: 84%;
 }
 
+.die-cube:not(.rolling) .die-pips.cube .pip {
+  width: 8px;
+  height: 8px;
+}
+
 .die-pips .pip.tl { grid-column: 1; grid-row: 1; }
 .die-pips .pip.tr { grid-column: 3; grid-row: 1; }
 .die-pips .pip.ml { grid-column: 1; grid-row: 2; }
@@ -874,7 +879,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   height: 100%;
   position: relative;
   transform-style: preserve-3d;
-  transform: var(--final-rot, rotateX(-26deg) rotateY(34deg) rotateZ(0deg));
+  transform: var(--final-rot, rotateX(-18deg) rotateY(24deg) rotateZ(0deg));
   will-change: transform;
 }
 
@@ -921,7 +926,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 
 @keyframes die-cube-roll {
   0% {
-    transform: translateY(-26px) scale(0.4) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+    transform: translateY(-26px) scale(0.42) rotateX(-30deg) rotateY(28deg) rotateZ(0deg);
     opacity: 0;
   }
   24% {
@@ -935,7 +940,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     transform: translateY(-3px) scale(0.98) rotateX(var(--spin-x-late)) rotateY(var(--spin-y-late)) rotateZ(var(--spin-z-late));
   }
   100% {
-    transform: var(--final-rot, rotateX(-26deg) rotateY(34deg) rotateZ(0deg));
+    transform: var(--final-rot, rotateX(-18deg) rotateY(24deg) rotateZ(0deg));
     opacity: 1;
   }
 }
@@ -1061,6 +1066,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   .center-die { width: 50px; height: 50px; --die-depth: 25px; }
   .die-pips.large .pip { width: 6px; height: 6px; }
   .die-pips.cube .pip { width: 5px; height: 5px; }
+  .die-cube:not(.rolling) .die-pips.cube .pip { width: 6px; height: 6px; }
   .floating-roll-btn {
     top: auto;
     bottom: 12px;
