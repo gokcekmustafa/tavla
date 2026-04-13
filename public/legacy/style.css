@@ -69,10 +69,8 @@ body {
 }
 
 @media (max-width: 640px) {
-  .hud {
-    grid-template-columns: 1fr 1fr;
-  }
-  .status-card  { grid-column: 1 / -1; }
+  .hud { grid-template-columns: 1fr 1fr; }
+  .status-card   { grid-column: 1 / -1; }
   .controls-card { grid-column: 1 / -1; }
 }
 
@@ -116,7 +114,6 @@ body {
   min-height: 42px;
 }
 
-/* Big clear number on white background */
 .die-chip {
   width: 40px;
   height: 40px;
@@ -275,7 +272,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   border-radius: var(--r);
   padding: 4px;
   position: relative;
-  min-height: 280px;
+  min-height: 320px;
 }
 
 /* ── Point ───────────────────────────────────────── */
@@ -292,10 +289,21 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   overflow: visible;
   transition: outline 0.1s;
   min-width: 0;
+
+  /* FIX: her point tam yüksekliği almalı */
+  height: 100%;
+  min-height: 0;
 }
 
-.point.top    { justify-content: flex-start; }
-.point.bottom { justify-content: flex-end; flex-direction: column-reverse; }
+/* TOP points: pullar üstten aşağı istiflenir */
+.point.top {
+  justify-content: flex-start;
+}
+
+/* BOTTOM points: pullar alttan yukarı istiflenir */
+.point.bottom {
+  justify-content: flex-end;
+}
 
 /* Triangle using ::before */
 .point::before {
@@ -374,6 +382,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ── Checker stack ───────────────────────────────── */
 .checker-stack {
+  /* FIX: stack kendi içinde flex kolonuna göre dizer */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -381,10 +390,24 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   position: relative;
   z-index: 2;
   width: 100%;
+
+  /* FIX: stack'in yüksekliği point'i tamamen doldurmalı
+     böylece top/bottom justify-content çalışır */
+  flex: 1;
+  min-height: 0;
 }
 
-.point.top    .checker-stack { padding-top: 3px; }
-.point.bottom .checker-stack { padding-bottom: 3px; }
+/* TOP: pullar yukarıdan aşağı — stack'in başından (üst) itibaren */
+.point.top .checker-stack {
+  justify-content: flex-start;
+  padding-top: 3px;
+}
+
+/* BOTTOM: pullar aşağıdan yukarı — stack'in sonundan (alt) itibaren */
+.point.bottom .checker-stack {
+  justify-content: flex-end;
+  padding-bottom: 3px;
+}
 
 /* ── Checker ─────────────────────────────────────── */
 .checker {
@@ -546,7 +569,6 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   backdrop-filter: blur(16px);
 }
 
-/* Center die: big, clear number */
 .center-die {
   width: 72px;
   height: 72px;
