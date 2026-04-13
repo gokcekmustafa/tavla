@@ -8,7 +8,9 @@ const ANIM_MS = 380;
 const AUTO_ROLL_DELAY_MS = 520;
 
 const dom = {
+  tableWrap:       document.querySelector(".table-wrap"),
   boardGrid:       document.getElementById("board-grid"),
+  guideLayer:      document.getElementById("guide-layer"),
   centerDiceStage: document.getElementById("center-dice-stage"),
   currentPlayer:   document.getElementById("current-player"),
   diceContainer:   document.getElementById("dice-container"),
@@ -181,6 +183,7 @@ function attachEvents() {
   dom.offWhite.addEventListener("drop",     onDropOnOffArea);
   dom.offBlack.addEventListener("drop",     onDropOnOffArea);
   dom.winnerCloseBtn?.addEventListener("click", hideWinnerPopup);
+  window.addEventListener("resize", renderGuideLines);
 }
 
 function onNewGame() {
@@ -317,8 +320,11 @@ function onDragStartFromChecker(e) {
   const src = Number(e.currentTarget.dataset.source);
   dragSource = src;
   selectedSource = src;
+  e.currentTarget.classList.add("dragging-checker");
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", String(src));
+  renderHighlights();
+  renderGuideLines();
 }
 
 function onDragStartFromBar(e) {
@@ -330,9 +336,12 @@ function onDragStartFromBar(e) {
   selectedSource = "bar";
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", "bar");
+  renderHighlights();
+  renderGuideLines();
 }
 
-function onDragEnd() {
+function onDragEnd(e) {
+  e?.currentTarget?.classList.remove("dragging-checker");
   window.setTimeout(() => {
     dragSource = null;
     render();
@@ -610,6 +619,7 @@ function render() {
   renderDice();
   renderBoardState();
   renderHighlights();
+  renderGuideLines();
   renderMoveLog();
 }
 
@@ -675,6 +685,9 @@ function renderBoardState() {
     for (let i = 0; i < show; i++) {
       const ch = document.createElement("span");
       ch.className = `checker ${ps.owner}`;
+      if (pt === selectedSource && ps.owner === currentPlayer) {
+        ch.classList.add("selected-checker");
+      }
       const canDragThis = canDrag && sel.has(pt) && ps.owner === currentPlayer;
       ch.draggable = canDragThis;
       if (canDragThis) {
@@ -721,6 +734,9 @@ function renderBar(player) {
   for (let i = 0; i < show; i++) {
     const chip = document.createElement("span");
     chip.className = `bar-chip ${player}`;
+    if (selectedSource === "bar" && player === currentPlayer) {
+      chip.classList.add("selected-checker");
+    }
     stackEl.appendChild(chip);
   }
 }
@@ -736,6 +752,7 @@ function renderOffStack(player) {
   for (let i = 0; i < visible; i++) {
     const chip = document.createElement("span");
     chip.className = `off-chip ${player}`;
+    chip.style.setProperty("--stack-index", String(i));
     stackEl.appendChild(chip);
   }
 
@@ -774,6 +791,106 @@ function renderHighlights() {
       pointElements.get(t)?.classList.add("highlight-target");
     }
   }
+}
+
+function renderGuideLines() {
+  if (!dom.guideLayer || !dom.tableWrap) return;
+  dom.guideLayer.innerHTML = "";
+
+  if (!hasRolled || winner || isBotTurn() || isAnimating || selectedSource === null) return;
+
+  const targets = [...new Set(availableMoves.filter((m) => m.from === selectedSource).map((m) => m.to))];
+  if (!targets.length) return;
+
+  const tableRect = dom.tableWrap.getBoundingClientRect();
+  const width = Math.max(1, Math.round(tableRect.width));
+  const height = Math.max(1, Math.round(tableRect.height));
+  dom.guideLayer.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+  const source = getGuideAnchor(selectedSource, tableRect);
+  if (!source) return;
+
+  const ns = "http://www.w3.org/2000/svg";
+  const frag = document.createDocumentFragment();
+
+  targets.forEach((target, idx) => {
+    const dest = getGuideAnchor(target, tableRect);
+    if (!dest) return;
+
+    const path = document.createElementNS(ns, "path");
+    path.classList.add("guide-path");
+    path.style.animationDelay = `${idx * 70}ms`;
+    path.setAttribute("d", buildGuidePath(source, dest));
+    frag.appendChild(path);
+
+    const dot = document.createElementNS(ns, "circle");
+    dot.classList.add("guide-dot");
+    dot.setAttribute("cx", dest.x.toFixed(1));
+    dot.setAttribute("cy", dest.y.toFixed(1));
+    dot.setAttribute("r", "4.6");
+    frag.appendChild(dot);
+  });
+
+  const sourceDot = document.createElementNS(ns, "circle");
+  sourceDot.classList.add("guide-source-dot");
+  sourceDot.setAttribute("cx", source.x.toFixed(1));
+  sourceDot.setAttribute("cy", source.y.toFixed(1));
+  sourceDot.setAttribute("r", "5.2");
+  frag.appendChild(sourceDot);
+
+  dom.guideLayer.appendChild(frag);
+}
+
+function getGuideAnchor(target, tableRect) {
+  if (target === "off") {
+    const off = currentPlayer === WHITE ? dom.offWhite : dom.offBlack;
+    return off ? getElementGuideCenter(off, tableRect) : null;
+  }
+
+  if (target === "bar") {
+    const bar = barSlotElements.get(currentPlayer);
+    return bar ? getElementGuideCenter(bar, tableRect) : null;
+  }
+
+  if (!Number.isInteger(target)) return null;
+  return getPointGuideAnchor(target, tableRect);
+}
+
+function getPointGuideAnchor(point, tableRect) {
+  const pointEl = pointElements.get(point);
+  if (!pointEl) return null;
+
+  const stack = document.getElementById(`stack-${point}`);
+  const checkers = stack ? [...stack.querySelectorAll(".checker")] : [];
+  if (checkers.length) {
+    const anchorChecker = pointEl.classList.contains("top")
+      ? checkers[0]
+      : checkers[checkers.length - 1];
+    return getElementGuideCenter(anchorChecker, tableRect);
+  }
+
+  const rect = pointEl.getBoundingClientRect();
+  const yRatio = pointEl.classList.contains("top") ? 0.27 : 0.73;
+  return {
+    x: rect.left + rect.width / 2 - tableRect.left,
+    y: rect.top + rect.height * yRatio - tableRect.top,
+  };
+}
+
+function getElementGuideCenter(el, tableRect) {
+  const rect = el.getBoundingClientRect();
+  return {
+    x: rect.left + rect.width / 2 - tableRect.left,
+    y: rect.top + rect.height / 2 - tableRect.top,
+  };
+}
+
+function buildGuidePath(from, to) {
+  const midX = (from.x + to.x) / 2;
+  const bend = Math.max(22, Math.min(78, Math.abs(to.x - from.x) * 0.13 + Math.abs(to.y - from.y) * 0.1));
+  const direction = to.y >= from.y ? -1 : 1;
+  const ctrlY = (from.y + to.y) / 2 + direction * bend;
+  return `M ${from.x.toFixed(1)} ${from.y.toFixed(1)} Q ${midX.toFixed(1)} ${ctrlY.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}`;
 }
 
 function renderMoveLog() {
