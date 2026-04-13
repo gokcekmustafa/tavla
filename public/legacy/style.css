@@ -1307,3 +1307,153 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     transform: translateY(-50%) scale(1.02);
   }
 }
+/* ═══════════════════════════════════════════════════════════════
+   PATCH — style.css'e EKLE (dosyanın en sonuna yapıştır)
+   Sorunlar: 1) highlight-target üçgeni kaymış
+             2) pullar dağınık
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 1. Üçgen highlight düzeltmesi ─────────────────────────────
+   Sorun: outline tüm point elementini çerçeveler, ama üçgen
+   sadece height'ın %72'sini ve width'in %84'ünü kaplar.
+   Çözüm: outline yerine ::after ile üçgen şeklinde highlight.
+   ─────────────────────────────────────────────────────────────── */
+
+/* Eski outline-tabanlı highlight'ları kaldır */
+.selectable-source,
+.selected-source,
+.highlight-target {
+  outline: none !important;
+  background: transparent !important;
+}
+
+/* Üçgen highlight'ı ::after ile çiz — ::before ile birebir aynı boyut/konum */
+.point::after {
+  content: '';
+  position: absolute;
+  left: 8%;
+  width: 84%;
+  height: 72%;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.point.top::after    { top: 0;    clip-path: polygon(50% 100%, 0% 0%, 100% 0%); }
+.point.bottom::after { bottom: 0; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
+
+/* Seçilebilir kaynak: altın sarısı, hafif */
+.point.selectable-source::after {
+  background: rgba(232, 184, 74, 0.35);
+  opacity: 1;
+}
+
+/* Seçili kaynak: altın sarısı, belirgin */
+.point.selected-source::after {
+  background: rgba(232, 184, 74, 0.55);
+  opacity: 1;
+}
+
+/* Hedef nokta: yeşil */
+.point.highlight-target::after {
+  background: rgba(93, 220, 122, 0.45);
+  opacity: 1;
+}
+
+/* Bar slot highlight — outline kalabilir, üçgen yok */
+.bar-slot.selectable-source {
+  outline: 2px solid rgba(232,184,74,0.6) !important;
+  outline-offset: 1px;
+  background: rgba(232,184,74,0.07) !important;
+}
+
+.bar-slot.selected-source {
+  outline: 2px solid var(--gold-hi) !important;
+  outline-offset: 1px;
+  background: rgba(232,184,74,0.15) !important;
+}
+
+.bar-slot.highlight-target {
+  outline: 2px solid #5ddc7a !important;
+  outline-offset: 1px;
+  background: rgba(93,220,122,0.08) !important;
+}
+
+/* Off area highlight */
+.off-area.highlight-target {
+  border-color: #5ddc7a !important;
+  box-shadow: 0 0 0 2px rgba(93,220,122,0.25) !important;
+}
+
+
+/* ── 2. Pul istifleme düzeltmesi ────────────────────────────────
+   Sorun: checker-stack'te gap sabit, çok pul olunca taşıyor.
+   Çözüm: negative margin ile üst üste bindirme (gerçek tavla gibi)
+   ─────────────────────────────────────────────────────────────── */
+
+.checker-stack {
+  gap: 0 !important;       /* gap kaldırıldı, margin ile kontrol */
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  overflow: visible;
+}
+
+/* Pulları üst üste bindir — varsayılan negatif margin */
+.checker-stack .checker {
+  margin-top: calc(var(--checker-size) * -0.22);
+  margin-bottom: 0;
+  position: relative;
+  z-index: 1;
+}
+
+/* İlk pul üst üste binmesin */
+.checker-stack .checker:first-child {
+  margin-top: 0;
+}
+
+/* TOP noktalar: pullar yukarıdan aşağı, üste yakın */
+.point.top .checker-stack {
+  justify-content: flex-start;
+  padding-top: 2px !important;
+}
+
+/* BOTTOM noktalar: pullar alttan yukarı, alta yakın */
+.point.bottom .checker-stack {
+  justify-content: flex-end;
+  padding-bottom: 2px !important;
+}
+
+/* TOP'ta alt pullar üstteki pul'un üstüne binmeli (z-index artar) */
+.point.top .checker-stack .checker:nth-child(1) { z-index: 5; }
+.point.top .checker-stack .checker:nth-child(2) { z-index: 4; }
+.point.top .checker-stack .checker:nth-child(3) { z-index: 3; }
+.point.top .checker-stack .checker:nth-child(4) { z-index: 2; }
+.point.top .checker-stack .checker:nth-child(5) { z-index: 1; }
+
+/* BOTTOM'ta üst pullar alta binenin üstüne binmeli */
+.point.bottom .checker-stack .checker:nth-child(1) { z-index: 1; }
+.point.bottom .checker-stack .checker:nth-child(2) { z-index: 2; }
+.point.bottom .checker-stack .checker:nth-child(3) { z-index: 3; }
+.point.bottom .checker-stack .checker:nth-child(4) { z-index: 4; }
+.point.bottom .checker-stack .checker:nth-child(5) { z-index: 5; }
+
+/* Count badge (6+ pul) — stack'in üstünde görünsün */
+.checker-stack .count-badge {
+  margin-top: calc(var(--checker-size) * -0.1);
+  position: relative;
+  z-index: 10;
+}
+
+/* Mobilde bindirme oranı biraz daha az — pullar daha küçük */
+@media (max-width: 768px) {
+  .checker-stack .checker {
+    margin-top: calc(var(--checker-size) * -0.18);
+  }
+}
+
+@media (max-width: 420px) {
+  .checker-stack .checker {
+    margin-top: calc(var(--checker-size) * -0.15);
+  }
+}
