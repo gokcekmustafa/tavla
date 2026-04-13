@@ -261,7 +261,7 @@
 .t-board-frame iframe {
   display: block;
   width: 100%;
-  height: min(620px, 72vw);
+  height: clamp(700px, 90vh, 1000px);
   border: none;
 }
 
