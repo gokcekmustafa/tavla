@@ -24,6 +24,7 @@
   --asset-score-rail-light: url("./assets/theme/score-rail-light.png");
   --asset-score-rail-dark: url("./assets/theme/score-rail-dark.png");
   --asset-dice-shadow: url("./assets/theme/dice-shadow.png");
+  --asset-dice-roll: url("./assets/theme/dice-roll-sprite.png");
   --r: 10px;
 }
 
@@ -547,9 +548,9 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 .point::before {
   content: '';
   position: absolute;
-  left: 9%;
-  width: 82%;
-  height: 72%;
+  left: 6%;
+  width: 88%;
+  height: 96%;
   pointer-events: none;
   z-index: 1;
   opacity: 0;
@@ -558,13 +559,13 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 }
 
 .point.top::before {
-  top: 2%;
-  clip-path: polygon(50% 100%, 5% 0%, 95% 0%);
+  top: 1%;
+  clip-path: polygon(50% 100%, 0% 0%, 100% 0%);
 }
 
 .point.bottom::before {
-  bottom: 2%;
-  clip-path: polygon(50% 0%, 5% 100%, 95% 100%);
+  bottom: 1%;
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
 }
 
 .point-triangle { display: none; }
@@ -818,6 +819,24 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   position: relative;
   transform-style: preserve-3d;
   perspective: 900px;
+}
+
+.center-die.rolling {
+  transform-style: flat;
+  perspective: none;
+}
+
+.die-roll-sprite {
+  position: absolute;
+  inset: 0;
+  border-radius: 11px;
+  border: 2px solid #5f2413;
+  background-color: #7f341d;
+  background-image: var(--asset-dice-roll);
+  background-repeat: no-repeat;
+  box-shadow:
+    0 6px 14px rgba(0,0,0,0.42),
+    inset 0 1px 0 rgba(255,255,255,0.25);
 }
 
 .center-die::after {
@@ -1119,7 +1138,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     padding: 4px;
   }
 
-  .point::before { height: 66%; }
+  .point::before { left: 6%; width: 88%; height: 94%; }
   .point-label { font-size: 0.44rem; }
 
   .off-area { width: 30px; padding: 5px 2px; gap: 2px; }

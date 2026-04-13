@@ -7,6 +7,11 @@ const LOG_LIMIT = 140;
 const ANIM_MS = 380;
 const AUTO_ROLL_DELAY_MS = 520;
 const ROOM_CHANNEL_PREFIX = "tavla-room-";
+const DICE_SPRITE_COLUMNS = 15;
+const DICE_SPRITE_ROWS = 7;
+const DICE_ROLL_TOTAL_MS = 1750;
+const DICE_ROLL_STAGGER_MS = 120;
+const SHOW_MOVE_PATH_GUIDES = false;
 
 const dom = {
   tableWrap:       document.querySelector(".table-wrap"),
@@ -1177,6 +1182,7 @@ function renderHighlights() {
 function renderGuideLines() {
   if (!dom.guideLayer || !dom.tableWrap) return;
   dom.guideLayer.innerHTML = "";
+  if (!SHOW_MOVE_PATH_GUIDES) return;
 
   if (!hasRolled || winner || isBotTurn() || isAnimating || (isRoomMode() && !isLocalSeatTurn()) || selectedSource === null) return;
 
@@ -1313,7 +1319,7 @@ function showCenterDice(d1, d2, player) {
 
   window.setTimeout(() => {
     settleCenterDice(wrap, values, toneClass);
-  }, 1960);
+  }, DICE_ROLL_TOTAL_MS + DICE_ROLL_STAGGER_MS + 120);
 }
 
 function clearCenterDiceStage() {
@@ -1342,48 +1348,73 @@ function createCenterDieFlat(value, toneClass) {
 
 function createCenterDie3D(value, toneClass, index) {
   const die = document.createElement("div");
-  die.className = `center-die ${toneClass}`;
+  die.className = `center-die ${toneClass} rolling`;
 
-  const cube = document.createElement("div");
-  cube.className = `die-cube ${toneClass} rolling`;
-  cube.style.setProperty("--delay", `${index * 120}ms`);
+  const sprite = document.createElement("span");
+  sprite.className = "die-roll-sprite";
+  die.appendChild(sprite);
 
-  const spinX = 1320 + Math.floor(Math.random() * 640);
-  const spinY = 1500 + Math.floor(Math.random() * 700);
-  const spinZ = 900 + Math.floor(Math.random() * 380);
-  const spinXMid = Math.round(spinX * 0.42);
-  const spinYMid = Math.round(spinY * 0.42);
-  const spinZMid = Math.round(spinZ * 0.42);
-  const spinXLate = spinX + 70;
-  const spinYLate = spinY + 58;
-  const spinZLate = spinZ + 36;
-  const tiltX = -18 + ((value % 3) - 1) * 2;
-  const tiltY = 22 + ((index % 2 === 0 ? 1 : -1) * ((value % 2) ? 4 : 7));
-  const tiltZ = index === 0 ? -4 : 4;
-
-  cube.style.setProperty("--spin-x", `${spinX}deg`);
-  cube.style.setProperty("--spin-y", `${spinY}deg`);
-  cube.style.setProperty("--spin-z", `${spinZ}deg`);
-  cube.style.setProperty("--spin-x-mid", `${spinXMid}deg`);
-  cube.style.setProperty("--spin-y-mid", `${spinYMid}deg`);
-  cube.style.setProperty("--spin-z-mid", `${spinZMid}deg`);
-  cube.style.setProperty("--spin-x-late", `${spinXLate}deg`);
-  cube.style.setProperty("--spin-y-late", `${spinYLate}deg`);
-  cube.style.setProperty("--spin-z-late", `${spinZLate}deg`);
-  cube.style.setProperty("--final-rot", `rotateX(${tiltX}deg) rotateY(${tiltY}deg) rotateZ(${tiltZ}deg)`);
-
-  const faceValues = getDiceFaceLayout(value);
-  const faceOrder = ["front", "back", "right", "left", "top", "bottom"];
-
-  faceOrder.forEach((side) => {
-    const face = document.createElement("span");
-    face.className = `die-face face-${side} ${toneClass}`;
-    face.appendChild(createDiePips(faceValues[side], "cube"));
-    cube.appendChild(face);
-  });
-
-  die.appendChild(cube);
+  animateDiceSprite(sprite, value, index);
   return die;
+}
+
+function animateDiceSprite(spriteEl, value, index) {
+  const delayMs = index * DICE_ROLL_STAGGER_MS;
+  const frameSequence = buildDiceFrameSequence(value);
+  let lastFrame = -1;
+  const startAt = performance.now() + delayMs;
+
+  function tick(now) {
+    if (!spriteEl.isConnected) return;
+    if (now < startAt) {
+      window.requestAnimationFrame(tick);
+      return;
+    }
+
+    const elapsed = now - startAt;
+    const progress = Math.min(1, elapsed / DICE_ROLL_TOTAL_MS);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const frameIndex = Math.min(
+      frameSequence.length - 1,
+      Math.floor(eased * (frameSequence.length - 1))
+    );
+
+    if (frameIndex !== lastFrame) {
+      setDiceSpriteFrame(spriteEl, frameSequence[frameIndex]);
+      lastFrame = frameIndex;
+    }
+
+    if (progress < 1) window.requestAnimationFrame(tick);
+  }
+
+  window.requestAnimationFrame(tick);
+}
+
+function buildDiceFrameSequence(value) {
+  const randomFrames = [];
+  const randomCount = 28;
+
+  for (let i = 0; i < randomCount; i++) {
+    const row = Math.floor(Math.random() * DICE_SPRITE_ROWS);
+    const col = Math.floor(Math.random() * DICE_SPRITE_COLUMNS);
+    randomFrames.push(row * DICE_SPRITE_COLUMNS + col);
+  }
+
+  const settleRow = (Math.max(1, Math.min(6, value)) - 1) % DICE_SPRITE_ROWS;
+  const settleCols = [3, 6, 8, 10, 11, 12, 13];
+  const settleFrames = settleCols.map((col) => settleRow * DICE_SPRITE_COLUMNS + col);
+
+  return [...randomFrames, ...settleFrames];
+}
+
+function setDiceSpriteFrame(spriteEl, frameIndex) {
+  const safeIndex = Math.max(0, Math.min(DICE_SPRITE_COLUMNS * DICE_SPRITE_ROWS - 1, frameIndex));
+  const col = safeIndex % DICE_SPRITE_COLUMNS;
+  const row = Math.floor(safeIndex / DICE_SPRITE_COLUMNS);
+  const size = spriteEl.clientWidth || spriteEl.parentElement?.clientWidth || 52;
+
+  spriteEl.style.backgroundSize = `${size * DICE_SPRITE_COLUMNS}px ${size * DICE_SPRITE_ROWS}px`;
+  spriteEl.style.backgroundPosition = `${-col * size}px ${-row * size}px`;
 }
 
 function getDiceFaceLayout(topValue) {
