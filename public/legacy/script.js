@@ -403,6 +403,8 @@ function handleSourceOrDest(target) {
 
   if (selectedSource === null) {
     if (!sel.has(target)) { setStatus("Bu taş için geçerli hamle yok."); render(); return; }
+    const quickOffMove = getQuickBearOffMove(target);
+    if (quickOffMove) { playMove(quickOffMove); return; }
     selectedSource = target;
     render();
     return;
@@ -417,6 +419,14 @@ function handleSourceOrDest(target) {
 
   setStatus("Bu hedefe gidemez.");
   render();
+}
+
+function getQuickBearOffMove(source) {
+  if (!Number.isInteger(source)) return null;
+  if (availableMoves.some((m) => m.to !== "off")) return null;
+  const offMoves = availableMoves.filter((m) => m.from === source && m.to === "off");
+  if (!offMoves.length) return null;
+  return pickPreferred(offMoves);
 }
 
 // ── Animation ────────────────────────────────────────────────────
@@ -922,10 +932,7 @@ function showCenterDice(d1, d2, player) {
   dom.centerDiceStage.classList.add(player === WHITE ? "white-turn" : "black-turn");
 
   [d1, d2].forEach((val, i) => {
-    const die = document.createElement("div");
-    die.className = `center-die ${toneClass} rolling`;
-    die.style.animationDelay = `${i * 80}ms`;
-    die.appendChild(createDiePips(val, "large"));
+    const die = createCenterDie3D(val, toneClass, i);
     wrap.appendChild(die);
   });
 
@@ -933,12 +940,80 @@ function showCenterDice(d1, d2, player) {
   dom.centerDiceStage.classList.add("show");
 
   window.setTimeout(() => {
-    wrap.querySelectorAll(".center-die").forEach(d => d.classList.remove("rolling"));
-  }, 940);
+    wrap.querySelectorAll(".die-cube").forEach((d) => d.classList.remove("rolling"));
+  }, 1280);
 
   window.setTimeout(() => {
     dom.centerDiceStage.classList.remove("show", "white-turn", "black-turn");
-  }, 2600);
+  }, 2700);
+}
+
+function createCenterDie3D(value, toneClass, index) {
+  const die = document.createElement("div");
+  die.className = `center-die ${toneClass}`;
+
+  const cube = document.createElement("div");
+  cube.className = `die-cube ${toneClass} rolling`;
+  cube.style.setProperty("--delay", `${index * 90}ms`);
+
+  const spinX = 1080 + Math.floor(Math.random() * 540);
+  const spinY = 1260 + Math.floor(Math.random() * 540);
+  const spinZ = 720 + Math.floor(Math.random() * 300);
+  const spinXMid = Math.round(spinX * 0.38);
+  const spinYMid = Math.round(spinY * 0.38);
+  const spinZMid = Math.round(spinZ * 0.38);
+  const spinXLate = spinX + 120;
+  const spinYLate = spinY + 90;
+  const spinZLate = spinZ + 54;
+  const tiltX = -28 + ((value % 3) - 1) * 4;
+  const tiltY = 34 + ((index % 2 === 0 ? 1 : -1) * ((value % 2) ? 6 : 11));
+  const tiltZ = index === 0 ? -8 : 8;
+
+  cube.style.setProperty("--spin-x", `${spinX}deg`);
+  cube.style.setProperty("--spin-y", `${spinY}deg`);
+  cube.style.setProperty("--spin-z", `${spinZ}deg`);
+  cube.style.setProperty("--spin-x-mid", `${spinXMid}deg`);
+  cube.style.setProperty("--spin-y-mid", `${spinYMid}deg`);
+  cube.style.setProperty("--spin-z-mid", `${spinZMid}deg`);
+  cube.style.setProperty("--spin-x-late", `${spinXLate}deg`);
+  cube.style.setProperty("--spin-y-late", `${spinYLate}deg`);
+  cube.style.setProperty("--spin-z-late", `${spinZLate}deg`);
+  cube.style.setProperty("--final-rot", `rotateX(${tiltX}deg) rotateY(${tiltY}deg) rotateZ(${tiltZ}deg)`);
+
+  const faceValues = getDiceFaceLayout(value);
+  const faceOrder = ["front", "back", "right", "left", "top", "bottom"];
+
+  faceOrder.forEach((side) => {
+    const face = document.createElement("span");
+    face.className = `die-face face-${side} ${toneClass}`;
+    face.appendChild(createDiePips(faceValues[side], "cube"));
+    cube.appendChild(face);
+  });
+
+  die.appendChild(cube);
+  return die;
+}
+
+function getDiceFaceLayout(topValue) {
+  const map = {
+    1: { front: 2, right: 3 },
+    2: { front: 6, right: 3 },
+    3: { front: 2, right: 6 },
+    4: { front: 1, right: 2 },
+    5: { front: 1, right: 4 },
+    6: { front: 5, right: 4 },
+  };
+
+  const pick = map[topValue] || map[1];
+
+  return {
+    top: topValue,
+    bottom: 7 - topValue,
+    front: pick.front,
+    back: 7 - pick.front,
+    right: pick.right,
+    left: 7 - pick.right,
+  };
 }
 
 function createDiePips(value, size = "small") {
