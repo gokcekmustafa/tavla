@@ -5,6 +5,7 @@ const CHECKERS_PER_PLAYER = 15;
 const BOT_DELAY_MS = 800;
 const LOG_LIMIT = 140;
 const ANIM_MS = 380;
+const AUTO_ROLL_DELAY_MS = 520;
 
 const dom = {
   boardGrid:       document.getElementById("board-grid"),
@@ -16,11 +17,14 @@ const dom = {
   newGameBtn:      document.getElementById("new-game-btn"),
   undoBtn:         document.getElementById("undo-btn"),
   modeSelect:      document.getElementById("game-mode-select"),
+  autoRollToggle:  document.getElementById("auto-roll-toggle"),
   moveLog:         document.getElementById("move-log"),
   offWhite:        document.getElementById("off-white"),
   offBlack:        document.getElementById("off-black"),
   offWhiteCount:   document.getElementById("off-white-count"),
   offBlackCount:   document.getElementById("off-black-count"),
+  offWhiteStack:   document.getElementById("off-white-stack"),
+  offBlackStack:   document.getElementById("off-black-stack"),
 };
 
 const pointElements   = new Map();
@@ -37,11 +41,14 @@ let statusMessage     = "Beyaz başlıyor. Zar atarak oyunu başlat.";
 let gameMode          = window.__BOOT_MODE__ === "bot" ? "bot" : "local";
 let moveLog           = [];
 let pendingBotTimer   = null;
+let pendingAutoRollTimer = null;
 let turnUndoSnapshot  = null;
 let movesMadeThisTurn = 0;
 let dragSource        = null;
 let lastRolledDice    = [];
+let lastDicePlayer    = WHITE;
 let isAnimating       = false;
+let autoRollEnabled   = false;
 
 const botPlayer = BLACK;
 
@@ -162,6 +169,7 @@ function attachEvents() {
   dom.newGameBtn.addEventListener("click", onNewGame);
   dom.undoBtn.addEventListener("click",  onUndoMove);
   dom.modeSelect.addEventListener("change", onModeChange);
+  dom.autoRollToggle?.addEventListener("change", onAutoRollChange);
 
   dom.offWhite.addEventListener("click",    onOffAreaClick);
   dom.offBlack.addEventListener("click",    onOffAreaClick);
@@ -173,6 +181,7 @@ function attachEvents() {
 
 function onNewGame() {
   clearPendingBotTimer();
+  clearPendingAutoRollTimer();
   gameState         = createInitialState();
   currentPlayer     = WHITE;
   remainingDice     = [];
@@ -185,10 +194,12 @@ function onNewGame() {
   movesMadeThisTurn = 0;
   dragSource        = null;
   lastRolledDice    = [];
+  lastDicePlayer    = WHITE;
   isAnimating       = false;
   setStatus("Yeni oyun başladı. Beyaz zar atsın.");
   addLog("Yeni oyun başladı.");
   render();
+  maybeScheduleAutoRoll();
 }
 
 function onModeChange() {
@@ -196,6 +207,7 @@ function onModeChange() {
   if (next === gameMode) return;
   gameMode = next;
   clearPendingBotTimer();
+  clearPendingAutoRollTimer();
   turnUndoSnapshot  = null;
   movesMadeThisTurn = 0;
   dragSource        = null;
@@ -208,6 +220,19 @@ function onModeChange() {
   }
   render();
   maybeScheduleBotAction();
+  maybeScheduleAutoRoll();
+}
+
+function onAutoRollChange() {
+  autoRollEnabled = Boolean(dom.autoRollToggle?.checked);
+  clearPendingAutoRollTimer();
+  addLog(autoRollEnabled ? "Otomatik zar acildi." : "Otomatik zar kapatildi.");
+  if (autoRollEnabled && !winner && !hasRolled && !isBotTurn() && !isAnimating) {
+    setStatus("Otomatik zar aktif. Zar birazdan atilacak.");
+    maybeScheduleAutoRoll();
+  } else {
+    render();
+  }
 }
 
 function onUndoMove() {
@@ -217,22 +242,26 @@ function onUndoMove() {
     return;
   }
   clearPendingBotTimer();
+  clearPendingAutoRollTimer();
   restoreSnapshot(turnUndoSnapshot);
   movesMadeThisTurn = 0;
   dragSource        = null;
   setStatus("İlk hamle geri alındı. Devam edebilirsin.");
   render();
   maybeScheduleBotAction();
+  maybeScheduleAutoRoll();
 }
 
 function onRollDice(arg) {
   const fromBot = Boolean(arg && arg.fromBot);
+  clearPendingAutoRollTimer();
   if (winner) return;
   if (isBotTurn() && !fromBot) { setStatus("Sıra bilgisayarda."); render(); return; }
   if (hasRolled) { setStatus("Zar zaten atıldı. Hamle yap."); render(); return; }
 
   const d1 = randomDie();
   const d2 = randomDie();
+  lastDicePlayer    = currentPlayer;
   lastRolledDice    = [d1, d2];
   remainingDice     = d1 === d2 ? [d1,d1,d1,d1] : [d1,d2];
   hasRolled         = true;
@@ -240,7 +269,7 @@ function onRollDice(arg) {
   selectedSource    = null;
   availableMoves    = getOptimalMoves(gameState, currentPlayer, remainingDice);
 
-  showCenterDice(d1, d2);
+  showCenterDice(d1, d2, currentPlayer);
   addLog(`${playerText(currentPlayer)}: ${d1}-${d2}${d1===d2 ? " (çift)" : ""}`);
 
   if (!availableMoves.length) {
@@ -301,21 +330,27 @@ function onDragStartFromBar(e) {
 }
 
 function onDragEnd() {
-  dragSource = null;
-  render();
+  window.setTimeout(() => {
+    dragSource = null;
+    render();
+  }, 0);
 }
 
 function onDragOverTarget(e) {
-  if (!hasRolled || winner || isBotTurn() || dragSource === null || isAnimating) return;
+  const hasSource =
+    dragSource !== null ||
+    Boolean(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("text/plain"));
+
+  if (!hasRolled || winner || isBotTurn() || !hasSource || isAnimating) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = "move";
 }
 
 function onDropOnPoint(e) {
   e.preventDefault();
-  if (dragSource === null) return;
+  const src = getDropSourceFromEvent(e);
+  if (src === null) return;
   const target = Number(e.currentTarget.dataset.point);
-  const src = dragSource;
   dragSource = null;
   attemptMove(src, target);
 }
@@ -328,10 +363,18 @@ function onDropOnBar(e) {
 function onDropOnOffArea(e) {
   e.preventDefault();
   const tp = e.currentTarget.dataset.off;
-  if (tp !== currentPlayer || dragSource === null) return;
-  const src = dragSource;
+  const src = getDropSourceFromEvent(e);
+  if (tp !== currentPlayer || src === null) return;
   dragSource = null;
   attemptMove(src, "off");
+}
+
+function getDropSourceFromEvent(e) {
+  const raw = e.dataTransfer?.getData("text/plain");
+  if (raw === "bar") return "bar";
+  const parsed = Number(raw);
+  if (Number.isInteger(parsed) && parsed >= 1 && parsed <= POINT_COUNT) return parsed;
+  return dragSource;
 }
 
 function attemptMove(source, target) {
@@ -375,18 +418,23 @@ function getElementCenter(el) {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
-function animateMove(from, to, player, cb) {
-  const fromEl = from === "bar"
+function animateMove(move, player, cb) {
+  const fromEl = move.from === "bar"
     ? document.getElementById(`bar-${player}-stack`)
-    : document.getElementById(`stack-${from}`);
-  const toEl = to === "off"
-    ? (player === WHITE ? dom.offWhite : dom.offBlack)
-    : document.getElementById(`stack-${to}`);
+    : document.getElementById(`stack-${move.from}`);
 
-  if (!fromEl || !toEl) { cb(); return; }
+  if (!fromEl) { cb(); return; }
 
   const fc = getElementCenter(fromEl);
-  const tc = getElementCenter(toEl);
+
+  let tc;
+  if (move.to === "off") {
+    tc = getOffStackTargetPosition(player, gameState.borneOff[player]);
+  } else {
+    const toEl = document.getElementById(`stack-${move.to}`);
+    if (!toEl) { cb(); return; }
+    tc = getElementCenter(toEl);
+  }
 
   const size = parseInt(getComputedStyle(document.documentElement)
     .getPropertyValue('--checker-size') || '28', 10) || 28;
@@ -403,7 +451,7 @@ function animateMove(from, to, player, cb) {
     "pointer-events:none",
     "z-index:9999",
     `transition:left ${ANIM_MS}ms cubic-bezier(.4,0,.2,1),top ${ANIM_MS}ms cubic-bezier(.4,0,.2,1),transform ${ANIM_MS}ms ease`,
-    "transform:scale(1.18)",
+    "transform:scale(1.18) translateY(0px)",
     "box-shadow:0 10px 30px rgba(0,0,0,0.55)",
   ].join(";");
 
@@ -413,9 +461,24 @@ function animateMove(from, to, player, cb) {
   ghost.getBoundingClientRect();
   ghost.style.left = `${tc.x - R}px`;
   ghost.style.top  = `${tc.y - R}px`;
-  ghost.style.transform = "scale(1)";
+  ghost.style.transform = move.to === "off" ? "scale(0.95) translateY(-4px)" : "scale(1)";
 
   window.setTimeout(() => { ghost.remove(); cb(); }, ANIM_MS + 40);
+}
+
+function getOffStackTargetPosition(player, currentOffCount) {
+  const stackEl = player === WHITE ? dom.offWhiteStack : dom.offBlackStack;
+  const areaEl = player === WHITE ? dom.offWhite : dom.offBlack;
+  const baseEl = stackEl || areaEl;
+  const rect = baseEl.getBoundingClientRect();
+
+  const slot = Math.min(currentOffCount, 9);
+  const step = Math.max(8, rect.height / 12);
+
+  return {
+    x: rect.left + rect.width / 2,
+    y: rect.bottom - (slot + 1) * step,
+  };
 }
 
 // ── Play Move ────────────────────────────────────────────────────
@@ -425,7 +488,7 @@ function playMove(move) {
   isAnimating = true;
   render();
 
-  animateMove(move.from, move.to, currentPlayer, () => {
+  animateMove(move, currentPlayer, () => {
     isAnimating = false;
     executeMove(move);
   });
@@ -474,6 +537,7 @@ function executeMove(move) {
 }
 
 function finishTurn() {
+  clearPendingAutoRollTimer();
   hasRolled         = false;
   remainingDice     = [];
   availableMoves    = [];
@@ -485,6 +549,7 @@ function finishTurn() {
   currentPlayer     = opponentOf(currentPlayer);
   render();
   maybeScheduleBotAction();
+  maybeScheduleAutoRoll();
 }
 
 // ── Bot ──────────────────────────────────────────────────────────
@@ -508,7 +573,7 @@ function runBotAction() {
   const mv = chooseBotMove(gameState, botPlayer, availableMoves);
   isAnimating = true;
   render();
-  animateMove(mv.from, mv.to, botPlayer, () => {
+  animateMove(mv, botPlayer, () => {
     isAnimating = false;
     executeMove(mv);
   });
@@ -518,6 +583,23 @@ function clearPendingBotTimer() {
   if (pendingBotTimer === null) return;
   clearTimeout(pendingBotTimer);
   pendingBotTimer = null;
+}
+
+function maybeScheduleAutoRoll() {
+  clearPendingAutoRollTimer();
+  if (!autoRollEnabled || winner || hasRolled || isBotTurn() || isAnimating) return;
+
+  pendingAutoRollTimer = window.setTimeout(() => {
+    pendingAutoRollTimer = null;
+    if (!autoRollEnabled || winner || hasRolled || isBotTurn() || isAnimating) return;
+    onRollDice({ fromAuto: true });
+  }, AUTO_ROLL_DELAY_MS);
+}
+
+function clearPendingAutoRollTimer() {
+  if (pendingAutoRollTimer === null) return;
+  clearTimeout(pendingAutoRollTimer);
+  pendingAutoRollTimer = null;
 }
 
 // ── Render ───────────────────────────────────────────────────────
@@ -538,6 +620,9 @@ function renderTurnInfo() {
   dom.rollBtn.disabled  = hasRolled || Boolean(winner) || isBotTurn() || isAnimating;
   dom.undoBtn.disabled  = !canUndoCurrentTurn();
   dom.modeSelect.value  = gameMode;
+  if (dom.autoRollToggle) {
+    dom.autoRollToggle.checked = autoRollEnabled;
+  }
 }
 
 function renderStatus() {
@@ -550,17 +635,13 @@ function renderDice() {
 
   const isDouble = lastRolledDice[0] === lastRolledDice[1];
   const show = isDouble ? [lastRolledDice[0], lastRolledDice[0]] : lastRolledDice;
+  const colorClass = lastDicePlayer === WHITE ? "die-white" : "die-black";
 
   show.forEach((val, i) => {
     const chip = document.createElement("span");
     chip.className = "die-chip";
+    chip.classList.add(colorClass);
     chip.textContent = String(val);
-
-    // Mark as used
-    const used = isDouble
-      ? i >= remainingDice.length          // for doubles count remaining
-      : !remainingDice.includes(val) ||
-        (i === 1 && remainingDice.filter(d => d === val).length < 2 - i);
 
     // Simple used check: count how many of this value remain
     const remaining = remainingDice.filter(d => d === val).length;
@@ -624,6 +705,8 @@ function renderBoardState() {
 
   renderBar(BLACK);
   renderBar(WHITE);
+  renderOffStack(BLACK);
+  renderOffStack(WHITE);
   dom.offWhiteCount.textContent = `${gameState.borneOff[WHITE]} / ${CHECKERS_PER_PLAYER}`;
   dom.offBlackCount.textContent = `${gameState.borneOff[BLACK]} / ${CHECKERS_PER_PLAYER}`;
 }
@@ -639,6 +722,28 @@ function renderBar(player) {
     const chip = document.createElement("span");
     chip.className = `bar-chip ${player}`;
     stackEl.appendChild(chip);
+  }
+}
+
+function renderOffStack(player) {
+  const stackEl = player === WHITE ? dom.offWhiteStack : dom.offBlackStack;
+  if (!stackEl) return;
+
+  const count = gameState.borneOff[player];
+  stackEl.innerHTML = "";
+
+  const visible = Math.min(count, 10);
+  for (let i = 0; i < visible; i++) {
+    const chip = document.createElement("span");
+    chip.className = `off-chip ${player}`;
+    stackEl.appendChild(chip);
+  }
+
+  if (count > 10) {
+    const badge = document.createElement("span");
+    badge.className = "off-chip-badge";
+    badge.textContent = `+${count - 10}`;
+    stackEl.appendChild(badge);
   }
 }
 
@@ -689,15 +794,19 @@ function renderMoveLog() {
 
 // ── Center Dice Animation ────────────────────────────────────────
 
-function showCenterDice(d1, d2) {
+function showCenterDice(d1, d2, player) {
   if (!dom.centerDiceStage) return;
   dom.centerDiceStage.innerHTML = "";
   const wrap = document.createElement("div");
-  wrap.className = "center-dice-wrap";
+  const toneClass = player === WHITE ? "dice-white" : "dice-black";
+  wrap.className = `center-dice-wrap ${toneClass}`;
+
+  dom.centerDiceStage.classList.remove("white-turn", "black-turn");
+  dom.centerDiceStage.classList.add(player === WHITE ? "white-turn" : "black-turn");
 
   [d1, d2].forEach((val, i) => {
     const die = document.createElement("div");
-    die.className = "center-die rolling";
+    die.className = `center-die ${toneClass} rolling`;
     die.style.animationDelay = `${i * 80}ms`;
     die.textContent = String(val);
     wrap.appendChild(die);
@@ -710,7 +819,9 @@ function showCenterDice(d1, d2) {
     wrap.querySelectorAll(".center-die").forEach(d => d.classList.remove("rolling"));
   }, 600);
 
-  window.setTimeout(() => dom.centerDiceStage.classList.remove("show"), 1700);
+  window.setTimeout(() => {
+    dom.centerDiceStage.classList.remove("show", "white-turn", "black-turn");
+  }, 1700);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────

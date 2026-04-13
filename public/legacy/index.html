@@ -42,6 +42,10 @@
           <option value="local">Iki Oyuncu (Local)</option>
           <option value="bot">Bilgisayara Karsi</option>
         </select>
+        <label class="control-inline" for="auto-roll-toggle">
+          <input id="auto-roll-toggle" type="checkbox">
+          Otomatik Zar
+        </label>
         <button id="undo-btn" class="secondary-btn">Geri Al</button>
       </div>
     </section>
@@ -50,6 +54,7 @@
       <aside id="off-black" class="off-area black" data-off="black">
         <p class="off-title">Siyah Toplanan</p>
         <p id="off-black-count" class="off-count">0 / 15</p>
+        <div id="off-black-stack" class="off-stack" aria-hidden="true"></div>
       </aside>
 
       <div id="board-grid" class="board-grid" aria-label="Tavla tahtasi"></div>
@@ -58,6 +63,7 @@
       <aside id="off-white" class="off-area white" data-off="white">
         <p class="off-title">Beyaz Toplanan</p>
         <p id="off-white-count" class="off-count">0 / 15</p>
+        <div id="off-white-stack" class="off-stack" aria-hidden="true"></div>
       </aside>
     </section>
 
