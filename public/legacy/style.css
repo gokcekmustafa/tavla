@@ -245,6 +245,22 @@ body {
   accent-color: var(--gold-hi);
 }
 
+.room-meta {
+  margin-bottom: 8px;
+  border: 1px solid rgba(200,144,42,0.34);
+  border-radius: 6px;
+  background: rgba(0,0,0,0.28);
+  padding: 6px 8px;
+  display: grid;
+  gap: 3px;
+}
+
+.room-meta-line {
+  font-size: 0.62rem;
+  color: var(--cream);
+  line-height: 1.4;
+}
+
 /* ── Buttons ─────────────────────────────────────── */
 button {
   font: 600 0.76rem 'IBM Plex Mono', monospace;

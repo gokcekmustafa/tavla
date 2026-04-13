@@ -6,6 +6,7 @@ const BOT_DELAY_MS = 800;
 const LOG_LIMIT = 140;
 const ANIM_MS = 380;
 const AUTO_ROLL_DELAY_MS = 520;
+const ROOM_CHANNEL_PREFIX = "tavla-room-";
 
 const dom = {
   tableWrap:       document.querySelector(".table-wrap"),
@@ -30,6 +31,9 @@ const dom = {
   winnerModal:     document.getElementById("winner-modal"),
   winnerText:      document.getElementById("winner-text"),
   winnerCloseBtn:  document.getElementById("winner-close-btn"),
+  roomMeta:        document.getElementById("room-meta"),
+  roomMetaCode:    document.getElementById("room-meta-code"),
+  roomMetaSeat:    document.getElementById("room-meta-seat"),
 };
 
 const pointElements   = new Map();
@@ -55,13 +59,21 @@ let lastDicePlayer    = WHITE;
 let isAnimating       = false;
 let autoRollEnabled   = false;
 let pendingMoveChain  = [];
+let isApplyingRemoteState = false;
+let roomChannel       = null;
+let roomSyncCounter   = 0;
+
+const roomParams = parseRoomParams();
+const roomSenderCounters = new Map();
 
 const botPlayer = BLACK;
 
 buildBoard();
 attachEvents();
-addLog(gameMode === "bot" ? "Bilgisayara karşı modda yeni oyun hazır." : "Yeni oyun hazır.");
+initRoomMode();
+addLog(getBootLogMessage());
 render();
+announceRoomJoin();
 
 // ── State ────────────────────────────────────────────────────────
 
@@ -86,6 +98,201 @@ function addCheckers(state, point, player, amount) {
   const t = state.points[point - 1];
   t.owner = player;
   t.count += amount;
+}
+
+function parseRoomParams() {
+  const params = new URLSearchParams(window.location.search);
+  const roomCode = (params.get("room") || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 6);
+  const seatParam = params.get("seat");
+  const seat = seatParam === WHITE || seatParam === BLACK ? seatParam : WHITE;
+  const sessionRaw = (params.get("session") || "")
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .slice(0, 48);
+  const guestRaw = (params.get("guest") || params.get("name") || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 24);
+
+  return {
+    enabled: Boolean(roomCode && (seatParam === WHITE || seatParam === BLACK)),
+    code: roomCode,
+    seat,
+    session: sessionRaw || createRoomSessionId(),
+    guest: guestRaw || "Misafir",
+  };
+}
+
+function createRoomSessionId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function isRoomMode() {
+  return roomParams.enabled;
+}
+
+function isLocalSeatTurn() {
+  if (!isRoomMode()) return true;
+  return currentPlayer === roomParams.seat;
+}
+
+function getBootLogMessage() {
+  if (isRoomMode()) {
+    return `Oda ${roomParams.code} acildi. Sen ${playerText(roomParams.seat)} oyuncususun.`;
+  }
+  return gameMode === "bot" ? "Bilgisayara karşı modda yeni oyun hazır." : "Yeni oyun hazır.";
+}
+
+function initRoomMode() {
+  if (!isRoomMode()) return;
+
+  gameMode = "local";
+  if (dom.modeSelect) {
+    dom.modeSelect.value = "local";
+    dom.modeSelect.disabled = true;
+  }
+
+  if (dom.roomMeta) {
+    dom.roomMeta.removeAttribute("hidden");
+  }
+  if (dom.roomMetaCode) {
+    dom.roomMetaCode.textContent = `Oda: ${roomParams.code}`;
+  }
+  if (dom.roomMetaSeat) {
+    dom.roomMetaSeat.textContent = `Sen: ${playerText(roomParams.seat)}`;
+  }
+
+  setStatus(`Oda ${roomParams.code} aktif. Sıra ${playerText(currentPlayer)} oyuncusunda.`);
+  initRoomChannel();
+}
+
+function initRoomChannel() {
+  if (!isRoomMode()) return;
+  if (typeof BroadcastChannel === "undefined") {
+    addLog("Tarayici BroadcastChannel desteklemedigi icin oda senkronu kapali.");
+    return;
+  }
+
+  try {
+    roomChannel = new BroadcastChannel(`${ROOM_CHANNEL_PREFIX}${roomParams.code}`);
+    roomChannel.addEventListener("message", onRoomChannelMessage);
+  } catch (error) {
+    roomChannel = null;
+    addLog("Oda senkronu acilamadi.");
+  }
+}
+
+function announceRoomJoin() {
+  if (!isRoomMode() || !roomChannel) return;
+  sendRoomMessage("hello");
+  window.setTimeout(() => publishRoomSnapshot("join-sync"), 120);
+}
+
+function onRoomChannelMessage(event) {
+  const msg = event?.data;
+  if (!msg || msg.roomCode !== roomParams.code || msg.sender === roomParams.session) return;
+
+  if (msg.kind === "hello") {
+    publishRoomSnapshot("hello-reply");
+    return;
+  }
+
+  if (msg.kind !== "snapshot") return;
+  const previousCounter = roomSenderCounters.get(msg.sender) || 0;
+  if (typeof msg.counter !== "number" || msg.counter <= previousCounter) return;
+  roomSenderCounters.set(msg.sender, msg.counter);
+  applyRoomSnapshot(msg.payload);
+}
+
+function sendRoomMessage(kind, payload) {
+  if (!isRoomMode() || !roomChannel) return;
+  roomChannel.postMessage({
+    kind,
+    roomCode: roomParams.code,
+    sender: roomParams.session,
+    counter: roomSyncCounter,
+    payload: payload || null,
+  });
+}
+
+function publishRoomSnapshot(reason) {
+  if (!isRoomMode() || !roomChannel || isApplyingRemoteState) return;
+  roomSyncCounter += 1;
+  roomChannel.postMessage({
+    kind: "snapshot",
+    roomCode: roomParams.code,
+    sender: roomParams.session,
+    counter: roomSyncCounter,
+    reason,
+    payload: buildRoomSnapshot(),
+  });
+}
+
+function buildRoomSnapshot() {
+  return {
+    gameState: cloneState(gameState),
+    currentPlayer,
+    remainingDice: [...remainingDice],
+    hasRolled,
+    winner,
+    statusMessage,
+    moveLog: [...moveLog],
+    lastRolledDice: [...lastRolledDice],
+    lastDicePlayer,
+  };
+}
+
+function applyRoomSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return;
+
+  isApplyingRemoteState = true;
+  clearPendingBotTimer();
+  clearPendingAutoRollTimer();
+
+  gameState = cloneState(snapshot.gameState || createInitialState());
+  currentPlayer = snapshot.currentPlayer === BLACK ? BLACK : WHITE;
+  remainingDice = Array.isArray(snapshot.remainingDice)
+    ? snapshot.remainingDice.filter((d) => Number.isInteger(d) && d >= 1 && d <= 6)
+    : [];
+  hasRolled = Boolean(snapshot.hasRolled);
+  winner = snapshot.winner === WHITE || snapshot.winner === BLACK ? snapshot.winner : null;
+  statusMessage = typeof snapshot.statusMessage === "string" && snapshot.statusMessage
+    ? snapshot.statusMessage
+    : statusMessage;
+  moveLog = Array.isArray(snapshot.moveLog)
+    ? snapshot.moveLog.filter((item) => typeof item === "string").slice(-LOG_LIMIT)
+    : [];
+  lastRolledDice = Array.isArray(snapshot.lastRolledDice)
+    ? snapshot.lastRolledDice.filter((d) => Number.isInteger(d) && d >= 1 && d <= 6)
+    : [];
+  lastDicePlayer = snapshot.lastDicePlayer === BLACK ? BLACK : WHITE;
+
+  gameMode = "local";
+  selectedSource = null;
+  dragSource = null;
+  pendingMoveChain = [];
+  turnUndoSnapshot = null;
+  movesMadeThisTurn = 0;
+  isAnimating = false;
+  availableMoves = hasRolled ? getOptimalMoves(gameState, currentPlayer, remainingDice) : [];
+
+  if (winner) showWinnerPopup(winner);
+  else hideWinnerPopup();
+
+  render();
+  maybeScheduleAutoRoll();
+  isApplyingRemoteState = false;
+}
+
+function canControlRoomAction() {
+  if (!isRoomMode()) return true;
+  if (winner) return false;
+  if (isLocalSeatTurn()) return true;
+  setStatus(`Sıra ${playerText(currentPlayer)} oyuncusunda. Sen ${playerText(roomParams.seat)} bekliyorsun.`);
+  render();
+  return false;
 }
 
 // ── Build Board ──────────────────────────────────────────────────
@@ -188,6 +395,11 @@ function attachEvents() {
 }
 
 function onNewGame() {
+  if (isRoomMode() && roomParams.seat !== WHITE) {
+    setStatus("Yeni oyunu Beyaz oyuncu baslatabilir.");
+    render();
+    return;
+  }
   clearPendingBotTimer();
   clearPendingAutoRollTimer();
   gameState         = createInitialState();
@@ -211,9 +423,16 @@ function onNewGame() {
   clearCenterDiceStage();
   render();
   maybeScheduleAutoRoll();
+  publishRoomSnapshot("new-game");
 }
 
 function onModeChange() {
+  if (isRoomMode()) {
+    dom.modeSelect.value = "local";
+    setStatus("Oda modunda bot kapali.");
+    render();
+    return;
+  }
   const next = dom.modeSelect.value === "bot" ? "bot" : "local";
   if (next === gameMode) return;
   gameMode = next;
@@ -238,6 +457,13 @@ function onModeChange() {
 function onAutoRollChange() {
   autoRollEnabled = Boolean(dom.autoRollToggle?.checked);
   clearPendingAutoRollTimer();
+  if (isRoomMode() && !isLocalSeatTurn()) {
+    autoRollEnabled = false;
+    if (dom.autoRollToggle) dom.autoRollToggle.checked = false;
+    setStatus("Otomatik zar sadece kendi siranizda acilabilir.");
+    render();
+    return;
+  }
   addLog(autoRollEnabled ? "Otomatik zar acildi." : "Otomatik zar kapatildi.");
   if (autoRollEnabled && !winner && !hasRolled && !isBotTurn() && !isAnimating) {
     setStatus("Otomatik zar aktif. Zar birazdan atilacak.");
@@ -248,6 +474,7 @@ function onAutoRollChange() {
 }
 
 function onUndoMove() {
+  if (!canControlRoomAction()) return;
   if (!canUndoCurrentTurn()) {
     setStatus("Geri alma sadece ilk hamleden sonra kullanılabilir.");
     render();
@@ -263,12 +490,14 @@ function onUndoMove() {
   render();
   maybeScheduleBotAction();
   maybeScheduleAutoRoll();
+  publishRoomSnapshot("undo");
 }
 
 function onRollDice(arg) {
   const fromBot = Boolean(arg && arg.fromBot);
   clearPendingAutoRollTimer();
   if (winner) return;
+  if (!fromBot && !canControlRoomAction()) return;
   if (isBotTurn() && !fromBot) { setStatus("Sıra bilgisayarda."); render(); return; }
   if (hasRolled) { setStatus("Zar zaten atıldı. Hamle yap."); render(); return; }
 
@@ -290,6 +519,8 @@ function onRollDice(arg) {
     setStatus(`${playerText(currentPlayer)} hamle yapamadı. Sıra geçti.`);
     addLog(`${playerText(currentPlayer)} pas geçti.`);
     turnUndoSnapshot = null;
+    render();
+    publishRoomSnapshot("roll-no-move");
     window.setTimeout(finishTurn, 1300);
     return;
   }
@@ -297,22 +528,26 @@ function onRollDice(arg) {
   turnUndoSnapshot = captureSnapshot();
   setStatus(`${playerText(currentPlayer)}: kaynak taşı seç.`);
   render();
+  publishRoomSnapshot("roll");
   maybeScheduleBotAction();
 }
 
 function onPointClick(e) {
   if (isAnimating) return;
+  if (!canControlRoomAction()) return;
   handleSourceOrDest(Number(e.currentTarget.dataset.point));
 }
 
 function onBarSlotClick(e) {
   if (isAnimating) return;
+  if (!canControlRoomAction()) return;
   if (e.currentTarget.dataset.player !== currentPlayer) return;
   handleSourceOrDest("bar");
 }
 
 function onOffAreaClick(e) {
   if (isAnimating || isBotTurn()) return;
+  if (!canControlRoomAction()) return;
   const tp = e.currentTarget.dataset.off;
   if (tp !== currentPlayer || selectedSource === null) return;
   const mv = pickPreferred(availableMoves.filter(c => c.from === selectedSource && c.to === "off"));
@@ -323,6 +558,7 @@ function onOffAreaClick(e) {
 
 function onCheckerDoubleClick(e) {
   if (winner || isAnimating || isBotTurn() || !hasRolled) return;
+  if (!canControlRoomAction()) return;
   const source = Number(e.currentTarget.dataset.source);
   if (!Number.isInteger(source)) return;
   e.preventDefault();
@@ -350,7 +586,7 @@ function getDoubleClickMove(source) {
 // ── Drag & Drop ──────────────────────────────────────────────────
 
 function onDragStartFromChecker(e) {
-  if (isBotTurn() || !hasRolled || isAnimating) { e.preventDefault(); return; }
+  if (isBotTurn() || !hasRolled || isAnimating || (isRoomMode() && !isLocalSeatTurn())) { e.preventDefault(); return; }
   const src = Number(e.currentTarget.dataset.source);
   dragSource = src;
   selectedSource = src;
@@ -363,7 +599,7 @@ function onDragStartFromChecker(e) {
 
 function onDragStartFromBar(e) {
   const player = e.currentTarget.dataset.player;
-  if (player !== currentPlayer || isBotTurn() || !hasRolled || isAnimating) {
+  if (player !== currentPlayer || isBotTurn() || !hasRolled || isAnimating || (isRoomMode() && !isLocalSeatTurn())) {
     e.preventDefault(); return;
   }
   dragSource = "bar";
@@ -383,7 +619,7 @@ function onDragEnd(e) {
 }
 
 function onDragOverTarget(e) {
-  if (!hasRolled || winner || isBotTurn() || isAnimating) return;
+  if (!hasRolled || winner || isBotTurn() || isAnimating || (isRoomMode() && !isLocalSeatTurn())) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = "move";
 }
@@ -421,6 +657,7 @@ function getDropSourceFromEvent(e) {
 
 function attemptMove(source, target) {
   if (winner || isBotTurn() || !hasRolled || isAnimating) return;
+  if (!canControlRoomAction()) return;
   const matches = availableMoves.filter(c => c.from === source && c.to === target);
   if (matches.length) { playMove(pickPreferred(matches)); return; }
   const chain = findMoveChain(source, target);
@@ -432,6 +669,7 @@ function attemptMove(source, target) {
 
 function handleSourceOrDest(target) {
   if (winner || isAnimating) return;
+  if (!canControlRoomAction()) return;
   if (isBotTurn())  { setStatus("Sıra bilgisayarda."); render(); return; }
   if (!hasRolled)   { setStatus("Önce zar at."); render(); return; }
 
@@ -625,6 +863,7 @@ function executeMove(move) {
     showWinnerPopup(currentPlayer);
     clearCenterDiceStage();
     render();
+    publishRoomSnapshot("win");
     return;
   }
 
@@ -640,6 +879,7 @@ function executeMove(move) {
         availableMoves = recalculatedMoves;
         setStatus(`${playerText(currentPlayer)} zincir hamle devam ediyor.`);
         render();
+        publishRoomSnapshot("move-chain-step");
         playMove(pendingMoveChain.shift());
         return;
       }
@@ -664,6 +904,7 @@ function executeMove(move) {
 
   setStatus(`${playerText(currentPlayer)} devam et.`);
   render();
+  publishRoomSnapshot("move");
   maybeScheduleBotAction();
 }
 
@@ -683,6 +924,7 @@ function finishTurn() {
   render();
   maybeScheduleBotAction();
   maybeScheduleAutoRoll();
+  publishRoomSnapshot("finish-turn");
 }
 
 // ── Bot ──────────────────────────────────────────────────────────
@@ -720,11 +962,11 @@ function clearPendingBotTimer() {
 
 function maybeScheduleAutoRoll() {
   clearPendingAutoRollTimer();
-  if (!autoRollEnabled || winner || hasRolled || isBotTurn() || isAnimating) return;
+  if (!autoRollEnabled || winner || hasRolled || isBotTurn() || isAnimating || (isRoomMode() && !isLocalSeatTurn())) return;
 
   pendingAutoRollTimer = window.setTimeout(() => {
     pendingAutoRollTimer = null;
-    if (!autoRollEnabled || winner || hasRolled || isBotTurn() || isAnimating) return;
+    if (!autoRollEnabled || winner || hasRolled || isBotTurn() || isAnimating || (isRoomMode() && !isLocalSeatTurn())) return;
     onRollDice({ fromAuto: true });
   }, AUTO_ROLL_DELAY_MS);
 }
@@ -749,13 +991,27 @@ function render() {
 
 function renderTurnInfo() {
   const lbl = isBotTurn() ? `${playerText(currentPlayer)} (Bot)` : playerText(currentPlayer);
+  const waitingForOpponent = isRoomMode() && !isLocalSeatTurn();
   dom.currentPlayer.textContent = lbl;
   dom.currentPlayer.classList.toggle("winner", Boolean(winner));
-  dom.rollBtn.disabled  = hasRolled || Boolean(winner) || isBotTurn() || isAnimating;
+  dom.rollBtn.disabled  = hasRolled || Boolean(winner) || isBotTurn() || isAnimating || waitingForOpponent;
   dom.undoBtn.disabled  = !canUndoCurrentTurn();
   dom.modeSelect.value  = gameMode;
+  dom.modeSelect.disabled = isRoomMode();
+  dom.newGameBtn.disabled = isRoomMode() && roomParams.seat !== WHITE;
   if (dom.autoRollToggle) {
     dom.autoRollToggle.checked = autoRollEnabled;
+    dom.autoRollToggle.disabled = waitingForOpponent;
+  }
+  if (dom.roomMeta) {
+    if (isRoomMode()) dom.roomMeta.removeAttribute("hidden");
+    else dom.roomMeta.setAttribute("hidden", "");
+  }
+  if (dom.roomMetaCode && isRoomMode()) {
+    dom.roomMetaCode.textContent = `Oda: ${roomParams.code}`;
+  }
+  if (dom.roomMetaSeat && isRoomMode()) {
+    dom.roomMetaSeat.textContent = `Sen: ${playerText(roomParams.seat)} / Sira: ${playerText(currentPlayer)}`;
   }
 }
 
@@ -795,7 +1051,7 @@ function renderDice() {
 
 function renderBoardState() {
   const sel   = getSelectableSources();
-  const canDrag = hasRolled && !winner && !isBotTurn() && !isAnimating;
+  const canDrag = hasRolled && !winner && !isBotTurn() && !isAnimating && (!isRoomMode() || isLocalSeatTurn());
 
   for (let pt = 1; pt <= POINT_COUNT; pt++) {
     const ps    = gameState.points[pt - 1];
@@ -895,7 +1151,7 @@ function renderHighlights() {
   dom.offWhite.classList.remove("highlight-target");
   dom.offBlack.classList.remove("highlight-target");
 
-  if (!hasRolled || winner || isBotTurn() || isAnimating) return;
+  if (!hasRolled || winner || isBotTurn() || isAnimating || (isRoomMode() && !isLocalSeatTurn())) return;
 
   const sel = getSelectableSources();
   for (const src of sel) {
@@ -922,7 +1178,7 @@ function renderGuideLines() {
   if (!dom.guideLayer || !dom.tableWrap) return;
   dom.guideLayer.innerHTML = "";
 
-  if (!hasRolled || winner || isBotTurn() || isAnimating || selectedSource === null) return;
+  if (!hasRolled || winner || isBotTurn() || isAnimating || (isRoomMode() && !isLocalSeatTurn()) || selectedSource === null) return;
 
   const targets = [...new Set(availableMoves.filter((m) => m.from === selectedSource).map((m) => m.to))];
   if (!targets.length) return;
