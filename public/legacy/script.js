@@ -25,6 +25,9 @@ const dom = {
   offBlackCount:   document.getElementById("off-black-count"),
   offWhiteStack:   document.getElementById("off-white-stack"),
   offBlackStack:   document.getElementById("off-black-stack"),
+  winnerModal:     document.getElementById("winner-modal"),
+  winnerText:      document.getElementById("winner-text"),
+  winnerCloseBtn:  document.getElementById("winner-close-btn"),
 };
 
 const pointElements   = new Map();
@@ -177,6 +180,7 @@ function attachEvents() {
   dom.offBlack.addEventListener("dragover", onDragOverTarget);
   dom.offWhite.addEventListener("drop",     onDropOnOffArea);
   dom.offBlack.addEventListener("drop",     onDropOnOffArea);
+  dom.winnerCloseBtn?.addEventListener("click", hideWinnerPopup);
 }
 
 function onNewGame() {
@@ -198,6 +202,7 @@ function onNewGame() {
   isAnimating       = false;
   setStatus("Yeni oyun başladı. Beyaz zar atsın.");
   addLog("Yeni oyun başladı.");
+  hideWinnerPopup();
   render();
   maybeScheduleAutoRoll();
 }
@@ -312,7 +317,6 @@ function onDragStartFromChecker(e) {
   const src = Number(e.currentTarget.dataset.source);
   dragSource = src;
   selectedSource = src;
-  render();
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", String(src));
 }
@@ -324,7 +328,6 @@ function onDragStartFromBar(e) {
   }
   dragSource = "bar";
   selectedSource = "bar";
-  render();
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", "bar");
 }
@@ -337,11 +340,7 @@ function onDragEnd() {
 }
 
 function onDragOverTarget(e) {
-  const hasSource =
-    dragSource !== null ||
-    Boolean(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("text/plain"));
-
-  if (!hasRolled || winner || isBotTurn() || !hasSource || isAnimating) return;
+  if (!hasRolled || winner || isBotTurn() || isAnimating) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = "move";
 }
@@ -374,7 +373,7 @@ function getDropSourceFromEvent(e) {
   if (raw === "bar") return "bar";
   const parsed = Number(raw);
   if (Number.isInteger(parsed) && parsed >= 1 && parsed <= POINT_COUNT) return parsed;
-  return dragSource;
+  return dragSource ?? selectedSource;
 }
 
 function attemptMove(source, target) {
@@ -510,8 +509,9 @@ function executeMove(move) {
     remainingDice = [];
     availableMoves= [];
     turnUndoSnapshot = null;
-    setStatus(`🏆 ${playerText(currentPlayer)} kazandı!`);
-    addLog(`${playerText(currentPlayer)} kazandı.`);
+    setStatus(`${playerText(currentPlayer)} kazandi!`);
+    addLog(`${playerText(currentPlayer)} kazandi.`);
+    showWinnerPopup(currentPlayer);
     render();
     return;
   }
@@ -641,7 +641,7 @@ function renderDice() {
     const chip = document.createElement("span");
     chip.className = "die-chip";
     chip.classList.add(colorClass);
-    chip.textContent = String(val);
+    chip.appendChild(createDiePips(val, "small"));
 
     // Simple used check: count how many of this value remain
     const remaining = remainingDice.filter(d => d === val).length;
@@ -808,7 +808,7 @@ function showCenterDice(d1, d2, player) {
     const die = document.createElement("div");
     die.className = `center-die ${toneClass} rolling`;
     die.style.animationDelay = `${i * 80}ms`;
-    die.textContent = String(val);
+    die.appendChild(createDiePips(val, "large"));
     wrap.appendChild(die);
   });
 
@@ -817,11 +817,45 @@ function showCenterDice(d1, d2, player) {
 
   window.setTimeout(() => {
     wrap.querySelectorAll(".center-die").forEach(d => d.classList.remove("rolling"));
-  }, 600);
+  }, 940);
 
   window.setTimeout(() => {
     dom.centerDiceStage.classList.remove("show", "white-turn", "black-turn");
-  }, 1700);
+  }, 2600);
+}
+
+function createDiePips(value, size = "small") {
+  const face = document.createElement("span");
+  face.className = `die-pips ${size}`;
+
+  const pipMap = {
+    1: ["c"],
+    2: ["tl", "br"],
+    3: ["tl", "c", "br"],
+    4: ["tl", "tr", "bl", "br"],
+    5: ["tl", "tr", "c", "bl", "br"],
+    6: ["tl", "tr", "ml", "mr", "bl", "br"],
+  };
+
+  const positions = pipMap[value] || pipMap[1];
+  positions.forEach((pos) => {
+    const pip = document.createElement("span");
+    pip.className = `pip ${pos}`;
+    face.appendChild(pip);
+  });
+
+  return face;
+}
+
+function showWinnerPopup(player) {
+  if (!dom.winnerModal || !dom.winnerText) return;
+  dom.winnerText.textContent = `${playerText(player)} oyuncusu oyunu kazandi. Tebrikler!`;
+  dom.winnerModal.removeAttribute("hidden");
+}
+
+function hideWinnerPopup() {
+  if (!dom.winnerModal) return;
+  dom.winnerModal.setAttribute("hidden", "");
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -964,6 +998,15 @@ function getOptimalMoves(state, player, dice) {
   const all = getAllMoves(state, player, dice);
   if (!all.length) return [];
 
+  // If only one checker remains and it can bear off, allow immediate win move.
+  if (countCheckersInPlay(state, player) === 1) {
+    const offMoves = all.filter((m) => m.to === "off");
+    if (offMoves.length) {
+      const bestDie = Math.max(...offMoves.map((m) => m.die));
+      return uniqueMoves(offMoves.filter((m) => m.die === bestDie));
+    }
+  }
+
   const memo = new Map();
   const maxD = maxMoves(state, player, dice, memo);
   let opt = [];
@@ -1065,6 +1108,15 @@ function allInHome(state, player) {
     }
   }
   return true;
+}
+
+function countCheckersInPlay(state, player) {
+  let total = state.bar[player];
+  for (let pt = 1; pt <= POINT_COUNT; pt++) {
+    const ps = state.points[pt - 1];
+    if (ps.owner === player) total += ps.count;
+  }
+  return total;
 }
 
 function isHomePoint(player, pt) {
