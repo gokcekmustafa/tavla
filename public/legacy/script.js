@@ -1041,12 +1041,13 @@ function showCenterDice(d1, d2, player) {
   dom.centerDiceStage.innerHTML = "";
   const wrap = document.createElement("div");
   const toneClass = player === WHITE ? "dice-white" : "dice-black";
+  const values = [d1, d2];
   wrap.className = `center-dice-wrap ${toneClass}`;
 
   dom.centerDiceStage.classList.remove("white-turn", "black-turn");
   dom.centerDiceStage.classList.add(player === WHITE ? "white-turn" : "black-turn");
 
-  [d1, d2].forEach((val, i) => {
+  values.forEach((val, i) => {
     const die = createCenterDie3D(val, toneClass, i);
     wrap.appendChild(die);
   });
@@ -1055,14 +1056,32 @@ function showCenterDice(d1, d2, player) {
   dom.centerDiceStage.classList.add("show");
 
   window.setTimeout(() => {
-    wrap.querySelectorAll(".die-cube").forEach((d) => d.classList.remove("rolling"));
-  }, 1280);
+    settleCenterDice(wrap, values, toneClass);
+  }, 1460);
 }
 
 function clearCenterDiceStage() {
   if (!dom.centerDiceStage) return;
   dom.centerDiceStage.innerHTML = "";
   dom.centerDiceStage.classList.remove("show", "white-turn", "black-turn");
+}
+
+function settleCenterDice(wrap, values, toneClass) {
+  if (!wrap?.isConnected) return;
+  const dice = [...wrap.querySelectorAll(".center-die")];
+  dice.forEach((dieEl, idx) => {
+    const value = values[idx] || values[0] || 1;
+    dieEl.classList.add("settled");
+    dieEl.innerHTML = "";
+    dieEl.appendChild(createCenterDieFlat(value, toneClass));
+  });
+}
+
+function createCenterDieFlat(value, toneClass) {
+  const face = document.createElement("span");
+  face.className = `center-die-flat ${toneClass}`;
+  face.appendChild(createDiePips(value, "settled"));
+  return face;
 }
 
 function createCenterDie3D(value, toneClass, index) {

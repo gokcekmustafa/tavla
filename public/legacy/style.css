@@ -191,6 +191,12 @@ body {
   height: 8px;
 }
 
+.die-pips.settled .pip {
+  width: 9px;
+  height: 9px;
+  box-shadow: 0 0 0 0.6px rgba(0,0,0,0.24);
+}
+
 .die-pips .pip.tl { grid-column: 1; grid-row: 1; }
 .die-pips .pip.tr { grid-column: 3; grid-row: 1; }
 .die-pips .pip.ml { grid-column: 1; grid-row: 2; }
@@ -874,6 +880,11 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   perspective: 900px;
 }
 
+.center-die.settled {
+  transform-style: flat;
+  perspective: none;
+}
+
 .die-cube {
   width: 100%;
   height: 100%;
@@ -886,6 +897,34 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 .die-cube.rolling {
   animation: die-cube-roll 1.3s cubic-bezier(0.22, 0.61, 0.36, 1) both;
   animation-delay: var(--delay, 0ms);
+}
+
+.center-die-flat {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  border: 2px solid #b8ac99;
+  display: grid;
+  place-items: center;
+  box-shadow:
+    0 6px 14px rgba(0,0,0,0.38),
+    inset 0 1px 0 rgba(255,255,255,0.88);
+  animation: die-settle-pop 180ms ease-out;
+}
+
+.center-die-flat.dice-white {
+  background: linear-gradient(160deg, #fffdf8 0%, #f1e4d0 58%, #ccb79b 100%);
+  border-color: #baab95;
+  color: #1f1006;
+}
+
+.center-die-flat.dice-black {
+  background: linear-gradient(160deg, #3f3932 0%, #1d1a17 58%, #0d0b0a 100%);
+  border-color: #625340;
+  color: #f2dfc3;
+  box-shadow:
+    0 6px 14px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.16);
 }
 
 .die-face {
@@ -943,6 +982,11 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     transform: var(--final-rot, rotateX(-18deg) rotateY(24deg) rotateZ(0deg));
     opacity: 1;
   }
+}
+
+@keyframes die-settle-pop {
+  0%   { transform: scale(0.86); opacity: 0.3; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 /* ── Activity ────────────────────────────────────── */
@@ -1067,6 +1111,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   .die-pips.large .pip { width: 6px; height: 6px; }
   .die-pips.cube .pip { width: 5px; height: 5px; }
   .die-cube:not(.rolling) .die-pips.cube .pip { width: 6px; height: 6px; }
+  .die-pips.settled .pip { width: 7px; height: 7px; }
   .floating-roll-btn {
     top: auto;
     bottom: 12px;
