@@ -194,9 +194,12 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 }
 
 .floating-roll-btn {
-  position: sticky;
-  bottom: 18px;
-  left: calc(100% - 160px);
+  position: fixed;
+  right: clamp(10px, 1.8vw, 22px);
+  top: 50%;
+  left: auto;
+  bottom: auto;
+  transform: translateY(-50%);
   z-index: 300;
   padding: 11px 22px;
   font-size: 0.85rem;
@@ -205,14 +208,16 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   color: #1a0c04;
   box-shadow: 0 6px 24px rgba(200,144,42,0.5);
   display: block;
-  margin-left: auto;
-  margin-right: 18px;
-  margin-top: 12px;
+  margin: 0;
   width: fit-content;
 }
 
 .floating-roll-btn:not(:disabled) {
   animation: btn-pulse 2.2s ease-in-out infinite;
+}
+
+.floating-roll-btn:hover:not(:disabled) {
+  transform: translateY(-50%) scale(1.02);
 }
 
 @keyframes btn-pulse {
@@ -277,7 +282,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   border-radius: var(--r);
   padding: 4px;
   position: relative;
-  min-height: 320px;
+  min-height: clamp(520px, 72vh, 820px);
 }
 
 /* ── Point ───────────────────────────────────────── */
@@ -667,4 +672,15 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   .checker { width: 16px; height: 16px; }
   .checker::after { display: none; }
   .bar-chip { width: 16px; height: 16px; }
+  .floating-roll-btn {
+    top: auto;
+    bottom: 12px;
+    right: 10px;
+    transform: none;
+    padding: 9px 14px;
+  }
+
+  .floating-roll-btn:hover:not(:disabled) {
+    transform: scale(1.02);
+  }
 }
