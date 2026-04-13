@@ -2,8 +2,10 @@ const WHITE = "white";
 const BLACK = "black";
 const POINT_COUNT = 24;
 const CHECKERS_PER_PLAYER = 15;
-const BOT_DELAY_MS = 550;
+const BOT_DELAY_MS = 900;
+const BOT_MOVE_DELAY_MS = 700;
 const LOG_LIMIT = 140;
+const ANIMATION_DURATION_MS = 420;
 
 const dom = {
   boardGrid: document.getElementById("board-grid"),
@@ -32,7 +34,7 @@ let hasRolled = false;
 let selectedSource = null;
 let availableMoves = [];
 let winner = null;
-let statusMessage = "Beyaz basliyor. Zar atarak oyunu baslat.";
+let statusMessage = "Beyaz başlıyor. Zar atarak oyunu başlat.";
 let gameMode = window.__BOOT_MODE__ === "bot" ? "bot" : "local";
 let moveLog = [];
 let pendingBotTimer = null;
@@ -40,13 +42,16 @@ let turnUndoSnapshot = null;
 let movesMadeThisTurn = 0;
 let dragSource = null;
 let lastRolledDice = [];
+let isAnimating = false;
 
 const botPlayer = BLACK;
 
 buildBoard();
 attachEvents();
-addLog(gameMode === "bot" ? "Bilgisayara karsi modda yeni oyun hazir." : "Yeni oyun hazir.");
+addLog(gameMode === "bot" ? "Bilgisayara karşı modda yeni oyun hazır." : "Yeni oyun hazır.");
 render();
+
+// ─── State ────────────────────────────────────────────────────────────────────
 
 function createInitialState() {
   const state = {
@@ -54,17 +59,14 @@ function createInitialState() {
     bar: { [WHITE]: 0, [BLACK]: 0 },
     borneOff: { [WHITE]: 0, [BLACK]: 0 },
   };
-
   addCheckers(state, 24, WHITE, 2);
   addCheckers(state, 13, WHITE, 5);
   addCheckers(state, 8, WHITE, 3);
   addCheckers(state, 6, WHITE, 5);
-
   addCheckers(state, 1, BLACK, 2);
   addCheckers(state, 12, BLACK, 5);
   addCheckers(state, 17, BLACK, 3);
   addCheckers(state, 19, BLACK, 5);
-
   return state;
 }
 
@@ -73,6 +75,8 @@ function addCheckers(state, point, player, amount) {
   target.owner = player;
   target.count += amount;
 }
+
+// ─── Board Build ──────────────────────────────────────────────────────────────
 
 function buildBoard() {
   dom.boardGrid.innerHTML = "";
@@ -112,7 +116,7 @@ function createBarSlot(player, title) {
   const count = document.createElement("p");
   count.className = "bar-count";
   count.id = `bar-${player}-count`;
-  count.textContent = "0 tas";
+  count.textContent = "0 taş";
 
   const stack = document.createElement("div");
   stack.className = "bar-stack";
@@ -120,15 +124,12 @@ function createBarSlot(player, title) {
 
   slot.append(label, count, stack);
   barSlotElements.set(player, slot);
-
   return slot;
 }
 
 function renderRow(rowConfig, side, gridRow) {
   rowConfig.forEach((point, index) => {
-    if (!point) {
-      return;
-    }
+    if (!point) return;
 
     const pointEl = document.createElement("button");
     pointEl.type = "button";
@@ -140,6 +141,9 @@ function renderRow(rowConfig, side, gridRow) {
     pointEl.addEventListener("dragover", onDragOverTarget);
     pointEl.addEventListener("drop", onDropOnPoint);
 
+    const triangle = document.createElement("div");
+    triangle.className = "point-triangle";
+
     const label = document.createElement("p");
     label.className = "point-label";
     label.textContent = String(point);
@@ -148,11 +152,13 @@ function renderRow(rowConfig, side, gridRow) {
     stack.className = "checker-stack";
     stack.id = `stack-${point}`;
 
-    pointEl.append(label, stack);
+    pointEl.append(triangle, label, stack);
     dom.boardGrid.appendChild(pointEl);
     pointElements.set(point, pointEl);
   });
 }
+
+// ─── Events ───────────────────────────────────────────────────────────────────
 
 function attachEvents() {
   dom.rollBtn.addEventListener("click", onRollDice);
@@ -169,7 +175,6 @@ function attachEvents() {
 
 function onNewGame() {
   clearPendingBotTimer();
-
   gameState = createInitialState();
   currentPlayer = WHITE;
   remainingDice = [];
@@ -182,67 +187,56 @@ function onNewGame() {
   movesMadeThisTurn = 0;
   dragSource = null;
   lastRolledDice = [];
-
-  setStatus("Yeni oyun basladi. Beyaz zar atsin.");
-  addLog("Yeni oyun basladi.");
+  isAnimating = false;
+  setStatus("Yeni oyun başladı. Beyaz zar atsın.");
+  addLog("Yeni oyun başladı.");
   render();
 }
 
 function onModeChange() {
   const nextMode = dom.modeSelect.value === "bot" ? "bot" : "local";
-  if (nextMode === gameMode) {
-    return;
-  }
-
+  if (nextMode === gameMode) return;
   gameMode = nextMode;
   clearPendingBotTimer();
   turnUndoSnapshot = null;
   movesMadeThisTurn = 0;
   dragSource = null;
-
   if (gameMode === "bot") {
-    setStatus("Bilgisayara karsi mod aktif. Siyah bot oynar.");
-    addLog("Mod degisti: Bilgisayara karsi.");
+    setStatus("Bilgisayara karşı mod aktif. Siyah bot oynar.");
+    addLog("Mod değişti: Bilgisayara karşı.");
   } else {
-    setStatus("Iki oyunculu local mod aktif.");
-    addLog("Mod degisti: Iki oyuncu.");
+    setStatus("İki oyunculu local mod aktif.");
+    addLog("Mod değişti: İki oyuncu.");
   }
-
   render();
   maybeScheduleBotAction();
 }
 
 function onUndoMove() {
   if (!canUndoCurrentTurn()) {
-    setStatus("Geri alma yalnizca ikinci hamle yapilmadan kullanilir.");
+    setStatus("Geri alma yalnızca ilk hamleden sonra kullanılabilir.");
     render();
     return;
   }
-
   clearPendingBotTimer();
   restoreSnapshot(turnUndoSnapshot);
   movesMadeThisTurn = 0;
   dragSource = null;
-  setStatus("Ilk hamle geri alindi. Turuna devam edebilirsin.");
+  setStatus("İlk hamle geri alındı. Turuna devam edebilirsin.");
   render();
   maybeScheduleBotAction();
 }
 
 function onRollDice(arg) {
   const invokedByBot = Boolean(arg && arg.fromBot);
-
-  if (winner) {
-    return;
-  }
-
+  if (winner) return;
   if (isBotTurn() && !invokedByBot) {
-    setStatus("Sira bilgisayarda. Biraz bekle.");
+    setStatus("Sıra bilgisayarda. Biraz bekle.");
     render();
     return;
   }
-
   if (hasRolled) {
-    setStatus("Bu tur zar zaten atildi. Hamle yapmaya devam et.");
+    setStatus("Bu tur zar zaten atıldı. Hamle yapmaya devam et.");
     render();
     return;
   }
@@ -257,61 +251,55 @@ function onRollDice(arg) {
   availableMoves = getOptimalMoves(gameState, currentPlayer, remainingDice);
   showCenterDiceRoll(first, second);
 
-  const rolledText = first === second ? `${first}-${second} (cift)` : `${first}-${second}`;
-  addLog(`${playerText(currentPlayer)} zar atti: ${rolledText}.`);
+  const rolledText = first === second ? `${first}-${second} (çift)` : `${first}-${second}`;
+  addLog(`${playerText(currentPlayer)} zar attı: ${rolledText}.`);
 
   if (!availableMoves.length) {
-    setStatus(`${playerText(currentPlayer)} hamle yapamadi. Sira rakibe gecti.`);
-    addLog(`${playerText(currentPlayer)} hamle yapamadi.`);
+    setStatus(`${playerText(currentPlayer)} hamle yapamadı. Sıra rakibe geçti.`);
+    addLog(`${playerText(currentPlayer)} hamle yapamadı.`);
     turnUndoSnapshot = null;
-    finishTurn();
+    window.setTimeout(finishTurn, 1200);
     return;
   }
 
   turnUndoSnapshot = captureSnapshot();
-  setStatus(`${playerText(currentPlayer)} icin hamle sec. Kaynak tasi tikla.`);
+  setStatus(`${playerText(currentPlayer)} için hamle seç. Kaynak taşı tıkla.`);
   render();
   maybeScheduleBotAction();
 }
 
 function onPointClick(event) {
+  if (isAnimating) return;
   const point = Number(event.currentTarget.dataset.point);
   handleSourceOrDestination(point);
 }
 
 function onBarSlotClick(event) {
+  if (isAnimating) return;
   const player = event.currentTarget.dataset.player;
-  if (player !== currentPlayer) {
-    return;
-  }
+  if (player !== currentPlayer) return;
   handleSourceOrDestination("bar");
 }
 
 function onOffAreaClick(event) {
-  if (isBotTurn()) {
-    setStatus("Sira bilgisayarda.");
+  if (isAnimating || isBotTurn()) {
+    setStatus("Sıra bilgisayarda.");
     render();
     return;
   }
-
   const targetPlayer = event.currentTarget.dataset.off;
-  if (targetPlayer !== currentPlayer || selectedSource === null) {
-    return;
-  }
-
+  if (targetPlayer !== currentPlayer || selectedSource === null) return;
   const move = pickPreferredMove(
-    availableMoves.filter((candidate) => candidate.from === selectedSource && candidate.to === "off"),
+    availableMoves.filter((c) => c.from === selectedSource && c.to === "off"),
   );
-
-  if (!move) {
-    return;
-  }
-
+  if (!move) return;
   playMove(move);
 }
 
+// ─── Drag & Drop ──────────────────────────────────────────────────────────────
+
 function onDragStartFromChecker(event) {
-  if (isBotTurn() || !hasRolled) {
+  if (isBotTurn() || !hasRolled || isAnimating) {
     event.preventDefault();
     return;
   }
@@ -325,7 +313,7 @@ function onDragStartFromChecker(event) {
 
 function onDragStartFromBar(event) {
   const player = event.currentTarget.dataset.player;
-  if (player !== currentPlayer || isBotTurn() || !hasRolled) {
+  if (player !== currentPlayer || isBotTurn() || !hasRolled || isAnimating) {
     event.preventDefault();
     return;
   }
@@ -338,82 +326,64 @@ function onDragStartFromBar(event) {
 
 function onDragEnd() {
   dragSource = null;
+  render();
 }
 
 function onDragOverTarget(event) {
-  if (!hasRolled || winner || isBotTurn() || dragSource === null) {
-    return;
-  }
+  if (!hasRolled || winner || isBotTurn() || dragSource === null || isAnimating) return;
   event.preventDefault();
   event.dataTransfer.dropEffect = "move";
 }
 
 function onDropOnPoint(event) {
   event.preventDefault();
-  if (dragSource === null) {
-    return;
-  }
+  if (dragSource === null) return;
   const targetPoint = Number(event.currentTarget.dataset.point);
   attemptMoveFromSourceToTarget(dragSource, targetPoint);
+  dragSource = null;
 }
 
 function onDropOnBar(event) {
   event.preventDefault();
-  const targetPlayer = event.currentTarget.dataset.player;
-  if (targetPlayer !== currentPlayer || dragSource === null) {
-    return;
-  }
-  if (dragSource === "bar") {
-    return;
-  }
-  setStatus("Bar hedef nokta degil.");
-  render();
+  dragSource = null;
 }
 
 function onDropOnOffArea(event) {
   event.preventDefault();
   const targetPlayer = event.currentTarget.dataset.off;
-  if (targetPlayer !== currentPlayer || dragSource === null) {
-    return;
-  }
+  if (targetPlayer !== currentPlayer || dragSource === null) return;
   attemptMoveFromSourceToTarget(dragSource, "off");
+  dragSource = null;
 }
 
 function attemptMoveFromSourceToTarget(source, target) {
-  if (winner || isBotTurn() || !hasRolled) {
+  if (winner || isBotTurn() || !hasRolled || isAnimating) {
     dragSource = null;
     return;
   }
-
   const matchingMoves = availableMoves.filter(
-    (candidate) => candidate.from === source && candidate.to === target,
+    (c) => c.from === source && c.to === target,
   );
-
   if (matchingMoves.length) {
     playMove(pickPreferredMove(matchingMoves));
     return;
   }
-
   if (getSelectableSources().has(source)) {
     selectedSource = source;
   }
-  setStatus("Bu hamle gecersiz.");
+  setStatus("Bu hamle geçersiz.");
   render();
 }
 
 function handleSourceOrDestination(target) {
-  if (winner) {
-    return;
-  }
-
+  if (winner || isAnimating) return;
   if (isBotTurn()) {
-    setStatus("Sira bilgisayarda. Hamle bekleniyor.");
+    setStatus("Sıra bilgisayarda. Hamle bekleniyor.");
     render();
     return;
   }
-
   if (!hasRolled) {
-    setStatus("Once zar atman gerekiyor.");
+    setStatus("Önce zar atman gerekiyor.");
     render();
     return;
   }
@@ -422,7 +392,7 @@ function handleSourceOrDestination(target) {
 
   if (selectedSource === null) {
     if (!selectableSources.has(target)) {
-      setStatus("Bu tas icin gecerli hamle yok.");
+      setStatus("Bu taş için geçerli hamle yok.");
       render();
       return;
     }
@@ -438,7 +408,7 @@ function handleSourceOrDestination(target) {
   }
 
   const matchingMoves = availableMoves.filter(
-    (candidate) => candidate.from === selectedSource && candidate.to === target,
+    (c) => c.from === selectedSource && c.to === target,
   );
 
   if (matchingMoves.length) {
@@ -452,15 +422,85 @@ function handleSourceOrDestination(target) {
     return;
   }
 
-  setStatus("Secili tas bu hedefe gidemiyor.");
+  setStatus("Seçili taş bu hedefe gidemiyor.");
   render();
 }
 
-function playMove(move) {
-  if (!move) {
+// ─── Move Animation ───────────────────────────────────────────────────────────
+
+function animateCheckerMove(fromPoint, toPoint, player, callback) {
+  const fromEl = fromPoint === "bar"
+    ? document.getElementById(`bar-${player}-stack`)
+    : document.getElementById(`stack-${fromPoint}`);
+  const toEl = toPoint === "off"
+    ? (player === WHITE ? dom.offWhite : dom.offBlack)
+    : document.getElementById(`stack-${toPoint}`);
+
+  if (!fromEl || !toEl) {
+    callback();
     return;
   }
 
+  const fromRect = fromEl.getBoundingClientRect();
+  const toRect = toEl.getBoundingClientRect();
+
+  const ghost = document.createElement("span");
+  ghost.className = `checker ${player} checker-ghost`;
+  ghost.style.cssText = `
+    position: fixed;
+    left: ${fromRect.left + fromRect.width / 2 - 18}px;
+    top: ${fromRect.top + fromRect.height / 2 - 18}px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    transition: left ${ANIMATION_DURATION_MS}ms cubic-bezier(0.4,0,0.2,1),
+                top ${ANIMATION_DURATION_MS}ms cubic-bezier(0.4,0,0.2,1),
+                transform ${ANIMATION_DURATION_MS}ms ease;
+    transform: scale(1.15);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+  `;
+  document.body.appendChild(ghost);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      ghost.style.left = `${toRect.left + toRect.width / 2 - 18}px`;
+      ghost.style.top = `${toRect.top + toRect.height / 2 - 18}px`;
+      ghost.style.transform = "scale(1)";
+    });
+  });
+
+  window.setTimeout(() => {
+    ghost.remove();
+    callback();
+  }, ANIMATION_DURATION_MS + 30);
+}
+
+// ─── Play Move ────────────────────────────────────────────────────────────────
+
+function playMove(move, skipAnimation) {
+  if (!move) return;
+
+  const fromPoint = move.from;
+  const toPoint = move.to;
+  const player = currentPlayer;
+
+  if (skipAnimation) {
+    executeMove(move);
+    return;
+  }
+
+  isAnimating = true;
+  render();
+
+  animateCheckerMove(fromPoint, toPoint, player, () => {
+    isAnimating = false;
+    executeMove(move);
+  });
+}
+
+function executeMove(move) {
   const hit = move.to !== "off" && isHitMove(gameState, currentPlayer, move);
   gameState = applyMove(gameState, currentPlayer, move);
   remainingDice = removeOneDie(remainingDice, move.die);
@@ -476,14 +516,14 @@ function playMove(move) {
     remainingDice = [];
     availableMoves = [];
     turnUndoSnapshot = null;
-    setStatus(`${playerText(currentPlayer)} oyunu kazandi. Tebrikler.`);
-    addLog(`${playerText(currentPlayer)} oyunu kazandi.`);
+    setStatus(`🏆 ${playerText(currentPlayer)} oyunu kazandı! Tebrikler.`);
+    addLog(`${playerText(currentPlayer)} oyunu kazandı.`);
     render();
     return;
   }
 
   if (!remainingDice.length) {
-    setStatus(`${playerText(currentPlayer)} turunu tamamladi.`);
+    setStatus(`${playerText(currentPlayer)} turunu tamamladı.`);
     finishTurn();
     return;
   }
@@ -491,8 +531,8 @@ function playMove(move) {
   availableMoves = getOptimalMoves(gameState, currentPlayer, remainingDice);
 
   if (!availableMoves.length) {
-    setStatus("Kalan zarlarla gecerli hamle yok. Sira rakibe gecti.");
-    addLog(`${playerText(currentPlayer)} kalan zarlarla hamle yapamadi.`);
+    setStatus("Kalan zarlarla geçerli hamle yok. Sıra rakibe geçti.");
+    addLog(`${playerText(currentPlayer)} kalan zarlarla hamle yapamadı.`);
     finishTurn();
     return;
   }
@@ -516,12 +556,11 @@ function finishTurn() {
   maybeScheduleBotAction();
 }
 
+// ─── Bot ──────────────────────────────────────────────────────────────────────
+
 function maybeScheduleBotAction() {
   clearPendingBotTimer();
-  if (!isBotTurn()) {
-    return;
-  }
-
+  if (!isBotTurn()) return;
   pendingBotTimer = window.setTimeout(() => {
     pendingBotTimer = null;
     runBotAction();
@@ -529,9 +568,7 @@ function maybeScheduleBotAction() {
 }
 
 function runBotAction() {
-  if (!isBotTurn() || winner) {
-    return;
-  }
+  if (!isBotTurn() || winner) return;
 
   if (!hasRolled) {
     onRollDice({ fromBot: true });
@@ -539,23 +576,31 @@ function runBotAction() {
   }
 
   if (!availableMoves.length) {
-    setStatus("Bot hamle bulamadi. Tur bitti.");
-    addLog("Bot hamle bulamadi.");
+    setStatus("Bot hamle bulamadı. Tur bitti.");
+    addLog("Bot hamle bulamadı.");
     finishTurn();
     return;
   }
 
   const chosenMove = chooseBotMove(gameState, botPlayer, availableMoves);
-  playMove(chosenMove);
+
+  // Bot hamlesi animasyonlu ve görünür şekilde oynanır
+  isAnimating = true;
+  render();
+
+  animateCheckerMove(chosenMove.from, chosenMove.to, botPlayer, () => {
+    isAnimating = false;
+    executeMove(chosenMove);
+  });
 }
 
 function clearPendingBotTimer() {
-  if (pendingBotTimer === null) {
-    return;
-  }
+  if (pendingBotTimer === null) return;
   clearTimeout(pendingBotTimer);
   pendingBotTimer = null;
 }
+
+// ─── Render ───────────────────────────────────────────────────────────────────
 
 function render() {
   renderTurnInfo();
@@ -570,7 +615,7 @@ function renderTurnInfo() {
   const turnLabel = isBotTurn() ? `${playerText(currentPlayer)} (Bot)` : playerText(currentPlayer);
   dom.currentPlayer.textContent = turnLabel;
   dom.currentPlayer.classList.toggle("winner", Boolean(winner));
-  dom.rollBtn.disabled = hasRolled || Boolean(winner) || isBotTurn();
+  dom.rollBtn.disabled = hasRolled || Boolean(winner) || isBotTurn() || isAnimating;
   dom.undoBtn.disabled = !canUndoCurrentTurn();
   dom.modeSelect.value = gameMode;
 }
@@ -581,21 +626,57 @@ function renderStatus() {
 
 function renderDice() {
   dom.diceContainer.innerHTML = "";
-  if (!lastRolledDice.length) {
-    return;
-  }
+  if (!lastRolledDice.length) return;
 
-  lastRolledDice.forEach((die) => {
+  const isDouble = lastRolledDice.length === 4 || (lastRolledDice.length === 2 && lastRolledDice[0] === lastRolledDice[1]);
+  const displayDice = isDouble ? [lastRolledDice[0], lastRolledDice[0]] : lastRolledDice;
+
+  displayDice.forEach((die, i) => {
     const chip = document.createElement("span");
     chip.className = "die-chip";
-    chip.textContent = String(die);
+    chip.dataset.value = String(die);
+
+    // Dot-based dice face
+    const dots = getDotPositions(die);
+    dots.forEach(pos => {
+      const dot = document.createElement("span");
+      dot.className = `die-dot dot-${pos}`;
+      chip.appendChild(dot);
+    });
+
+    const usedCount = isDouble
+      ? Math.max(0, 2 - remainingDice.filter(d => d === die).length / 2)
+      : (remainingDice.includes(die) ? 0 : 1);
+    if (!remainingDice.includes(die) || (isDouble && i >= remainingDice.length)) {
+      chip.classList.add("die-used");
+    }
+
     dom.diceContainer.appendChild(chip);
   });
+
+  if (isDouble) {
+    const badge = document.createElement("span");
+    badge.className = "double-badge";
+    badge.textContent = `×${remainingDice.length}`;
+    dom.diceContainer.appendChild(badge);
+  }
+}
+
+function getDotPositions(value) {
+  const positions = {
+    1: ["center"],
+    2: ["top-right", "bottom-left"],
+    3: ["top-right", "center", "bottom-left"],
+    4: ["top-left", "top-right", "bottom-left", "bottom-right"],
+    5: ["top-left", "top-right", "center", "bottom-left", "bottom-right"],
+    6: ["top-left", "top-right", "mid-left", "mid-right", "bottom-left", "bottom-right"],
+  };
+  return positions[value] || [];
 }
 
 function renderBoardState() {
   const selectableSources = getSelectableSources();
-  const dragAllowed = hasRolled && !winner && !isBotTurn();
+  const dragAllowed = hasRolled && !winner && !isBotTurn() && !isAnimating;
 
   for (let point = 1; point <= POINT_COUNT; point += 1) {
     const pointState = gameState.points[point - 1];
@@ -612,12 +693,9 @@ function renderBoardState() {
     for (let i = 0; i < displayCount; i += 1) {
       const checker = document.createElement("span");
       checker.className = `checker ${pointState.owner}`;
-      const canDragFromThisPoint =
-        dragAllowed &&
-        selectableSources.has(point) &&
-        pointState.owner === currentPlayer;
-      checker.draggable = canDragFromThisPoint;
-      if (canDragFromThisPoint) {
+      const canDrag = dragAllowed && selectableSources.has(point) && pointState.owner === currentPlayer;
+      checker.draggable = canDrag;
+      if (canDrag) {
         checker.classList.add("draggable-checker");
         checker.dataset.source = String(point);
         checker.addEventListener("dragstart", onDragStartFromChecker);
@@ -629,26 +707,14 @@ function renderBoardState() {
     if (pointState.count > 5) {
       const badge = document.createElement("span");
       badge.className = "count-badge";
-      badge.textContent = String(pointState.count);
+      badge.textContent = `+${pointState.count - 5}`;
       stack.appendChild(badge);
     }
 
     pointEl.classList.toggle("blocked", pointState.owner !== currentPlayer && pointState.count >= 2);
   }
 
-  for (const [player, slot] of barSlotElements.entries()) {
-    const active = player === currentPlayer;
-    slot.draggable = false;
-    slot.classList.toggle("draggable-source", false);
-    if (!active) {
-      continue;
-    }
-  }
-
-  const canDragFromBar =
-    dragAllowed &&
-    selectableSources.has("bar") &&
-    gameState.bar[currentPlayer] > 0;
+  const canDragFromBar = dragAllowed && selectableSources.has("bar") && gameState.bar[currentPlayer] > 0;
   const currentBarSlot = barSlotElements.get(currentPlayer);
   if (currentBarSlot) {
     currentBarSlot.draggable = canDragFromBar;
@@ -665,10 +731,10 @@ function renderBar(player) {
   const count = gameState.bar[player];
   const countEl = document.getElementById(`bar-${player}-count`);
   const stackEl = document.getElementById(`bar-${player}-stack`);
-  countEl.textContent = `${count} tas`;
+  countEl.textContent = `${count} taş`;
   stackEl.innerHTML = "";
 
-  const displayCount = Math.min(count, 10);
+  const displayCount = Math.min(count, 8);
   for (let i = 0; i < displayCount; i += 1) {
     const chip = document.createElement("span");
     chip.className = `bar-chip ${player}`;
@@ -686,9 +752,7 @@ function renderHighlights() {
   dom.offWhite.classList.remove("highlight-target");
   dom.offBlack.classList.remove("highlight-target");
 
-  if (!hasRolled || winner || isBotTurn()) {
-    return;
-  }
+  if (!hasRolled || winner || isBotTurn() || isAnimating) return;
 
   const selectableSources = getSelectableSources();
   for (const source of selectableSources) {
@@ -699,9 +763,7 @@ function renderHighlights() {
     }
   }
 
-  if (selectedSource === null) {
-    return;
-  }
+  if (selectedSource === null) return;
 
   if (selectedSource === "bar") {
     barSlotElements.get(currentPlayer)?.classList.add("selected-source");
@@ -710,16 +772,13 @@ function renderHighlights() {
   }
 
   const targets = new Set(
-    availableMoves.filter((move) => move.from === selectedSource).map((move) => move.to),
+    availableMoves.filter((m) => m.from === selectedSource).map((m) => m.to),
   );
 
   for (const target of targets) {
     if (target === "off") {
-      if (currentPlayer === WHITE) {
-        dom.offWhite.classList.add("highlight-target");
-      } else {
-        dom.offBlack.classList.add("highlight-target");
-      }
+      if (currentPlayer === WHITE) dom.offWhite.classList.add("highlight-target");
+      else dom.offBlack.classList.add("highlight-target");
     } else {
       pointElements.get(target)?.classList.add("highlight-target");
     }
@@ -728,32 +787,67 @@ function renderHighlights() {
 
 function renderMoveLog() {
   dom.moveLog.innerHTML = "";
-
   if (!moveLog.length) {
     const empty = document.createElement("li");
     empty.className = "empty-log";
-    empty.textContent = "Henuz hamle yok.";
+    empty.textContent = "Henüz hamle yok.";
     dom.moveLog.appendChild(empty);
     return;
   }
-
-  moveLog.forEach((entry, index) => {
+  [...moveLog].reverse().forEach((entry, index) => {
     const item = document.createElement("li");
-    item.textContent = `${index + 1}. ${entry}`;
+    item.textContent = `${moveLog.length - index}. ${entry}`;
     dom.moveLog.appendChild(item);
   });
 }
 
+// ─── Dice Roll Center Animation ───────────────────────────────────────────────
+
+function showCenterDiceRoll(first, second) {
+  if (!dom.centerDiceStage) return;
+  dom.centerDiceStage.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = "center-dice-wrap";
+
+  [first, second].forEach((die, i) => {
+    const dieEl = document.createElement("div");
+    dieEl.className = "center-die rolling";
+    dieEl.style.animationDelay = `${i * 60}ms`;
+
+    const dots = getDotPositions(die);
+    dots.forEach(pos => {
+      const dot = document.createElement("span");
+      dot.className = `die-dot dot-${pos}`;
+      dieEl.appendChild(dot);
+    });
+
+    wrap.appendChild(dieEl);
+  });
+
+  dom.centerDiceStage.appendChild(wrap);
+  dom.centerDiceStage.classList.add("show");
+
+  window.setTimeout(() => {
+    wrap.querySelectorAll(".center-die").forEach(d => d.classList.remove("rolling"));
+  }, 600);
+
+  window.setTimeout(() => {
+    dom.centerDiceStage.classList.remove("show");
+  }, 1800);
+}
+
+// ─── Log ──────────────────────────────────────────────────────────────────────
+
 function addLog(text) {
   moveLog.push(text);
-  if (moveLog.length > LOG_LIMIT) {
-    moveLog = moveLog.slice(moveLog.length - LOG_LIMIT);
-  }
+  if (moveLog.length > LOG_LIMIT) moveLog = moveLog.slice(moveLog.length - LOG_LIMIT);
 }
 
 function setStatus(text) {
   statusMessage = text;
 }
+
+// ─── Snapshot ─────────────────────────────────────────────────────────────────
 
 function captureSnapshot() {
   return {
@@ -777,7 +871,8 @@ function canUndoCurrentTurn() {
     hasRolled &&
     !winner &&
     !isBotTurn() &&
-    movesMadeThisTurn === 1,
+    movesMadeThisTurn === 1 &&
+    !isAnimating,
   );
 }
 
@@ -795,36 +890,10 @@ function restoreSnapshot(snapshot) {
   lastRolledDice = [...(snapshot.lastRolledDice || [])];
 }
 
-function showCenterDiceRoll(first, second) {
-  if (!dom.centerDiceStage) {
-    return;
-  }
-
-  dom.centerDiceStage.innerHTML = "";
-  const wrap = document.createElement("div");
-  wrap.className = "center-dice-wrap rolling";
-
-  [first, second].forEach((die) => {
-    const dieEl = document.createElement("div");
-    dieEl.className = "center-die";
-    dieEl.textContent = String(die);
-    wrap.appendChild(dieEl);
-  });
-
-  dom.centerDiceStage.appendChild(wrap);
-  dom.centerDiceStage.classList.add("show");
-
-  window.setTimeout(() => {
-    wrap.classList.remove("rolling");
-  }, 520);
-
-  window.setTimeout(() => {
-    dom.centerDiceStage.classList.remove("show");
-  }, 1400);
-}
+// ─── Game Logic ───────────────────────────────────────────────────────────────
 
 function cloneMoves(moves) {
-  return moves.map((move) => ({ ...move }));
+  return moves.map((m) => ({ ...m }));
 }
 
 function isBotTurn() {
@@ -834,30 +903,27 @@ function isBotTurn() {
 function formatMoveLog(player, move, hit) {
   const fromText = move.from === "bar" ? "bar" : String(move.from);
   const toText = move.to === "off" ? "off" : String(move.to);
-  const hitText = hit ? " x" : "";
-  return `${playerText(player)}: ${fromText} -> ${toText} (${move.die})${hitText}`;
+  const hitText = hit ? " ✕" : "";
+  return `${playerText(player)}: ${fromText}→${toText} (${move.die})${hitText}`;
 }
 
 function isHitMove(state, player, move) {
-  if (move.to === "off") {
-    return false;
-  }
+  if (move.to === "off") return false;
   const target = state.points[move.to - 1];
   return target.owner === opponentOf(player) && target.count === 1;
 }
 
+// ─── Smarter Bot ──────────────────────────────────────────────────────────────
+
 function chooseBotMove(state, player, moves) {
+  // Evaluate each move with look-ahead scoring
   let bestMove = moves[0];
   let bestScore = -Infinity;
 
   for (const move of moves) {
-    const score = scoreBotMove(state, player, move);
-    if (score > bestScore) {
+    const score = scoreBotMoveDeep(state, player, move);
+    if (score > bestScore || (score === bestScore && Math.random() > 0.6)) {
       bestScore = score;
-      bestMove = move;
-      continue;
-    }
-    if (score === bestScore && Math.random() > 0.5) {
       bestMove = move;
     }
   }
@@ -865,71 +931,107 @@ function chooseBotMove(state, player, moves) {
   return bestMove;
 }
 
-function scoreBotMove(state, player, move) {
+function scoreBotMoveDeep(state, player, move) {
   const hit = isHitMove(state, player, move);
   const nextState = applyMove(state, player, move);
+  const opponent = opponentOf(player);
 
-  let score = move.die * 2;
-  score += moveProgress(player, move.from, move.to) * 3;
+  let score = 0;
 
-  if (move.from === "bar") {
-    score += 15;
-  }
-
+  // Priority 1: Bearing off is always best
   if (move.to === "off") {
-    score += 120;
+    score += 200;
+    return score;
   }
 
+  // Priority 2: Must enter from bar
+  if (move.from === "bar") score += 50;
+
+  // Priority 3: Hit opponent blot (exposed checker)
   if (hit) {
-    score += 70;
+    score += 80;
+    // Extra bonus if opponent is close to bearing off
+    const opponentProgress = getPlayerProgress(state, opponent);
+    if (opponentProgress > 0.7) score += 40;
   }
 
+  // Priority 4: Build primes (blocks of 2+)
   if (move.to !== "off") {
-    const destination = nextState.points[move.to - 1];
-    if (destination.owner === player && destination.count >= 2) {
-      score += 24;
-    }
-    if (destination.owner === player && destination.count === 1) {
-      score -= getHitThreatCount(nextState, player, move.to) * 10;
+    const dest = nextState.points[move.to - 1];
+    if (dest.owner === player) {
+      if (dest.count >= 2) score += 30; // Making a point
+      if (dest.count >= 3) score += 10; // Stronger block
+      if (dest.count === 1) {
+        // Don't leave blots in dangerous areas
+        const threats = getHitThreatCount(nextState, player, move.to);
+        score -= threats * 15;
+      }
     }
   }
+
+  // Priority 5: Advance checkers efficiently
+  score += moveProgress(player, move.from, move.to) * 4;
+
+  // Priority 6: Avoid leaving blots near opponent
+  if (move.from !== "bar" && move.to !== "off") {
+    const sourceAfter = nextState.points[move.from - 1];
+    if (sourceAfter.count === 0) {
+      // We cleared the source point — check if it was a blot before
+      // clearing a blot can be good
+      score += 5;
+    }
+  }
+
+  // Priority 7: Positional — prefer building home board
+  if (move.to !== "off" && isHomePoint(player, move.to)) {
+    score += 8;
+  }
+
+  // Priority 8: Use higher dice value
+  score += move.die;
 
   return score;
 }
 
+function getPlayerProgress(state, player) {
+  let totalDistance = 0;
+  const maxDistance = CHECKERS_PER_PLAYER * 24;
+
+  for (let point = 1; point <= POINT_COUNT; point++) {
+    const ps = state.points[point - 1];
+    if (ps.owner === player) {
+      const dist = player === WHITE ? point : 25 - point;
+      totalDistance += ps.count * dist;
+    }
+  }
+  totalDistance += state.bar[player] * 25;
+
+  return 1 - totalDistance / maxDistance;
+}
+
+function scoreBotMove(state, player, move) {
+  return scoreBotMoveDeep(state, player, move);
+}
+
 function moveProgress(player, from, to) {
-  if (to === "off") {
-    return player === WHITE ? from : 25 - from;
-  }
-  if (from === "bar") {
-    return player === WHITE ? 25 - to : to;
-  }
+  if (to === "off") return player === WHITE ? from : 25 - from;
+  if (from === "bar") return player === WHITE ? 25 - to : to;
   return Math.abs(to - from);
 }
 
 function getHitThreatCount(state, player, point) {
   const opponent = opponentOf(player);
   let threats = 0;
-
-  for (let source = 1; source <= POINT_COUNT; source += 1) {
+  for (let source = 1; source <= POINT_COUNT; source++) {
     const sourceState = state.points[source - 1];
-    if (sourceState.owner !== opponent || sourceState.count === 0) {
-      continue;
-    }
-
+    if (sourceState.owner !== opponent || sourceState.count === 0) continue;
     const distance = (point - source) * directionOf(opponent);
-    if (distance >= 1 && distance <= 6) {
-      threats += 1;
-    }
+    if (distance >= 1 && distance <= 6) threats++;
   }
-
   if (state.bar[opponent] > 0) {
     const dieNeeded = dieNeededFromBar(opponent, point);
-    if (dieNeeded >= 1 && dieNeeded <= 6) {
-      threats += 2;
-    }
+    if (dieNeeded >= 1 && dieNeeded <= 6) threats += 2;
   }
-
   return threats;
 }
 
@@ -938,14 +1040,12 @@ function dieNeededFromBar(player, point) {
 }
 
 function getSelectableSources() {
-  return new Set(availableMoves.map((move) => move.from));
+  return new Set(availableMoves.map((m) => m.from));
 }
 
 function getOptimalMoves(state, player, dice) {
   const allMoves = getAllPossibleMoves(state, player, dice);
-  if (!allMoves.length) {
-    return [];
-  }
+  if (!allMoves.length) return [];
 
   const memo = new Map();
   const maxDepth = maxMovesPossible(state, player, dice, memo);
@@ -955,29 +1055,22 @@ function getOptimalMoves(state, player, dice) {
     const nextState = applyMove(state, player, move);
     const nextDice = removeOneDie(dice, move.die);
     const depth = 1 + maxMovesPossible(nextState, player, nextDice, memo);
-    if (depth === maxDepth) {
-      optimalMoves.push(move);
-    }
+    if (depth === maxDepth) optimalMoves.push(move);
   }
 
   const hasDifferentDice = new Set(dice).size > 1;
   if (maxDepth === 1 && dice.length >= 2 && hasDifferentDice) {
-    const highestDie = Math.max(...optimalMoves.map((move) => move.die));
-    optimalMoves = optimalMoves.filter((move) => move.die === highestDie);
+    const highestDie = Math.max(...optimalMoves.map((m) => m.die));
+    optimalMoves = optimalMoves.filter((m) => m.die === highestDie);
   }
 
   return uniqueMoves(optimalMoves);
 }
 
 function maxMovesPossible(state, player, dice, memo) {
-  if (!dice.length) {
-    return 0;
-  }
-
+  if (!dice.length) return 0;
   const key = serializeForMemo(state, player, dice);
-  if (memo.has(key)) {
-    return memo.get(key);
-  }
+  if (memo.has(key)) return memo.get(key);
 
   const moves = getAllPossibleMoves(state, player, dice);
   if (!moves.length) {
@@ -990,9 +1083,7 @@ function maxMovesPossible(state, player, dice, memo) {
     const nextState = applyMove(state, player, move);
     const nextDice = removeOneDie(dice, move.die);
     const score = 1 + maxMovesPossible(nextState, player, nextDice, memo);
-    if (score > best) {
-      best = score;
-    }
+    if (score > best) best = score;
   }
 
   memo.set(key, best);
@@ -1002,9 +1093,7 @@ function maxMovesPossible(state, player, dice, memo) {
 function getAllPossibleMoves(state, player, dice) {
   const uniqueDice = [...new Set(dice)];
   const moves = [];
-  for (const die of uniqueDice) {
-    moves.push(...getMovesByDie(state, player, die));
-  }
+  for (const die of uniqueDice) moves.push(...getMovesByDie(state, player, die));
   return uniqueMoves(moves);
 }
 
@@ -1020,16 +1109,12 @@ function getMovesByDie(state, player, die) {
 
     if (target >= 1 && target <= POINT_COUNT) {
       const pointState = state.points[target - 1];
-      if (pointState.owner === opponent && pointState.count >= 2) {
-        continue;
-      }
+      if (pointState.owner === opponent && pointState.count >= 2) continue;
       moves.push({ from: source, to: target, die });
       continue;
     }
 
-    if (source === "bar") {
-      continue;
-    }
+    if (source === "bar") continue;
 
     if (canBearOff(state, player, source, die)) {
       moves.push({ from: source, to: "off", die });
@@ -1040,75 +1125,51 @@ function getMovesByDie(state, player, die) {
 }
 
 function collectSources(state, player) {
-  if (state.bar[player] > 0) {
-    return ["bar"];
-  }
-
+  if (state.bar[player] > 0) return ["bar"];
   const sources = [];
-  for (let point = 1; point <= POINT_COUNT; point += 1) {
-    const pointState = state.points[point - 1];
-    if (pointState.owner === player && pointState.count > 0) {
-      sources.push(point);
-    }
+  for (let point = 1; point <= POINT_COUNT; point++) {
+    const ps = state.points[point - 1];
+    if (ps.owner === player && ps.count > 0) sources.push(point);
   }
   return sources;
 }
 
 function canBearOff(state, player, sourcePoint, die) {
-  if (state.bar[player] > 0) {
-    return false;
-  }
-  if (!isHomePoint(player, sourcePoint)) {
-    return false;
-  }
-  if (!allCheckersInHome(state, player)) {
-    return false;
-  }
+  if (state.bar[player] > 0) return false;
+  if (!isHomePoint(player, sourcePoint)) return false;
+  if (!allCheckersInHome(state, player)) return false;
 
   const distance = player === WHITE ? sourcePoint : 25 - sourcePoint;
-  if (die === distance) {
-    return true;
-  }
-  if (die < distance) {
-    return false;
-  }
+  if (die === distance) return true;
+  if (die < distance) return false;
 
   if (player === WHITE) {
-    for (let point = sourcePoint + 1; point <= 6; point += 1) {
-      const pointState = state.points[point - 1];
-      if (pointState.owner === WHITE && pointState.count > 0) {
-        return false;
-      }
+    for (let point = sourcePoint + 1; point <= 6; point++) {
+      const ps = state.points[point - 1];
+      if (ps.owner === WHITE && ps.count > 0) return false;
     }
     return true;
   }
 
-  for (let point = 19; point < sourcePoint; point += 1) {
-    const pointState = state.points[point - 1];
-    if (pointState.owner === BLACK && pointState.count > 0) {
-      return false;
-    }
+  for (let point = 19; point < sourcePoint; point++) {
+    const ps = state.points[point - 1];
+    if (ps.owner === BLACK && ps.count > 0) return false;
   }
   return true;
 }
 
 function allCheckersInHome(state, player) {
-  for (let point = 1; point <= POINT_COUNT; point += 1) {
+  for (let point = 1; point <= POINT_COUNT; point++) {
     if (!isHomePoint(player, point)) {
-      const pointState = state.points[point - 1];
-      if (pointState.owner === player && pointState.count > 0) {
-        return false;
-      }
+      const ps = state.points[point - 1];
+      if (ps.owner === player && ps.count > 0) return false;
     }
   }
   return true;
 }
 
 function isHomePoint(player, point) {
-  if (player === WHITE) {
-    return point >= 1 && point <= 6;
-  }
-  return point >= 19 && point <= 24;
+  return player === WHITE ? point >= 1 && point <= 6 : point >= 19 && point <= 24;
 }
 
 function applyMove(state, player, move) {
@@ -1120,9 +1181,7 @@ function applyMove(state, player, move) {
   } else {
     const source = next.points[move.from - 1];
     source.count -= 1;
-    if (source.count === 0) {
-      source.owner = null;
-    }
+    if (source.count === 0) source.owner = null;
   }
 
   if (move.to === "off") {
@@ -1150,16 +1209,14 @@ function applyMove(state, player, move) {
 
 function cloneState(state) {
   return {
-    points: state.points.map((point) => ({ owner: point.owner, count: point.count })),
+    points: state.points.map((p) => ({ owner: p.owner, count: p.count })),
     bar: { [WHITE]: state.bar[WHITE], [BLACK]: state.bar[BLACK] },
     borneOff: { [WHITE]: state.borneOff[WHITE], [BLACK]: state.borneOff[BLACK] },
   };
 }
 
 function pickPreferredMove(moves) {
-  if (!moves.length) {
-    return null;
-  }
+  if (!moves.length) return null;
   return [...moves].sort((a, b) => b.die - a.die)[0];
 }
 
@@ -1168,9 +1225,7 @@ function uniqueMoves(moves) {
   const output = [];
   for (const move of moves) {
     const key = `${move.from}-${move.to}-${move.die}`;
-    if (seen.has(key)) {
-      continue;
-    }
+    if (seen.has(key)) continue;
     seen.add(key);
     output.push(move);
   }
@@ -1178,24 +1233,14 @@ function uniqueMoves(moves) {
 }
 
 function serializeForMemo(state, player, dice) {
-  const points = state.points
-    .map((point) => {
-      if (!point.owner || !point.count) {
-        return "0";
-      }
-      return `${point.owner[0]}${point.count}`;
-    })
-    .join(".");
-
+  const points = state.points.map((p) => (!p.owner || !p.count ? "0" : `${p.owner[0]}${p.count}`)).join(".");
   const sortedDice = [...dice].sort((a, b) => a - b).join("");
   return `${player}|d${sortedDice}|b${state.bar[WHITE]}-${state.bar[BLACK]}|o${state.borneOff[WHITE]}-${state.borneOff[BLACK]}|${points}`;
 }
 
 function removeOneDie(dice, value) {
-  const index = dice.findIndex((die) => die === value);
-  if (index === -1) {
-    return [...dice];
-  }
+  const index = dice.findIndex((d) => d === value);
+  if (index === -1) return [...dice];
   return [...dice.slice(0, index), ...dice.slice(index + 1)];
 }
 
