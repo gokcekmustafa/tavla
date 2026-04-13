@@ -16,7 +16,7 @@
   --muted:     #806858;
   --border:    rgba(200,144,42,0.25);
   --border-hi: rgba(200,144,42,0.7);
-  --checker-size: clamp(20px, 4vw, 32px);
+  --checker-size: clamp(18px, 3.5vw, 32px);
   --r: 10px;
 }
 
@@ -26,6 +26,8 @@ body {
   min-height: 100vh;
   color: var(--cream);
   overflow-x: hidden;
+  /* FIX: overflow-y asla hidden olmamalı — masaüstünde scroll gerekebilir */
+  overflow-y: auto;
 }
 
 .app-shell {
@@ -165,15 +167,8 @@ body {
   opacity: 0.95;
 }
 
-.die-pips.small .pip {
-  width: 6px;
-  height: 6px;
-}
-
-.die-pips.large .pip {
-  width: 8px;
-  height: 8px;
-}
+.die-pips.small .pip { width: 6px; height: 6px; }
+.die-pips.large .pip { width: 8px; height: 8px; }
 
 .die-pips.cube .pip {
   width: 7px;
@@ -259,6 +254,8 @@ button {
   cursor: pointer;
   transition: filter 0.14s, transform 0.12s;
   white-space: nowrap;
+  /* FIX: dokunmatik hedef en az 44px olmalı */
+  min-height: 36px;
 }
 
 button:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
@@ -277,8 +274,10 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   color: var(--cream);
 }
 
+/* FIX: floating-roll-btn — mobilde alt ortaya taşındı, tahtayı kapatmıyor */
 .floating-roll-btn {
   position: fixed;
+  /* Masaüstü: sağ orta */
   right: clamp(10px, 1.8vw, 22px);
   top: 50%;
   left: auto;
@@ -372,6 +371,8 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   cursor: pointer;
   transition: border-color 0.14s, box-shadow 0.14s;
   text-align: center;
+  /* FIX: min-height kaldırıldı, off-stack artık esnek */
+  overflow: hidden;
 }
 
 .off-title {
@@ -392,7 +393,9 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 .off-stack {
   margin-top: auto;
   width: 46px;
-  min-height: 166px;
+  /* FIX: sabit min-height yerine esnek — taşmayı önler */
+  flex: 1;
+  min-height: 0;
   position: relative;
   padding-bottom: 8px;
   perspective: 700px;
@@ -500,7 +503,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   border-radius: var(--r);
   padding: 4px;
   position: relative;
-  min-height: clamp(520px, 72vh, 820px);
+  min-height: clamp(480px, 72vh, 820px);
 }
 
 /* ── Point ───────────────────────────────────────── */
@@ -517,23 +520,13 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   overflow: visible;
   transition: outline 0.1s;
   min-width: 0;
-
-  /* FIX: her point tam yüksekliği almalı */
   height: 100%;
   min-height: 0;
 }
 
-/* TOP points: pullar üstten aşağı istiflenir */
-.point.top {
-  justify-content: flex-start;
-}
+.point.top    { justify-content: flex-start; }
+.point.bottom { justify-content: flex-end; }
 
-/* BOTTOM points: pullar alttan yukarı istiflenir */
-.point.bottom {
-  justify-content: flex-end;
-}
-
-/* Triangle using ::before */
 .point::before {
   content: '';
   position: absolute;
@@ -547,7 +540,6 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 .point.top::before    { top: 0;    clip-path: polygon(50% 100%, 0% 0%, 100% 0%); }
 .point.bottom::before { bottom: 0; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
 
-/* Red triangles */
 .point[data-point="1"]::before,
 .point[data-point="3"]::before,
 .point[data-point="5"]::before,
@@ -561,7 +553,6 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 .point[data-point="21"]::before,
 .point[data-point="23"]::before { background: var(--tri-red); }
 
-/* Ivory triangles */
 .point[data-point="2"]::before,
 .point[data-point="4"]::before,
 .point[data-point="6"]::before,
@@ -589,7 +580,6 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 .point.top    .point-label { bottom: 1px; }
 .point.bottom .point-label { top: 1px; }
 
-/* Highlights */
 .selectable-source {
   outline: 2px solid rgba(232,184,74,0.6) !important;
   outline-offset: 1px;
@@ -610,7 +600,6 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ── Checker stack ───────────────────────────────── */
 .checker-stack {
-  /* FIX: stack kendi içinde flex kolonuna göre dizer */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -618,24 +607,12 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   position: relative;
   z-index: 2;
   width: 100%;
-
-  /* FIX: stack'in yüksekliği point'i tamamen doldurmalı
-     böylece top/bottom justify-content çalışır */
   flex: 1;
   min-height: 0;
 }
 
-/* TOP: pullar yukarıdan aşağı — stack'in başından (üst) itibaren */
-.point.top .checker-stack {
-  justify-content: flex-start;
-  padding-top: 3px;
-}
-
-/* BOTTOM: pullar aşağıdan yukarı — stack'in sonundan (alt) itibaren */
-.point.bottom .checker-stack {
-  justify-content: flex-end;
-  padding-bottom: 3px;
-}
+.point.top    .checker-stack { justify-content: flex-start; padding-top: 3px; }
+.point.bottom .checker-stack { justify-content: flex-end; padding-bottom: 3px; }
 
 /* ── Checker ─────────────────────────────────────── */
 .checker {
@@ -711,9 +688,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   touch-action: none;
 }
 
-.draggable-checker:hover {
-  transform: scale(1.12) translateY(-2px);
-}
+.draggable-checker:hover { transform: scale(1.12) translateY(-2px); }
 
 .draggable-checker:active,
 .draggable-checker.dragging-checker {
@@ -780,18 +755,8 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   cursor: grab;
 }
 
-.bar-slot-title {
-  font-size: 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-}
-
-.bar-count {
-  font-size: 0.62rem;
-  color: var(--gold);
-  font-weight: 600;
-}
+.bar-slot-title { font-size: 0.5rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.bar-count { font-size: 0.62rem; color: var(--gold); font-weight: 600; }
 
 .bar-stack {
   display: flex;
@@ -1032,11 +997,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   background: rgba(255,255,255,0.04);
 }
 
-.empty-log {
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-style: italic;
-}
+.empty-log { color: var(--muted); font-size: 0.72rem; font-style: italic; }
 
 .help {
   font-size: 0.72rem;
@@ -1056,18 +1017,14 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   backdrop-filter: blur(4px);
 }
 
-.winner-modal[hidden] {
-  display: none;
-}
+.winner-modal[hidden] { display: none; }
 
 .winner-card {
   width: min(420px, calc(100vw - 24px));
   border: 1px solid rgba(232,184,74,0.6);
   border-radius: 16px;
   background: linear-gradient(165deg, rgba(26, 14, 8, 0.98), rgba(12, 7, 3, 0.98));
-  box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.7),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   padding: 22px 20px 18px;
   display: grid;
   gap: 12px;
@@ -1082,59 +1039,54 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   letter-spacing: 0.08em;
 }
 
-.winner-text {
-  font-size: 0.9rem;
-  color: var(--cream);
-  line-height: 1.5;
-}
+.winner-text { font-size: 0.9rem; color: var(--cream); line-height: 1.5; }
 
-/* ── Mobile small ────────────────────────────────── */
+/* ══════════════════════════════════════════════════
+   MOBİL — 768px ve altı
+   ══════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  html, body {
-    height: 100dvh;
-    overflow: hidden;
+  html {
+    /* FIX: overflow hidden KALDIRILD — sayfa kilitlenmesin */
+    height: 100%;
+  }
+
+  body {
+    /* FIX: dvh kullan, overflow-y scroll kalsın */
+    min-height: 100dvh;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .app-shell {
     max-width: 100%;
-    height: 100dvh;
-    display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    /* FIX: fixed height yerine min-height — içerik taşarsa scroll çalışır */
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
     gap: 6px;
     padding: 6px;
-    padding-bottom: 6px;
+    /* FIX: floating buton için alt boşluk */
+    padding-bottom: 72px;
   }
 
-  .app-header {
-    padding: 7px 10px;
-  }
-
-  .app-header h1 {
-    font-size: clamp(0.95rem, 3.8vw, 1.3rem);
-    letter-spacing: 0.08em;
-  }
-
-  .app-header .subtitle {
-    font-size: 0.56rem;
-  }
+  .app-header { padding: 7px 10px; }
+  .app-header h1 { font-size: clamp(0.95rem, 3.8vw, 1.3rem); letter-spacing: 0.08em; }
+  .app-header .subtitle { font-size: 0.56rem; }
 
   .hud {
     grid-template-columns: 1fr 1fr;
     gap: 5px;
   }
 
-  .turn-card, .dice-card, .status-card, .controls-card {
+  /* FIX: mobilde HUD'daki zar kartını gizle — zar zaten center-dice-stage'de gösteriliyor */
+  .dice-card { display: none; }
+
+  .turn-card, .status-card, .controls-card {
     padding: 6px 8px;
   }
 
-  .label {
-    margin-bottom: 4px;
-    font-size: 0.5rem;
-  }
-
-  .value {
-    font-size: 0.86rem;
-  }
+  .label { margin-bottom: 4px; font-size: 0.5rem; }
+  .value { font-size: 0.86rem; }
 
   .status-text {
     min-height: 1.3em;
@@ -1142,10 +1094,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     line-height: 1.35;
   }
 
-  .control-label {
-    margin-bottom: 3px;
-    font-size: 0.56rem;
-  }
+  .control-label { margin-bottom: 3px; font-size: 0.56rem; }
 
   .mode-select {
     font-size: 0.64rem;
@@ -1159,60 +1108,38 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     font-size: 0.6rem;
   }
 
-  .control-inline input {
-    width: 12px;
-    height: 12px;
-  }
+  .control-inline input { width: 12px; height: 12px; }
 
-  .secondary-btn {
-    padding: 6px 9px;
-    font-size: 0.64rem;
-  }
+  .secondary-btn { padding: 6px 9px; font-size: 0.64rem; }
 
   .table-wrap {
+    /* FIX: esnek büyüme — tahta mümkün olan alanı doldursun */
     flex: 1;
     min-height: 0;
-    max-height: 100%;
     gap: 4px;
   }
 
   .board-grid {
     min-height: 0;
+    /* FIX: sabit min-height yerine aspect-ratio ile oran koru */
+    height: auto;
+    aspect-ratio: 1.8 / 1;
     width: 100%;
-    max-width: 100%;
-    height: 100%;
-    aspect-ratio: auto;
-    max-height: none;
     grid-template-columns: repeat(6, minmax(0, 1fr)) 22px repeat(6, minmax(0, 1fr));
     gap: 1px;
     padding: 3px;
   }
 
-  .point::before {
-    height: 66%;
-  }
+  .point::before { height: 66%; }
+  .point-label { font-size: 0.44rem; }
 
-  .point-label {
-    font-size: 0.44rem;
-  }
-
-  .off-area {
-    width: 36px;
-    padding: 5px 2px;
-    gap: 2px;
-  }
-
-  .off-title {
-    display: none;
-  }
-
-  .off-count {
-    font-size: 0.68rem;
-  }
+  .off-area { width: 36px; padding: 5px 2px; gap: 2px; }
+  .off-title { display: none; }
+  .off-count { font-size: 0.68rem; }
 
   .off-stack {
     width: 24px;
-    min-height: 84px;
+    min-height: 0;  /* FIX: sabit min-height kaldırıldı */
   }
 
   .off-chip {
@@ -1222,48 +1149,28 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     border-width: 1px;
   }
 
-  .bar-zone {
-    padding: 3px 1px;
-  }
+  .bar-zone { padding: 3px 1px; }
+  .bar-slot { padding: 3px 1px; }
+  .bar-slot-title { font-size: 0.44rem; }
+  .bar-count { font-size: 0.54rem; }
 
-  .bar-slot {
-    padding: 3px 1px;
-  }
+  /* FIX: checker-size CSS değişkeni override — daha uygun mobil boyut */
+  :root { --checker-size: clamp(14px, 4.5vw, 22px); }
 
-  .bar-slot-title {
-    font-size: 0.44rem;
-  }
+  .checker::before { display: none; }
+  .checker::after  { display: none; }
 
-  .bar-count {
-    font-size: 0.54rem;
-  }
+  .bar-chip { width: 14px; height: 14px; }
 
-  .checker {
-    width: 16px;
-    height: 16px;
-  }
-
-  .checker::before {
-    display: none;
-  }
-
-  .checker::after {
-    display: none;
-  }
-
-  .bar-chip {
-    width: 14px;
-    height: 14px;
-  }
-
+  /* FIX: zar animasyonu mobilde taşmasın — padding azaltıldı */
   .center-dice-stage.white-turn {
-    padding-right: 0;
-    padding-bottom: 8%;
+    padding-right: 4%;
+    padding-bottom: 6%;
   }
 
   .center-dice-stage.black-turn {
-    padding-left: 0;
-    padding-top: 8%;
+    padding-left: 4%;
+    padding-top: 6%;
   }
 
   .center-dice-wrap {
@@ -1279,99 +1186,116 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     --die-depth: 14px;
   }
 
-  .die-pips.cube .pip {
-    width: 3px;
-    height: 3px;
-  }
+  .die-pips.cube .pip { width: 3px; height: 3px; }
+  .die-cube:not(.rolling) .die-pips.cube .pip { width: 4px; height: 4px; }
+  .die-pips.settled .pip { width: 4px; height: 4px; }
 
-  .die-cube:not(.rolling) .die-pips.cube .pip {
-    width: 4px;
-    height: 4px;
-  }
+  .activity-wrap { display: none; }
 
-  .die-pips.settled .pip {
-    width: 4px;
-    height: 4px;
-  }
-
-  .activity-wrap {
-    display: none;
-  }
-
+  /* FIX: floating-roll-btn — sağ orta yerine alt-orta, tahta üstüne binmiyor */
   .floating-roll-btn {
-    right: 6px;
-    top: 50%;
-    bottom: auto;
-    transform: translateY(-50%);
-    padding: 8px 11px;
-    font-size: 0.68rem;
-    border-radius: 24px;
+    right: auto;
+    left: 50%;
+    top: auto;
+    bottom: 12px;
+    transform: translateX(-50%);
+    padding: 10px 28px;
+    font-size: 0.78rem;
+    border-radius: 50px;
+    width: auto;
+    /* Pulse animasyonunu override et */
+    animation: btn-pulse-bottom 2.2s ease-in-out infinite;
   }
 
   .floating-roll-btn:hover:not(:disabled) {
-    transform: translateY(-50%) scale(1.02);
+    transform: translateX(-50%) scale(1.03);
+  }
+
+  .floating-roll-btn:active:not(:disabled) {
+    transform: translateX(-50%) scale(0.97);
   }
 }
 
+@keyframes btn-pulse-bottom {
+  0%,100% { box-shadow: 0 6px 24px rgba(200,144,42,0.5); }
+  50%      { box-shadow: 0 6px 32px rgba(200,144,42,0.8), 0 0 0 5px rgba(200,144,42,0.15); }
+}
+
+/* ── Küçük ekran + kısa yükseklik ─────────────────── */
 @media (max-width: 768px) and (max-height: 760px) {
-  .app-header .subtitle {
-    display: none;
-  }
-
-  .hud {
-    gap: 4px;
-  }
-
-  .turn-card, .dice-card, .status-card, .controls-card {
-    padding: 5px 7px;
-  }
-
-  .table-wrap {
-    gap: 3px;
-  }
-
+  .app-header .subtitle { display: none; }
+  .hud { gap: 4px; }
+  .turn-card, .status-card, .controls-card { padding: 5px 7px; }
+  .table-wrap { gap: 3px; }
   .board-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr)) 20px repeat(6, minmax(0, 1fr));
   }
 }
 
+/* ── Çok küçük telefon (≤ 420px) ──────────────────── */
 @media (max-width: 420px) {
-  .off-area { width: 38px; padding: 6px 2px; }
-  .off-title { display: none; }
-  .off-stack { width: 30px; min-height: 118px; }
+  :root { --checker-size: clamp(12px, 4vw, 18px); }
+
+  .off-area { width: 32px; padding: 5px 2px; }
+  .off-stack { width: 26px; }
+
   .off-chip {
-    width: 24px;
-    height: 16px;
-    bottom: calc(4px + (var(--stack-index) * 9px));
-    border-width: 1px;
+    width: 20px;
+    height: 14px;
+    bottom: calc(3px + (var(--stack-index) * 8px));
   }
-  .off-chip-badge { font-size: 0.5rem; }
+
+  .off-chip-badge { font-size: 0.48rem; }
+
   .board-grid {
-    width: 100%;
-    max-width: 100%;
-    height: 100%;
-    aspect-ratio: auto;
-    max-height: none;
-    grid-template-columns: repeat(6, minmax(0, 1fr)) 18px repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr)) 16px repeat(6, minmax(0, 1fr));
   }
-  .checker { width: 16px; height: 16px; }
-  .checker::before { display: none; }
-  .checker::after { display: none; }
-  .bar-chip { width: 16px; height: 16px; }
-  .center-dice-stage.white-turn { padding-right: 0; padding-bottom: 7%; }
-  .center-dice-stage.black-turn { padding-left: 0; padding-top: 7%; }
-  .center-die { width: 24px; height: 24px; --die-depth: 12px; }
-  .die-pips.large .pip { width: 6px; height: 6px; }
+
+  .bar-chip { width: 14px; height: 14px; }
+
+  .center-die { width: 22px; height: 22px; --die-depth: 11px; }
+  .die-pips.large .pip { width: 5px; height: 5px; }
   .die-pips.cube .pip { width: 2px; height: 2px; }
   .die-cube:not(.rolling) .die-pips.cube .pip { width: 3px; height: 3px; }
   .die-pips.settled .pip { width: 3px; height: 3px; }
+
   .floating-roll-btn {
-    right: 5px;
+    padding: 9px 22px;
+    font-size: 0.72rem;
+    bottom: 10px;
+  }
+}
+
+/* ── Yatay mod (landscape telefon) ────────────────── */
+@media (max-height: 500px) and (orientation: landscape) {
+  .app-header .subtitle { display: none; }
+
+  /* HUD'u yatayda daha kompakt yap */
+  .hud {
+    grid-template-columns: auto auto 1fr auto;
+  }
+
+  .status-card { grid-column: auto; }
+  .controls-card { grid-column: auto; }
+
+  .turn-card, .status-card, .controls-card {
+    padding: 4px 6px;
+  }
+
+  .board-grid {
+    aspect-ratio: 2.2 / 1;
+  }
+
+  /* Yatayda buton sağda dursun, daha az yer tutsun */
+  .floating-roll-btn {
+    right: 8px;
+    left: auto;
     top: 50%;
     bottom: auto;
     transform: translateY(-50%);
-    padding: 7px 10px;
-    font-size: 0.62rem;
+    padding: 8px 14px;
+    font-size: 0.7rem;
+    animation: btn-pulse 2.2s ease-in-out infinite;
   }
 
   .floating-roll-btn:hover:not(:disabled) {
