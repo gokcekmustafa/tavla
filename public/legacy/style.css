@@ -1413,7 +1413,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 }
 
 /* ═══════════════════════════════════════════════════════════
-   REFERENCE LAYOUT (Mynet-benzeri oyun alanı)
+   REFERENCE LAYOUT (Oyun alanı)
    ═══════════════════════════════════════════════════════════ */
 
 body:has(.ref-shell) {
