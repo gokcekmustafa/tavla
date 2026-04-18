@@ -20,9 +20,9 @@
   --panel-bg-soft: rgba(39,26,16,0.74);
   --text-main: #f6ead2;
   --text-soft: #c8b194;
-  --point-lane-width: 70%;
-  --point-lane-height: 88%;
-  --point-lane-inset: 3%;
+  --point-lane-width: 91%;
+  --point-lane-height: 90%;
+  --point-lane-inset: 0%;
   --checker-size: 36px;
   --asset-table: url("./assets/theme/table-surface.jpg");
   --asset-stone-light: url("./assets/theme/stone-light.png");
@@ -399,19 +399,19 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .guide-path {
   fill: none;
-  stroke: rgba(126, 255, 170, 0.9);
+  stroke: rgba(255, 224, 163, 0.9);
   stroke-width: 2.4;
   stroke-linecap: round;
   stroke-dasharray: 8 9;
-  filter: drop-shadow(0 0 5px rgba(93,220,122,0.36));
+  filter: drop-shadow(0 0 5px rgba(255,204,120,0.4));
   animation: guide-flow 1.05s linear infinite;
 }
 
 .guide-dot {
-  fill: rgba(93,220,122,0.96);
-  stroke: rgba(245,255,246,0.95);
+  fill: rgba(255, 219, 146, 0.96);
+  stroke: rgba(255,247,227,0.95);
   stroke-width: 1.1;
-  filter: drop-shadow(0 0 4px rgba(93,220,122,0.5));
+  filter: drop-shadow(0 0 4px rgba(255,204,120,0.5));
 }
 
 .guide-source-dot {
@@ -550,7 +550,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 .board-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(6, 1fr) 22px repeat(6, 1fr);
+  grid-template-columns: repeat(13, minmax(0, 1fr));
   grid-template-rows: 1fr 1fr;
   gap: 0;
   background:
@@ -599,7 +599,8 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   z-index: 1;
   opacity: 0;
   transition: opacity 0.12s ease;
-  filter: drop-shadow(0 0 4px rgba(0,0,0,0.2));
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 6px rgba(255,208,132,0.34));
 }
 
 .point.top::before {
@@ -636,17 +637,23 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .point.selectable-source::before {
   opacity: 1;
-  background: linear-gradient(180deg, rgba(232,184,74,0.06), rgba(232,184,74,0.3));
+  background: linear-gradient(180deg, rgba(255,228,168,0.08), rgba(255,212,122,0.25));
 }
 
 .point.selected-source::before {
   opacity: 1;
-  background: linear-gradient(180deg, rgba(232,184,74,0.1), rgba(232,184,74,0.44));
+  background: linear-gradient(180deg, rgba(255,237,196,0.14), rgba(255,210,112,0.44));
 }
 
 .point.highlight-target::before {
   opacity: 1;
-  background: linear-gradient(180deg, rgba(93,220,122,0.1), rgba(93,220,122,0.4));
+  background: linear-gradient(180deg, rgba(255,252,235,0.26), rgba(255,223,145,0.42));
+  animation: point-highlight-pulse 1.05s ease-in-out infinite;
+}
+
+@keyframes point-highlight-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(255,208,132,0.34)); }
+  50% { filter: drop-shadow(0 0 10px rgba(255,221,166,0.56)); }
 }
 
 /* ── Checker stack ───────────────────────────────── */
@@ -1181,15 +1188,9 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     height: auto;
     aspect-ratio: 572 / 490;
     width: 100%;
-    grid-template-columns: repeat(6, minmax(0, 1fr)) 14px repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(13, minmax(0, 1fr));
     gap: 0;
     padding: 0;
-  }
-
-  :root {
-    --point-lane-width: 72%;
-    --point-lane-height: 84%;
-    --point-lane-inset: 4%;
   }
   .point-label { font-size: 0.44rem; }
 
@@ -1285,7 +1286,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   .turn-card, .status-card, .controls-card { padding: 5px 7px; }
   .table-wrap { gap: 3px; }
   .board-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr)) 12px repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(13, minmax(0, 1fr));
   }
 }
 
@@ -1305,7 +1306,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   .off-chip-badge { font-size: 0.48rem; }
 
   .board-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr)) 14px repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(13, minmax(0, 1fr));
   }
 
   .bar-chip { width: 10px; height: 10px; }
