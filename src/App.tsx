@@ -5,6 +5,14 @@ type GameMode = "local" | "bot";
 type Seat = "white" | "black";
 type ViewMode = "lobby" | "table";
 type AuthMode = "login" | "register";
+type MatchOutcome = "win" | "loss" | "resign";
+
+type PlayerStats = {
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  resigns: number;
+};
 
 type RoomSession = {
   code: string;
@@ -20,6 +28,14 @@ type MemberUser = {
   email: string;
   points: number;
   createdAt: number;
+  stats: PlayerStats;
+};
+
+type GuestProfile = {
+  userId: string;
+  displayName: string;
+  points: number;
+  stats: PlayerStats;
 };
 
 type MemberSession = {
@@ -31,6 +47,7 @@ type LobbySeatState = {
   userId: string;
   displayName: string;
   points: number;
+  stats: PlayerStats;
   touchedAt: number;
 };
 
@@ -51,9 +68,45 @@ type LobbyState = {
 
 type OnlineRow = {
   key: string;
+  userId: string;
+  sessionId: string;
   name: string;
   points: number;
+  stats: PlayerStats;
   tableNo: number | null;
+};
+
+type LegacyHostStateMessage = {
+  source: "tavla-legacy";
+  type: "state";
+  matchToken: string;
+  matchActive: boolean;
+  winner: Seat | null;
+  localColor: Seat | null;
+};
+
+type LegacyMatchFinishedMessage = {
+  source: "tavla-legacy";
+  type: "match-finished";
+  matchToken: string;
+  winner: Seat;
+  loser: Seat | null;
+  reason: "normal" | "resign";
+  localColor: Seat | null;
+};
+
+type LegacyHostMessage = LegacyHostStateMessage | LegacyMatchFinishedMessage;
+
+type PlayerProfileModalState = {
+  open: boolean;
+  loading: boolean;
+  isMember: boolean;
+  name: string;
+  points: number;
+  stats: PlayerStats;
+  email?: string;
+  userId?: string;
+  error?: string;
 };
 
 type CleanupResult = {
@@ -73,6 +126,7 @@ type RealtimeMessage = {
 
 const GUEST_STORAGE_KEY = "tavla.guestName";
 const GUEST_ID_STORAGE_KEY = "tavla.guest.id.v1";
+const GUEST_PROFILE_SESSION_KEY = "tavla.guest.profile.session.v1";
 const MEMBER_SESSION_KEY = "tavla.member.session.v1";
 const LOBBY_STATE_KEY = "tavla.lobby.state.v2";
 const LOBBY_SYNC_CHANNEL = "tavla.lobby.sync.v2";
@@ -81,6 +135,8 @@ const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_LOBBY_NAME = "Lobi 1";
 const SEAT_STALE_MS = 25_000;
 const HEARTBEAT_MS = 5_000;
+const WIN_POINTS = 100;
+const RESIGN_PENALTY_POINTS = 50;
 
 function getDefaultRealtimeWsBase() {
   if (typeof window === "undefined") return "ws://127.0.0.1:8787/realtime";
@@ -149,6 +205,60 @@ function sanitizeEmail(value: string) {
   return value.trim().toLowerCase().slice(0, 80);
 }
 
+function createEmptyStats(): PlayerStats {
+  return {
+    gamesPlayed: 0,
+    wins: 0,
+    losses: 0,
+    resigns: 0,
+  };
+}
+
+function normalizeStats(raw: unknown): PlayerStats {
+  if (!raw || typeof raw !== "object") return createEmptyStats();
+  const candidate = raw as Partial<PlayerStats>;
+  const gamesPlayed = Number.isFinite(candidate.gamesPlayed) ? Math.max(0, Math.trunc(Number(candidate.gamesPlayed))) : 0;
+  const wins = Number.isFinite(candidate.wins) ? Math.max(0, Math.trunc(Number(candidate.wins))) : 0;
+  const losses = Number.isFinite(candidate.losses) ? Math.max(0, Math.trunc(Number(candidate.losses))) : 0;
+  const resigns = Number.isFinite(candidate.resigns) ? Math.max(0, Math.trunc(Number(candidate.resigns))) : 0;
+  return {
+    gamesPlayed: Math.max(gamesPlayed, wins + losses),
+    wins,
+    losses,
+    resigns,
+  };
+}
+
+function applyStatsOutcome(base: PlayerStats, outcome: MatchOutcome): PlayerStats {
+  const next = normalizeStats(base);
+  next.gamesPlayed += 1;
+  if (outcome === "win") {
+    next.wins += 1;
+  } else if (outcome === "loss") {
+    next.losses += 1;
+  } else {
+    next.losses += 1;
+    next.resigns += 1;
+  }
+  return next;
+}
+
+function pointsDeltaForOutcome(outcome: MatchOutcome) {
+  if (outcome === "win") return WIN_POINTS;
+  if (outcome === "resign") return -RESIGN_PENALTY_POINTS;
+  return 0;
+}
+
+function normalizeNonNegativeInt(value: unknown, fallback = 0) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.max(0, Math.trunc(num));
+}
+
+function isMemberUserId(userId: string) {
+  return /^m[a-zA-Z0-9_-]*/.test(userId);
+}
+
 function normalizeMemberUser(raw: unknown): MemberUser | null {
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Partial<MemberUser>;
@@ -159,8 +269,9 @@ function normalizeMemberUser(raw: unknown): MemberUser | null {
     id,
     displayName: sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Uye") || "Uye",
     email,
-    points: Number.isFinite(candidate.points) ? Number(candidate.points) : 1500,
+    points: normalizeNonNegativeInt(candidate.points, 1500),
     createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
+    stats: normalizeStats(candidate.stats),
   };
 }
 
@@ -235,7 +346,8 @@ function normalizeSeat(raw: unknown): LobbySeatState | null {
     sessionId,
     userId: typeof candidate.userId === "string" ? candidate.userId : `guest-${sessionId}`,
     displayName: sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Misafir") || "Misafir",
-    points: Number.isFinite(candidate.points) ? Number(candidate.points) : 1500,
+    points: normalizeNonNegativeInt(candidate.points, 1500),
+    stats: normalizeStats(candidate.stats),
     touchedAt: Number.isFinite(candidate.touchedAt) ? Number(candidate.touchedAt) : Date.now(),
   };
 }
@@ -307,6 +419,45 @@ function normalizeLobbyState(raw: unknown): LobbyState {
 
 function loadLobbyState() {
   return normalizeLobbyState(loadJson<unknown>(LOBBY_STATE_KEY, createDefaultLobbyState()));
+}
+
+function loadGuestProfile(guestId: string, fallbackName: string): GuestProfile {
+  if (typeof window === "undefined") {
+    return {
+      userId: `guest-${guestId}`,
+      displayName: sanitizeGuestName(fallbackName) || "Misafir",
+      points: 1500,
+      stats: createEmptyStats(),
+    };
+  }
+  const raw = loadJson<unknown>(GUEST_PROFILE_SESSION_KEY, null);
+  const candidate = raw && typeof raw === "object" ? raw as Partial<GuestProfile> : null;
+  const storedGuestId = sanitizeGuestId(typeof candidate?.userId === "string" ? candidate.userId.replace(/^guest-/, "") : "");
+  const userId = `guest-${guestId}`;
+  if (!candidate || storedGuestId !== guestId) {
+    return {
+      userId,
+      displayName: sanitizeGuestName(fallbackName) || "Misafir",
+      points: 1500,
+      stats: createEmptyStats(),
+    };
+  }
+  return {
+    userId,
+    displayName: sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : fallbackName) || "Misafir",
+    points: normalizeNonNegativeInt(candidate.points, 1500),
+    stats: normalizeStats(candidate.stats),
+  };
+}
+
+function saveGuestProfile(profile: GuestProfile) {
+  if (typeof window === "undefined") return;
+  saveJson(GUEST_PROFILE_SESSION_KEY, {
+    userId: profile.userId,
+    displayName: sanitizeGuestName(profile.displayName) || "Misafir",
+    points: normalizeNonNegativeInt(profile.points, 1500),
+    stats: normalizeStats(profile.stats),
+  } satisfies GuestProfile);
 }
 
 function loadMemberSession() {
@@ -434,6 +585,10 @@ function App() {
   const [iframeKey, setIframeKey] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>(initialRoom ? "table" : "lobby");
   const [guestName, setGuestName] = useState(getInitialGuestName);
+  const [guestProfile, setGuestProfile] = useState<GuestProfile>(() => {
+    const guestId = getOrCreateGuestId();
+    return loadGuestProfile(guestId, getInitialGuestName());
+  });
   const [roomSession, setRoomSession] = useState<RoomSession | null>(initialRoom);
   const [joinCodeInput, setJoinCodeInput] = useState(() => initialRoom?.code ?? "");
   const [joinSeat, setJoinSeat] = useState<Seat>(() => initialRoom?.seat ?? "black");
@@ -455,6 +610,20 @@ function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
+  const [profileModal, setProfileModal] = useState<PlayerProfileModalState>({
+    open: false,
+    loading: false,
+    isMember: false,
+    name: "",
+    points: 0,
+    stats: createEmptyStats(),
+  });
+  const [matchLiveState, setMatchLiveState] = useState({
+    matchToken: "",
+    matchActive: false,
+    winner: null as Seat | null,
+    localColor: null as Seat | null,
+  });
 
   const lobbyChannelRef = useRef<BroadcastChannel | null>(null);
   const realtimeSocketRef = useRef<WebSocket | null>(null);
@@ -466,6 +635,8 @@ function App() {
   const appSessionId = useMemo(() => createSessionId(), []);
   const guestId = useMemo(() => getOrCreateGuestId(), []);
   const [realtimeStatus, setRealtimeStatus] = useState<"offline" | "connecting" | "online">("offline");
+  const processedMatchTokensRef = useRef<Set<string>>(new Set());
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const safeGuestName = useMemo(() => {
     const memberName = member ? sanitizeGuestName(member.displayName) : "";
@@ -475,11 +646,13 @@ function App() {
 
   const currentProfile = useMemo(() => {
     return {
-      userId: member ? member.id : `guest-${appSessionId}`,
+      userId: member ? member.id : guestProfile.userId,
       displayName: safeGuestName,
-      points: member?.points ?? 1500,
+      points: member?.points ?? guestProfile.points,
+      stats: member?.stats ?? guestProfile.stats,
+      isMember: Boolean(member),
     };
-  }, [member, safeGuestName, appSessionId]);
+  }, [member, safeGuestName, guestProfile.userId, guestProfile.points, guestProfile.stats]);
 
   const isRoomMode = Boolean(roomSession);
 
@@ -512,8 +685,11 @@ function App() {
         if (!seatInfo) return;
         map.set(seatInfo.sessionId, {
           key: seatInfo.sessionId,
+          userId: seatInfo.userId,
+          sessionId: seatInfo.sessionId,
           name: seatInfo.displayName,
           points: seatInfo.points,
+          stats: normalizeStats(seatInfo.stats),
           tableNo: table.id,
         });
       });
@@ -521,13 +697,16 @@ function App() {
     if (!map.has(appSessionId)) {
       map.set(appSessionId, {
         key: appSessionId,
+        userId: currentProfile.userId,
+        sessionId: appSessionId,
         name: safeGuestName,
         points: currentProfile.points,
+        stats: normalizeStats(currentProfile.stats),
         tableNo: mySeat?.table.id ?? null,
       });
     }
     return Array.from(map.values()).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
-  }, [openedTables, appSessionId, safeGuestName, currentProfile.points, mySeat]);
+  }, [openedTables, appSessionId, safeGuestName, currentProfile.userId, currentProfile.points, currentProfile.stats, mySeat]);
 
   function broadcastLobbySync() {
     lobbyChannelRef.current?.postMessage({ type: "lobby-sync", at: Date.now() });
@@ -603,6 +782,12 @@ function App() {
   }
 
   function goToTable(table: LobbyTable, seat: Seat) {
+    setMatchLiveState({
+      matchToken: "",
+      matchActive: false,
+      winner: null,
+      localColor: null,
+    });
     setRoomSession({
       code: table.roomCode,
       seat,
@@ -659,6 +844,7 @@ function App() {
         userId: currentProfile.userId,
         displayName: currentProfile.displayName,
         points: currentProfile.points,
+        stats: normalizeStats(currentProfile.stats),
         touchedAt: Date.now(),
       };
 
@@ -692,6 +878,12 @@ function App() {
     if (openGameView) {
       goToTable(table, seat);
     } else {
+      setMatchLiveState({
+        matchToken: "",
+        matchActive: false,
+        winner: null,
+        localColor: null,
+      });
       setRoomSession({
         code: table.roomCode,
         seat,
@@ -762,23 +954,48 @@ function App() {
     sitToTable(table.id, targetSeat, table.roomCode);
   }
 
-  function leaveRoomAndGoLobby() {
-    releaseSeatOnly();
-    setRoomSession(null);
-    setCopied(false);
-    setLobbyNotice("");
-    setViewMode("lobby");
-    refreshBoard();
+  async function leaveRoomAndGoLobby() {
+    let penalized = false;
+    if (roomSession && matchLiveState.matchActive && !matchLiveState.winner) {
+      const confirmed = window.confirm(
+        "Oyun basladi. Masadan kalkarsan 50 puan kaybedersin. Rakibin galip sayilip 100 puan kazanir. Devam etmek istiyor musun?",
+      );
+      if (!confirmed) return;
+      const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
+      processedMatchTokensRef.current.add(`${token}:${currentProfile.userId}`);
+      await awardResignResult(token);
+      sendResignCommandToIframe(token);
+      penalized = true;
+    }
+
+    closeRoomAndReturnLobby();
+    setLobbyNotice(penalized ? "Masadan ayrildin: -50 puan. Rakibin +100 puan kazandi." : "Masadan ayrildin.");
   }
 
-  function startBotGame() {
+  async function startBotGame() {
     if (roomSession) {
+      if (matchLiveState.matchActive && !matchLiveState.winner) {
+        const confirmed = window.confirm(
+          "Devam eden masadan ayrilirsan 50 puan kaybedersin. Bot moduna gecmek istiyor musun?",
+        );
+        if (!confirmed) return;
+        const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
+        processedMatchTokensRef.current.add(`${token}:${currentProfile.userId}`);
+        await awardResignResult(token);
+        sendResignCommandToIframe(token);
+      }
       releaseSeatOnly();
     }
     setRoomSession(null);
     setMode("bot");
     setCopied(false);
     setLobbyNotice("Bot modu aktif.");
+    setMatchLiveState({
+      matchToken: "",
+      matchActive: false,
+      winner: null,
+      localColor: null,
+    });
     setViewMode("table");
     refreshBoard();
   }
@@ -947,6 +1164,208 @@ function App() {
     setLobbyNotice("Uyelik oturumu kapatildi.");
   }
 
+  function patchSeatByUserId(userId: string, points: number, stats: PlayerStats, displayName?: string) {
+    writeLobby((current) => {
+      let anyChanged = false;
+      const tables = current.tables.map((table) => {
+        let changed = false;
+        const patchSeat = (seat: LobbySeatState | null) => {
+          if (!seat || seat.userId !== userId) return seat;
+          changed = true;
+          return {
+            ...seat,
+            points: normalizeNonNegativeInt(points, seat.points),
+            stats: normalizeStats(stats),
+            displayName: displayName ? sanitizeGuestName(displayName) || seat.displayName : seat.displayName,
+            touchedAt: Date.now(),
+          };
+        };
+        const white = patchSeat(table.white);
+        const black = patchSeat(table.black);
+        if (!changed) return table;
+        anyChanged = true;
+        return { ...table, white, black };
+      });
+      if (!anyChanged) return current;
+      return { ...current, tables, updatedAt: Date.now() };
+    });
+  }
+
+  async function submitMemberMatchOutcome(userId: string, outcome: MatchOutcome, matchToken = "") {
+    try {
+      const response = await fetch("/api/auth/match", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          outcome,
+          pointsDelta: pointsDeltaForOutcome(outcome),
+          matchToken,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { user?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const message = typeof data?.error === "string" ? data.error : "Puan guncellemesi yapilamadi.";
+        setLobbyNotice(message);
+        return null;
+      }
+      return normalizeMemberUser(data?.user);
+    } catch {
+      setLobbyNotice("Puan servisine baglanilamadi.");
+      return null;
+    }
+  }
+
+  function applyGuestOutcome(outcome: MatchOutcome) {
+    setGuestProfile((prev) => {
+      const nextStats = applyStatsOutcome(prev.stats, outcome);
+      const next: GuestProfile = {
+        ...prev,
+        displayName: safeGuestName,
+        points: Math.max(0, prev.points + pointsDeltaForOutcome(outcome)),
+        stats: nextStats,
+      };
+      saveGuestProfile(next);
+      patchSeatByUserId(next.userId, next.points, next.stats, next.displayName);
+      return next;
+    });
+  }
+
+  async function applyOutcomeForUserId(userId: string, outcome: MatchOutcome, fallbackName?: string, matchToken = "") {
+    if (isMemberUserId(userId)) {
+      const updatedMember = await submitMemberMatchOutcome(userId, outcome, matchToken);
+      if (!updatedMember) return null;
+      patchSeatByUserId(updatedMember.id, updatedMember.points, updatedMember.stats, updatedMember.displayName);
+      if (member?.id === updatedMember.id) {
+        setMember(updatedMember);
+        setGuestName(updatedMember.displayName);
+      }
+      return updatedMember;
+    }
+
+    if (userId === guestProfile.userId) {
+      applyGuestOutcome(outcome);
+      return {
+        ...guestProfile,
+        displayName: safeGuestName,
+        points: Math.max(0, guestProfile.points + pointsDeltaForOutcome(outcome)),
+        stats: applyStatsOutcome(guestProfile.stats, outcome),
+      } satisfies GuestProfile;
+    }
+
+    const syntheticStats = applyStatsOutcome(createEmptyStats(), outcome);
+    const syntheticPoints = Math.max(0, 1500 + pointsDeltaForOutcome(outcome));
+    patchSeatByUserId(userId, syntheticPoints, syntheticStats, fallbackName);
+    return {
+      userId,
+      displayName: sanitizeGuestName(fallbackName ?? "Misafir") || "Misafir",
+      points: syntheticPoints,
+      stats: syntheticStats,
+    } satisfies GuestProfile;
+  }
+
+  function getActiveRoomTable() {
+    if (!roomSession) return null;
+    const current = getCurrentLobbyState();
+    return current.tables.find((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code) ?? null;
+  }
+
+  async function awardResignResult(matchToken: string) {
+    if (!roomSession) return;
+    const table = getActiveRoomTable();
+    if (!table) return;
+    const mySeat = roomSession.seat === "white" ? table.white : table.black;
+    const opponentSeat = roomSession.seat === "white" ? table.black : table.white;
+    if (mySeat) {
+      await applyOutcomeForUserId(mySeat.userId, "resign", mySeat.displayName, matchToken);
+    } else {
+      await applyOutcomeForUserId(currentProfile.userId, "resign", currentProfile.displayName, matchToken);
+    }
+    if (opponentSeat?.userId) {
+      await applyOutcomeForUserId(opponentSeat.userId, "win", opponentSeat.displayName, matchToken);
+    }
+  }
+
+  function closeRoomAndReturnLobby() {
+    releaseSeatOnly();
+    setRoomSession(null);
+    setCopied(false);
+    setViewMode("lobby");
+    setMatchLiveState({
+      matchToken: "",
+      matchActive: false,
+      winner: null,
+      localColor: null,
+    });
+    refreshBoard();
+  }
+
+  function sendResignCommandToIframe(matchToken: string) {
+    if (!iframeRef.current?.contentWindow) return;
+    iframeRef.current.contentWindow.postMessage(
+      {
+        source: "tavla-host",
+        type: "request-resign",
+        matchToken,
+      },
+      window.location.origin,
+    );
+  }
+
+  function closeProfileModal() {
+    setProfileModal((prev) => ({ ...prev, open: false, loading: false }));
+  }
+
+  async function openPlayerProfile(userId: string, displayName: string, points: number, stats: PlayerStats) {
+    const baseState: PlayerProfileModalState = {
+      open: true,
+      loading: false,
+      isMember: isMemberUserId(userId),
+      name: sanitizeGuestName(displayName) || "Oyuncu",
+      points: normalizeNonNegativeInt(points, 0),
+      stats: normalizeStats(stats),
+      userId,
+    };
+
+    if (!isMemberUserId(userId)) {
+      setProfileModal(baseState);
+      return;
+    }
+
+    setProfileModal({ ...baseState, loading: true });
+    try {
+      const url = new URL("/api/auth/profile", window.location.origin);
+      url.searchParams.set("userId", userId);
+      const response = await fetch(url.toString(), { method: "GET" });
+      const data = (await response.json().catch(() => null)) as { user?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        setProfileModal({
+          ...baseState,
+          loading: false,
+          error: typeof data?.error === "string" ? data.error : "Profil bilgisi yuklenemedi.",
+        });
+        return;
+      }
+      const user = normalizeMemberUser(data?.user);
+      if (!user) {
+        setProfileModal({ ...baseState, loading: false, error: "Profil verisi gecersiz." });
+        return;
+      }
+      setProfileModal({
+        open: true,
+        loading: false,
+        isMember: true,
+        name: user.displayName,
+        points: user.points,
+        stats: normalizeStats(user.stats),
+        email: user.email,
+        userId: user.id,
+      });
+    } catch {
+      setProfileModal({ ...baseState, loading: false, error: "Profil servisine baglanilamadi." });
+    }
+  }
+
   function syncRoomSeatHeartbeat() {
     if (!roomSession) return;
     let blocked = false;
@@ -985,6 +1404,7 @@ function App() {
         userId: currentProfile.userId,
         displayName: currentProfile.displayName,
         points: currentProfile.points,
+        stats: normalizeStats(currentProfile.stats),
         touchedAt: Date.now(),
       };
 
@@ -1024,9 +1444,46 @@ function App() {
     return (
       <div className={`my-seat-occupant ${mine ? "mine" : ""}`}>
         <span className="my-avatar">{initialsOf(occupant.displayName)}</span>
-        <span className="my-occupant-name">{occupant.displayName}</span>
+        <button
+          type="button"
+          className="my-name-link my-occupant-name"
+          onClick={() => openPlayerProfile(occupant.userId, occupant.displayName, occupant.points, occupant.stats)}
+          title={`${occupant.displayName} profilini goster`}
+        >
+          {occupant.displayName}
+        </button>
       </div>
     );
+  }
+
+  async function handleLegacyMatchFinished(message: LegacyMatchFinishedMessage) {
+    const token = typeof message.matchToken === "string" ? message.matchToken.slice(0, 96) : "";
+    const localColor = message.localColor === "white" || message.localColor === "black" ? message.localColor : null;
+    const winner = message.winner === "white" || message.winner === "black" ? message.winner : null;
+    const loser = message.loser === "white" || message.loser === "black" ? message.loser : null;
+    if (!token || !localColor || !winner) return;
+
+    const dedupeKey = `${token}:${currentProfile.userId}`;
+    if (processedMatchTokensRef.current.has(dedupeKey)) return;
+    processedMatchTokensRef.current.add(dedupeKey);
+    if (processedMatchTokensRef.current.size > 400) {
+      processedMatchTokensRef.current.clear();
+      processedMatchTokensRef.current.add(dedupeKey);
+    }
+
+    const localOutcome: MatchOutcome =
+      message.reason === "resign" && loser === localColor
+        ? "resign"
+        : winner === localColor
+          ? "win"
+          : "loss";
+
+    await applyOutcomeForUserId(currentProfile.userId, localOutcome, currentProfile.displayName, token);
+    if (localOutcome === "win") {
+      setLobbyNotice("Oyunu kazandin. +100 puan eklendi.");
+    } else if (localOutcome === "resign") {
+      setLobbyNotice("Masadan kalktin. 50 puan dusuldu.");
+    }
   }
 
   useEffect(() => {
@@ -1157,6 +1614,47 @@ function App() {
   }, [appSessionId]);
 
   useEffect(() => {
+    const onMessage = (event: MessageEvent<LegacyHostMessage>) => {
+      if (event.origin !== window.location.origin) return;
+      const payload = event.data;
+      if (!payload || typeof payload !== "object") return;
+      if ((payload as { source?: unknown }).source !== "tavla-legacy") return;
+
+      if (payload.type === "state") {
+        const winner = payload.winner === "white" || payload.winner === "black" ? payload.winner : null;
+        const localColor = payload.localColor === "white" || payload.localColor === "black" ? payload.localColor : null;
+        const matchToken = typeof payload.matchToken === "string" ? payload.matchToken : "";
+        setMatchLiveState({
+          matchToken,
+          matchActive: Boolean(payload.matchActive),
+          winner,
+          localColor,
+        });
+        if (winner && localColor && matchToken) {
+          const synthetic: LegacyMatchFinishedMessage = {
+            source: "tavla-legacy",
+            type: "match-finished",
+            matchToken,
+            winner,
+            loser: winner === "white" ? "black" : "white",
+            reason: "normal",
+            localColor,
+          };
+          void handleLegacyMatchFinished(synthetic);
+        }
+        return;
+      }
+
+      if (payload.type === "match-finished") {
+        void handleLegacyMatchFinished(payload);
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [currentProfile.userId, currentProfile.displayName, handleLegacyMatchFinished]);
+
+  useEffect(() => {
     let cancelled = false;
     const syncMemberFromSession = async () => {
       const session = loadMemberSession();
@@ -1225,6 +1723,29 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem(GUEST_STORAGE_KEY, safeGuestName);
   }, [safeGuestName]);
+
+  useEffect(() => {
+    if (member) return;
+    const normalizedName = sanitizeGuestName(safeGuestName) || "Misafir";
+    setGuestProfile((prev) => {
+      const desiredUserId = `guest-${guestId}`;
+      const sameUser = prev.userId === desiredUserId;
+      const sameName = prev.displayName === normalizedName;
+      if (sameUser && sameName) return prev;
+      const next = {
+        ...prev,
+        userId: desiredUserId,
+        displayName: normalizedName,
+      } satisfies GuestProfile;
+      saveGuestProfile(next);
+      return next;
+    });
+  }, [member, safeGuestName, guestId]);
+
+  useEffect(() => {
+    if (member) return;
+    saveGuestProfile(guestProfile);
+  }, [guestProfile, member]);
 
   useEffect(() => {
     if (!isRoomMode || mode === "local") return;
@@ -1319,7 +1840,7 @@ function App() {
     syncRoomSeatHeartbeat();
     const timer = window.setInterval(() => syncRoomSeatHeartbeat(), HEARTBEAT_MS);
     return () => window.clearInterval(timer);
-  }, [roomSession, currentProfile.userId, currentProfile.displayName, currentProfile.points, appSessionId]);
+  }, [roomSession, currentProfile.userId, currentProfile.displayName, currentProfile.points, currentProfile.stats, appSessionId]);
 
   useEffect(() => {
     const onBeforeUnload = () => {
@@ -1495,6 +2016,8 @@ function App() {
                   </p>
                   <p className="line">{member.email}</p>
                   <p className="line">Puan: {member.points}</p>
+                  <p className="line">Oyun: {member.stats.gamesPlayed} / K: {member.stats.wins} / M: {member.stats.losses}</p>
+                  <p className="line">Masadan Kacis: {member.stats.resigns}</p>
                   <button className="my-action-btn soft" onClick={onLogoutMember}>
                     Cikis
                   </button>
@@ -1574,7 +2097,14 @@ function App() {
               <div className="my-online-list">
                 {onlineRows.map((row) => (
                   <div key={row.key} className="my-online-row">
-                    <span className="name">{row.name}</span>
+                    <button
+                      type="button"
+                      className="my-name-link name"
+                      onClick={() => openPlayerProfile(row.userId, row.name, row.points, row.stats)}
+                      title={`${row.name} profilini goster`}
+                    >
+                      {row.name}
+                    </button>
                     <span className="points">{row.points}</span>
                     <span className="table">{row.tableNo ? `M${row.tableNo}` : "-"}</span>
                   </div>
@@ -1586,7 +2116,7 @@ function App() {
       ) : (
         <section className="my-game-layout">
           <div className="my-game-frame">
-            <iframe title="Tavla Oyunu" src={iframeUrl} />
+            <iframe ref={iframeRef} title="Tavla Oyunu" src={iframeUrl} />
           </div>
 
           <aside className="my-game-controls">
@@ -1652,6 +2182,31 @@ function App() {
           </aside>
         </section>
       )}
+
+      {profileModal.open ? (
+        <section className="my-modal-backdrop" role="presentation" onClick={closeProfileModal}>
+          <article className="my-modal-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <h3>{profileModal.name}</h3>
+            {profileModal.loading ? (
+              <p className="line">Profil yukleniyor...</p>
+            ) : (
+              <>
+                <p className="line">{profileModal.isMember ? "Uye Oyuncu" : "Misafir Oyuncu"}</p>
+                {profileModal.email ? <p className="line">{profileModal.email}</p> : null}
+                <p className="line">Puan: {profileModal.points}</p>
+                <p className="line">Toplam Oyun: {profileModal.stats.gamesPlayed}</p>
+                <p className="line">Kazandigi: {profileModal.stats.wins}</p>
+                <p className="line">Kaybettigi: {profileModal.stats.losses}</p>
+                <p className="line">Masadan Kacis: {profileModal.stats.resigns}</p>
+                {profileModal.error ? <p className="my-error">{profileModal.error}</p> : null}
+              </>
+            )}
+            <button className="my-action-btn" type="button" onClick={closeProfileModal}>
+              Kapat
+            </button>
+          </article>
+        </section>
+      ) : null}
     </main>
   );
 }

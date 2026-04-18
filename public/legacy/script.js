@@ -85,6 +85,8 @@ let diceRollSettledAt = 0;
 let boardPerspectiveColor = null;
 let diceSpriteSheetPromise = null;
 let diceSpriteSheet = null;
+let matchToken = createMatchToken();
+let lastHostStateSignature = "";
 
 const roomParams = parseRoomParamsSafe();
 const roomSenderCounters = new Map();
@@ -273,6 +275,10 @@ function initPreferredPlayerColor() {
 
 function createRoomSessionId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function createMatchToken() {
+  return `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function isRoomMode() {
@@ -483,6 +489,7 @@ function buildRoomSnapshot() {
     gameState: cloneState(gameState),
     currentPlayer,
     remainingDice: [...remainingDice],
+    matchToken,
     hasRolled,
     winner,
     statusMessage,
@@ -502,6 +509,9 @@ function applyRoomSnapshot(snapshot) {
 
   gameState = cloneState(snapshot.gameState || createInitialState());
   currentPlayer = snapshot.currentPlayer === BLACK ? BLACK : WHITE;
+  matchToken = typeof snapshot.matchToken === "string" && snapshot.matchToken
+    ? snapshot.matchToken.slice(0, 96)
+    : matchToken;
   remainingDice = Array.isArray(snapshot.remainingDice)
     ? snapshot.remainingDice.filter((d) => Number.isInteger(d) && d >= 1 && d <= 6)
     : [];
@@ -669,6 +679,73 @@ function attachEvents() {
     syncCheckerSizeToBoard();
     renderGuideLines();
   });
+  window.addEventListener("message", onHostMessage);
+}
+
+function getLocalHumanColor() {
+  if (isRoomMode()) return roomParams.seat;
+  if (gameMode === "bot") return preferredPlayerColor;
+  return null;
+}
+
+function isMatchActive() {
+  if (winner) return false;
+  if (hasRolled) return true;
+  if (gameState.bar[WHITE] + gameState.bar[BLACK] > 0) return true;
+  if (gameState.borneOff[WHITE] + gameState.borneOff[BLACK] > 0) return true;
+  return moveLog.length > 1;
+}
+
+function emitHostState(force = false) {
+  const payload = {
+    source: "tavla-legacy",
+    type: "state",
+    matchToken,
+    matchActive: isMatchActive(),
+    winner: winner || null,
+    localColor: getLocalHumanColor(),
+    roomCode: roomParams.code || "",
+    tableNo: roomParams.tableNo || 0,
+  };
+  const signature = JSON.stringify(payload);
+  if (!force && signature === lastHostStateSignature) return;
+  lastHostStateSignature = signature;
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage(payload, window.location.origin);
+  }
+}
+
+function onHostMessage(event) {
+  if (event.origin !== window.location.origin) return;
+  const data = event.data;
+  if (!data || typeof data !== "object") return;
+  if (data.source !== "tavla-host") return;
+  if (data.type !== "request-resign") return;
+
+  const incomingToken = typeof data.matchToken === "string" ? data.matchToken.slice(0, 96) : "";
+  if (incomingToken) {
+    matchToken = incomingToken;
+  }
+  const localColor = getLocalHumanColor();
+  if (!localColor) return;
+  if (winner || !isMatchActive()) return;
+
+  clearPendingBotTimer();
+  clearPendingAutoRollTimer();
+  winner = opponentOf(localColor);
+  hasRolled = false;
+  remainingDice = [];
+  availableMoves = [];
+  selectedSource = null;
+  dragSource = null;
+  pendingMoveChain = [];
+  movesMadeThisTurn = 0;
+  turnUndoSnapshot = null;
+  setStatus(`${playerText(localColor)} masadan kalkti. ${playerText(winner)} kazandi.`);
+  addLog(`${playerText(localColor)} masadan ayrildi.`);
+  showWinnerPopup(winner);
+  publishRoomSnapshot("host-resign");
+  render();
 }
 
 function onNewGame() {
@@ -682,6 +759,8 @@ function onNewGame() {
   clearPendingAutoRollTimer();
   const startPlayer = isRoomMode() ? WHITE : normalizePlayerColor(preferredPlayerColor);
   gameState         = createInitialState();
+  matchToken        = createMatchToken();
+  lastHostStateSignature = "";
   currentPlayer     = startPlayer;
   remainingDice     = [];
   hasRolled         = false;
@@ -1314,6 +1393,7 @@ function render() {
   renderHighlights();
   renderGuideLines();
   renderMoveLog();
+  emitHostState();
 }
 
 function renderTurnInfo() {
@@ -1941,6 +2021,7 @@ function captureSnapshot() {
     gameState: cloneState(gameState),
     currentPlayer,
     remainingDice:  [...remainingDice],
+    matchToken,
     hasRolled,
     selectedSource,
     availableMoves: cloneMoves(availableMoves),
@@ -1960,6 +2041,7 @@ function canUndoCurrentTurn() {
 function restoreSnapshot(snap) {
   gameState      = cloneState(snap.gameState);
   currentPlayer  = snap.currentPlayer;
+  matchToken     = typeof snap.matchToken === "string" && snap.matchToken ? snap.matchToken.slice(0, 96) : matchToken;
   remainingDice  = [...snap.remainingDice];
   hasRolled      = snap.hasRolled;
   selectedSource = snap.selectedSource;

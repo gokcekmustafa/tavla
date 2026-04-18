@@ -16,12 +16,22 @@ type RealtimeMessage = {
   reason?: string;
 };
 
+type MemberStats = {
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  resigns: number;
+};
+
+type MatchOutcome = "win" | "loss" | "resign";
+
 type PublicMemberUser = {
   id: string;
   displayName: string;
   email: string;
   points: number;
   createdAt: number;
+  stats: MemberStats;
 };
 
 type StoredMemberUser = PublicMemberUser & {
@@ -68,6 +78,54 @@ function sanitizeMemberId(raw: unknown) {
   return raw.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
 }
 
+function sanitizeMatchOutcome(raw: unknown): MatchOutcome | null {
+  if (raw === "win" || raw === "loss" || raw === "resign") return raw;
+  return null;
+}
+
+function sanitizeMatchToken(raw: unknown) {
+  if (typeof raw !== "string") return "";
+  return raw.replace(/[^a-zA-Z0-9:_-]/g, "").slice(0, 120);
+}
+
+function sanitizeFinitePoints(raw: unknown, fallback: number) {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.trunc(value);
+}
+
+function sanitizeStatCount(raw: unknown) {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return 0;
+  const out = Math.trunc(value);
+  if (out < 0) return 0;
+  return Math.min(out, 1_000_000);
+}
+
+function createDefaultMemberStats(): MemberStats {
+  return {
+    gamesPlayed: 0,
+    wins: 0,
+    losses: 0,
+    resigns: 0,
+  };
+}
+
+function normalizeMemberStats(raw: unknown): MemberStats {
+  if (!raw || typeof raw !== "object") return createDefaultMemberStats();
+  const candidate = raw as Partial<MemberStats>;
+  const stats = {
+    gamesPlayed: sanitizeStatCount(candidate.gamesPlayed),
+    wins: sanitizeStatCount(candidate.wins),
+    losses: sanitizeStatCount(candidate.losses),
+    resigns: sanitizeStatCount(candidate.resigns),
+  };
+  if (stats.gamesPlayed < stats.wins + stats.losses) {
+    stats.gamesPlayed = stats.wins + stats.losses;
+  }
+  return stats;
+}
+
 function createMemberId() {
   return sanitizeMemberId(`m${Date.now().toString(36)}${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`);
 }
@@ -79,6 +137,7 @@ function toPublicUser(user: StoredMemberUser): PublicMemberUser {
     email: user.email,
     points: user.points,
     createdAt: user.createdAt,
+    stats: normalizeMemberStats(user.stats),
   };
 }
 
@@ -94,8 +153,9 @@ function normalizeStoredMemberUser(raw: unknown): StoredMemberUser | null {
     displayName: sanitizeMemberDisplayName(candidate.displayName) || "Uye",
     email,
     password,
-    points: Number.isFinite(candidate.points) ? Number(candidate.points) : 1500,
+    points: Math.max(0, sanitizeFinitePoints(candidate.points, 1500)),
     createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
+    stats: normalizeMemberStats(candidate.stats),
   };
 }
 
@@ -292,6 +352,12 @@ export class AuthStore extends DurableObject<Env> {
     if (request.method === "GET" && pathname === "/api/auth/me") {
       return this.handleMe(url);
     }
+    if (request.method === "GET" && pathname === "/api/auth/profile") {
+      return this.handleProfile(url);
+    }
+    if (request.method === "POST" && pathname === "/api/auth/match") {
+      return this.handleMatch(request);
+    }
 
     return jsonResponse({ error: "Bulunamadi." }, 404);
   }
@@ -329,6 +395,7 @@ export class AuthStore extends DurableObject<Env> {
       password,
       points: 1500,
       createdAt: Date.now(),
+      stats: createDefaultMemberStats(),
     };
 
     await this.putUser(user);
@@ -368,5 +435,91 @@ export class AuthStore extends DurableObject<Env> {
     }
 
     return jsonResponse({ ok: true, user: toPublicUser(user) }, 200);
+  }
+
+  private async handleProfile(url: URL): Promise<Response> {
+    const userId = sanitizeMemberId(url.searchParams.get("userId"));
+    if (!userId) {
+      return jsonResponse({ error: "Gecersiz kullanici." }, 400);
+    }
+
+    const user = await this.getById(userId);
+    if (!user) {
+      return jsonResponse({ error: "Kullanici bulunamadi." }, 404);
+    }
+
+    return jsonResponse({ ok: true, user: toPublicUser(user) }, 200);
+  }
+
+  private async handleMatch(request: Request): Promise<Response> {
+    const payload = await parseJsonBody(request);
+    if (!payload || typeof payload !== "object") {
+      return jsonResponse({ error: "Gecersiz istek." }, 400);
+    }
+
+    const body = payload as Record<string, unknown>;
+    const userId = sanitizeMemberId(body.userId);
+    const outcome = sanitizeMatchOutcome(body.outcome);
+    const matchToken = sanitizeMatchToken(body.matchToken);
+    if (!userId || !outcome) {
+      return jsonResponse({ error: "Kullanici veya sonuc gecersiz." }, 400);
+    }
+
+    const user = await this.getById(userId);
+    if (!user) {
+      return jsonResponse({ error: "Kullanici bulunamadi." }, 404);
+    }
+
+    const dedupeKey = matchToken ? `match:${userId}:${matchToken}` : "";
+    if (dedupeKey) {
+      const alreadyProcessed = await this.ctx.storage.get<boolean>(dedupeKey);
+      if (alreadyProcessed) {
+        return jsonResponse({
+          ok: true,
+          user: toPublicUser(user),
+          applied: {
+            outcome,
+            pointsDelta: 0,
+            duplicate: true,
+            matchToken,
+          },
+        }, 200);
+      }
+    }
+
+    const stats = normalizeMemberStats(user.stats);
+    const fallbackDelta = outcome === "win" ? 100 : outcome === "resign" ? -50 : 0;
+    const pointsDelta = sanitizeFinitePoints(body.pointsDelta, fallbackDelta);
+
+    stats.gamesPlayed += 1;
+    if (outcome === "win") {
+      stats.wins += 1;
+    } else if (outcome === "loss") {
+      stats.losses += 1;
+    } else {
+      stats.losses += 1;
+      stats.resigns += 1;
+    }
+
+    const updated: StoredMemberUser = {
+      ...user,
+      points: Math.max(0, user.points + pointsDelta),
+      stats,
+    };
+
+    await this.putUser(updated);
+    if (dedupeKey) {
+      await this.ctx.storage.put(dedupeKey, true);
+    }
+    return jsonResponse({
+      ok: true,
+      user: toPublicUser(updated),
+      applied: {
+        outcome,
+        pointsDelta,
+        duplicate: false,
+        matchToken: matchToken || undefined,
+      },
+    }, 200);
   }
 }
