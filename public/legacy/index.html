@@ -11,23 +11,21 @@
 </head>
 <body>
   <main class="app-shell ref-shell">
-    <header class="action-strip">
-      <button type="button" class="strip-btn strip-exit">Cikis</button>
-      <button type="button" class="strip-btn strip-lobby">Lobiye Don</button>
-      <button id="new-game-btn" class="strip-btn strip-primary">Yeni Oyun</button>
-      <button type="button" class="strip-btn strip-purple">Turnuva</button>
-      <button type="button" class="strip-btn strip-dark">Radyo Sec</button>
-      <button type="button" class="strip-btn strip-gold">Satin Al</button>
-      <button type="button" class="strip-btn strip-sky">Duyurular</button>
-      <button type="button" class="strip-btn strip-cyan">Siralama</button>
+    <header class="game-top">
+      <div class="game-brand">
+        <h1>Tavla</h1>
+        <p class="subtitle">Canli Oyun Masasi</p>
+      </div>
+      <button id="new-game-btn" class="secondary-btn top-newgame-btn">Yeni Oyun</button>
     </header>
 
-    <section class="room-bar">IZMIR / Masa 14</section>
+    <section class="room-bar">
+      <p id="room-title-main" class="room-title-main">Yerel Oyun</p>
+      <p id="room-title-sub" class="room-title-sub">Masa 1</p>
+    </section>
 
     <section class="arena-layout">
       <aside class="left-control-panel">
-        <button type="button" class="panel-hero-btn">Masadan Kalk</button>
-
         <div class="controls-card panel-card">
           <p class="label">Oyun Modu</p>
           <label for="game-mode-select" class="control-label">Mod Secimi</label>
@@ -40,13 +38,6 @@
             <input id="auto-roll-toggle" type="checkbox">
             Otomatik Zar At
           </label>
-
-          <div class="toggle-list">
-            <label class="control-inline"><input type="checkbox"> Sessiz Seyirci</label>
-            <label class="control-inline"><input type="checkbox"> Otomatik Pas</label>
-            <label class="control-inline"><input type="checkbox"> Otomatik Topla</label>
-            <label class="control-inline"><input type="checkbox"> Sesli Uyari</label>
-          </div>
 
           <div id="room-meta" class="room-meta" hidden>
             <p id="room-meta-code" class="room-meta-line"></p>
@@ -83,36 +74,22 @@
       </section>
 
       <aside class="right-action-panel">
-        <button type="button" class="action-btn action-invite">Davet Et</button>
-        <button type="button" class="action-btn action-soft">Ikiye Katla</button>
-        <button type="button" class="action-btn action-soft">Pas Et</button>
         <button id="roll-btn" class="action-btn action-roll">Zar At</button>
-        <button type="button" class="action-btn action-soft">Zari Devret</button>
         <button id="undo-btn" class="action-btn action-soft">Geri Al</button>
-
-        <div class="mini-profile-card">
-          <p class="mini-profile-name">misafir.r</p>
-          <p class="mini-profile-score">0</p>
-        </div>
       </aside>
     </section>
 
     <section class="activity-wrap">
       <section class="history-card">
-        <div class="chat-tabs">
-          <button type="button" class="chat-tab active">Masa Chat</button>
-          <button type="button" class="chat-tab">Lobi Chat</button>
-        </div>
-        <div class="chat-input-row">
-          <input type="text" class="chat-input" placeholder="Mesaj yaz..." aria-label="Mesaj yaz" disabled>
-          <button type="button" class="chat-send-btn" disabled>Gonder</button>
-        </div>
+        <p class="label">Hamle Gecmisi</p>
         <ol id="move-log" class="move-log"></ol>
       </section>
 
-      <section class="help player-list-card">
-        <p class="player-list-title">Oyuncular</p>
-        <p class="player-list-item"><span>misafir</span><strong>1500</strong></p>
+      <section class="help">
+        <p>
+          Oynamak icin once kaynak tasi sec, sonra hedef noktaya tikla.
+          Bar'da tasin varsa once bar'dan giris yapman gerekir.
+        </p>
       </section>
     </section>
   </main>

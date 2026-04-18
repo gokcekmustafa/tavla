@@ -1416,9 +1416,9 @@ body:has(.ref-shell) {
 
 .ref-shell {
   max-width: 1200px;
-  gap: 8px;
-  padding: 6px;
-  padding-bottom: 14px;
+  gap: 5px;
+  padding: 4px;
+  padding-bottom: 10px;
 }
 
 .ref-shell .label {
@@ -1428,56 +1428,73 @@ body:has(.ref-shell) {
   margin-bottom: 6px;
 }
 
-.action-strip {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 2px;
-  background: #053846;
-  border: 2px solid #0c5163;
+.game-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: linear-gradient(180deg, #0d4f61, #083847);
+  border: 1px solid #0f657c;
   border-radius: 6px;
-  padding: 2px;
+  padding: 5px 8px;
 }
 
-.strip-btn {
-  border-radius: 0;
-  border: 1px solid rgba(0,0,0,0.3);
-  min-height: 46px;
-  font-size: 0.72rem;
+.game-brand h1 {
+  font-family: 'Cormorant Garamond', serif;
+  color: #f7db8e;
+  font-size: 1.5rem;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+.game-brand .subtitle {
+  margin-top: 0;
+  color: #bde8f4;
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+}
+
+.top-newgame-btn {
+  min-height: 34px;
+  padding: 5px 12px;
+  background: linear-gradient(180deg, #e16c1e, #b84807);
+  border: 1px solid rgba(71,31,7,0.7);
+  color: #fff6e6;
+  font-size: 0.74rem;
   font-weight: 800;
-  color: #fff;
-  text-shadow: 0 1px 0 rgba(0,0,0,0.36);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
 }
-
-.strip-btn:hover:not(:disabled) {
-  filter: brightness(1.04);
-  transform: none;
-}
-
-.strip-exit    { background: linear-gradient(180deg, #ad5353, #934242); }
-.strip-lobby   { background: linear-gradient(180deg, #4fa5dd, #2f89c6); }
-.strip-primary { background: linear-gradient(180deg, #d43e18, #b12910); }
-.strip-purple  { background: linear-gradient(180deg, #812cd2, #6023a0); }
-.strip-dark    { background: linear-gradient(180deg, #2f3b4d, #212a36); }
-.strip-gold    { background: linear-gradient(180deg, #f0b52f, #cd8f1d); }
-.strip-sky     { background: linear-gradient(180deg, #4dacc7, #2a90ae); }
-.strip-cyan    { background: linear-gradient(180deg, #43b2cb, #2c8fa5); }
 
 .room-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   background: linear-gradient(180deg, #b88d1c, #9e7716);
-  color: #fff1cc;
   border: 1px solid rgba(73,43,7,0.54);
   border-radius: 4px;
-  padding: 7px 10px;
-  font-size: 1.04rem;
-  font-weight: 800;
+  padding: 4px 8px;
   text-shadow: 0 1px 0 rgba(0,0,0,0.34);
+}
+
+.room-title-main {
+  color: #fff3cf;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.room-title-sub {
+  margin-top: 0;
+  color: #f5dfa5;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .arena-layout {
   display: grid;
-  grid-template-columns: 182px minmax(0, 1fr) 122px;
-  gap: 8px;
+  grid-template-columns: 190px minmax(0, 1fr) 148px;
+  gap: 6px;
   align-items: stretch;
 }
 
@@ -1648,11 +1665,22 @@ body:has(.ref-shell) {
 }
 
 .ref-shell .history-card,
-.ref-shell .player-list-card {
+.ref-shell .help {
   background: #1a7692;
   border: 2px solid #0f5f79;
   border-radius: 6px;
-  padding: 0;
+}
+
+.ref-shell .history-card {
+  padding: 6px 6px 2px;
+}
+
+.ref-shell .help {
+  padding: 10px 12px;
+  color: #eaf9ff;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  align-items: flex-start;
 }
 
 .chat-tabs {
@@ -1751,11 +1779,7 @@ body:has(.ref-shell) {
 
 @media (max-width: 1100px) {
   .arena-layout {
-    grid-template-columns: 168px minmax(0, 1fr) 114px;
-  }
-
-  .action-strip {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: 174px minmax(0, 1fr) 134px;
   }
 }
 
@@ -1765,12 +1789,8 @@ body:has(.ref-shell) {
   }
 
   .right-action-panel {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
-  }
-
-  .mini-profile-card {
-    grid-column: 1 / -1;
   }
 
   .ref-shell .activity-wrap {
@@ -1780,20 +1800,39 @@ body:has(.ref-shell) {
 
 @media (max-width: 768px) {
   .ref-shell {
-    padding: 4px;
-    gap: 6px;
+    padding: 3px;
+    gap: 4px;
     min-height: auto;
   }
 
-  .strip-btn {
-    min-height: 38px;
-    font-size: 0.64rem;
+  .game-top {
     padding: 4px 6px;
   }
 
+  .game-brand h1 {
+    font-size: 1.2rem;
+  }
+
+  .game-brand .subtitle {
+    font-size: 0.56rem;
+  }
+
+  .top-newgame-btn {
+    min-height: 32px;
+    font-size: 0.68rem;
+    padding: 5px 10px;
+  }
+
   .room-bar {
-    font-size: 0.9rem;
-    padding: 6px 8px;
+    padding: 3px 6px;
+  }
+
+  .room-title-main {
+    font-size: 0.78rem;
+  }
+
+  .room-title-sub {
+    font-size: 0.6rem;
   }
 
   .right-action-panel {

@@ -42,6 +42,8 @@ const dom = {
   roomMeta:        document.getElementById("room-meta"),
   roomMetaCode:    document.getElementById("room-meta-code"),
   roomMetaSeat:    document.getElementById("room-meta-seat"),
+  roomTitleMain:   document.getElementById("room-title-main"),
+  roomTitleSub:    document.getElementById("room-title-sub"),
 };
 
 const pointElements   = new Map();
@@ -71,7 +73,7 @@ let isApplyingRemoteState = false;
 let roomChannel       = null;
 let roomSyncCounter   = 0;
 
-const roomParams = parseRoomParams();
+const roomParams = parseRoomParamsSafe();
 const roomSenderCounters = new Map();
 
 const botPlayer = BLACK;
@@ -108,12 +110,78 @@ function addCheckers(state, point, player, amount) {
   t.count += amount;
 }
 
-function parseRoomParams() {
+function parseRoomParamsLegacy() {
   const params = new URLSearchParams(window.location.search);
   const roomCode = (params.get("room") || "")
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")
     .slice(0, 6);
+  const roomNameRaw = (params.get("room_name")
+    || params.get("roomName")
+    || params.get("oda")
+    || params.get("odaAdi")
+    || params.get("roomLabel")
+    || "")
+    .replace(/\s+/g, " ")
+    .replace(/[^a-zA-Z0-9ığüşöçİĞÜŞÖÇ _-]/g, "")
+    .trim()
+    .slice(0, 30);
+  const tableRaw = (params.get("table")
+    || params.get("tableNo")
+    || params.get("masa")
+    || params.get("masaNo")
+    || "")
+    .replace(/[^0-9]/g, "");
+  const seatParam = params.get("seat");
+  const seat = seatParam === WHITE || seatParam === BLACK ? seatParam : WHITE;
+  const sessionRaw = (params.get("session") || "")
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .slice(0, 48);
+  const guestRaw = (params.get("guest") || params.get("name") || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 24);
+  const parsedTableNo = Number.parseInt(tableRaw || "0", 10);
+  const roomDigits = roomCode.replace(/[^0-9]/g, "");
+  const fallbackTableNo = Number.parseInt(roomDigits.slice(-2) || "1", 10);
+  const tableNo = Number.isInteger(parsedTableNo) && parsedTableNo > 0
+    ? parsedTableNo
+    : (Number.isInteger(fallbackTableNo) && fallbackTableNo > 0 ? fallbackTableNo : 1);
+  const roomName = roomNameRaw || (roomCode ? `Oda ${roomCode}` : "Yerel Oyun");
+
+  return {
+    enabled: Boolean(roomCode && (seatParam === WHITE || seatParam === BLACK)),
+    code: roomCode,
+    roomName,
+    tableNo,
+    seat,
+    session: sessionRaw || createRoomSessionId(),
+    guest: guestRaw || "Misafir",
+  };
+}
+
+function parseRoomParamsSafe() {
+  const params = new URLSearchParams(window.location.search);
+  const roomCode = (params.get("room") || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 6);
+  const roomNameRaw = (params.get("room_name")
+    || params.get("roomName")
+    || params.get("oda")
+    || params.get("odaAdi")
+    || params.get("roomLabel")
+    || "")
+    .replace(/\s+/g, " ")
+    .replace(/[^\p{L}\p{N} _-]/gu, "")
+    .trim()
+    .slice(0, 30);
+  const tableRaw = (params.get("table")
+    || params.get("tableNo")
+    || params.get("masa")
+    || params.get("masaNo")
+    || "")
+    .replace(/[^0-9]/g, "");
   const seatParam = params.get("seat");
   const seat = seatParam === WHITE || seatParam === BLACK ? seatParam : WHITE;
   const sessionRaw = (params.get("session") || "")
@@ -124,9 +192,19 @@ function parseRoomParams() {
     .trim()
     .slice(0, 24);
 
+  const parsedTableNo = Number.parseInt(tableRaw || "0", 10);
+  const roomDigits = roomCode.replace(/[^0-9]/g, "");
+  const fallbackTableNo = Number.parseInt(roomDigits.slice(-2) || "1", 10);
+  const tableNo = Number.isInteger(parsedTableNo) && parsedTableNo > 0
+    ? parsedTableNo
+    : (Number.isInteger(fallbackTableNo) && fallbackTableNo > 0 ? fallbackTableNo : 1);
+  const roomName = roomNameRaw || (roomCode ? `Oda ${roomCode}` : "Yerel Oyun");
+
   return {
     enabled: Boolean(roomCode && (seatParam === WHITE || seatParam === BLACK)),
     code: roomCode,
+    roomName,
+    tableNo,
     seat,
     session: sessionRaw || createRoomSessionId(),
     guest: guestRaw || "Misafir",
@@ -148,7 +226,7 @@ function isLocalSeatTurn() {
 
 function getBootLogMessage() {
   if (isRoomMode()) {
-    return `Oda ${roomParams.code} acildi. Sen ${playerText(roomParams.seat)} oyuncususun.`;
+    return `${roomParams.roomName} / Masa ${roomParams.tableNo} acildi. Sen ${playerText(roomParams.seat)} oyuncususun.`;
   }
   return gameMode === "bot" ? "Bilgisayara karşı modda yeni oyun hazır." : "Yeni oyun hazır.";
 }
@@ -166,13 +244,13 @@ function initRoomMode() {
     dom.roomMeta.removeAttribute("hidden");
   }
   if (dom.roomMetaCode) {
-    dom.roomMetaCode.textContent = `Oda: ${roomParams.code}`;
+    dom.roomMetaCode.textContent = `Oda: ${roomParams.roomName} (Kod: ${roomParams.code})`;
   }
   if (dom.roomMetaSeat) {
-    dom.roomMetaSeat.textContent = `Sen: ${playerText(roomParams.seat)}`;
+    dom.roomMetaSeat.textContent = `Masa: ${roomParams.tableNo} / Sen: ${playerText(roomParams.seat)}`;
   }
 
-  setStatus(`Oda ${roomParams.code} aktif. Sıra ${playerText(currentPlayer)} oyuncusunda.`);
+  setStatus(`${roomParams.roomName} - Masa ${roomParams.tableNo} aktif. Sıra ${playerText(currentPlayer)} oyuncusunda.`);
   initRoomChannel();
 }
 
@@ -1037,11 +1115,43 @@ function renderTurnInfo() {
     else dom.roomMeta.setAttribute("hidden", "");
   }
   if (dom.roomMetaCode && isRoomMode()) {
-    dom.roomMetaCode.textContent = `Oda: ${roomParams.code}`;
+    dom.roomMetaCode.textContent = `Oda: ${roomParams.roomName} (Kod: ${roomParams.code})`;
   }
   if (dom.roomMetaSeat && isRoomMode()) {
-    dom.roomMetaSeat.textContent = `Sen: ${playerText(roomParams.seat)} / Sira: ${playerText(currentPlayer)}`;
+    dom.roomMetaSeat.textContent = `Masa: ${roomParams.tableNo} / Sen: ${playerText(roomParams.seat)} / Sira: ${playerText(currentPlayer)}`;
   }
+  renderRoomHeader();
+}
+
+function renderRoomHeaderLegacy() {
+  if (!dom.roomTitleMain || !dom.roomTitleSub) return;
+
+  const titleMain = isRoomMode()
+    ? roomParams.roomName
+    : (gameMode === "bot" ? "Yerel Oyun - Bot Modu" : "Yerel Oyun");
+
+  const titleSub = isRoomMode()
+    ? `Masa ${roomParams.tableNo} · Sen: ${playerText(roomParams.seat)}`
+    : `Masa ${roomParams.tableNo}`;
+
+  dom.roomTitleMain.textContent = titleMain;
+  dom.roomTitleSub.textContent = titleSub;
+}
+
+// Keep this canonical room header renderer as the final declaration.
+function renderRoomHeader() {
+  if (!dom.roomTitleMain || !dom.roomTitleSub) return;
+
+  const titleMain = isRoomMode()
+    ? roomParams.roomName
+    : (gameMode === "bot" ? "Yerel Oyun - Bot Modu" : "Yerel Oyun");
+
+  const titleSub = isRoomMode()
+    ? `Masa ${roomParams.tableNo} - Sen: ${playerText(roomParams.seat)}`
+    : `Masa ${roomParams.tableNo}`;
+
+  dom.roomTitleMain.textContent = titleMain;
+  dom.roomTitleSub.textContent = titleSub;
 }
 
 function renderStatus() {
