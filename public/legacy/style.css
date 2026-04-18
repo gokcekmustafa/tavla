@@ -20,7 +20,7 @@
   --panel-bg-soft: rgba(39,26,16,0.74);
   --text-main: #f6ead2;
   --text-soft: #c8b194;
-  --checker-size: clamp(24px, 4.7vw, 40px);
+  --checker-size: 36px;
   --asset-table: url("./assets/theme/table-surface.jpg");
   --asset-stone-light: url("./assets/theme/stone-light.png");
   --asset-stone-dark: url("./assets/theme/stone-dark.png");
@@ -654,16 +654,16 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   gap: 0;
   position: relative;
   z-index: 2;
-  width: 100%;
+  width: 92%;
   flex: 1;
   min-height: 0;
 }
 
-.point.top    .checker-stack { justify-content: flex-start; padding-top: 2px; }
-.point.bottom .checker-stack { justify-content: flex-end; padding-bottom: 2px; }
+.point.top    .checker-stack { justify-content: flex-start; padding-top: 0; }
+.point.bottom .checker-stack { justify-content: flex-end; padding-bottom: 0; }
 
-.point.top .checker:not(:first-child) { margin-top: calc(var(--checker-size) * -0.36); }
-.point.bottom .checker:not(:first-child) { margin-bottom: calc(var(--checker-size) * -0.36); }
+.point.top .checker:not(:first-child) { margin-top: 0; }
+.point.bottom .checker:not(:first-child) { margin-bottom: 0; }
 
 /* ── Checker ─────────────────────────────────────── */
 .checker {

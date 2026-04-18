@@ -12,6 +12,9 @@ const DICE_SPRITE_ROWS = 7;
 const DICE_ROLL_TOTAL_MS = 1750;
 const DICE_ROLL_STAGGER_MS = 120;
 const SHOW_MOVE_PATH_GUIDES = false;
+const CHECKER_SIZE_MIN = 16;
+const CHECKER_SIZE_MAX = 48;
+const CHECKER_VISIBLE_PER_POINT = 6;
 
 const dom = {
   tableWrap:       document.querySelector(".table-wrap"),
@@ -396,7 +399,10 @@ function attachEvents() {
   dom.offWhite.addEventListener("drop",     onDropOnOffArea);
   dom.offBlack.addEventListener("drop",     onDropOnOffArea);
   dom.winnerCloseBtn?.addEventListener("click", hideWinnerPopup);
-  window.addEventListener("resize", renderGuideLines);
+  window.addEventListener("resize", () => {
+    syncCheckerSizeToBoard();
+    renderGuideLines();
+  });
 }
 
 function onNewGame() {
@@ -982,9 +988,24 @@ function clearPendingAutoRollTimer() {
   pendingAutoRollTimer = null;
 }
 
+function syncCheckerSizeToBoard() {
+  const samplePoint = pointElements.get(1) || pointElements.get(13);
+  if (!samplePoint) return;
+
+  const rect = samplePoint.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+
+  const byHeight = Math.floor(rect.height / CHECKER_VISIBLE_PER_POINT);
+  const byWidth = Math.floor(rect.width * 0.9);
+  const nextSize = Math.max(CHECKER_SIZE_MIN, Math.min(CHECKER_SIZE_MAX, byHeight, byWidth));
+
+  document.documentElement.style.setProperty("--checker-size", `${nextSize}px`);
+}
+
 // ── Render ───────────────────────────────────────────────────────
 
 function render() {
+  syncCheckerSizeToBoard();
   renderTurnInfo();
   renderStatus();
   renderDice();
@@ -1066,7 +1087,7 @@ function renderBoardState() {
 
     if (!ps.owner || ps.count === 0) { el.classList.remove("blocked"); continue; }
 
-    const show = Math.min(ps.count, 5);
+    const show = Math.min(ps.count, CHECKER_VISIBLE_PER_POINT);
     for (let i = 0; i < show; i++) {
       const ch = document.createElement("span");
       ch.className = `checker ${ps.owner}`;
@@ -1085,10 +1106,10 @@ function renderBoardState() {
       stack.appendChild(ch);
     }
 
-    if (ps.count > 5) {
+    if (ps.count > CHECKER_VISIBLE_PER_POINT) {
       const badge = document.createElement("span");
       badge.className = "count-badge";
-      badge.textContent = `+${ps.count - 5}`;
+      badge.textContent = `+${ps.count - CHECKER_VISIBLE_PER_POINT}`;
       stack.appendChild(badge);
     }
 
