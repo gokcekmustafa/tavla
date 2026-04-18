@@ -2120,7 +2120,7 @@ function App() {
           <div className="my-lobby-main">
             <div className="my-lobby-header">
               <h2>{lobbyState.lobbyName}</h2>
-              <p>Mynet benzeri masa listesi: sadece acik masalar gorunur.</p>
+              <p>Acik masalar</p>
             </div>
 
             <div className="my-lobby-controls">
