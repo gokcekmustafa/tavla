@@ -343,6 +343,53 @@ function getNextTableId(tables: LobbyTable[]) {
   return tables.reduce((max, table) => Math.max(max, table.id), 0) + 1;
 }
 
+function mergeSeatState(base: LobbySeatState | null, incoming: LobbySeatState | null) {
+  if (!base) return incoming;
+  if (!incoming) return base;
+  return incoming.touchedAt >= base.touchedAt ? incoming : base;
+}
+
+function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
+  const keyOf = (table: LobbyTable) => sanitizeRoomCode(table.roomCode) || `id-${table.id}`;
+  const mergedTables = new Map<string, LobbyTable>();
+
+  remote.tables.forEach((table) => {
+    mergedTables.set(keyOf(table), table);
+  });
+
+  local.tables.forEach((table) => {
+    const key = keyOf(table);
+    const existing = mergedTables.get(key);
+    if (!existing) {
+      mergedTables.set(key, table);
+      return;
+    }
+    mergedTables.set(key, {
+      id: Math.min(existing.id, table.id),
+      roomCode: sanitizeRoomCode(existing.roomCode) || sanitizeRoomCode(table.roomCode) || createRoomCode(),
+      white: mergeSeatState(existing.white, table.white),
+      black: mergeSeatState(existing.black, table.black),
+    });
+  });
+
+  const guestLabels: Record<string, number> = { ...remote.guestLabels };
+  Object.entries(local.guestLabels).forEach(([guestKey, guestNo]) => {
+    if (!guestLabels[guestKey]) {
+      guestLabels[guestKey] = guestNo;
+    }
+  });
+
+  const highestGuestNo = Object.values(guestLabels).reduce((max, value) => Math.max(max, value), 0);
+
+  return normalizeLobbyState({
+    lobbyName: sanitizeLobbyName(remote.lobbyName || local.lobbyName),
+    tables: Array.from(mergedTables.values()),
+    guestCounter: Math.max(remote.guestCounter, local.guestCounter, highestGuestNo),
+    guestLabels,
+    updatedAt: Math.max(remote.updatedAt, local.updatedAt),
+  });
+}
+
 function App() {
   const [initialRoom] = useState<RoomSession | null>(() => getInitialRoomSession());
   const [mode, setMode] = useState<GameMode>("local");
@@ -586,10 +633,6 @@ function App() {
   }
 
   function sitToTable(tableId: number, seat: Seat, explicitRoomCode?: string, openGameView = true) {
-    if (realtimeLobbyMapRef.current && !realtimeSyncedRef.current && realtimeStatus !== "offline") {
-      setLobbyNotice("Canli senkron baglaniyor, lutfen 1-2 saniye sonra tekrar deneyin.");
-      return null;
-    }
     const table = upsertMySeat(tableId, seat, explicitRoomCode);
     if (!table) {
       setLobbyNotice("Secilen koltuk dolu. Lutfen baska bir koltuk secin.");
@@ -800,7 +843,6 @@ function App() {
 
   function syncRoomSeatHeartbeat() {
     if (!roomSession) return;
-    if (realtimeLobbyMapRef.current && !realtimeSyncedRef.current && realtimeStatus !== "offline") return;
     let blocked = false;
 
     writeLobby((current) => {
@@ -893,6 +935,7 @@ function App() {
     setRealtimeStatus("connecting");
 
     const applyRemoteState = () => {
+      if (!realtimeSyncedRef.current) return;
       const raw = lobbyMap.get("state");
       if (!raw) return;
       const normalized = normalizeLobbyState(raw);
@@ -915,12 +958,21 @@ function App() {
     const onSync = (isSynced: boolean) => {
       if (!isSynced) return;
       realtimeSyncedRef.current = true;
-      const remote = lobbyMap.get("state");
-      if (remote) {
-        applyRemoteState();
+      const remoteRaw = lobbyMap.get("state");
+      const localSnapshot = loadLobbyState();
+      if (remoteRaw) {
+        const remote = normalizeLobbyState(remoteRaw);
+        const merged = mergeLobbyStates(localSnapshot, remote);
+        if (JSON.stringify(merged) !== JSON.stringify(remote)) {
+          lobbyMap.set("state", merged);
+        }
+        saveJson(LOBBY_STATE_KEY, merged);
+        setLobbyState(merged);
         return;
       }
-      lobbyMap.set("state", loadLobbyState());
+      lobbyMap.set("state", localSnapshot);
+      saveJson(LOBBY_STATE_KEY, localSnapshot);
+      setLobbyState(localSnapshot);
     };
 
     lobbyMap.observe(applyRemoteState);
@@ -941,7 +993,6 @@ function App() {
 
   useEffect(() => {
     if (member) return;
-    if (realtimeLobbyMapRef.current && !realtimeSyncedRef.current && realtimeStatus !== "offline") return;
     let resolvedGuestNo = 0;
 
     const next = writeLobby((current) => {
@@ -973,7 +1024,7 @@ function App() {
     if (guestName !== desiredName) {
       setGuestName(desiredName);
     }
-  }, [member, guestId, guestName, realtimeStatus]);
+  }, [member, guestId, guestName]);
 
   useEffect(() => {
     window.localStorage.setItem(GUEST_STORAGE_KEY, safeGuestName);
@@ -1121,7 +1172,11 @@ function App() {
           <span className="my-chip">{lobbyState.lobbyName}</span>
           <span className="my-chip">Acik Masa: {openedTables.length}</span>
           <span className={`my-chip ${realtimeStatus === "online" ? "active" : ""}`}>
-            {realtimeStatus === "online" ? "Canli Senkron Acik" : "Yerel Senkron"}
+            {realtimeStatus === "online"
+              ? "Canli Senkron Acik"
+              : realtimeStatus === "connecting"
+                ? "Canli Senkron Baglaniyor"
+                : "Yerel Senkron"}
           </span>
           <span className={`my-chip ${roomSession ? "active" : ""}`}>
             {roomSession ? `Masa ${roomSession.tableNo}` : mode === "bot" ? "Bot Modu" : "Yerel"}
