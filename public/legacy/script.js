@@ -74,7 +74,10 @@ let autoRollEnabled   = false;
 let pendingMoveChain  = [];
 let isApplyingRemoteState = false;
 let roomChannel       = null;
+let roomSocket        = null;
+let roomReconnectTimer = null;
 let roomSyncCounter   = 0;
+const roomPendingMessages = [];
 let preferredPlayerColor = WHITE;
 let diceRollSettledAt = 0;
 
@@ -114,6 +117,26 @@ function addCheckers(state, point, player, amount) {
   t.count += amount;
 }
 
+function getDefaultRoomSyncWsBase() {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/realtime`;
+}
+
+function normalizeRoomSyncWsBase(raw) {
+  const fallback = getDefaultRoomSyncWsBase();
+  const trimmed = typeof raw === "string" ? raw.trim() : "";
+  if (!trimmed) return fallback;
+  try {
+    const url = new URL(trimmed, window.location.href);
+    if (url.protocol === "http:") url.protocol = "ws:";
+    if (url.protocol === "https:") url.protocol = "wss:";
+    if (url.protocol !== "ws:" && url.protocol !== "wss:") return fallback;
+    return url.toString();
+  } catch {
+    return fallback;
+  }
+}
+
 function parseRoomParamsLegacy() {
   const params = new URLSearchParams(window.location.search);
   const roomCode = (params.get("room") || "")
@@ -145,6 +168,11 @@ function parseRoomParamsLegacy() {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 24);
+  const syncWsRaw = (params.get("sync_ws")
+    || params.get("syncWs")
+    || params.get("realtime_ws")
+    || params.get("realtimeWs")
+    || "");
   const parsedTableNo = Number.parseInt(tableRaw || "0", 10);
   const roomDigits = roomCode.replace(/[^0-9]/g, "");
   const fallbackTableNo = Number.parseInt(roomDigits.slice(-2) || "1", 10);
@@ -161,6 +189,7 @@ function parseRoomParamsLegacy() {
     seat,
     session: sessionRaw || createRoomSessionId(),
     guest: guestRaw || "Misafir",
+    syncWs: normalizeRoomSyncWsBase(syncWsRaw),
   };
 }
 
@@ -195,6 +224,11 @@ function parseRoomParamsSafe() {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 24);
+  const syncWsRaw = (params.get("sync_ws")
+    || params.get("syncWs")
+    || params.get("realtime_ws")
+    || params.get("realtimeWs")
+    || "");
 
   const parsedTableNo = Number.parseInt(tableRaw || "0", 10);
   const roomDigits = roomCode.replace(/[^0-9]/g, "");
@@ -212,6 +246,7 @@ function parseRoomParamsSafe() {
     seat,
     session: sessionRaw || createRoomSessionId(),
     guest: guestRaw || "Misafir",
+    syncWs: normalizeRoomSyncWsBase(syncWsRaw),
   };
 }
 
@@ -276,18 +311,102 @@ function initRoomMode() {
 
 function initRoomChannel() {
   if (!isRoomMode()) return;
-  if (typeof BroadcastChannel === "undefined") {
-    addLog("Tarayici BroadcastChannel desteklemedigi icin oda senkronu kapali.");
+  const wsUrl = buildRoomSyncUrl();
+  if (!wsUrl) {
+    addLog("Oda senkron adresi gecersiz.");
     return;
   }
 
   try {
-    roomChannel = new BroadcastChannel(`${ROOM_CHANNEL_PREFIX}${roomParams.code}`);
-    roomChannel.addEventListener("message", onRoomChannelMessage);
+    roomSocket = new WebSocket(wsUrl);
   } catch (error) {
+    roomSocket = null;
     roomChannel = null;
     addLog("Oda senkronu acilamadi.");
+    scheduleRoomReconnect();
+    return;
   }
+
+  roomChannel = {
+    postMessage(message) {
+      if (!roomSocket || roomSocket.readyState !== WebSocket.OPEN) {
+        roomPendingMessages.push(message);
+        return;
+      }
+      roomSocket.send(JSON.stringify(message));
+    },
+    close() {
+      if (!roomSocket) return;
+      try {
+        roomSocket.close(1000, "manual-close");
+      } catch {
+        // no-op
+      }
+    },
+  };
+
+  roomSocket.addEventListener("open", () => {
+    clearRoomReconnectTimer();
+    flushRoomPendingMessages();
+    sendRoomMessage("hello");
+  });
+
+  roomSocket.addEventListener("message", (event) => {
+    if (typeof event.data !== "string") return;
+    let parsed = null;
+    try {
+      parsed = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+    onRoomChannelMessage({ data: parsed });
+  });
+
+  roomSocket.addEventListener("close", () => {
+    roomSocket = null;
+    addLog("Oda baglantisi koptu. Yeniden baglaniyor...");
+    scheduleRoomReconnect();
+  });
+
+  roomSocket.addEventListener("error", () => {
+    addLog("Oda baglantisinda hata.");
+  });
+}
+
+function buildRoomSyncUrl() {
+  if (!isRoomMode()) return "";
+  const base = normalizeRoomSyncWsBase(roomParams.syncWs);
+  try {
+    const url = new URL(base);
+    url.searchParams.set("channel", `${ROOM_CHANNEL_PREFIX}${roomParams.code}`);
+    url.searchParams.set("client", roomParams.session);
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+function flushRoomPendingMessages() {
+  if (!roomChannel || !roomSocket || roomSocket.readyState !== WebSocket.OPEN) return;
+  while (roomPendingMessages.length > 0) {
+    const message = roomPendingMessages.shift();
+    roomChannel.postMessage(message);
+  }
+}
+
+function clearRoomReconnectTimer() {
+  if (roomReconnectTimer === null) return;
+  window.clearTimeout(roomReconnectTimer);
+  roomReconnectTimer = null;
+}
+
+function scheduleRoomReconnect() {
+  if (!isRoomMode()) return;
+  if (roomReconnectTimer !== null) return;
+  roomReconnectTimer = window.setTimeout(() => {
+    roomReconnectTimer = null;
+    initRoomChannel();
+  }, 1200);
 }
 
 function announceRoomJoin() {
@@ -297,7 +416,9 @@ function announceRoomJoin() {
 
 function onRoomChannelMessage(event) {
   const msg = event?.data;
-  if (!msg || msg.roomCode !== roomParams.code || msg.sender === roomParams.session) return;
+  const expectedChannel = `${ROOM_CHANNEL_PREFIX}${roomParams.code}`;
+  const sameRoom = msg && (msg.roomCode === roomParams.code || msg.channel === expectedChannel);
+  if (!sameRoom || msg.sender === roomParams.session) return;
 
   if (msg.kind === "hello") {
     publishRoomSnapshot("hello-reply");
@@ -315,6 +436,7 @@ function sendRoomMessage(kind, payload) {
   if (!isRoomMode() || !roomChannel) return;
   roomChannel.postMessage({
     kind,
+    channel: `${ROOM_CHANNEL_PREFIX}${roomParams.code}`,
     roomCode: roomParams.code,
     sender: roomParams.session,
     counter: roomSyncCounter,
@@ -327,6 +449,7 @@ function publishRoomSnapshot(reason) {
   roomSyncCounter += 1;
   roomChannel.postMessage({
     kind: "snapshot",
+    channel: `${ROOM_CHANNEL_PREFIX}${roomParams.code}`,
     roomCode: roomParams.code,
     sender: roomParams.session,
     counter: roomSyncCounter,

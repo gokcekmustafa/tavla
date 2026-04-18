@@ -5,16 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "lobby:server": "node ./scripts/lobby-server.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@y/websocket-server": "^0.1.5",
     "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "y-websocket": "^3.0.0",
-    "yjs": "^13.6.30"
+    "react-dom": "18.2.0"
   },
   "devDependencies": {
     "@types/react": "18.2.66",

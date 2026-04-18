@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import * as Y from "yjs";
-import { WebsocketProvider } from "y-websocket";
 import "./App.css";
 
 type GameMode = "local" | "bot";
@@ -64,26 +62,57 @@ type CleanupResult = {
   changed: boolean;
 };
 
+type RealtimeMessage = {
+  kind: "hello" | "snapshot";
+  channel: string;
+  sender: string;
+  counter: number;
+  at: number;
+  payload?: unknown;
+  reason?: string;
+};
+
 const GUEST_STORAGE_KEY = "tavla.guestName";
 const GUEST_ID_STORAGE_KEY = "tavla.guest.id.v1";
 const MEMBER_USERS_KEY = "tavla.member.users.v1";
 const MEMBER_SESSION_KEY = "tavla.member.session.v1";
 const LOBBY_STATE_KEY = "tavla.lobby.state.v2";
 const LOBBY_SYNC_CHANNEL = "tavla.lobby.sync.v2";
-const REALTIME_LOBBY_ROOM = "tavla-global-lobby-v1";
+const REALTIME_LOBBY_CHANNEL = "tavla-global-lobby-v1";
 const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_LOBBY_NAME = "Lobi 1";
 const SEAT_STALE_MS = 25_000;
 const HEARTBEAT_MS = 5_000;
 
-function getDefaultLobbyWsUrl() {
-  if (typeof window === "undefined") return "ws://127.0.0.1:1234";
+function getDefaultRealtimeWsBase() {
+  if (typeof window === "undefined") return "ws://127.0.0.1:8787/realtime";
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const host = window.location.hostname || "127.0.0.1";
-  return `${protocol}//${host}:1234`;
+  return `${protocol}//${window.location.host}/realtime`;
 }
 
-const REALTIME_LOBBY_WS_URL = (import.meta.env.VITE_LOBBY_WS_URL as string | undefined)?.trim() || getDefaultLobbyWsUrl();
+function normalizeRealtimeWsBase(rawValue: string | undefined) {
+  const fallback = getDefaultRealtimeWsBase();
+  const trimmed = rawValue?.trim();
+  if (!trimmed) return fallback;
+  try {
+    const url = new URL(trimmed, typeof window === "undefined" ? "http://localhost" : window.location.href);
+    if (url.protocol === "http:") url.protocol = "ws:";
+    if (url.protocol === "https:") url.protocol = "wss:";
+    if (url.protocol !== "ws:" && url.protocol !== "wss:") return fallback;
+    return url.toString();
+  } catch {
+    return fallback;
+  }
+}
+
+function buildRealtimeChannelUrl(base: string, channel: string, clientId: string) {
+  const url = new URL(base);
+  url.searchParams.set("channel", channel);
+  url.searchParams.set("client", clientId);
+  return url.toString();
+}
+
+const REALTIME_WS_BASE_URL = normalizeRealtimeWsBase(import.meta.env.VITE_REALTIME_WS_URL as string | undefined);
 
 function loadJson<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -440,10 +469,12 @@ function App() {
   const [authError, setAuthError] = useState("");
 
   const lobbyChannelRef = useRef<BroadcastChannel | null>(null);
-  const realtimeProviderRef = useRef<WebsocketProvider | null>(null);
-  const realtimeDocRef = useRef<Y.Doc | null>(null);
-  const realtimeLobbyMapRef = useRef<Y.Map<unknown> | null>(null);
-  const realtimeSyncedRef = useRef(false);
+  const realtimeSocketRef = useRef<WebSocket | null>(null);
+  const realtimeReconnectTimerRef = useRef<number | null>(null);
+  const realtimeSenderCountersRef = useRef<Map<string, number>>(new Map());
+  const realtimeSyncCounterRef = useRef(0);
+  const realtimeRemoteStateRef = useRef<LobbyState | null>(null);
+  const realtimeReceivedSnapshotRef = useRef(false);
   const appSessionId = useMemo(() => createSessionId(), []);
   const guestId = useMemo(() => getOrCreateGuestId(), []);
   const [realtimeStatus, setRealtimeStatus] = useState<"offline" | "connecting" | "online">("offline");
@@ -469,6 +500,7 @@ function App() {
     qp.set("mode", isRoomMode ? "local" : mode);
     qp.set("t", String(iframeKey));
     qp.set("guest", safeGuestName);
+    qp.set("sync_ws", REALTIME_WS_BASE_URL);
     if (roomSession) {
       qp.set("room", roomSession.code);
       qp.set("seat", roomSession.seat);
@@ -514,9 +546,24 @@ function App() {
   }
 
   function readRealtimeLobbyState() {
-    const raw = realtimeLobbyMapRef.current?.get("state");
-    if (!raw) return null;
-    return normalizeLobbyState(raw);
+    return realtimeRemoteStateRef.current;
+  }
+
+  function sendRealtimeSnapshot(payload: LobbyState, reason: string) {
+    const socket = realtimeSocketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+    realtimeSyncCounterRef.current += 1;
+    const message: RealtimeMessage = {
+      kind: "snapshot",
+      channel: REALTIME_LOBBY_CHANNEL,
+      sender: appSessionId,
+      counter: realtimeSyncCounterRef.current,
+      at: Date.now(),
+      payload,
+      reason,
+    };
+    socket.send(JSON.stringify(message));
+    return true;
   }
 
   function getCurrentLobbyState() {
@@ -525,11 +572,11 @@ function App() {
 
   function persistLobbyState(next: LobbyState) {
     const normalized = normalizeLobbyState(next);
-    if (realtimeLobbyMapRef.current && realtimeSyncedRef.current) {
-      realtimeLobbyMapRef.current.set("state", normalized);
-    }
+    realtimeRemoteStateRef.current = normalized;
+    realtimeReceivedSnapshotRef.current = true;
     saveJson(LOBBY_STATE_KEY, normalized);
     setLobbyState(normalized);
+    sendRealtimeSnapshot(normalized, "lobby-update");
     broadcastLobbySync();
   }
 
@@ -940,78 +987,131 @@ function App() {
   }
 
   useEffect(() => {
-    const doc = new Y.Doc();
-    const provider = new WebsocketProvider(REALTIME_LOBBY_WS_URL, REALTIME_LOBBY_ROOM, doc, { connect: true });
-    const lobbyMap = doc.getMap<unknown>("lobby");
+    let cancelled = false;
+    let reconnectDelay = 1_000;
 
-    realtimeSyncedRef.current = false;
-    realtimeDocRef.current = doc;
-    realtimeProviderRef.current = provider;
-    realtimeLobbyMapRef.current = lobbyMap;
-    setRealtimeStatus("connecting");
-
-    const applyRemoteState = () => {
-      if (!realtimeSyncedRef.current) return;
-      const raw = lobbyMap.get("state");
-      if (!raw) return;
-      const normalized = normalizeLobbyState(raw);
-      saveJson(LOBBY_STATE_KEY, normalized);
-      setLobbyState(normalized);
+    const clearReconnectTimer = () => {
+      if (realtimeReconnectTimerRef.current === null) return;
+      window.clearTimeout(realtimeReconnectTimerRef.current);
+      realtimeReconnectTimerRef.current = null;
     };
 
-    const onStatus = (event: { status: string }) => {
-      if (event.status === "connected") {
-        setRealtimeStatus("connecting");
+    const scheduleReconnect = () => {
+      if (cancelled || realtimeReconnectTimerRef.current !== null) return;
+      const waitMs = reconnectDelay;
+      reconnectDelay = Math.min(reconnectDelay * 2, 10_000);
+      realtimeReconnectTimerRef.current = window.setTimeout(() => {
+        realtimeReconnectTimerRef.current = null;
+        connectSocket();
+      }, waitMs);
+    };
+
+    const closeSocket = () => {
+      const socket = realtimeSocketRef.current;
+      if (!socket) return;
+      realtimeSocketRef.current = null;
+      try {
+        socket.close(1000, "cleanup");
+      } catch {
+        // no-op
+      }
+    };
+
+    const connectSocket = () => {
+      if (cancelled) return;
+      closeSocket();
+      setRealtimeStatus("connecting");
+      let socket: WebSocket;
+      try {
+        socket = new WebSocket(buildRealtimeChannelUrl(REALTIME_WS_BASE_URL, REALTIME_LOBBY_CHANNEL, appSessionId));
+      } catch {
+        setRealtimeStatus("offline");
+        scheduleReconnect();
         return;
       }
-      if (event.status === "connecting") {
-        setRealtimeStatus("connecting");
-        return;
-      }
-      setRealtimeStatus("offline");
-    };
 
-    const onConnectionError = () => {
-      setRealtimeStatus("offline");
-    };
+      realtimeSocketRef.current = socket;
+      realtimeReceivedSnapshotRef.current = false;
 
-    const onSync = (isSynced: boolean) => {
-      if (!isSynced) return;
-      realtimeSyncedRef.current = true;
-      setRealtimeStatus("online");
-      const remoteRaw = lobbyMap.get("state");
-      const localSnapshot = loadLobbyState();
-      if (remoteRaw) {
-        const remote = normalizeLobbyState(remoteRaw);
-        const merged = mergeLobbyStates(localSnapshot, remote);
-        if (JSON.stringify(merged) !== JSON.stringify(remote)) {
-          lobbyMap.set("state", merged);
+      const seedTimer = window.setTimeout(() => {
+        if (cancelled) return;
+        if (realtimeSocketRef.current !== socket) return;
+        if (socket.readyState !== WebSocket.OPEN) return;
+        if (realtimeReceivedSnapshotRef.current) return;
+        const localSnapshot = loadLobbyState();
+        realtimeRemoteStateRef.current = localSnapshot;
+        realtimeReceivedSnapshotRef.current = true;
+        saveJson(LOBBY_STATE_KEY, localSnapshot);
+        setLobbyState(localSnapshot);
+        sendRealtimeSnapshot(localSnapshot, "seed");
+      }, 1_200);
+
+      socket.addEventListener("open", () => {
+        if (cancelled || realtimeSocketRef.current !== socket) return;
+        reconnectDelay = 1_000;
+        setRealtimeStatus("online");
+        const helloMessage: RealtimeMessage = {
+          kind: "hello",
+          channel: REALTIME_LOBBY_CHANNEL,
+          sender: appSessionId,
+          counter: realtimeSyncCounterRef.current,
+          at: Date.now(),
+        };
+        socket.send(JSON.stringify(helloMessage));
+      });
+
+      socket.addEventListener("message", (event) => {
+        if (cancelled || realtimeSocketRef.current !== socket) return;
+        if (typeof event.data !== "string") return;
+
+        let message: RealtimeMessage | null = null;
+        try {
+          message = JSON.parse(event.data) as RealtimeMessage;
+        } catch {
+          return;
         }
+        if (!message || message.channel !== REALTIME_LOBBY_CHANNEL) return;
+        if (message.kind !== "snapshot") return;
+        if (typeof message.sender !== "string" || !message.sender) return;
+        if (!Number.isFinite(message.counter)) return;
+
+        const counter = Number(message.counter);
+        const previousCounter = realtimeSenderCountersRef.current.get(message.sender) ?? 0;
+        if (counter <= previousCounter) return;
+        realtimeSenderCountersRef.current.set(message.sender, counter);
+
+        const incoming = normalizeLobbyState(message.payload);
+        const merged = mergeLobbyStates(loadLobbyState(), incoming);
+        realtimeRemoteStateRef.current = merged;
+        realtimeReceivedSnapshotRef.current = true;
         saveJson(LOBBY_STATE_KEY, merged);
         setLobbyState(merged);
-        return;
-      }
-      lobbyMap.set("state", localSnapshot);
-      saveJson(LOBBY_STATE_KEY, localSnapshot);
-      setLobbyState(localSnapshot);
+        setRealtimeStatus("online");
+      });
+
+      socket.addEventListener("error", () => {
+        if (cancelled || realtimeSocketRef.current !== socket) return;
+        setRealtimeStatus("offline");
+      });
+
+      socket.addEventListener("close", () => {
+        window.clearTimeout(seedTimer);
+        if (cancelled || realtimeSocketRef.current !== socket) return;
+        realtimeSocketRef.current = null;
+        setRealtimeStatus("offline");
+        scheduleReconnect();
+      });
     };
 
-    lobbyMap.observe(applyRemoteState);
-    provider.on("status", onStatus);
-    provider.on("sync", onSync);
-    provider.on("connection-error", onConnectionError);
+    connectSocket();
 
     return () => {
-      lobbyMap.unobserve(applyRemoteState);
-      provider.destroy();
-      doc.destroy();
-      realtimeSyncedRef.current = false;
-      if (realtimeLobbyMapRef.current === lobbyMap) realtimeLobbyMapRef.current = null;
-      if (realtimeProviderRef.current === provider) realtimeProviderRef.current = null;
-      if (realtimeDocRef.current === doc) realtimeDocRef.current = null;
+      cancelled = true;
+      clearReconnectTimer();
+      closeSocket();
       setRealtimeStatus("offline");
     };
-  }, []);
+  }, [appSessionId]);
 
   useEffect(() => {
     if (member) return;

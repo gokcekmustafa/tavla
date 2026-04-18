@@ -1,0 +1,12 @@
+name = "tavla-realtime"
+main = "src/index.ts"
+compatibility_date = "2026-04-18"
+
+[durable_objects]
+bindings = [
+  { name = "ROOMS", class_name = "RealtimeRoom" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RealtimeRoom"]
