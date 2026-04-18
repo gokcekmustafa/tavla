@@ -380,6 +380,7 @@ function App() {
   const realtimeProviderRef = useRef<WebsocketProvider | null>(null);
   const realtimeDocRef = useRef<Y.Doc | null>(null);
   const realtimeLobbyMapRef = useRef<Y.Map<unknown> | null>(null);
+  const realtimeSyncedRef = useRef(false);
   const appSessionId = useMemo(() => createSessionId(), []);
   const guestId = useMemo(() => getOrCreateGuestId(), []);
   const [realtimeStatus, setRealtimeStatus] = useState<"offline" | "connecting" | "online">("offline");
@@ -461,7 +462,7 @@ function App() {
 
   function persistLobbyState(next: LobbyState) {
     const normalized = normalizeLobbyState(next);
-    if (realtimeLobbyMapRef.current) {
+    if (realtimeLobbyMapRef.current && realtimeSyncedRef.current) {
       realtimeLobbyMapRef.current.set("state", normalized);
     }
     saveJson(LOBBY_STATE_KEY, normalized);
@@ -585,6 +586,10 @@ function App() {
   }
 
   function sitToTable(tableId: number, seat: Seat, explicitRoomCode?: string, openGameView = true) {
+    if (realtimeLobbyMapRef.current && !realtimeSyncedRef.current && realtimeStatus !== "offline") {
+      setLobbyNotice("Canli senkron baglaniyor, lutfen 1-2 saniye sonra tekrar deneyin.");
+      return null;
+    }
     const table = upsertMySeat(tableId, seat, explicitRoomCode);
     if (!table) {
       setLobbyNotice("Secilen koltuk dolu. Lutfen baska bir koltuk secin.");
@@ -795,6 +800,7 @@ function App() {
 
   function syncRoomSeatHeartbeat() {
     if (!roomSession) return;
+    if (realtimeLobbyMapRef.current && !realtimeSyncedRef.current && realtimeStatus !== "offline") return;
     let blocked = false;
 
     writeLobby((current) => {
@@ -880,6 +886,7 @@ function App() {
     const provider = new WebsocketProvider(REALTIME_LOBBY_WS_URL, REALTIME_LOBBY_ROOM, doc, { connect: true });
     const lobbyMap = doc.getMap<unknown>("lobby");
 
+    realtimeSyncedRef.current = false;
     realtimeDocRef.current = doc;
     realtimeProviderRef.current = provider;
     realtimeLobbyMapRef.current = lobbyMap;
@@ -894,10 +901,20 @@ function App() {
     };
 
     const onStatus = (event: { status: string }) => {
-      setRealtimeStatus(event.status === "connected" ? "online" : "connecting");
+      if (event.status === "connected") {
+        setRealtimeStatus("online");
+        return;
+      }
+      if (event.status === "connecting") {
+        setRealtimeStatus("connecting");
+        return;
+      }
+      setRealtimeStatus("offline");
     };
 
-    const onSync = () => {
+    const onSync = (isSynced: boolean) => {
+      if (!isSynced) return;
+      realtimeSyncedRef.current = true;
       const remote = lobbyMap.get("state");
       if (remote) {
         applyRemoteState();
@@ -909,12 +926,12 @@ function App() {
     lobbyMap.observe(applyRemoteState);
     provider.on("status", onStatus);
     provider.on("sync", onSync);
-    onSync();
 
     return () => {
       lobbyMap.unobserve(applyRemoteState);
       provider.destroy();
       doc.destroy();
+      realtimeSyncedRef.current = false;
       if (realtimeLobbyMapRef.current === lobbyMap) realtimeLobbyMapRef.current = null;
       if (realtimeProviderRef.current === provider) realtimeProviderRef.current = null;
       if (realtimeDocRef.current === doc) realtimeDocRef.current = null;
@@ -924,6 +941,7 @@ function App() {
 
   useEffect(() => {
     if (member) return;
+    if (realtimeLobbyMapRef.current && !realtimeSyncedRef.current && realtimeStatus !== "offline") return;
     let resolvedGuestNo = 0;
 
     const next = writeLobby((current) => {
@@ -1034,9 +1052,7 @@ function App() {
         updatedAt: cleaned.changed ? Date.now() : latest.updatedAt,
       };
       if (cleaned.changed) {
-        saveJson(LOBBY_STATE_KEY, normalized);
-        setLobbyState(normalized);
-        broadcastLobbySync();
+        persistLobbyState(normalized);
         return;
       }
       setLobbyState(normalized);
