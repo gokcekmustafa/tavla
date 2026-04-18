@@ -994,9 +994,12 @@ function syncCheckerSizeToBoard() {
 
   const rect = samplePoint.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
+  const sampleStack = document.getElementById("stack-1") || document.getElementById("stack-13");
+  const stackRect = sampleStack?.getBoundingClientRect();
 
   const byHeight = Math.floor(rect.height / CHECKER_VISIBLE_PER_POINT);
-  const byWidth = Math.floor(rect.width * 0.9);
+  const laneWidth = stackRect?.width || rect.width * 0.7;
+  const byWidth = Math.floor(laneWidth * 0.95);
   const nextSize = Math.max(CHECKER_SIZE_MIN, Math.min(CHECKER_SIZE_MAX, byHeight, byWidth));
 
   document.documentElement.style.setProperty("--checker-size", `${nextSize}px`);
