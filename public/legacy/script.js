@@ -10,6 +10,8 @@ const AUTO_ROLL_DELAY_MS = 520;
 const ROOM_CHANNEL_PREFIX = "tavla-room-";
 const DICE_SPRITE_COLUMNS = 15;
 const DICE_SPRITE_ROWS = 7;
+const DICE_SPRITE_PATH = "./assets/theme/dice-roll-sprite.png";
+const DICE_SPRITE_ALPHA_THRESHOLD = 16;
 const DICE_ROLL_TOTAL_MS = 1750;
 const DICE_ROLL_STAGGER_MS = 120;
 const SHOW_MOVE_PATH_GUIDES = false;
@@ -81,11 +83,14 @@ const roomPendingMessages = [];
 let preferredPlayerColor = WHITE;
 let diceRollSettledAt = 0;
 let boardPerspectiveColor = null;
+let diceSpriteSheetPromise = null;
+let diceSpriteSheet = null;
 
 const roomParams = parseRoomParamsSafe();
 const roomSenderCounters = new Map();
 
 initPreferredPlayerColor();
+void preloadDiceSpriteSheet();
 buildBoard();
 attachEvents();
 initRoomMode();
@@ -1708,8 +1713,9 @@ function createCenterDie3D(value, toneClass, index) {
   const die = document.createElement("div");
   die.className = `center-die ${toneClass} rolling`;
 
-  const sprite = document.createElement("span");
+  const sprite = document.createElement("canvas");
   sprite.className = "die-roll-sprite";
+  sprite.setAttribute("aria-hidden", "true");
   die.appendChild(sprite);
 
   animateDiceSprite(sprite, value, index);
@@ -1721,6 +1727,15 @@ function animateDiceSprite(spriteEl, value, index) {
   const frameSequence = buildDiceFrameSequence(value);
   let lastFrame = -1;
   const startAt = performance.now() + delayMs;
+  let preparedSheet = diceSpriteSheet;
+
+  if (!preparedSheet) {
+    void preloadDiceSpriteSheet().then((sheet) => {
+      preparedSheet = sheet;
+      if (!sheet || lastFrame < 0 || !spriteEl.isConnected) return;
+      setDiceSpriteFrame(spriteEl, frameSequence[lastFrame], sheet);
+    });
+  }
 
   function tick(now) {
     if (!spriteEl.isConnected) return;
@@ -1738,7 +1753,7 @@ function animateDiceSprite(spriteEl, value, index) {
     );
 
     if (frameIndex !== lastFrame) {
-      setDiceSpriteFrame(spriteEl, frameSequence[frameIndex]);
+      setDiceSpriteFrame(spriteEl, frameSequence[frameIndex], preparedSheet);
       lastFrame = frameIndex;
     }
 
@@ -1765,12 +1780,93 @@ function buildDiceFrameSequence(value) {
   return [...randomFrames, ...settleFrames];
 }
 
-function setDiceSpriteFrame(spriteEl, frameIndex) {
+function preloadDiceSpriteSheet() {
+  if (diceSpriteSheet) return Promise.resolve(diceSpriteSheet);
+  if (diceSpriteSheetPromise) return diceSpriteSheetPromise;
+
+  diceSpriteSheetPromise = new Promise((resolve) => {
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => {
+      const width = img.naturalWidth || img.width;
+      const height = img.naturalHeight || img.height;
+      if (!width || !height) {
+        resolve(null);
+        return;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) {
+        resolve(null);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+      const imageData = ctx.getImageData(0, 0, width, height);
+      const pixels = imageData.data;
+      for (let i = 0; i < pixels.length; i += 4) {
+        const r = pixels[i];
+        const g = pixels[i + 1];
+        const b = pixels[i + 2];
+        if (r <= DICE_SPRITE_ALPHA_THRESHOLD && g <= DICE_SPRITE_ALPHA_THRESHOLD && b <= DICE_SPRITE_ALPHA_THRESHOLD) {
+          pixels[i + 3] = 0;
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+      diceSpriteSheet = canvas;
+      resolve(canvas);
+    };
+    img.onerror = () => resolve(null);
+    img.src = DICE_SPRITE_PATH;
+  });
+
+  return diceSpriteSheetPromise;
+}
+
+function setDiceSpriteFrame(spriteEl, frameIndex, preparedSheet = null) {
+  const sheet = preparedSheet || diceSpriteSheet;
+  if (sheet && drawDiceSpriteFrameCanvas(spriteEl, frameIndex, sheet)) return;
+  setDiceSpriteFrameLegacy(spriteEl, frameIndex);
+}
+
+function drawDiceSpriteFrameCanvas(spriteEl, frameIndex, sheet) {
+  if (!(spriteEl instanceof HTMLCanvasElement)) return false;
+  const ctx = spriteEl.getContext("2d");
+  if (!ctx) return false;
+
+  const safeIndex = Math.max(0, Math.min(DICE_SPRITE_COLUMNS * DICE_SPRITE_ROWS - 1, frameIndex));
+  const col = safeIndex % DICE_SPRITE_COLUMNS;
+  const row = Math.floor(safeIndex / DICE_SPRITE_COLUMNS);
+
+  const drawSize = Math.max(1, Math.round(spriteEl.clientWidth || spriteEl.parentElement?.clientWidth || 52));
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const pixelSize = Math.max(1, Math.round(drawSize * dpr));
+  if (spriteEl.width !== pixelSize || spriteEl.height !== pixelSize) {
+    spriteEl.width = pixelSize;
+    spriteEl.height = pixelSize;
+  }
+
+  const srcW = Math.floor(sheet.width / DICE_SPRITE_COLUMNS) || 1;
+  const srcH = Math.floor(sheet.height / DICE_SPRITE_ROWS) || 1;
+  const srcX = col * srcW;
+  const srcY = row * srcH;
+
+  ctx.clearRect(0, 0, spriteEl.width, spriteEl.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(sheet, srcX, srcY, srcW, srcH, 0, 0, spriteEl.width, spriteEl.height);
+  return true;
+}
+
+function setDiceSpriteFrameLegacy(spriteEl, frameIndex) {
   const safeIndex = Math.max(0, Math.min(DICE_SPRITE_COLUMNS * DICE_SPRITE_ROWS - 1, frameIndex));
   const col = safeIndex % DICE_SPRITE_COLUMNS;
   const row = Math.floor(safeIndex / DICE_SPRITE_COLUMNS);
   const size = spriteEl.clientWidth || spriteEl.parentElement?.clientWidth || 52;
 
+  spriteEl.style.backgroundImage = `url("${DICE_SPRITE_PATH}")`;
   spriteEl.style.backgroundSize = `${size * DICE_SPRITE_COLUMNS}px ${size * DICE_SPRITE_ROWS}px`;
   spriteEl.style.backgroundPosition = `${-col * size}px ${-row * size}px`;
 }
