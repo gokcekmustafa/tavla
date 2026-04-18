@@ -3,26 +3,28 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #120d08;
-  --wood:      #2b1b10;
-  --wood2:     #4b301f;
+  --bg:        #f1e2c5;
+  --wood:      #9e6d3f;
+  --wood2:     #c89767;
   --board-bg:  #2a6f85;
   --tri-red:   #9f4e2c;
   --tri-ivory: #e8dbc2;
   --bar-bg:    #173d49;
-  --gold:      #b9832f;
-  --gold-hi:   #e8c27a;
-  --cream:     #f6ead2;
-  --muted:     #b49a7d;
-  --border:    rgba(185,131,47,0.35);
-  --border-hi: rgba(232,194,122,0.7);
-  --panel-bg:  rgba(28,18,11,0.86);
-  --panel-bg-soft: rgba(39,26,16,0.74);
-  --text-main: #f6ead2;
-  --text-soft: #c8b194;
+  --gold:      #b88333;
+  --gold-hi:   #d29a45;
+  --cream:     #f7edda;
+  --muted:     #8a6d4f;
+  --border:    rgba(170,125,69,0.34);
+  --border-hi: rgba(207,156,84,0.72);
+  --panel-bg:  rgba(251,241,222,0.94);
+  --panel-bg-soft: rgba(244,228,197,0.9);
+  --text-main: #3f2c1d;
+  --text-soft: #785a3b;
   --point-lane-width: 91%;
   --point-lane-height: 90%;
   --point-lane-inset: 0%;
+  --dice-stage-side-inset-x: 27%;
+  --dice-stage-side-inset-y: 33%;
   --checker-size: 36px;
   --asset-table: url("./assets/theme/table-surface.jpg");
   --asset-stone-light: url("./assets/theme/stone-light.png");
@@ -38,9 +40,9 @@
 body {
   font-family: 'Manrope', sans-serif;
   background:
-    radial-gradient(1100px 600px at 18% 6%, rgba(110,74,44,0.44), transparent 58%),
-    radial-gradient(900px 520px at 90% 90%, rgba(71,44,26,0.4), transparent 60%),
-    linear-gradient(180deg, #22160e 0%, #130c08 100%);
+    radial-gradient(1300px 720px at 16% 0%, rgba(255,245,221,0.95), transparent 56%),
+    radial-gradient(980px 640px at 84% 82%, rgba(200,226,238,0.42), transparent 60%),
+    linear-gradient(180deg, #f4e8cf 0%, #e3cdab 55%, #d8bc96 100%);
   min-height: 100vh;
   color: var(--text-main);
   overflow-x: hidden;
@@ -53,7 +55,7 @@ body {
   flex-direction: column;
   gap: 12px;
   padding: 14px 12px;
-  max-width: 980px;
+  max-width: 1140px;
   margin: 0 auto;
   padding-bottom: 84px;
   animation: shell-fade-in 380ms ease-out both;
@@ -70,13 +72,13 @@ body {
   align-items: center;
   justify-content: space-between;
   background:
-    linear-gradient(155deg, rgba(67,43,27,0.92), rgba(31,19,12,0.94));
-  border: 1px solid rgba(214,170,107,0.42);
+    linear-gradient(155deg, rgba(250,238,214,0.96), rgba(236,214,178,0.96));
+  border: 1px solid rgba(188,139,77,0.44);
   border-radius: var(--r);
   padding: 12px 16px;
   box-shadow:
-    0 10px 20px rgba(0,0,0,0.34),
-    inset 0 1px 0 rgba(255,235,202,0.14);
+    0 8px 18px rgba(112,78,42,0.2),
+    inset 0 1px 0 rgba(255,251,240,0.72);
 }
 
 .app-header h1 {
@@ -98,25 +100,24 @@ body {
 /* ── HUD ─────────────────────────────────────────── */
 .hud {
   display: grid;
-  grid-template-columns: auto 1fr 2fr auto;
+  grid-template-columns: minmax(120px, 0.55fr) minmax(150px, 0.8fr) minmax(260px, 1.65fr);
   gap: 10px;
 }
 
 @media (max-width: 640px) {
   .hud { grid-template-columns: 1fr 1fr; }
   .status-card   { grid-column: 1 / -1; }
-  .controls-card { grid-column: 1 / -1; }
 }
 
 .turn-card, .dice-card, .status-card, .controls-card {
   background:
-    linear-gradient(165deg, rgba(48,31,19,0.88), rgba(22,14,9,0.92));
-  border: 1px solid rgba(194,144,72,0.36);
+    linear-gradient(165deg, rgba(252,244,228,0.97), rgba(240,224,194,0.95));
+  border: 1px solid rgba(186,137,74,0.38);
   border-radius: var(--r);
   padding: 12px 14px;
   box-shadow:
-    0 8px 18px rgba(0,0,0,0.34),
-    inset 0 1px 0 rgba(255,240,214,0.08);
+    0 6px 14px rgba(99,69,36,0.18),
+    inset 0 1px 0 rgba(255,250,241,0.84);
 }
 
 .label {
@@ -131,7 +132,7 @@ body {
 .value {
   font-family: 'Cormorant Garamond', serif;
   font-size: 1.3rem;
-  color: var(--gold-hi);
+  color: #9a6324;
   white-space: nowrap;
   font-weight: 700;
   text-shadow: 0 1px 0 rgba(0,0,0,0.45);
@@ -258,10 +259,10 @@ body {
 
 .mode-select {
   font: 600 0.76rem 'Manrope', sans-serif;
-  background: rgba(12,8,5,0.62);
-  border: 1px solid rgba(214,170,107,0.42);
+  background: rgba(255,248,236,0.96);
+  border: 1px solid rgba(195,146,81,0.52);
   border-radius: 8px;
-  color: var(--text-main);
+  color: #4b331f;
   padding: 7px 10px;
   width: 100%;
   margin-bottom: 8px;
@@ -286,9 +287,9 @@ body {
 
 .room-meta {
   margin-bottom: 10px;
-  border: 1px solid rgba(206,164,100,0.34);
+  border: 1px solid rgba(185,143,80,0.4);
   border-radius: 8px;
-  background: rgba(11,7,4,0.38);
+  background: rgba(255,248,232,0.86);
   padding: 8px 10px;
   display: grid;
   gap: 3px;
@@ -327,10 +328,35 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 }
 
 .secondary-btn {
-  background: linear-gradient(160deg, rgba(84,55,33,0.9), rgba(39,25,16,0.94));
-  border: 1px solid rgba(198,144,72,0.4);
-  color: var(--text-main);
-  box-shadow: inset 0 1px 0 rgba(255,235,206,0.12);
+  background: linear-gradient(160deg, rgba(247,230,197,0.98), rgba(228,198,152,0.98));
+  border: 1px solid rgba(181,132,69,0.48);
+  color: #4a3018;
+  box-shadow: inset 0 1px 0 rgba(255,248,233,0.8);
+}
+
+.play-zone {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+  gap: 12px;
+  align-items: start;
+}
+
+.options-dock {
+  min-width: 0;
+}
+
+.options-dock .controls-card {
+  position: sticky;
+  top: 10px;
+  display: grid;
+  gap: 9px;
+  background:
+    linear-gradient(165deg, rgba(248,236,212,0.96), rgba(235,215,176,0.94));
+  border-color: rgba(182,132,69,0.46);
+}
+
+.options-dock .controls-card .secondary-btn {
+  width: 100%;
 }
 
 /* FIX: floating-roll-btn — mobilde alt ortaya taşındı, tahtayı kapatmıyor */
@@ -377,14 +403,14 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   align-items: stretch;
   position: relative;
   min-width: 0;
-  padding: 10px;
+  padding: 9px;
   border-radius: calc(var(--r) + 4px);
   background:
-    linear-gradient(165deg, rgba(59,37,22,0.86), rgba(28,18,11,0.9));
-  border: 1px solid rgba(203,157,90,0.33);
+    linear-gradient(165deg, rgba(224,189,136,0.84), rgba(188,144,92,0.9));
+  border: 1px solid rgba(163,117,57,0.4);
   box-shadow:
-    0 16px 32px rgba(0,0,0,0.42),
-    inset 0 1px 0 rgba(255,234,200,0.12);
+    0 12px 24px rgba(113,79,41,0.28),
+    inset 0 1px 0 rgba(255,240,214,0.3);
 }
 
 .guide-layer {
@@ -831,15 +857,15 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 .center-dice-stage.white-turn {
   align-items: flex-end;
   justify-content: flex-end;
-  padding-right: 18%;
-  padding-bottom: 20%;
+  padding-right: var(--dice-stage-side-inset-x);
+  padding-bottom: var(--dice-stage-side-inset-y);
 }
 
 .center-dice-stage.black-turn {
   align-items: flex-start;
   justify-content: flex-start;
-  padding-left: 18%;
-  padding-top: 20%;
+  padding-left: var(--dice-stage-side-inset-x);
+  padding-top: var(--dice-stage-side-inset-y);
 }
 
 .center-dice-wrap {
@@ -1134,6 +1160,19 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     padding-bottom: 72px;
   }
 
+  .play-zone {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .options-dock {
+    order: -1;
+  }
+
+  .options-dock .controls-card {
+    position: static;
+  }
+
   .app-header { padding: 9px 11px; }
   .app-header h1 { font-size: clamp(1.1rem, 4vw, 1.4rem); letter-spacing: 0.06em; }
   .app-header .subtitle { font-size: 0.58rem; letter-spacing: 0.06em; }
@@ -1142,6 +1181,8 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     grid-template-columns: 1fr 1fr;
     gap: 5px;
   }
+
+  .status-card { grid-column: 1 / -1; }
 
   /* FIX: mobilde HUD'daki zar kartını gizle — zar zaten center-dice-stage'de gösteriliyor */
   .dice-card { display: none; }
@@ -1216,20 +1257,17 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   .bar-count { font-size: 0.54rem; }
 
   /* FIX: checker-size CSS değişkeni override — daha uygun mobil boyut */
-  :root { --checker-size: clamp(18px, 5.1vw, 27px); }
+  :root {
+    --checker-size: clamp(18px, 5.1vw, 27px);
+    --dice-stage-side-inset-x: 24%;
+    --dice-stage-side-inset-y: 29%;
+  }
 
   .bar-chip { width: 12px; height: 12px; }
 
   /* FIX: zar animasyonu mobilde taşmasın — padding azaltıldı */
-  .center-dice-stage.white-turn {
-    padding-right: 11%;
-    padding-bottom: 16%;
-  }
-
-  .center-dice-stage.black-turn {
-    padding-left: 11%;
-    padding-top: 16%;
-  }
+  .center-dice-stage.white-turn { padding-right: var(--dice-stage-side-inset-x); padding-bottom: var(--dice-stage-side-inset-y); }
+  .center-dice-stage.black-turn { padding-left: var(--dice-stage-side-inset-x); padding-top: var(--dice-stage-side-inset-y); }
 
   .center-dice-wrap {
     gap: 8px;
@@ -1292,7 +1330,11 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ── Çok küçük telefon (≤ 420px) ──────────────────── */
 @media (max-width: 420px) {
-  :root { --checker-size: clamp(15px, 4.5vw, 22px); }
+  :root {
+    --checker-size: clamp(15px, 4.5vw, 22px);
+    --dice-stage-side-inset-x: 22%;
+    --dice-stage-side-inset-y: 27%;
+  }
 
   .off-area { width: 28px; padding: 5px 2px; }
   .off-stack { width: 20px; }
