@@ -577,21 +577,64 @@
 }
 
 @media (max-width: 640px) {
-  .my-topbar-left {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+  /* 1. ÜST BARIN GENEL DARALTILMASI */
+  .my-topbar {
+    padding: 4px 8px !important; /* Dikey boşluğu azalttık */
+    gap: 4px !important;
+    flex-direction: column; /* Öğeleri alt alta ama sıkışık dizer */
   }
 
-  .my-top-btn {
+  .my-topbar-left {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Butonları yan yana ikişerli dizer */
+    gap: 4px !important;
     width: 100%;
   }
 
+  .my-topbar-right {
+    display: flex;
+    justify-content: center;
+    gap: 4px !important;
+    width: 100%;
+  }
+
+  /* 2. BUTON VE CHIP BOYUTLARI */
+  .my-top-btn {
+    width: 100%;
+    min-height: 32px !important; /* Yüksekliği 38'den 32'ye çektik */
+    font-size: 0.8rem !important; /* Yazıyı hafif küçülttük */
+    padding: 0 6px !important;
+  }
+
+  .my-chip {
+    min-height: 24px !important; /* Puan/İsim kutusunu daralttık */
+    font-size: 0.7rem !important;
+  }
+
+  /* 3. LOBİ ALANI (Lobi 1 yazan yer) */
+  .my-lobby-main {
+    padding: 6px !important; /* Ana kutunun iç boşluğunu kıstık */
+    gap: 4px !important;
+  }
+
+  .my-lobby-header h2 {
+    font-size: 1.1rem !important; /* "Lobi 1" yazısını mobilde küçülttük */
+    margin: 0 !important;
+  }
+
+  .my-lobby-header p {
+    font-size: 0.75rem !important;
+    margin: 0 !important;
+  }
+
+  /* 4. MASALARIN DİZİLİMİ VE OYUN ALANI */
   .my-table-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* Masalar mobilde tek sıra halinde alt alta gelir */
   }
 
   .my-game-frame iframe {
-    height: calc(100svh - 250px);
+    /* Oyun ekranının mobildeki yüksekliği */
+    height: calc(100svh - 220px); 
     min-height: 380px;
   }
 }
