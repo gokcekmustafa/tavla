@@ -1402,3 +1402,426 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     transform: translateY(-50%) scale(1.02);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   REFERENCE LAYOUT (Mynet-benzeri oyun alanı)
+   ═══════════════════════════════════════════════════════════ */
+
+body:has(.ref-shell) {
+  background:
+    radial-gradient(1200px 520px at 12% 2%, rgba(248,232,173,0.28), transparent 58%),
+    radial-gradient(860px 440px at 88% 94%, rgba(129,86,18,0.24), transparent 62%),
+    linear-gradient(180deg, #be8b19 0%, #996d12 48%, #7f5a0f 100%);
+}
+
+.ref-shell {
+  max-width: 1200px;
+  gap: 8px;
+  padding: 6px;
+  padding-bottom: 14px;
+}
+
+.ref-shell .label {
+  color: #f3d596;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+
+.action-strip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 2px;
+  background: #053846;
+  border: 2px solid #0c5163;
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.strip-btn {
+  border-radius: 0;
+  border: 1px solid rgba(0,0,0,0.3);
+  min-height: 46px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.36);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.strip-btn:hover:not(:disabled) {
+  filter: brightness(1.04);
+  transform: none;
+}
+
+.strip-exit    { background: linear-gradient(180deg, #ad5353, #934242); }
+.strip-lobby   { background: linear-gradient(180deg, #4fa5dd, #2f89c6); }
+.strip-primary { background: linear-gradient(180deg, #d43e18, #b12910); }
+.strip-purple  { background: linear-gradient(180deg, #812cd2, #6023a0); }
+.strip-dark    { background: linear-gradient(180deg, #2f3b4d, #212a36); }
+.strip-gold    { background: linear-gradient(180deg, #f0b52f, #cd8f1d); }
+.strip-sky     { background: linear-gradient(180deg, #4dacc7, #2a90ae); }
+.strip-cyan    { background: linear-gradient(180deg, #43b2cb, #2c8fa5); }
+
+.room-bar {
+  background: linear-gradient(180deg, #b88d1c, #9e7716);
+  color: #fff1cc;
+  border: 1px solid rgba(73,43,7,0.54);
+  border-radius: 4px;
+  padding: 7px 10px;
+  font-size: 1.04rem;
+  font-weight: 800;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.34);
+}
+
+.arena-layout {
+  display: grid;
+  grid-template-columns: 182px minmax(0, 1fr) 122px;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.left-control-panel,
+.right-action-panel {
+  background:
+    linear-gradient(180deg, rgba(13,71,87,0.95), rgba(7,45,58,0.94));
+  border: 1px solid rgba(107,178,198,0.4);
+  border-radius: 6px;
+  padding: 8px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.16);
+}
+
+.left-control-panel {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.panel-hero-btn {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #ef8a1f, #c85d08);
+  color: #fff8ea;
+  font-size: 1.04rem;
+  font-weight: 900;
+  border: 1px solid rgba(95,36,6,0.72);
+  text-transform: uppercase;
+}
+
+.ref-shell .controls-card.panel-card,
+.ref-shell .panel-info-card {
+  background: rgba(8, 36, 47, 0.78);
+  border: 1px solid rgba(108,186,208,0.26);
+  border-radius: 6px;
+  padding: 8px;
+  box-shadow: none;
+}
+
+.ref-shell .control-label,
+.ref-shell .control-inline,
+.ref-shell .status-text,
+.ref-shell .room-meta-line {
+  color: #edf8fc;
+}
+
+.ref-shell .mode-select {
+  background: rgba(5,27,35,0.92);
+  border-color: rgba(71,156,180,0.54);
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.ref-shell .control-inline {
+  margin-bottom: 6px;
+  font-size: 0.62rem;
+  gap: 6px;
+}
+
+.ref-shell .control-inline input {
+  width: 12px;
+  height: 12px;
+  accent-color: #3cbbdc;
+}
+
+.toggle-list {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.ref-shell .room-meta {
+  margin-top: 4px;
+  margin-bottom: 0;
+  background: rgba(10,33,42,0.84);
+  border-color: rgba(87,163,185,0.44);
+}
+
+.ref-shell .panel-info-card .value {
+  color: #ffd97d;
+  font-size: 1.16rem;
+  text-shadow: none;
+}
+
+.mini-gap {
+  margin-top: 8px;
+}
+
+.ref-shell .dice-container {
+  min-height: 30px;
+  gap: 5px;
+}
+
+.ref-shell .die-chip {
+  width: 29px;
+  height: 29px;
+}
+
+.ref-shell .table-wrap {
+  border-radius: 0;
+  border: 4px solid #5c2c03;
+  background: linear-gradient(180deg, #8e4a09, #743807);
+  padding: 6px;
+  box-shadow: 0 8px 14px rgba(0,0,0,0.34);
+}
+
+.right-action-panel {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.action-btn {
+  width: 100%;
+  border-radius: 8px;
+  min-height: 42px;
+  font-size: 0.96rem;
+  font-weight: 800;
+  color: #fff7ea;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+  border: 1px solid rgba(48,25,6,0.54);
+}
+
+.action-invite {
+  background: linear-gradient(180deg, #ea7d17, #bf5c0a);
+}
+
+.action-soft {
+  background: linear-gradient(180deg, #55784b, #43603d);
+}
+
+.action-roll {
+  background: linear-gradient(180deg, #4a6f62, #34554a);
+}
+
+#roll-btn:disabled,
+.action-btn:disabled {
+  opacity: 0.46;
+}
+
+.mini-profile-card {
+  margin-top: 6px;
+  border-radius: 7px;
+  border: 1px solid rgba(111,191,214,0.42);
+  background: linear-gradient(180deg, rgba(55,147,173,0.84), rgba(31,98,119,0.88));
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.mini-profile-name {
+  color: #edfbff;
+  font-weight: 800;
+  font-size: 0.92rem;
+}
+
+.mini-profile-score {
+  margin-top: 3px;
+  color: #ffe8a3;
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.ref-shell .activity-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 4px;
+}
+
+.ref-shell .history-card,
+.ref-shell .player-list-card {
+  background: #1a7692;
+  border: 2px solid #0f5f79;
+  border-radius: 6px;
+  padding: 0;
+}
+
+.chat-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px 2px 0;
+}
+
+.chat-tab {
+  min-height: 30px;
+  border-radius: 10px 10px 0 0;
+  border: 1px solid rgba(9,61,80,0.92);
+  border-bottom: none;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #f2fbff;
+  background: linear-gradient(180deg, #2787b4, #186f93);
+  padding: 5px 16px;
+}
+
+.chat-tab.active {
+  background: linear-gradient(180deg, #3e9fc9, #2a84ad);
+}
+
+.chat-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 2px;
+  padding: 2px;
+}
+
+.chat-input {
+  width: 100%;
+  border: 1px solid #7aaec1;
+  border-radius: 3px;
+  min-height: 34px;
+  padding: 6px 8px;
+  font: 600 0.86rem 'Manrope', sans-serif;
+  color: #264251;
+}
+
+.chat-send-btn {
+  min-height: 34px;
+  border-radius: 4px;
+  border: 1px solid #19647f;
+  background: linear-gradient(180deg, #3ea4cb, #247da0);
+  color: #fff;
+  font-weight: 700;
+}
+
+.ref-shell .move-log {
+  background: #f3f3f3;
+  border-top: 2px solid #0c5b73;
+  margin: 0 2px 2px;
+  padding: 8px 10px;
+  min-height: 126px;
+  max-height: 158px;
+  overflow: auto;
+  list-style: none;
+}
+
+.ref-shell .move-log li {
+  color: #1f1f1f;
+  font-size: 0.94rem;
+  line-height: 1.5;
+  border-bottom: none;
+  padding: 0;
+}
+
+.player-list-card {
+  display: grid;
+  align-content: start;
+  gap: 0;
+}
+
+.player-list-title {
+  padding: 10px 12px;
+  color: #e5f8ff;
+  font-size: 1rem;
+  font-weight: 800;
+  border-bottom: 1px solid rgba(175,222,238,0.36);
+}
+
+.player-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  color: #f4fdff;
+  font-size: 1.12rem;
+}
+
+.player-list-item strong {
+  color: #ffe29b;
+}
+
+@media (max-width: 1100px) {
+  .arena-layout {
+    grid-template-columns: 168px minmax(0, 1fr) 114px;
+  }
+
+  .action-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .arena-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .right-action-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .mini-profile-card {
+    grid-column: 1 / -1;
+  }
+
+  .ref-shell .activity-wrap {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .ref-shell {
+    padding: 4px;
+    gap: 6px;
+    min-height: auto;
+  }
+
+  .strip-btn {
+    min-height: 38px;
+    font-size: 0.64rem;
+    padding: 4px 6px;
+  }
+
+  .room-bar {
+    font-size: 0.9rem;
+    padding: 6px 8px;
+  }
+
+  .right-action-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .action-btn {
+    min-height: 38px;
+    font-size: 0.82rem;
+  }
+
+  .chat-tab {
+    font-size: 0.76rem;
+    padding: 5px 9px;
+  }
+
+  .chat-input-row {
+    grid-template-columns: minmax(0, 1fr) 78px;
+  }
+
+  .chat-send-btn {
+    font-size: 0.76rem;
+  }
+
+  .ref-shell .move-log {
+    min-height: 96px;
+    max-height: 126px;
+    padding: 6px 8px;
+  }
+}
