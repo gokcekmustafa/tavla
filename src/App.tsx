@@ -776,6 +776,8 @@ function App() {
     return sortTables(lobbyState.tables).filter((table) => Boolean(table.white || table.black));
   }, [lobbyState.tables]);
 
+  const myCurrentSeat = useMemo(() => findSessionSeat(lobbyState.tables, appSessionId), [lobbyState.tables, appSessionId]);
+
   const onlineRows = useMemo<OnlineRow[]>(() => {
     const tableBySession = new Map<string, number>();
     openedTables.forEach((table) => {
@@ -1624,13 +1626,19 @@ function App() {
     const occupant = seat === "white" ? table.white : table.black;
     const mine = occupant?.sessionId === appSessionId;
     if (!occupant) {
+      const seatLocked = Boolean(myCurrentSeat && myCurrentSeat.table.id !== table.id);
       return (
         <button
           className="my-otur-btn"
           onClick={() => sitToTable(table.id, seat, table.roomCode)}
-          title={`${seatText(seat)} koltuguna otur`}
+          disabled={seatLocked}
+          title={
+            seatLocked
+              ? `Once Masa ${myCurrentSeat?.table.id} icin masadan kalk`
+              : `${seatText(seat)} koltuguna otur`
+          }
         >
-          OTUR
+          {seatLocked ? "MESGUL" : "OTUR"}
         </button>
       );
     }
