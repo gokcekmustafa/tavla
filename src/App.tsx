@@ -3,8 +3,8 @@ import "./App.css";
 
 type GameMode = "local" | "bot";
 type Seat = "white" | "black";
-type AuthMode = "login" | "register";
 type ViewMode = "lobby" | "table";
+type AuthMode = "login" | "register";
 
 type RoomSession = {
   code: string;
@@ -55,14 +55,18 @@ type OnlineRow = {
   tableNo: number | null;
 };
 
+type CleanupResult = {
+  tables: LobbyTable[];
+  changed: boolean;
+};
+
 const GUEST_STORAGE_KEY = "tavla.guestName";
 const MEMBER_USERS_KEY = "tavla.member.users.v1";
 const MEMBER_SESSION_KEY = "tavla.member.session.v1";
-const LOBBY_STATE_KEY = "tavla.lobby.state.v1";
-const LOBBY_SYNC_CHANNEL = "tavla.lobby.sync.v1";
+const LOBBY_STATE_KEY = "tavla.lobby.state.v2";
+const LOBBY_SYNC_CHANNEL = "tavla.lobby.sync.v2";
 const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_LOBBY_NAME = "IZMIR";
-const DEFAULT_TABLE_COUNT = 18;
 const SEAT_STALE_MS = 25_000;
 const HEARTBEAT_MS = 5_000;
 
@@ -90,12 +94,8 @@ function sanitizeGuestName(value: string) {
   return value.replace(/\s+/g, " ").trim().slice(0, 24);
 }
 
-function sanitizeRoomName(value: string) {
-  return value.replace(/\s+/g, " ").trim().slice(0, 30);
-}
-
 function sanitizeLobbyName(value: string) {
-  const out = value.replace(/\s+/g, " ").trim().slice(0, 22);
+  const out = value.replace(/\s+/g, " ").trim().slice(0, 24);
   return out || DEFAULT_LOBBY_NAME;
 }
 
@@ -126,74 +126,71 @@ function seatText(seat: Seat) {
   return seat === "white" ? "Beyaz" : "Siyah";
 }
 
-function createDefaultLobbyState(): LobbyState {
-  const tables: LobbyTable[] = [];
-  for (let i = 1; i <= DEFAULT_TABLE_COUNT; i += 1) {
-    tables.push({
-      id: i,
-      roomCode: createRoomCode(),
-      white: null,
-      black: null,
-    });
-  }
-  return {
-    lobbyName: DEFAULT_LOBBY_NAME,
-    tables,
-    updatedAt: Date.now(),
-  };
-}
-
-function normalizeLobbyTable(raw: unknown, index: number): LobbyTable {
-  const fallbackId = index + 1;
-  if (!raw || typeof raw !== "object") {
-    return { id: fallbackId, roomCode: createRoomCode(), white: null, black: null };
-  }
-  const candidate = raw as Partial<LobbyTable>;
-  const safeId = Number.isInteger(candidate.id) && (candidate.id ?? 0) > 0 ? candidate.id! : fallbackId;
-  const safeCode = sanitizeRoomCode(candidate.roomCode ?? "") || createRoomCode();
-  const white = normalizeSeat(candidate.white);
-  const black = normalizeSeat(candidate.black);
-  return {
-    id: safeId,
-    roomCode: safeCode,
-    white,
-    black,
-  };
-}
-
-function normalizeSeat(raw: unknown): LobbySeatState | null {
-  if (!raw || typeof raw !== "object") return null;
-  const seat = raw as Partial<LobbySeatState>;
-  const sessionId = typeof seat.sessionId === "string" ? seat.sessionId : "";
-  if (!sessionId) return null;
-  return {
-    sessionId,
-    userId: typeof seat.userId === "string" ? seat.userId : `guest-${sessionId}`,
-    displayName: sanitizeGuestName(typeof seat.displayName === "string" ? seat.displayName : "Misafir") || "Misafir",
-    points: Number.isFinite(seat.points) ? Number(seat.points) : 1500,
-    touchedAt: Number.isFinite(seat.touchedAt) ? Number(seat.touchedAt) : Date.now(),
-  };
+function initialsOf(name: string) {
+  const clean = sanitizeGuestName(name);
+  if (!clean) return "M";
+  const parts = clean.split(" ").filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
 function sortTables(tables: LobbyTable[]) {
   return [...tables].sort((a, b) => a.id - b.id);
 }
 
-function cleanupStaleSeats(tables: LobbyTable[]): { tables: LobbyTable[]; changed: boolean } {
+function createDefaultLobbyState(): LobbyState {
+  return {
+    lobbyName: DEFAULT_LOBBY_NAME,
+    tables: [],
+    updatedAt: Date.now(),
+  };
+}
+
+function normalizeSeat(raw: unknown): LobbySeatState | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<LobbySeatState>;
+  const sessionId = typeof candidate.sessionId === "string" ? candidate.sessionId : "";
+  if (!sessionId) return null;
+  return {
+    sessionId,
+    userId: typeof candidate.userId === "string" ? candidate.userId : `guest-${sessionId}`,
+    displayName: sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Misafir") || "Misafir",
+    points: Number.isFinite(candidate.points) ? Number(candidate.points) : 1500,
+    touchedAt: Number.isFinite(candidate.touchedAt) ? Number(candidate.touchedAt) : Date.now(),
+  };
+}
+
+function normalizeTable(raw: unknown, index: number): LobbyTable | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<LobbyTable>;
+  const id = Number.isInteger(candidate.id) && (candidate.id ?? 0) > 0 ? candidate.id! : index + 1;
+  const roomCode = sanitizeRoomCode(candidate.roomCode ?? "") || createRoomCode();
+  const white = normalizeSeat(candidate.white);
+  const black = normalizeSeat(candidate.black);
+  if (!white && !black) return null;
+  return { id, roomCode, white, black };
+}
+
+function cleanupStaleAndPrune(tables: LobbyTable[]): CleanupResult {
   const now = Date.now();
   let changed = false;
-  const next = tables.map((table) => {
+  const next: LobbyTable[] = [];
+
+  sortTables(tables).forEach((table) => {
     const whiteExpired = table.white ? now - table.white.touchedAt > SEAT_STALE_MS : false;
     const blackExpired = table.black ? now - table.black.touchedAt > SEAT_STALE_MS : false;
-    if (!whiteExpired && !blackExpired) return table;
-    changed = true;
-    return {
-      ...table,
-      white: whiteExpired ? null : table.white,
-      black: blackExpired ? null : table.black,
-    };
+    const white = whiteExpired ? null : table.white;
+    const black = blackExpired ? null : table.black;
+    if (whiteExpired || blackExpired) changed = true;
+    if (!white && !black) {
+      changed = true;
+      return;
+    }
+    if (white !== table.white || black !== table.black) changed = true;
+    next.push({ ...table, white, black });
   });
-  return { tables: next, changed };
+
+  return { tables: sortTables(next), changed };
 }
 
 function normalizeLobbyState(raw: unknown): LobbyState {
@@ -201,16 +198,11 @@ function normalizeLobbyState(raw: unknown): LobbyState {
   if (!raw || typeof raw !== "object") return fallback;
   const candidate = raw as Partial<LobbyState>;
   const lobbyName = sanitizeLobbyName(typeof candidate.lobbyName === "string" ? candidate.lobbyName : DEFAULT_LOBBY_NAME);
-  const sourceTables = Array.isArray(candidate.tables) ? candidate.tables : fallback.tables;
-  const normalized = sourceTables.map((table, index) => normalizeLobbyTable(table, index));
-  const ensured = normalized.length >= DEFAULT_TABLE_COUNT
-    ? normalized
-    : normalized.concat(
-        Array.from({ length: DEFAULT_TABLE_COUNT - normalized.length }, (_, i) =>
-          normalizeLobbyTable(null, normalized.length + i),
-        ),
-      );
-  const cleaned = cleanupStaleSeats(sortTables(ensured)).tables;
+  const rows = Array.isArray(candidate.tables) ? candidate.tables : [];
+  const normalizedTables = rows
+    .map((row, index) => normalizeTable(row, index))
+    .filter((row): row is LobbyTable => Boolean(row));
+  const cleaned = cleanupStaleAndPrune(normalizedTables).tables;
   return {
     lobbyName,
     tables: cleaned,
@@ -250,27 +242,6 @@ function loadMemberSession() {
   return { userId: String(candidate.userId) } satisfies MemberSession;
 }
 
-function getInitialRoomSession(): RoomSession | null {
-  if (typeof window === "undefined") return null;
-  const params = new URLSearchParams(window.location.search);
-  const room = sanitizeRoomCode(params.get("room") ?? "");
-  const seatParam = params.get("seat");
-  const seat: Seat | null = seatParam === "white" || seatParam === "black" ? seatParam : null;
-  if (!room || !seat) return null;
-  const roomName = sanitizeRoomName(
-    params.get("room_name") ?? params.get("roomName") ?? params.get("oda") ?? DEFAULT_LOBBY_NAME,
-  );
-  const tableNo = sanitizeTableNo(params.get("table") ?? params.get("tableNo") ?? params.get("masa") ?? "1");
-  const externalSession = sanitizeGuestName(params.get("session") ?? "");
-  return {
-    code: room,
-    seat,
-    sessionId: externalSession || createSessionId(),
-    roomName: roomName || DEFAULT_LOBBY_NAME,
-    tableNo,
-  };
-}
-
 function getInitialGuestName() {
   if (typeof window === "undefined") return "Misafir";
   const params = new URLSearchParams(window.location.search);
@@ -278,6 +249,25 @@ function getInitialGuestName() {
   if (fromUrl) return fromUrl;
   const fromStorage = sanitizeGuestName(window.localStorage.getItem(GUEST_STORAGE_KEY) ?? "");
   return fromStorage || "Misafir";
+}
+
+function getInitialRoomSession(): RoomSession | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const room = sanitizeRoomCode(params.get("room") ?? "");
+  const seatParam = params.get("seat");
+  const seat: Seat | null = seatParam === "white" || seatParam === "black" ? seatParam : null;
+  if (!room || !seat) return null;
+  const roomName = sanitizeLobbyName(params.get("room_name") ?? params.get("roomName") ?? params.get("oda") ?? DEFAULT_LOBBY_NAME);
+  const tableNo = sanitizeTableNo(params.get("table") ?? params.get("tableNo") ?? params.get("masa") ?? "1");
+  const externalSession = sanitizeGuestName(params.get("session") ?? "");
+  return {
+    code: room,
+    seat,
+    sessionId: externalSession || createSessionId(),
+    roomName,
+    tableNo,
+  };
 }
 
 function clearSessionFromTables(tables: LobbyTable[], sessionId: string): { tables: LobbyTable[]; changed: boolean } {
@@ -305,9 +295,15 @@ function findSessionSeat(tables: LobbyTable[], sessionId: string) {
 }
 
 function tableStatus(table: LobbyTable) {
-  if (table.white && table.black) return "full";
-  if (table.white || table.black) return "waiting";
+  const count = Number(Boolean(table.white)) + Number(Boolean(table.black));
+  if (count === 2) return "full";
+  if (count === 1) return "waiting";
   return "empty";
+}
+
+function getNextTableId(tables: LobbyTable[]) {
+  if (tables.length === 0) return 1;
+  return tables.reduce((max, table) => Math.max(max, table.id), 0) + 1;
 }
 
 function App() {
@@ -317,12 +313,19 @@ function App() {
   const [viewMode, setViewMode] = useState<ViewMode>(initialRoom ? "table" : "lobby");
   const [guestName, setGuestName] = useState(getInitialGuestName);
   const [roomSession, setRoomSession] = useState<RoomSession | null>(initialRoom);
-  const [roomCodeInput, setRoomCodeInput] = useState(() => initialRoom?.code ?? "");
-  const [roomNameInput, setRoomNameInput] = useState(() => initialRoom?.roomName ?? DEFAULT_LOBBY_NAME);
-  const [tableNoInput, setTableNoInput] = useState(() => String(initialRoom?.tableNo ?? 1));
+  const [joinCodeInput, setJoinCodeInput] = useState(() => initialRoom?.code ?? "");
   const [joinSeat, setJoinSeat] = useState<Seat>(() => initialRoom?.seat ?? "black");
   const [copied, setCopied] = useState(false);
-  const [lobbyState, setLobbyState] = useState<LobbyState>(() => loadLobbyState());
+  const [lobbyNotice, setLobbyNotice] = useState("");
+  const [lobbyState, setLobbyState] = useState<LobbyState>(() => {
+    const loaded = loadLobbyState();
+    if (!initialRoom) return loaded;
+    const roomName = sanitizeLobbyName(initialRoom.roomName);
+    if (loaded.lobbyName === roomName) return loaded;
+    const merged = { ...loaded, lobbyName: roomName, updatedAt: Date.now() };
+    saveJson(LOBBY_STATE_KEY, merged);
+    return merged;
+  });
 
   const [memberUsers, setMemberUsers] = useState<MemberUser[]>(() => loadMemberUsers());
   const [member, setMember] = useState<MemberUser | null>(() => {
@@ -336,7 +339,6 @@ function App() {
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
-  const [lobbyNotice, setLobbyNotice] = useState("");
 
   const lobbyChannelRef = useRef<BroadcastChannel | null>(null);
   const appSessionId = useMemo(() => createSessionId(), []);
@@ -372,14 +374,16 @@ function App() {
     return `/legacy/index.html?${qp.toString()}`;
   }, [mode, iframeKey, roomSession, safeGuestName, isRoomMode]);
 
-  const sortedTables = useMemo(() => sortTables(lobbyState.tables), [lobbyState.tables]);
-  const mySeat = useMemo(() => findSessionSeat(sortedTables, appSessionId), [sortedTables, appSessionId]);
+  const openedTables = useMemo(() => {
+    return sortTables(lobbyState.tables).filter((table) => Boolean(table.white || table.black));
+  }, [lobbyState.tables]);
+
+  const mySeat = useMemo(() => findSessionSeat(openedTables, appSessionId), [openedTables, appSessionId]);
 
   const onlineRows = useMemo<OnlineRow[]>(() => {
     const map = new Map<string, OnlineRow>();
-    sortedTables.forEach((table) => {
-      const seats = [table.white, table.black];
-      seats.forEach((seatInfo) => {
+    openedTables.forEach((table) => {
+      [table.white, table.black].forEach((seatInfo) => {
         if (!seatInfo) return;
         map.set(seatInfo.sessionId, {
           key: seatInfo.sessionId,
@@ -398,22 +402,21 @@ function App() {
       });
     }
     return Array.from(map.values()).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
-  }, [sortedTables, safeGuestName, currentProfile.points, appSessionId, mySeat]);
+  }, [openedTables, appSessionId, safeGuestName, currentProfile.points, mySeat]);
 
   function broadcastLobbySync() {
     lobbyChannelRef.current?.postMessage({ type: "lobby-sync", at: Date.now() });
   }
 
-  function persistLobbyState(nextState: LobbyState) {
-    const normalized = normalizeLobbyState(nextState);
+  function persistLobbyState(next: LobbyState) {
+    const normalized = normalizeLobbyState(next);
     saveJson(LOBBY_STATE_KEY, normalized);
     setLobbyState(normalized);
     broadcastLobbySync();
   }
 
   function refreshLobbyFromStorage() {
-    const latest = loadLobbyState();
-    setLobbyState(latest);
+    setLobbyState(loadLobbyState());
   }
 
   function writeLobby(mutator: (current: LobbyState) => LobbyState | null) {
@@ -436,45 +439,13 @@ function App() {
     setIframeKey((v) => v + 1);
   }
 
-  function syncRoomSeatHeartbeat() {
-    if (!roomSession) return;
+  function releaseSeatOnly() {
     writeLobby((current) => {
-      const cleaned = cleanupStaleSeats(sortTables(current.tables)).tables;
-      const withoutMine = clearSessionFromTables(cleaned, appSessionId).tables;
-      const tableId = Math.max(1, roomSession.tableNo);
-      const ensured = withoutMine.some((t) => t.id === tableId)
-        ? withoutMine
-        : sortTables([
-            ...withoutMine,
-            { id: tableId, roomCode: roomSession.code, white: null, black: null },
-          ]);
-
-      const idx = ensured.findIndex((t) => t.id === tableId);
-      const table = ensured[idx];
-      const occupied = roomSession.seat === "white" ? table.white : table.black;
-      if (occupied && occupied.sessionId !== appSessionId) {
-        setLobbyNotice(`${seatText(roomSession.seat)} koltugu dolu gorunuyor.`);
-        return current;
-      }
-      const seatState: LobbySeatState = {
-        sessionId: appSessionId,
-        userId: currentProfile.userId,
-        displayName: currentProfile.displayName,
-        points: currentProfile.points,
-        touchedAt: Date.now(),
-      };
-      const patched =
-        roomSession.seat === "white"
-          ? { ...table, roomCode: roomSession.code, white: seatState }
-          : { ...table, roomCode: roomSession.code, black: seatState };
-      const tables = [...ensured];
-      tables[idx] = patched;
-      return {
-        ...current,
-        lobbyName: sanitizeLobbyName(roomSession.roomName || current.lobbyName),
-        tables,
-        updatedAt: Date.now(),
-      };
+      const cleaned = cleanupStaleAndPrune(current.tables).tables;
+      const cleared = clearSessionFromTables(cleaned, appSessionId);
+      const pruned = cleanupStaleAndPrune(cleared.tables).tables;
+      if (!cleared.changed && JSON.stringify(pruned) === JSON.stringify(cleaned)) return current;
+      return { ...current, tables: pruned, updatedAt: Date.now() };
     });
   }
 
@@ -486,37 +457,50 @@ function App() {
       roomName: lobbyState.lobbyName,
       tableNo: table.id,
     });
-    setRoomCodeInput(table.roomCode);
-    setTableNoInput(String(table.id));
-    setRoomNameInput(lobbyState.lobbyName);
+    setJoinCodeInput(table.roomCode);
     setJoinSeat(seat === "white" ? "black" : "white");
     setMode("local");
+    setViewMode("table");
     setCopied(false);
     setLobbyNotice("");
-    setViewMode("table");
     refreshBoard();
   }
 
-  function sitToTable(tableId: number, seat: Seat) {
-    const tableNo = Math.max(1, tableId);
+  function upsertMySeat(tableId: number, seat: Seat, explicitRoomCode?: string) {
+    let seatBlocked = false;
+    let resolvedTable: LobbyTable | null = null;
+
     const next = writeLobby((current) => {
-      const cleaned = cleanupStaleSeats(sortTables(current.tables)).tables;
+      const cleaned = cleanupStaleAndPrune(current.tables).tables;
       const withoutMine = clearSessionFromTables(cleaned, appSessionId).tables;
-      const ensured = withoutMine.some((t) => t.id === tableNo)
-        ? withoutMine
-        : sortTables([
-            ...withoutMine,
-            {
-              id: tableNo,
-              roomCode: createRoomCode(),
-              white: null,
-              black: null,
-            },
-          ]);
-      const idx = ensured.findIndex((t) => t.id === tableNo);
-      const table = ensured[idx];
+      const code = sanitizeRoomCode(explicitRoomCode ?? "");
+      const tables = [...withoutMine];
+      let index = tables.findIndex((table) => table.id === tableId || (code && table.roomCode === code));
+      let table: LobbyTable;
+
+      if (index >= 0) {
+        table = tables[index];
+      } else {
+        table = {
+          id: tableId,
+          roomCode: code || createRoomCode(),
+          white: null,
+          black: null,
+        };
+        tables.push(table);
+        index = tables.length - 1;
+      }
+
+      if (code) {
+        table = { ...table, roomCode: code };
+      }
+
       const occupied = seat === "white" ? table.white : table.black;
-      if (occupied && occupied.sessionId !== appSessionId) return null;
+      if (occupied && occupied.sessionId !== appSessionId) {
+        seatBlocked = true;
+        return current;
+      }
+
       const seatState: LobbySeatState = {
         sessionId: appSessionId,
         userId: currentProfile.userId,
@@ -524,109 +508,100 @@ function App() {
         points: currentProfile.points,
         touchedAt: Date.now(),
       };
+
       const patched =
         seat === "white"
           ? { ...table, white: seatState }
           : { ...table, black: seatState };
-      const tables = [...ensured];
-      tables[idx] = patched;
-      return { ...current, tables, updatedAt: Date.now() };
+
+      tables[index] = patched;
+      const nextTables = sortTables(tables);
+      resolvedTable = nextTables.find((row) => row.id === patched.id) ?? patched;
+
+      return {
+        ...current,
+        tables: nextTables,
+        updatedAt: Date.now(),
+      };
     });
-    if (!next) {
-      setLobbyNotice("Secilen koltuk dolu. Baska masa deneyin.");
+
+    if (!next || seatBlocked) return null;
+    if (resolvedTable) return resolvedTable;
+    return next.tables.find((table) => table.id === tableId || table.roomCode === explicitRoomCode) ?? null;
+  }
+
+  function sitToTable(tableId: number, seat: Seat, explicitRoomCode?: string) {
+    const table = upsertMySeat(tableId, seat, explicitRoomCode);
+    if (!table) {
+      setLobbyNotice("Secilen koltuk dolu. Lutfen baska bir koltuk secin.");
       return;
     }
-    const activeTable = next.tables.find((t) => t.id === tableNo);
-    if (!activeTable) return;
-    goToTable(activeTable, seat);
+    goToTable(table, seat);
   }
 
   function onOpenTable() {
     const latest = loadLobbyState();
-    const ownSeat = findSessionSeat(latest.tables, appSessionId);
-    if (ownSeat) {
-      goToTable(ownSeat.table, ownSeat.seat);
+    const existing = findSessionSeat(latest.tables, appSessionId);
+    if (existing) {
+      goToTable(existing.table, existing.seat);
       return;
     }
-    const empty = sortTables(latest.tables).find((t) => !t.white && !t.black);
-    const lastTable = latest.tables.length > 0 ? sortTables(latest.tables)[latest.tables.length - 1] : null;
-    const tableNo = empty ? empty.id : (lastTable?.id ?? 0) + 1;
-    sitToTable(tableNo, "white");
+    const tableId = getNextTableId(latest.tables);
+    sitToTable(tableId, "white", createRoomCode());
   }
 
   function onQuickPlay() {
     const latest = loadLobbyState();
-    const ownSeat = findSessionSeat(latest.tables, appSessionId);
-    if (ownSeat) {
-      goToTable(ownSeat.table, ownSeat.seat);
+    const existing = findSessionSeat(latest.tables, appSessionId);
+    if (existing) {
+      goToTable(existing.table, existing.seat);
       return;
     }
-    const waiting = sortTables(latest.tables).find((t) => (Boolean(t.white) ? 1 : 0) + (Boolean(t.black) ? 1 : 0) === 1);
+
+    const waiting = sortTables(latest.tables).find((table) => {
+      const count = Number(Boolean(table.white)) + Number(Boolean(table.black));
+      return count === 1;
+    });
+
     if (waiting) {
-      sitToTable(waiting.id, waiting.white ? "black" : "white");
+      sitToTable(waiting.id, waiting.white ? "black" : "white", waiting.roomCode);
       return;
     }
     onOpenTable();
   }
 
   function onJoinByCode() {
-    const safeCode = sanitizeRoomCode(roomCodeInput);
-    if (!safeCode) {
-      setLobbyNotice("Gecerli oda kodu girin.");
+    const code = sanitizeRoomCode(joinCodeInput);
+    if (!code) {
+      setLobbyNotice("Lutfen gecerli bir oda kodu yazin.");
       return;
     }
+
     const latest = loadLobbyState();
-    const table = latest.tables.find((t) => t.roomCode === safeCode);
+    const table = latest.tables.find((row) => row.roomCode === code);
     if (!table) {
-      const tableNo = sanitizeTableNo(tableNoInput);
-      const created = writeLobby((current) => {
-        const cleaned = cleanupStaleSeats(sortTables(current.tables)).tables;
-        if (cleaned.some((t) => t.id === tableNo)) return current;
-        return {
-          ...current,
-          lobbyName: sanitizeLobbyName(roomNameInput || current.lobbyName),
-          tables: sortTables([
-            ...cleaned,
-            { id: tableNo, roomCode: safeCode, white: null, black: null },
-          ]),
-          updatedAt: Date.now(),
-        };
-      });
-      if (!created) {
-        setLobbyNotice("Masa olusturulamadi.");
-        return;
-      }
-      const joinTable = created.tables.find((t) => t.roomCode === safeCode);
-      if (!joinTable) return;
-      sitToTable(joinTable.id, joinSeat);
+      setLobbyNotice("Bu kodda acik masa yok.");
       return;
     }
-    if (joinSeat === "white" && table.white && table.white.sessionId !== appSessionId) {
-      if (!table.black || table.black.sessionId === appSessionId) {
-        sitToTable(table.id, "black");
+
+    let targetSeat = joinSeat;
+    const preferredOccupied = targetSeat === "white" ? table.white : table.black;
+    if (preferredOccupied && preferredOccupied.sessionId !== appSessionId) {
+      const altSeat: Seat = targetSeat === "white" ? "black" : "white";
+      const altOccupied = altSeat === "white" ? table.white : table.black;
+      if (altOccupied && altOccupied.sessionId !== appSessionId) {
+        setLobbyNotice("Masa dolu.");
         return;
       }
-      setLobbyNotice("Masa dolu.");
-      return;
+      targetSeat = altSeat;
+      setLobbyNotice("Secili koltuk dolu oldugu icin bos koltuga gectin.");
     }
-    if (joinSeat === "black" && table.black && table.black.sessionId !== appSessionId) {
-      if (!table.white || table.white.sessionId === appSessionId) {
-        sitToTable(table.id, "white");
-        return;
-      }
-      setLobbyNotice("Masa dolu.");
-      return;
-    }
-    sitToTable(table.id, joinSeat);
+
+    sitToTable(table.id, targetSeat, table.roomCode);
   }
 
-  function leaveSeatAndRoom() {
-    writeLobby((current) => {
-      const cleaned = cleanupStaleSeats(sortTables(current.tables)).tables;
-      const cleared = clearSessionFromTables(cleaned, appSessionId);
-      if (!cleared.changed) return current;
-      return { ...current, tables: cleared.tables, updatedAt: Date.now() };
-    });
+  function leaveRoomAndGoLobby() {
+    releaseSeatOnly();
     setRoomSession(null);
     setCopied(false);
     setLobbyNotice("");
@@ -634,24 +609,65 @@ function App() {
     refreshBoard();
   }
 
-  async function onCopyInvite() {
-    if (!roomSession) return;
-    const inviteSeat: Seat = roomSession.seat === "white" ? "black" : "white";
+  function startBotGame() {
+    if (roomSession) {
+      releaseSeatOnly();
+    }
+    setRoomSession(null);
+    setMode("bot");
+    setCopied(false);
+    setLobbyNotice("Bot modu aktif.");
+    setViewMode("table");
+    refreshBoard();
+  }
+
+  function onSelectMode(nextMode: GameMode) {
+    if (nextMode === "bot") {
+      startBotGame();
+      return;
+    }
+    setMode("local");
+    setViewMode("table");
+    if (!roomSession) refreshBoard();
+  }
+
+  function onOpenMemberPanel() {
+    setViewMode("lobby");
+    setAuthMode("register");
+    setLobbyNotice("Uyelik paneli sag tarafta.");
+  }
+
+  async function copyInviteFromTable(table: LobbyTable, seat: Seat) {
+    const inviteSeat: Seat = seat === "white" ? "black" : "white";
     const url = new URL(window.location.href);
-    url.searchParams.set("room", roomSession.code);
+    url.searchParams.set("room", table.roomCode);
     url.searchParams.set("seat", inviteSeat);
     url.searchParams.set("name", safeGuestName);
-    url.searchParams.set("room_name", roomSession.roomName);
-    url.searchParams.set("table", String(roomSession.tableNo));
+    url.searchParams.set("room_name", lobbyState.lobbyName);
+    url.searchParams.set("table", String(table.id));
     await navigator.clipboard.writeText(url.toString());
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1300);
+  }
+
+  async function onCopyInvite() {
+    if (!roomSession) return;
+    await copyInviteFromTable(
+      {
+        id: roomSession.tableNo,
+        roomCode: roomSession.code,
+        white: null,
+        black: null,
+      },
+      roomSession.seat,
+    );
   }
 
   function onRegisterMember() {
     const displayName = sanitizeGuestName(authDisplayName);
     const email = sanitizeEmail(authEmail);
     const password = authPassword.trim().slice(0, 64);
+
     if (!displayName || displayName.length < 3) {
       setAuthError("Uye adi en az 3 karakter olmali.");
       return;
@@ -664,10 +680,11 @@ function App() {
       setAuthError("Sifre en az 4 karakter olmali.");
       return;
     }
-    if (memberUsers.some((u) => u.email === email)) {
+    if (memberUsers.some((user) => user.email === email)) {
       setAuthError("Bu e-posta ile hesap zaten var.");
       return;
     }
+
     const user: MemberUser = {
       id: createSessionId(),
       displayName,
@@ -676,22 +693,24 @@ function App() {
       points: 1500,
       createdAt: Date.now(),
     };
+
     const nextUsers = [user, ...memberUsers];
     setMemberUsers(nextUsers);
     saveJson(MEMBER_USERS_KEY, nextUsers);
     saveJson(MEMBER_SESSION_KEY, { userId: user.id } satisfies MemberSession);
     setMember(user);
     setGuestName(user.displayName);
-    setAuthError("");
-    setAuthPassword("");
-    setAuthEmail("");
     setAuthDisplayName("");
+    setAuthEmail("");
+    setAuthPassword("");
+    setAuthError("");
+    setLobbyNotice("Uyelik acildi.");
   }
 
   function onLoginMember() {
     const email = sanitizeEmail(authEmail);
     const password = authPassword.trim().slice(0, 64);
-    const found = memberUsers.find((u) => u.email === email && u.password === password);
+    const found = memberUsers.find((user) => user.email === email && user.password === password);
     if (!found) {
       setAuthError("E-posta veya sifre yanlis.");
       return;
@@ -699,14 +718,98 @@ function App() {
     setMember(found);
     saveJson(MEMBER_SESSION_KEY, { userId: found.id } satisfies MemberSession);
     setGuestName(found.displayName);
-    setAuthError("");
     setAuthPassword("");
+    setAuthError("");
+    setLobbyNotice("Giris yapildi.");
   }
 
   function onLogoutMember() {
     window.localStorage.removeItem(MEMBER_SESSION_KEY);
     setMember(null);
     setAuthError("");
+    setLobbyNotice("Uyelik oturumu kapatildi.");
+  }
+
+  function syncRoomSeatHeartbeat() {
+    if (!roomSession) return;
+    let blocked = false;
+
+    writeLobby((current) => {
+      const cleaned = cleanupStaleAndPrune(current.tables).tables;
+      const withoutMine = clearSessionFromTables(cleaned, appSessionId).tables;
+      const tables = [...withoutMine];
+      const idx = tables.findIndex((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code);
+      const roomCode = sanitizeRoomCode(roomSession.code) || createRoomCode();
+
+      let index = idx;
+      let table: LobbyTable;
+      if (index >= 0) {
+        table = tables[index];
+      } else {
+        table = {
+          id: Math.max(1, roomSession.tableNo),
+          roomCode,
+          white: null,
+          black: null,
+        };
+        tables.push(table);
+        index = tables.length - 1;
+      }
+
+      table = { ...table, roomCode };
+      const occupied = roomSession.seat === "white" ? table.white : table.black;
+      if (occupied && occupied.sessionId !== appSessionId) {
+        blocked = true;
+        return current;
+      }
+
+      const seatState: LobbySeatState = {
+        sessionId: appSessionId,
+        userId: currentProfile.userId,
+        displayName: currentProfile.displayName,
+        points: currentProfile.points,
+        touchedAt: Date.now(),
+      };
+
+      const patched =
+        roomSession.seat === "white"
+          ? { ...table, white: seatState }
+          : { ...table, black: seatState };
+
+      tables[index] = patched;
+      return {
+        ...current,
+        lobbyName: sanitizeLobbyName(roomSession.roomName || current.lobbyName),
+        tables: sortTables(tables),
+        updatedAt: Date.now(),
+      };
+    });
+
+    if (blocked) {
+      setLobbyNotice(`${seatText(roomSession.seat)} koltugu dolu gorunuyor.`);
+    }
+  }
+
+  function seatCell(table: LobbyTable, seat: Seat) {
+    const occupant = seat === "white" ? table.white : table.black;
+    const mine = occupant?.sessionId === appSessionId;
+    if (!occupant) {
+      return (
+        <button
+          className="my-otur-btn"
+          onClick={() => sitToTable(table.id, seat, table.roomCode)}
+          title={`${seatText(seat)} koltuguna otur`}
+        >
+          OTUR
+        </button>
+      );
+    }
+    return (
+      <div className={`my-seat-occupant ${mine ? "mine" : ""}`}>
+        <span className="my-avatar">{initialsOf(occupant.displayName)}</span>
+        <span className="my-occupant-name">{occupant.displayName}</span>
+      </div>
+    );
   }
 
   useEffect(() => {
@@ -749,7 +852,9 @@ function App() {
     return () => {
       channel.removeEventListener("message", onMessage);
       channel.close();
-      if (lobbyChannelRef.current === channel) lobbyChannelRef.current = null;
+      if (lobbyChannelRef.current === channel) {
+        lobbyChannelRef.current = null;
+      }
     };
   }, []);
 
@@ -777,15 +882,20 @@ function App() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       const latest = loadLobbyState();
-      const cleaned = normalizeLobbyState(latest);
-      if (JSON.stringify(cleaned) !== JSON.stringify(latest)) {
-        saveJson(LOBBY_STATE_KEY, cleaned);
-        setLobbyState(cleaned);
+      const cleaned = cleanupStaleAndPrune(latest.tables);
+      const normalized = {
+        ...latest,
+        tables: cleaned.tables,
+        updatedAt: cleaned.changed ? Date.now() : latest.updatedAt,
+      };
+      if (cleaned.changed) {
+        saveJson(LOBBY_STATE_KEY, normalized);
+        setLobbyState(normalized);
         broadcastLobbySync();
         return;
       }
-      setLobbyState(cleaned);
-    }, 9_000);
+      setLobbyState(normalized);
+    }, 8_000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -798,11 +908,16 @@ function App() {
 
   useEffect(() => {
     const onBeforeUnload = () => {
-      const current = loadLobbyState();
-      const cleaned = cleanupStaleSeats(sortTables(current.tables)).tables;
+      const latest = loadLobbyState();
+      const cleaned = cleanupStaleAndPrune(latest.tables).tables;
       const cleared = clearSessionFromTables(cleaned, appSessionId);
-      if (!cleared.changed) return;
-      const next = { ...current, tables: cleared.tables, updatedAt: Date.now() };
+      const pruned = cleanupStaleAndPrune(cleared.tables).tables;
+      if (!cleared.changed && JSON.stringify(cleaned) === JSON.stringify(pruned)) return;
+      const next = {
+        ...latest,
+        tables: pruned,
+        updatedAt: Date.now(),
+      };
       saveJson(LOBBY_STATE_KEY, next);
     };
     window.addEventListener("beforeunload", onBeforeUnload);
@@ -819,24 +934,33 @@ function App() {
           <button className="my-top-btn my-btn-play" onClick={onQuickPlay}>
             Hemen Oyna
           </button>
+          <button className="my-top-btn my-btn-bot" onClick={startBotGame}>
+            Bota Karsi
+          </button>
           {!member ? (
-            <button className="my-top-btn my-btn-member" onClick={() => setAuthMode("register")}>
+            <button className="my-top-btn my-btn-member" onClick={onOpenMemberPanel}>
               Uye Ol
             </button>
           ) : (
             <button className="my-top-btn my-btn-member-alt" onClick={onLogoutMember}>
-              {member.displayName}
+              Cikis
             </button>
           )}
           <button className="my-top-btn my-btn-neutral" onClick={() => setViewMode("lobby")}>
             Lobiye Don
           </button>
+          {roomSession ? (
+            <button className="my-top-btn my-btn-danger" onClick={leaveRoomAndGoLobby}>
+              Masadan Kalk
+            </button>
+          ) : null}
         </div>
+
         <div className="my-topbar-right">
           <span className="my-chip">{lobbyState.lobbyName}</span>
-          <span className="my-chip">Masa: {sortedTables.length}</span>
+          <span className="my-chip">Acik Masa: {openedTables.length}</span>
           <span className={`my-chip ${roomSession ? "active" : ""}`}>
-            {roomSession ? `Aktif Masa ${roomSession.tableNo}` : "Masada Degilsin"}
+            {roomSession ? `Masa ${roomSession.tableNo}` : mode === "bot" ? "Bot Modu" : "Yerel"}
           </span>
         </div>
       </header>
@@ -845,129 +969,98 @@ function App() {
         <section className="my-lobby-layout">
           <div className="my-lobby-main">
             <div className="my-lobby-header">
-              <div>
-                <h2>{lobbyState.lobbyName}</h2>
-                <p>Mynet tarzi masa gorunumu: bos, bekleyen, dolu.</p>
+              <h2>{lobbyState.lobbyName}</h2>
+              <p>Mynet benzeri masa listesi: sadece acik masalar gorunur.</p>
+            </div>
+
+            <div className="my-lobby-controls">
+              <label className="my-field">
+                <span>Oyuncu</span>
+                <input
+                  className="my-input"
+                  value={guestName}
+                  maxLength={24}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  disabled={Boolean(member)}
+                />
+              </label>
+              <label className="my-field">
+                <span>Oda Kodu</span>
+                <input
+                  className="my-input"
+                  value={joinCodeInput}
+                  onChange={(e) => setJoinCodeInput(sanitizeRoomCode(e.target.value))}
+                  placeholder="AB12CD"
+                />
+              </label>
+              <div className="my-seat-toggle">
+                <button className={`my-seat-btn ${joinSeat === "white" ? "active" : ""}`} onClick={() => setJoinSeat("white")}>
+                  Beyaz
+                </button>
+                <button className={`my-seat-btn ${joinSeat === "black" ? "active" : ""}`} onClick={() => setJoinSeat("black")}>
+                  Siyah
+                </button>
               </div>
-              <div className="my-lobby-tools">
-                <label className="my-field">
-                  <span>Misafir / Uye</span>
-                  <input
-                    className="my-input"
-                    value={guestName}
-                    maxLength={24}
-                    onChange={(e) => setGuestName(e.target.value)}
-                    disabled={Boolean(member)}
-                  />
-                </label>
-                <label className="my-field">
-                  <span>Oda Adi</span>
-                  <input
-                    className="my-input"
-                    value={roomNameInput}
-                    maxLength={30}
-                    onChange={(e) => setRoomNameInput(sanitizeRoomName(e.target.value))}
-                  />
-                </label>
-                <label className="my-field">
-                  <span>Oda Kodu</span>
-                  <input
-                    className="my-input"
-                    value={roomCodeInput}
-                    onChange={(e) => setRoomCodeInput(sanitizeRoomCode(e.target.value))}
-                    placeholder="AB12CD"
-                  />
-                </label>
-                <label className="my-field">
-                  <span>Masa No</span>
-                  <input
-                    className="my-input"
-                    value={tableNoInput}
-                    inputMode="numeric"
-                    onChange={(e) => setTableNoInput(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
-                    placeholder="1"
-                  />
-                </label>
-                <div className="my-seat-toggle">
-                  <button
-                    className={`my-seat-btn ${joinSeat === "white" ? "active" : ""}`}
-                    onClick={() => setJoinSeat("white")}
-                  >
-                    Beyaz
-                  </button>
-                  <button
-                    className={`my-seat-btn ${joinSeat === "black" ? "active" : ""}`}
-                    onClick={() => setJoinSeat("black")}
-                  >
-                    Siyah
-                  </button>
-                </div>
+              <div className="my-inline-actions">
                 <button className="my-action-btn" onClick={onJoinByCode}>
                   Koda Katil
+                </button>
+                <button className="my-action-btn soft" onClick={onOpenTable}>
+                  Yeni Masa
                 </button>
               </div>
             </div>
 
             {lobbyNotice ? <p className="my-notice">{lobbyNotice}</p> : null}
 
-            <div className="my-table-grid">
-              {sortedTables.map((table) => {
-                const status = tableStatus(table);
-                const iAmWhite = table.white?.sessionId === appSessionId;
-                const iAmBlack = table.black?.sessionId === appSessionId;
-                const mySeatHere: Seat | null = iAmWhite ? "white" : iAmBlack ? "black" : null;
-                return (
-                  <article key={table.id} className={`my-table-card ${status}`}>
-                    <div className="my-table-card-head">
-                      <strong>Masa {table.id}</strong>
-                      <span>
-                        {status === "empty" ? "Bos" : status === "waiting" ? "Bekliyor" : "Dolu"}
-                      </span>
-                    </div>
+            {openedTables.length === 0 ? (
+              <div className="my-empty-state">
+                Henuz acik masa yok. <strong>Masa Ac</strong> ile ilk masayi acabilirsin.
+              </div>
+            ) : (
+              <div className="my-table-grid">
+                {openedTables.map((table) => {
+                  const status = tableStatus(table);
+                  const mySeatHere: Seat | null =
+                    table.white?.sessionId === appSessionId
+                      ? "white"
+                      : table.black?.sessionId === appSessionId
+                        ? "black"
+                        : null;
 
-                    <div className="my-mini-board">
-                      <div className="my-mini-seat white">
-                        <div className="my-mini-name">{table.white?.displayName ?? "Beyaz Bos"}</div>
+                  return (
+                    <article key={table.id} className={`my-table-card ${status}`}>
+                      <div className="my-table-card-head">
+                        <strong>Masa {table.id}</strong>
+                        <span className="my-table-status">
+                          {status === "full" ? "Dolu" : status === "waiting" ? "Bekliyor" : "Bos"}
+                        </span>
                       </div>
-                      <div className="my-mini-table-code">{table.roomCode}</div>
-                      <div className="my-mini-seat black">
-                        <div className="my-mini-name">{table.black?.displayName ?? "Siyah Bos"}</div>
-                      </div>
-                    </div>
 
-                    <div className="my-table-actions">
-                      {mySeatHere ? (
-                        <>
-                          <button className="my-action-btn" onClick={() => goToTable(table, mySeatHere)}>
-                            Masaya Git
-                          </button>
-                          <button className="my-action-btn soft" onClick={leaveSeatAndRoom}>
-                            Masadan Kalk
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            className="my-action-btn"
-                            disabled={Boolean(table.white)}
-                            onClick={() => sitToTable(table.id, "white")}
-                          >
-                            Beyaz Otur
-                          </button>
-                          <button
-                            className="my-action-btn"
-                            disabled={Boolean(table.black)}
-                            onClick={() => sitToTable(table.id, "black")}
-                          >
-                            Siyah Otur
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                      <div className="my-table-board">
+                        <div className="my-seat-slot white">{seatCell(table, "white")}</div>
+                        <div className="my-board-mid">{table.id}</div>
+                        <div className="my-seat-slot black">{seatCell(table, "black")}</div>
+                      </div>
+
+                      <div className="my-table-footer">
+                        <span className="my-table-code">Kod: {table.roomCode}</span>
+                        {mySeatHere ? (
+                          <div className="my-mini-actions">
+                            <button className="my-action-btn" onClick={() => goToTable(table, mySeatHere)}>
+                              Masaya Git
+                            </button>
+                            <button className="my-action-btn soft" onClick={() => copyInviteFromTable(table, mySeatHere)}>
+                              {copied ? "Kopyalandi" : "Davet"}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <aside className="my-lobby-side">
@@ -978,25 +1071,19 @@ function App() {
                   <p className="line">
                     <strong>{member.displayName}</strong>
                   </p>
-                  <p className="line">E-posta: {member.email}</p>
+                  <p className="line">{member.email}</p>
                   <p className="line">Puan: {member.points}</p>
                   <button className="my-action-btn soft" onClick={onLogoutMember}>
-                    Cikis Yap
+                    Cikis
                   </button>
                 </div>
               ) : (
                 <div className="my-auth-form">
                   <div className="my-auth-toggle">
-                    <button
-                      className={authMode === "register" ? "active" : ""}
-                      onClick={() => setAuthMode("register")}
-                    >
+                    <button className={authMode === "register" ? "active" : ""} onClick={() => setAuthMode("register")}>
                       Uye Ol
                     </button>
-                    <button
-                      className={authMode === "login" ? "active" : ""}
-                      onClick={() => setAuthMode("login")}
-                    >
+                    <button className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")}>
                       Giris
                     </button>
                   </div>
@@ -1070,11 +1157,12 @@ function App() {
           <div className="my-game-frame">
             <iframe title="Tavla Oyunu" src={iframeUrl} />
           </div>
+
           <aside className="my-game-controls">
-            <div className="my-side-card">
+            <section className="my-side-card">
               <h3>Oyun Secenekleri</h3>
               <label className="my-field">
-                <span>Oyuncu Adi</span>
+                <span>Oyuncu</span>
                 <input
                   className="my-input"
                   value={guestName}
@@ -1083,31 +1171,25 @@ function App() {
                   disabled={Boolean(member)}
                 />
               </label>
+
               <div className="my-seat-toggle">
-                <button
-                  className={`my-seat-btn ${mode === "local" ? "active" : ""}`}
-                  onClick={() => setMode("local")}
-                  disabled={isRoomMode}
-                >
+                <button className={`my-seat-btn ${mode === "local" ? "active" : ""}`} onClick={() => onSelectMode("local")}>
                   Iki Oyuncu
                 </button>
-                <button
-                  className={`my-seat-btn ${mode === "bot" ? "active" : ""}`}
-                  onClick={() => setMode("bot")}
-                  disabled={isRoomMode}
-                >
+                <button className={`my-seat-btn ${mode === "bot" ? "active" : ""}`} onClick={() => onSelectMode("bot")}>
                   Bot
                 </button>
               </div>
+
               <button className="my-action-btn" onClick={refreshBoard}>
                 Tahtayi Yenile
               </button>
               <button className="my-action-btn soft" onClick={() => setViewMode("lobby")}>
                 Lobiye Don
               </button>
-            </div>
+            </section>
 
-            <div className="my-side-card">
+            <section className="my-side-card">
               <h3>Masa Bilgisi</h3>
               {roomSession ? (
                 <>
@@ -1123,19 +1205,19 @@ function App() {
                   <button className="my-action-btn" onClick={onCopyInvite}>
                     {copied ? "Kopyalandi" : "Davet Linki Kopyala"}
                   </button>
-                  <button className="my-action-btn danger" onClick={leaveSeatAndRoom}>
+                  <button className="my-action-btn danger" onClick={leaveRoomAndGoLobby}>
                     Masadan Kalk
                   </button>
                 </>
               ) : (
                 <>
-                  <p className="line">Yerel veya bot modunda oynuyorsun.</p>
+                  <p className="line">Masa baglantisi yok. Yerel veya bot oyunu aktif.</p>
                   <button className="my-action-btn" onClick={() => setViewMode("lobby")}>
                     Masa Sec
                   </button>
                 </>
               )}
-            </div>
+            </section>
           </aside>
         </section>
       )}
