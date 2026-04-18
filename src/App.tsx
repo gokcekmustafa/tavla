@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
 import "./App.css";
 
 type GameMode = "local" | "bot";
@@ -45,6 +47,8 @@ type LobbyTable = {
 type LobbyState = {
   lobbyName: string;
   tables: LobbyTable[];
+  guestCounter: number;
+  guestLabels: Record<string, number>;
   updatedAt: number;
 };
 
@@ -61,12 +65,15 @@ type CleanupResult = {
 };
 
 const GUEST_STORAGE_KEY = "tavla.guestName";
+const GUEST_ID_STORAGE_KEY = "tavla.guest.id.v1";
 const MEMBER_USERS_KEY = "tavla.member.users.v1";
 const MEMBER_SESSION_KEY = "tavla.member.session.v1";
 const LOBBY_STATE_KEY = "tavla.lobby.state.v2";
 const LOBBY_SYNC_CHANNEL = "tavla.lobby.sync.v2";
+const REALTIME_LOBBY_ROOM = "tavla-global-lobby-v1";
+const REALTIME_LOBBY_WS_URL = (import.meta.env.VITE_LOBBY_WS_URL as string | undefined) || "wss://demos.yjs.dev";
 const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const DEFAULT_LOBBY_NAME = "IZMIR";
+const DEFAULT_LOBBY_NAME = "Lobi 1";
 const SEAT_STALE_MS = 25_000;
 const HEARTBEAT_MS = 5_000;
 
@@ -88,6 +95,10 @@ function saveJson<T>(key: string, value: T) {
 
 function sanitizeRoomCode(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+}
+
+function sanitizeGuestId(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 36);
 }
 
 function sanitizeGuestName(value: string) {
@@ -122,6 +133,15 @@ function createRoomCode() {
   return out;
 }
 
+function getOrCreateGuestId() {
+  if (typeof window === "undefined") return `guest-${createSessionId()}`;
+  const existing = sanitizeGuestId(window.localStorage.getItem(GUEST_ID_STORAGE_KEY) ?? "");
+  if (existing) return existing;
+  const next = sanitizeGuestId(`g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`) || "guest1";
+  window.localStorage.setItem(GUEST_ID_STORAGE_KEY, next);
+  return next;
+}
+
 function seatText(seat: Seat) {
   return seat === "white" ? "Beyaz" : "Siyah";
 }
@@ -142,6 +162,8 @@ function createDefaultLobbyState(): LobbyState {
   return {
     lobbyName: DEFAULT_LOBBY_NAME,
     tables: [],
+    guestCounter: 0,
+    guestLabels: {},
     updatedAt: Date.now(),
   };
 }
@@ -203,9 +225,24 @@ function normalizeLobbyState(raw: unknown): LobbyState {
     .map((row, index) => normalizeTable(row, index))
     .filter((row): row is LobbyTable => Boolean(row));
   const cleaned = cleanupStaleAndPrune(normalizedTables).tables;
+  const guestCounter = Number.isInteger(candidate.guestCounter) && Number(candidate.guestCounter) >= 0
+    ? Number(candidate.guestCounter)
+    : 0;
+  const rawLabels = candidate.guestLabels && typeof candidate.guestLabels === "object"
+    ? candidate.guestLabels as Record<string, unknown>
+    : {};
+  const guestLabels: Record<string, number> = {};
+  Object.entries(rawLabels).forEach(([key, value]) => {
+    const safeKey = sanitizeGuestId(key);
+    const safeValue = Number(value);
+    if (!safeKey || !Number.isInteger(safeValue) || safeValue <= 0) return;
+    guestLabels[safeKey] = safeValue;
+  });
   return {
     lobbyName,
     tables: cleaned,
+    guestCounter,
+    guestLabels,
     updatedAt: Number.isFinite(candidate.updatedAt) ? Number(candidate.updatedAt) : Date.now(),
   };
 }
@@ -258,7 +295,7 @@ function getInitialRoomSession(): RoomSession | null {
   const seatParam = params.get("seat");
   const seat: Seat | null = seatParam === "white" || seatParam === "black" ? seatParam : null;
   if (!room || !seat) return null;
-  const roomName = sanitizeLobbyName(params.get("room_name") ?? params.get("roomName") ?? params.get("oda") ?? DEFAULT_LOBBY_NAME);
+  const roomName = DEFAULT_LOBBY_NAME;
   const tableNo = sanitizeTableNo(params.get("table") ?? params.get("tableNo") ?? params.get("masa") ?? "1");
   const externalSession = sanitizeGuestName(params.get("session") ?? "");
   return {
@@ -319,8 +356,7 @@ function App() {
   const [lobbyNotice, setLobbyNotice] = useState("");
   const [lobbyState, setLobbyState] = useState<LobbyState>(() => {
     const loaded = loadLobbyState();
-    if (!initialRoom) return loaded;
-    const roomName = sanitizeLobbyName(initialRoom.roomName);
+    const roomName = sanitizeLobbyName(initialRoom?.roomName ?? DEFAULT_LOBBY_NAME);
     if (loaded.lobbyName === roomName) return loaded;
     const merged = { ...loaded, lobbyName: roomName, updatedAt: Date.now() };
     saveJson(LOBBY_STATE_KEY, merged);
@@ -341,7 +377,12 @@ function App() {
   const [authError, setAuthError] = useState("");
 
   const lobbyChannelRef = useRef<BroadcastChannel | null>(null);
+  const realtimeProviderRef = useRef<WebsocketProvider | null>(null);
+  const realtimeDocRef = useRef<Y.Doc | null>(null);
+  const realtimeLobbyMapRef = useRef<Y.Map<unknown> | null>(null);
   const appSessionId = useMemo(() => createSessionId(), []);
+  const guestId = useMemo(() => getOrCreateGuestId(), []);
+  const [realtimeStatus, setRealtimeStatus] = useState<"offline" | "connecting" | "online">("offline");
 
   const safeGuestName = useMemo(() => {
     const memberName = member ? sanitizeGuestName(member.displayName) : "";
@@ -408,19 +449,32 @@ function App() {
     lobbyChannelRef.current?.postMessage({ type: "lobby-sync", at: Date.now() });
   }
 
+  function readRealtimeLobbyState() {
+    const raw = realtimeLobbyMapRef.current?.get("state");
+    if (!raw) return null;
+    return normalizeLobbyState(raw);
+  }
+
+  function getCurrentLobbyState() {
+    return readRealtimeLobbyState() ?? loadLobbyState();
+  }
+
   function persistLobbyState(next: LobbyState) {
     const normalized = normalizeLobbyState(next);
+    if (realtimeLobbyMapRef.current) {
+      realtimeLobbyMapRef.current.set("state", normalized);
+    }
     saveJson(LOBBY_STATE_KEY, normalized);
     setLobbyState(normalized);
     broadcastLobbySync();
   }
 
   function refreshLobbyFromStorage() {
-    setLobbyState(loadLobbyState());
+    setLobbyState(getCurrentLobbyState());
   }
 
   function writeLobby(mutator: (current: LobbyState) => LobbyState | null) {
-    const current = loadLobbyState();
+    const current = getCurrentLobbyState();
     const next = mutator(current);
     if (!next) {
       setLobbyState(current);
@@ -557,7 +611,7 @@ function App() {
   }
 
   function onOpenTable() {
-    const latest = loadLobbyState();
+    const latest = getCurrentLobbyState();
     const existing = findSessionSeat(latest.tables, appSessionId);
     if (existing) {
       setViewMode("lobby");
@@ -569,7 +623,7 @@ function App() {
   }
 
   function onQuickPlay() {
-    const latest = loadLobbyState();
+    const latest = getCurrentLobbyState();
     const existing = findSessionSeat(latest.tables, appSessionId);
     if (existing) {
       goToTable(existing.table, existing.seat);
@@ -586,7 +640,7 @@ function App() {
       return;
     }
 
-    const latest = loadLobbyState();
+    const latest = getCurrentLobbyState();
     const table = latest.tables.find((row) => row.roomCode === code);
     if (!table) {
       setLobbyNotice("Bu kodda acik masa yok.");
@@ -822,6 +876,88 @@ function App() {
   }
 
   useEffect(() => {
+    const doc = new Y.Doc();
+    const provider = new WebsocketProvider(REALTIME_LOBBY_WS_URL, REALTIME_LOBBY_ROOM, doc, { connect: true });
+    const lobbyMap = doc.getMap<unknown>("lobby");
+
+    realtimeDocRef.current = doc;
+    realtimeProviderRef.current = provider;
+    realtimeLobbyMapRef.current = lobbyMap;
+    setRealtimeStatus("connecting");
+
+    const applyRemoteState = () => {
+      const raw = lobbyMap.get("state");
+      if (!raw) return;
+      const normalized = normalizeLobbyState(raw);
+      saveJson(LOBBY_STATE_KEY, normalized);
+      setLobbyState(normalized);
+    };
+
+    const onStatus = (event: { status: string }) => {
+      setRealtimeStatus(event.status === "connected" ? "online" : "connecting");
+    };
+
+    const onSync = () => {
+      const remote = lobbyMap.get("state");
+      if (remote) {
+        applyRemoteState();
+        return;
+      }
+      lobbyMap.set("state", loadLobbyState());
+    };
+
+    lobbyMap.observe(applyRemoteState);
+    provider.on("status", onStatus);
+    provider.on("sync", onSync);
+    onSync();
+
+    return () => {
+      lobbyMap.unobserve(applyRemoteState);
+      provider.destroy();
+      doc.destroy();
+      if (realtimeLobbyMapRef.current === lobbyMap) realtimeLobbyMapRef.current = null;
+      if (realtimeProviderRef.current === provider) realtimeProviderRef.current = null;
+      if (realtimeDocRef.current === doc) realtimeDocRef.current = null;
+      setRealtimeStatus("offline");
+    };
+  }, []);
+
+  useEffect(() => {
+    if (member) return;
+    let resolvedGuestNo = 0;
+
+    const next = writeLobby((current) => {
+      const guestLabels = { ...current.guestLabels };
+      let guestCounter = Number.isInteger(current.guestCounter) && current.guestCounter >= 0 ? current.guestCounter : 0;
+      let myNo = guestLabels[guestId];
+      let changed = false;
+
+      if (!myNo) {
+        guestCounter += 1;
+        myNo = guestCounter;
+        guestLabels[guestId] = myNo;
+        changed = true;
+      }
+
+      resolvedGuestNo = myNo;
+      if (!changed) return current;
+      return {
+        ...current,
+        guestCounter,
+        guestLabels,
+        updatedAt: Date.now(),
+      };
+    });
+
+    const source = next ?? getCurrentLobbyState();
+    const finalGuestNo = source.guestLabels[guestId] ?? resolvedGuestNo ?? 1;
+    const desiredName = `Misafir ${finalGuestNo}`;
+    if (guestName !== desiredName) {
+      setGuestName(desiredName);
+    }
+  }, [member, guestId, guestName, realtimeStatus]);
+
+  useEffect(() => {
     window.localStorage.setItem(GUEST_STORAGE_KEY, safeGuestName);
   }, [safeGuestName]);
 
@@ -890,7 +1026,7 @@ function App() {
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      const latest = loadLobbyState();
+      const latest = getCurrentLobbyState();
       const cleaned = cleanupStaleAndPrune(latest.tables);
       const normalized = {
         ...latest,
@@ -917,7 +1053,7 @@ function App() {
 
   useEffect(() => {
     const onBeforeUnload = () => {
-      const latest = loadLobbyState();
+      const latest = getCurrentLobbyState();
       const cleaned = cleanupStaleAndPrune(latest.tables).tables;
       const cleared = clearSessionFromTables(cleaned, appSessionId);
       const pruned = cleanupStaleAndPrune(cleared.tables).tables;
@@ -968,6 +1104,9 @@ function App() {
         <div className="my-topbar-right">
           <span className="my-chip">{lobbyState.lobbyName}</span>
           <span className="my-chip">Acik Masa: {openedTables.length}</span>
+          <span className={`my-chip ${realtimeStatus === "online" ? "active" : ""}`}>
+            {realtimeStatus === "online" ? "Canli Senkron Acik" : "Yerel Senkron"}
+          </span>
           <span className={`my-chip ${roomSession ? "active" : ""}`}>
             {roomSession ? `Masa ${roomSession.tableNo}` : mode === "bot" ? "Bot Modu" : "Yerel"}
           </span>
@@ -990,7 +1129,7 @@ function App() {
                   value={guestName}
                   maxLength={24}
                   onChange={(e) => setGuestName(e.target.value)}
-                  disabled={Boolean(member)}
+                  disabled
                 />
               </label>
               <label className="my-field">
@@ -1177,7 +1316,7 @@ function App() {
                   value={guestName}
                   maxLength={24}
                   onChange={(e) => setGuestName(e.target.value)}
-                  disabled={Boolean(member)}
+                  disabled
                 />
               </label>
 

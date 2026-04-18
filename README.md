@@ -8,6 +8,8 @@ Bu repo, tavla uygulamasinin React/TypeScript tabanina gecis surumudur.
 - Legacy tavla motoru (`public/legacy`) iframe icinde calisir
 - Oyun modu secimi (iki oyuncu / bilgisayara karsi) React kabugundan yonetilir
 - Nhost baglanti hazirlik kontrolu (`VITE_NHOST_SUBDOMAIN`, `VITE_NHOST_REGION`)
+- Lobi/masa listesi farkli cihazlar arasinda canli senkron olur (WebSocket)
+- Misafir kullanicilar otomatik `Misafir 1`, `Misafir 2` seklinde kimlik alir
 
 ## Gelistirme
 
@@ -31,7 +33,10 @@ npm run build
 ```env
 VITE_NHOST_SUBDOMAIN=senin-subdomain
 VITE_NHOST_REGION=senin-region
+VITE_LOBBY_WS_URL=wss://demos.yjs.dev
 ```
+
+`VITE_LOBBY_WS_URL` verilmezse varsayilan olarak `wss://demos.yjs.dev` kullanilir.
 
 Not: Bu asamada tam auth/chat entegrasyonu henuz eklenmedi. Sonraki adimda React tarafina Nhost auth ve sohbet katmani baglanacak.
 
