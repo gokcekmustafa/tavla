@@ -51,6 +51,15 @@ type LobbySeatState = {
   touchedAt: number;
 };
 
+type LobbyPresenceState = {
+  sessionId: string;
+  userId: string;
+  displayName: string;
+  points: number;
+  stats: PlayerStats;
+  touchedAt: number;
+};
+
 type LobbyTable = {
   id: number;
   roomCode: string;
@@ -61,6 +70,7 @@ type LobbyTable = {
 type LobbyState = {
   lobbyName: string;
   tables: LobbyTable[];
+  presence: LobbyPresenceState[];
   guestCounter: number;
   guestLabels: Record<string, number>;
   updatedAt: number;
@@ -134,6 +144,7 @@ const REALTIME_LOBBY_CHANNEL = "tavla-global-lobby-v1";
 const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_LOBBY_NAME = "Lobi 1";
 const SEAT_STALE_MS = 25_000;
+const PRESENCE_STALE_MS = 35_000;
 const HEARTBEAT_MS = 5_000;
 const WIN_POINTS = 100;
 const RESIGN_PENALTY_POINTS = 50;
@@ -227,6 +238,17 @@ function normalizeStats(raw: unknown): PlayerStats {
     losses,
     resigns,
   };
+}
+
+function sameStats(a: PlayerStats, b: PlayerStats) {
+  const left = normalizeStats(a);
+  const right = normalizeStats(b);
+  return (
+    left.gamesPlayed === right.gamesPlayed
+    && left.wins === right.wins
+    && left.losses === right.losses
+    && left.resigns === right.resigns
+  );
 }
 
 function applyStatsOutcome(base: PlayerStats, outcome: MatchOutcome): PlayerStats {
@@ -331,6 +353,7 @@ function createDefaultLobbyState(): LobbyState {
   return {
     lobbyName: DEFAULT_LOBBY_NAME,
     tables: [],
+    presence: [],
     guestCounter: 0,
     guestLabels: {},
     updatedAt: Date.now(),
@@ -349,6 +372,32 @@ function normalizeSeat(raw: unknown): LobbySeatState | null {
     points: normalizeNonNegativeInt(candidate.points, 1500),
     stats: normalizeStats(candidate.stats),
     touchedAt: Number.isFinite(candidate.touchedAt) ? Number(candidate.touchedAt) : Date.now(),
+  };
+}
+
+function normalizePresence(raw: unknown): LobbyPresenceState | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<LobbyPresenceState>;
+  const sessionId = typeof candidate.sessionId === "string" ? candidate.sessionId : "";
+  if (!sessionId) return null;
+  return {
+    sessionId,
+    userId: typeof candidate.userId === "string" ? candidate.userId : `guest-${sessionId}`,
+    displayName: sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Misafir") || "Misafir",
+    points: normalizeNonNegativeInt(candidate.points, 1500),
+    stats: normalizeStats(candidate.stats),
+    touchedAt: Number.isFinite(candidate.touchedAt) ? Number(candidate.touchedAt) : Date.now(),
+  };
+}
+
+function presenceFromSeat(seat: LobbySeatState): LobbyPresenceState {
+  return {
+    sessionId: seat.sessionId,
+    userId: seat.userId,
+    displayName: seat.displayName,
+    points: seat.points,
+    stats: normalizeStats(seat.stats),
+    touchedAt: seat.touchedAt,
   };
 }
 
@@ -385,16 +434,51 @@ function cleanupStaleAndPrune(tables: LobbyTable[]): CleanupResult {
   return { tables: sortTables(next), changed };
 }
 
+function cleanupPresenceRows(rows: LobbyPresenceState[]) {
+  const now = Date.now();
+  let changed = false;
+  const bySession = new Map<string, LobbyPresenceState>();
+
+  rows.forEach((row) => {
+    if (now - row.touchedAt > PRESENCE_STALE_MS) {
+      changed = true;
+      return;
+    }
+    const existing = bySession.get(row.sessionId);
+    if (!existing || row.touchedAt >= existing.touchedAt) {
+      if (existing && existing !== row) changed = true;
+      bySession.set(row.sessionId, row);
+    }
+  });
+
+  const presence = Array.from(bySession.values());
+  if (presence.length !== rows.length) {
+    changed = true;
+  }
+  return { presence, changed };
+}
+
 function normalizeLobbyState(raw: unknown): LobbyState {
   const fallback = createDefaultLobbyState();
   if (!raw || typeof raw !== "object") return fallback;
   const candidate = raw as Partial<LobbyState>;
   const lobbyName = sanitizeLobbyName(typeof candidate.lobbyName === "string" ? candidate.lobbyName : DEFAULT_LOBBY_NAME);
-  const rows = Array.isArray(candidate.tables) ? candidate.tables : [];
-  const normalizedTables = rows
+  const tableRows = Array.isArray(candidate.tables) ? candidate.tables : [];
+  const normalizedTables = tableRows
     .map((row, index) => normalizeTable(row, index))
     .filter((row): row is LobbyTable => Boolean(row));
   const cleaned = cleanupStaleAndPrune(normalizedTables).tables;
+  const rawPresenceRows = Array.isArray(candidate.presence) ? candidate.presence : [];
+  const normalizedPresenceRows = rawPresenceRows
+    .map((row) => normalizePresence(row))
+    .filter((row): row is LobbyPresenceState => Boolean(row));
+  const seatPresenceRows = cleaned.flatMap((table) => {
+    const rows: LobbyPresenceState[] = [];
+    if (table.white) rows.push(presenceFromSeat(table.white));
+    if (table.black) rows.push(presenceFromSeat(table.black));
+    return rows;
+  });
+  const cleanedPresence = cleanupPresenceRows([...normalizedPresenceRows, ...seatPresenceRows]).presence;
   const guestCounter = Number.isInteger(candidate.guestCounter) && Number(candidate.guestCounter) >= 0
     ? Number(candidate.guestCounter)
     : 0;
@@ -411,6 +495,7 @@ function normalizeLobbyState(raw: unknown): LobbyState {
   return {
     lobbyName,
     tables: cleaned,
+    presence: cleanedPresence,
     guestCounter,
     guestLabels,
     updatedAt: Number.isFinite(candidate.updatedAt) ? Number(candidate.updatedAt) : Date.now(),
@@ -569,10 +654,25 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
   });
 
   const highestGuestNo = Object.values(guestLabels).reduce((max, value) => Math.max(max, value), 0);
+  const presenceBySession = new Map<string, LobbyPresenceState>();
+  const upsertPresence = (row: LobbyPresenceState) => {
+    const existing = presenceBySession.get(row.sessionId);
+    if (!existing || row.touchedAt >= existing.touchedAt) {
+      presenceBySession.set(row.sessionId, row);
+    }
+  };
+
+  remote.presence.forEach((row) => upsertPresence(row));
+  local.presence.forEach((row) => upsertPresence(row));
+  Array.from(mergedTables.values()).forEach((table) => {
+    if (table.white) upsertPresence(presenceFromSeat(table.white));
+    if (table.black) upsertPresence(presenceFromSeat(table.black));
+  });
 
   return normalizeLobbyState({
     lobbyName: sanitizeLobbyName(remote.lobbyName || local.lobbyName),
     tables: Array.from(mergedTables.values()),
+    presence: Array.from(presenceBySession.values()),
     guestCounter: Math.max(remote.guestCounter, local.guestCounter, highestGuestNo),
     guestLabels,
     updatedAt: Math.max(remote.updatedAt, local.updatedAt),
@@ -676,37 +776,48 @@ function App() {
     return sortTables(lobbyState.tables).filter((table) => Boolean(table.white || table.black));
   }, [lobbyState.tables]);
 
-  const mySeat = useMemo(() => findSessionSeat(openedTables, appSessionId), [openedTables, appSessionId]);
-
   const onlineRows = useMemo<OnlineRow[]>(() => {
-    const map = new Map<string, OnlineRow>();
+    const tableBySession = new Map<string, number>();
     openedTables.forEach((table) => {
       [table.white, table.black].forEach((seatInfo) => {
         if (!seatInfo) return;
-        map.set(seatInfo.sessionId, {
-          key: seatInfo.sessionId,
-          userId: seatInfo.userId,
-          sessionId: seatInfo.sessionId,
-          name: seatInfo.displayName,
-          points: seatInfo.points,
-          stats: normalizeStats(seatInfo.stats),
-          tableNo: table.id,
-        });
+        tableBySession.set(seatInfo.sessionId, table.id);
+      });
+    });
+
+    const map = new Map<string, LobbyPresenceState>();
+    lobbyState.presence.forEach((presence) => {
+      map.set(presence.sessionId, presence);
+    });
+    openedTables.forEach((table) => {
+      [table.white, table.black].forEach((seatInfo) => {
+        if (!seatInfo) return;
+        map.set(seatInfo.sessionId, presenceFromSeat(seatInfo));
       });
     });
     if (!map.has(appSessionId)) {
       map.set(appSessionId, {
-        key: appSessionId,
-        userId: currentProfile.userId,
         sessionId: appSessionId,
-        name: safeGuestName,
+        userId: currentProfile.userId,
+        displayName: safeGuestName,
         points: currentProfile.points,
         stats: normalizeStats(currentProfile.stats),
-        tableNo: mySeat?.table.id ?? null,
+        touchedAt: Date.now(),
       });
     }
-    return Array.from(map.values()).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
-  }, [openedTables, appSessionId, safeGuestName, currentProfile.userId, currentProfile.points, currentProfile.stats, mySeat]);
+
+    return Array.from(map.values())
+      .map((row) => ({
+        key: row.sessionId,
+        userId: row.userId,
+        sessionId: row.sessionId,
+        name: row.displayName,
+        points: row.points,
+        stats: normalizeStats(row.stats),
+        tableNo: tableBySession.get(row.sessionId) ?? null,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "tr", { sensitivity: "base" }));
+  }, [openedTables, lobbyState.presence, appSessionId, safeGuestName, currentProfile.userId, currentProfile.points, currentProfile.stats]);
 
   function broadcastLobbySync() {
     lobbyChannelRef.current?.postMessage({ type: "lobby-sync", at: Date.now() });
@@ -771,6 +882,40 @@ function App() {
     setIframeKey((v) => v + 1);
   }
 
+  function syncLobbyPresence(force = false) {
+    writeLobby((current) => {
+      const now = Date.now();
+      const cleanedPresence = cleanupPresenceRows(current.presence);
+      const myPresence: LobbyPresenceState = {
+        sessionId: appSessionId,
+        userId: currentProfile.userId,
+        displayName: currentProfile.displayName,
+        points: currentProfile.points,
+        stats: normalizeStats(currentProfile.stats),
+        touchedAt: now,
+      };
+
+      const existing = cleanedPresence.presence.find((entry) => entry.sessionId === appSessionId) ?? null;
+      const changedProfile = !existing
+        || existing.userId !== myPresence.userId
+        || existing.displayName !== myPresence.displayName
+        || existing.points !== myPresence.points
+        || !sameStats(existing.stats, myPresence.stats);
+
+      const staleHeartbeat = !existing || now - existing.touchedAt > HEARTBEAT_MS;
+      if (!force && !cleanedPresence.changed && !changedProfile && !staleHeartbeat) {
+        return current;
+      }
+
+      const withoutMine = cleanedPresence.presence.filter((entry) => entry.sessionId !== appSessionId);
+      return {
+        ...current,
+        presence: [...withoutMine, myPresence],
+        updatedAt: now,
+      };
+    });
+  }
+
   function releaseSeatOnly() {
     writeLobby((current) => {
       const cleaned = cleanupStaleAndPrune(current.tables).tables;
@@ -810,9 +955,8 @@ function App() {
 
     const next = writeLobby((current) => {
       const cleaned = cleanupStaleAndPrune(current.tables).tables;
-      const withoutMine = clearSessionFromTables(cleaned, appSessionId).tables;
       const code = sanitizeRoomCode(explicitRoomCode ?? "");
-      const tables = [...withoutMine];
+      const tables = [...cleaned];
       let index = tables.findIndex((table) => table.id === tableId || (code && table.roomCode === code));
       let table: LobbyTable;
 
@@ -831,6 +975,21 @@ function App() {
 
       if (code) {
         table = { ...table, roomCode: code };
+      }
+
+      const existingSeat = findSessionSeat(cleaned, appSessionId);
+      const isSameTable = existingSeat
+        ? existingSeat.table.id === table.id || (code && existingSeat.table.roomCode === code)
+        : false;
+      if (existingSeat && !isSameTable) {
+        seatBlocked = true;
+        return current;
+      }
+
+      if (existingSeat && isSameTable && existingSeat.seat !== seat) {
+        table = existingSeat.seat === "white"
+          ? { ...table, white: null }
+          : { ...table, black: null };
       }
 
       const occupied = seat === "white" ? table.white : table.black;
@@ -870,6 +1029,19 @@ function App() {
   }
 
   function sitToTable(tableId: number, seat: Seat, explicitRoomCode?: string, openGameView = true) {
+    const latest = getCurrentLobbyState();
+    const existing = findSessionSeat(latest.tables, appSessionId);
+    const roomCode = sanitizeRoomCode(explicitRoomCode ?? "");
+    const sameTable = existing
+      ? existing.table.id === tableId || (roomCode && existing.table.roomCode === roomCode)
+      : false;
+
+    if (existing && !sameTable) {
+      setLobbyNotice(`Ayni anda sadece tek masada oturabilirsin. Once Masa ${existing.table.id} icin masadan kalkmalisin.`);
+      setViewMode("lobby");
+      return null;
+    }
+
     const table = upsertMySeat(tableId, seat, explicitRoomCode);
     if (!table) {
       setLobbyNotice("Secilen koltuk dolu. Lutfen baska bir koltuk secin.");
@@ -1167,6 +1339,7 @@ function App() {
   function patchSeatByUserId(userId: string, points: number, stats: PlayerStats, displayName?: string) {
     writeLobby((current) => {
       let anyChanged = false;
+      const now = Date.now();
       const tables = current.tables.map((table) => {
         let changed = false;
         const patchSeat = (seat: LobbySeatState | null) => {
@@ -1177,7 +1350,7 @@ function App() {
             points: normalizeNonNegativeInt(points, seat.points),
             stats: normalizeStats(stats),
             displayName: displayName ? sanitizeGuestName(displayName) || seat.displayName : seat.displayName,
-            touchedAt: Date.now(),
+            touchedAt: now,
           };
         };
         const white = patchSeat(table.white);
@@ -1186,8 +1359,28 @@ function App() {
         anyChanged = true;
         return { ...table, white, black };
       });
-      if (!anyChanged) return current;
-      return { ...current, tables, updatedAt: Date.now() };
+
+      let presenceChanged = false;
+      const presence = current.presence.map((entry) => {
+        if (entry.userId !== userId) return entry;
+        const nextName = displayName ? sanitizeGuestName(displayName) || entry.displayName : entry.displayName;
+        const nextPoints = normalizeNonNegativeInt(points, entry.points);
+        const nextStats = normalizeStats(stats);
+        if (entry.displayName === nextName && entry.points === nextPoints && sameStats(entry.stats, nextStats)) {
+          return entry;
+        }
+        presenceChanged = true;
+        return {
+          ...entry,
+          displayName: nextName,
+          points: nextPoints,
+          stats: nextStats,
+          touchedAt: now,
+        };
+      });
+
+      if (!anyChanged && !presenceChanged) return current;
+      return { ...current, tables, presence, updatedAt: now };
     });
   }
 
@@ -1820,13 +2013,16 @@ function App() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       const latest = getCurrentLobbyState();
-      const cleaned = cleanupStaleAndPrune(latest.tables);
+      const cleanedTables = cleanupStaleAndPrune(latest.tables);
+      const cleanedPresence = cleanupPresenceRows(latest.presence);
+      const hasChange = cleanedTables.changed || cleanedPresence.changed;
       const normalized = {
         ...latest,
-        tables: cleaned.tables,
-        updatedAt: cleaned.changed ? Date.now() : latest.updatedAt,
+        tables: cleanedTables.tables,
+        presence: cleanedPresence.presence,
+        updatedAt: hasChange ? Date.now() : latest.updatedAt,
       };
-      if (cleaned.changed) {
+      if (hasChange) {
         persistLobbyState(normalized);
         return;
       }
@@ -1843,15 +2039,26 @@ function App() {
   }, [roomSession, currentProfile.userId, currentProfile.displayName, currentProfile.points, currentProfile.stats, appSessionId]);
 
   useEffect(() => {
+    syncLobbyPresence(true);
+    const timer = window.setInterval(() => syncLobbyPresence(false), HEARTBEAT_MS);
+    return () => window.clearInterval(timer);
+  }, [appSessionId, currentProfile.userId, currentProfile.displayName, currentProfile.points, currentProfile.stats]);
+
+  useEffect(() => {
     const onBeforeUnload = () => {
       const latest = getCurrentLobbyState();
-      const cleaned = cleanupStaleAndPrune(latest.tables).tables;
-      const cleared = clearSessionFromTables(cleaned, appSessionId);
-      const pruned = cleanupStaleAndPrune(cleared.tables).tables;
-      if (!cleared.changed && JSON.stringify(cleaned) === JSON.stringify(pruned)) return;
+      const cleanedTables = cleanupStaleAndPrune(latest.tables).tables;
+      const cleared = clearSessionFromTables(cleanedTables, appSessionId);
+      const prunedTables = cleanupStaleAndPrune(cleared.tables).tables;
+      const cleanedPresence = cleanupPresenceRows(latest.presence).presence;
+      const nextPresence = cleanedPresence.filter((entry) => entry.sessionId !== appSessionId);
+      const tableChanged = cleared.changed || JSON.stringify(cleanedTables) !== JSON.stringify(prunedTables);
+      const presenceChanged = nextPresence.length !== latest.presence.length || cleanedPresence.length !== latest.presence.length;
+      if (!tableChanged && !presenceChanged) return;
       const next = {
         ...latest,
-        tables: pruned,
+        tables: prunedTables,
+        presence: nextPresence,
         updatedAt: Date.now(),
       };
       saveJson(LOBBY_STATE_KEY, next);
