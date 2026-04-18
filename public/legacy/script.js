@@ -3,6 +3,7 @@ const BLACK = "black";
 const POINT_COUNT = 24;
 const CHECKERS_PER_PLAYER = 15;
 const BOT_DELAY_MS = 800;
+const BOT_AFTER_DICE_REVEAL_MS = 260;
 const LOG_LIMIT = 140;
 const ANIM_MS = 380;
 const AUTO_ROLL_DELAY_MS = 520;
@@ -75,6 +76,7 @@ let isApplyingRemoteState = false;
 let roomChannel       = null;
 let roomSyncCounter   = 0;
 let preferredPlayerColor = WHITE;
+let diceRollSettledAt = 0;
 
 const roomParams = parseRoomParamsSafe();
 const roomSenderCounters = new Map();
@@ -291,7 +293,6 @@ function initRoomChannel() {
 function announceRoomJoin() {
   if (!isRoomMode() || !roomChannel) return;
   sendRoomMessage("hello");
-  window.setTimeout(() => publishRoomSnapshot("join-sync"), 120);
 }
 
 function onRoomChannelMessage(event) {
@@ -345,6 +346,7 @@ function buildRoomSnapshot() {
     moveLog: [...moveLog],
     lastRolledDice: [...lastRolledDice],
     lastDicePlayer,
+    diceRollSettledAt,
   };
 }
 
@@ -372,6 +374,9 @@ function applyRoomSnapshot(snapshot) {
     ? snapshot.lastRolledDice.filter((d) => Number.isInteger(d) && d >= 1 && d <= 6)
     : [];
   lastDicePlayer = snapshot.lastDicePlayer === BLACK ? BLACK : WHITE;
+  diceRollSettledAt = Number.isFinite(snapshot.diceRollSettledAt)
+    ? Number(snapshot.diceRollSettledAt)
+    : 0;
 
   gameMode = "local";
   selectedSource = null;
@@ -526,6 +531,7 @@ function onNewGame() {
   pendingMoveChain  = [];
   lastRolledDice    = [];
   lastDicePlayer    = startPlayer;
+  diceRollSettledAt = 0;
   isAnimating       = false;
   setStatus(`Yeni oyun basladi. ${playerText(currentPlayer)} zar atsin.`);
   addLog("Yeni oyun basladi.");
@@ -638,6 +644,7 @@ function onRollDice(arg) {
   availableMoves    = getOptimalMoves(gameState, currentPlayer, remainingDice);
 
   showCenterDice(d1, d2, currentPlayer);
+  diceRollSettledAt = Date.now() + DICE_ROLL_TOTAL_MS + DICE_ROLL_STAGGER_MS + 160;
   addLog(`${playerText(currentPlayer)}: ${d1}-${d2}${d1===d2 ? " (çift)" : ""}`);
 
   if (!availableMoves.length) {
@@ -1044,6 +1051,7 @@ function finishTurn() {
   movesMadeThisTurn = 0;
   turnUndoSnapshot  = null;
   lastRolledDice    = [];
+  diceRollSettledAt = 0;
   clearCenterDiceStage();
   currentPlayer     = opponentOf(currentPlayer);
   render();
@@ -1054,15 +1062,23 @@ function finishTurn() {
 
 // ── Bot ──────────────────────────────────────────────────────────
 
-function maybeScheduleBotAction() {
+function maybeScheduleBotAction(delayOverrideMs) {
   clearPendingBotTimer();
   if (!isBotTurn()) return;
-  pendingBotTimer = window.setTimeout(() => { pendingBotTimer = null; runBotAction(); }, BOT_DELAY_MS);
+  const now = Date.now();
+  const diceWaitMs = hasRolled ? Math.max(0, diceRollSettledAt - now + BOT_AFTER_DICE_REVEAL_MS) : 0;
+  const overrideMs = Number.isFinite(delayOverrideMs) ? Math.max(0, Number(delayOverrideMs)) : 0;
+  const delayMs = Math.max(BOT_DELAY_MS, diceWaitMs, overrideMs);
+  pendingBotTimer = window.setTimeout(() => { pendingBotTimer = null; runBotAction(); }, delayMs);
 }
 
 function runBotAction() {
   if (!isBotTurn() || winner) return;
   if (!hasRolled) { onRollDice({ fromBot: true }); return; }
+  if (Date.now() < diceRollSettledAt) {
+    maybeScheduleBotAction(diceRollSettledAt - Date.now() + BOT_AFTER_DICE_REVEAL_MS);
+    return;
+  }
   if (!availableMoves.length) {
     setStatus("Bot hamle bulamadı.");
     addLog("Bot pas.");
@@ -1675,6 +1691,7 @@ function captureSnapshot() {
     gameMode,
     moveLog:        [...moveLog],
     lastRolledDice: [...lastRolledDice],
+    diceRollSettledAt,
   };
 }
 
@@ -1694,6 +1711,7 @@ function restoreSnapshot(snap) {
   gameMode       = snap.gameMode;
   moveLog        = [...snap.moveLog];
   lastRolledDice = [...(snap.lastRolledDice || [])];
+  diceRollSettledAt = Number.isFinite(snap.diceRollSettledAt) ? Number(snap.diceRollSettledAt) : 0;
 }
 
 function fmtMove(player, move, hit) {

@@ -530,24 +530,42 @@ function App() {
     return next.tables.find((table) => table.id === tableId || table.roomCode === explicitRoomCode) ?? null;
   }
 
-  function sitToTable(tableId: number, seat: Seat, explicitRoomCode?: string) {
+  function sitToTable(tableId: number, seat: Seat, explicitRoomCode?: string, openGameView = true) {
     const table = upsertMySeat(tableId, seat, explicitRoomCode);
     if (!table) {
       setLobbyNotice("Secilen koltuk dolu. Lutfen baska bir koltuk secin.");
-      return;
+      return null;
     }
-    goToTable(table, seat);
+    if (openGameView) {
+      goToTable(table, seat);
+    } else {
+      setRoomSession({
+        code: table.roomCode,
+        seat,
+        sessionId: appSessionId,
+        roomName: lobbyState.lobbyName,
+        tableNo: table.id,
+      });
+      setJoinCodeInput(table.roomCode);
+      setJoinSeat(seat === "white" ? "black" : "white");
+      setMode("local");
+      setViewMode("lobby");
+      setCopied(false);
+      setLobbyNotice(`Masa ${table.id} acildi. Diger oyuncu bekleniyor.`);
+    }
+    return table;
   }
 
   function onOpenTable() {
     const latest = loadLobbyState();
     const existing = findSessionSeat(latest.tables, appSessionId);
     if (existing) {
-      goToTable(existing.table, existing.seat);
+      setViewMode("lobby");
+      setLobbyNotice(`Masa ${existing.table.id} zaten acik. Diger oyuncu bekleniyor.`);
       return;
     }
     const tableId = getNextTableId(latest.tables);
-    sitToTable(tableId, "white", createRoomCode());
+    sitToTable(tableId, "white", createRoomCode(), false);
   }
 
   function onQuickPlay() {
@@ -557,17 +575,8 @@ function App() {
       goToTable(existing.table, existing.seat);
       return;
     }
-
-    const waiting = sortTables(latest.tables).find((table) => {
-      const count = Number(Boolean(table.white)) + Number(Boolean(table.black));
-      return count === 1;
-    });
-
-    if (waiting) {
-      sitToTable(waiting.id, waiting.white ? "black" : "white", waiting.roomCode);
-      return;
-    }
-    onOpenTable();
+    const tableId = getNextTableId(latest.tables);
+    sitToTable(tableId, "white", createRoomCode(), true);
   }
 
   function onJoinByCode() {
