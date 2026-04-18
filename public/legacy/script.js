@@ -80,14 +80,15 @@ let roomSyncCounter   = 0;
 const roomPendingMessages = [];
 let preferredPlayerColor = WHITE;
 let diceRollSettledAt = 0;
+let boardPerspectiveColor = null;
 
 const roomParams = parseRoomParamsSafe();
 const roomSenderCounters = new Map();
 
+initPreferredPlayerColor();
 buildBoard();
 attachEvents();
 initRoomMode();
-initPreferredPlayerColor();
 addLog(getBootLogMessage());
 render();
 announceRoomJoin();
@@ -271,6 +272,20 @@ function createRoomSessionId() {
 
 function isRoomMode() {
   return roomParams.enabled;
+}
+
+function getPerspectiveColor() {
+  return isRoomMode() ? roomParams.seat : preferredPlayerColor;
+}
+
+function isBlackPerspective() {
+  return getPerspectiveColor() === BLACK;
+}
+
+function toLogicalPoint(viewPoint) {
+  if (!Number.isInteger(viewPoint)) return null;
+  if (viewPoint < 1 || viewPoint > POINT_COUNT) return null;
+  return isBlackPerspective() ? (POINT_COUNT + 1 - viewPoint) : viewPoint;
 }
 
 function isLocalSeatTurn() {
@@ -530,6 +545,12 @@ function canControlRoomAction() {
 // ── Build Board ──────────────────────────────────────────────────
 
 function buildBoard() {
+  const perspective = getPerspectiveColor();
+  boardPerspectiveColor = perspective;
+  dom.tableWrap?.classList.toggle("perspective-black", perspective === BLACK);
+
+  pointElements.clear();
+  barSlotElements.clear();
   dom.boardGrid.innerHTML = "";
 
   const topRow    = [13,14,15,16,17,18, null, 19,20,21,22,23,24];
@@ -541,7 +562,12 @@ function buildBoard() {
   const barZone = document.createElement("div");
   barZone.className = "bar-zone";
   barZone.id = "bar-zone";
-  barZone.append(createBarSlot(BLACK, "Siyah"), createBarSlot(WHITE, "Beyaz"));
+  const barOrder = perspective === BLACK
+    ? [WHITE, BLACK]
+    : [BLACK, WHITE];
+  barOrder.forEach((player) => {
+    barZone.appendChild(createBarSlot(player, playerText(player)));
+  });
   dom.boardGrid.appendChild(barZone);
 }
 
@@ -576,7 +602,9 @@ function createBarSlot(player, title) {
 }
 
 function renderRow(rowConfig, side, gridRow) {
-  rowConfig.forEach((point, index) => {
+  rowConfig.forEach((viewPoint, index) => {
+    if (!viewPoint) return;
+    const point = toLogicalPoint(viewPoint);
     if (!point) return;
 
     const el = document.createElement("button");
@@ -607,6 +635,13 @@ function renderRow(rowConfig, side, gridRow) {
   });
 }
 
+function ensureBoardPerspective() {
+  const currentPerspective = getPerspectiveColor();
+  if (boardPerspectiveColor === currentPerspective) return;
+  buildBoard();
+  syncCheckerSizeToBoard();
+}
+
 // ── Events ───────────────────────────────────────────────────────
 
 function attachEvents() {
@@ -632,6 +667,7 @@ function attachEvents() {
 }
 
 function onNewGame() {
+  ensureBoardPerspective();
   if (isRoomMode() && roomParams.seat !== WHITE) {
     setStatus("Yeni oyunu Beyaz oyuncu baslatabilir.");
     render();
@@ -696,6 +732,7 @@ function onModeChange() {
 function onPreferredColorChange() {
   if (isRoomMode()) {
     preferredPlayerColor = roomParams.seat;
+    ensureBoardPerspective();
     render();
     return;
   }
@@ -703,6 +740,7 @@ function onPreferredColorChange() {
   const nextColor = dom.colorBlackInput?.checked ? BLACK : WHITE;
   if (nextColor === preferredPlayerColor) return;
   preferredPlayerColor = normalizePlayerColor(nextColor);
+  ensureBoardPerspective();
 
   addLog(`Pul rengi: ${playerText(preferredPlayerColor)}.`);
   onNewGame();
@@ -1262,6 +1300,7 @@ function syncCheckerSizeToBoard() {
 // ── Render ───────────────────────────────────────────────────────
 
 function render() {
+  ensureBoardPerspective();
   syncCheckerSizeToBoard();
   renderTurnInfo();
   renderStatus();
