@@ -1431,18 +1431,18 @@ body:has(.ref-shell) {
 .game-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 6px;
   background: linear-gradient(180deg, #0d4f61, #083847);
   border: 1px solid #0f657c;
   border-radius: 4px;
-  padding: 2px 6px;
+  padding: 1px 6px;
 }
 
 .game-brand h1 {
   font-family: 'Cormorant Garamond', serif;
   color: #f7db8e;
-  font-size: 1.08rem;
+  font-size: 0.96rem;
   letter-spacing: 0.06em;
   line-height: 1;
 }
@@ -1473,13 +1473,13 @@ body:has(.ref-shell) {
   background: linear-gradient(180deg, #b88d1c, #9e7716);
   border: 1px solid rgba(73,43,7,0.54);
   border-radius: 4px;
-  padding: 2px 6px;
+  padding: 1px 6px;
   text-shadow: 0 1px 0 rgba(0,0,0,0.34);
 }
 
 .room-title-main {
   color: #fff3cf;
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 800;
   line-height: 1.05;
 }
@@ -1487,7 +1487,7 @@ body:has(.ref-shell) {
 .room-title-sub {
   margin-top: 0;
   color: #f5dfa5;
-  font-size: 0.56rem;
+  font-size: 0.52rem;
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
@@ -1548,6 +1548,40 @@ body:has(.ref-shell) {
   border-color: rgba(71,156,180,0.54);
   color: #fff;
   margin-bottom: 6px;
+}
+
+.color-choice-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.color-choice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(116,188,209,0.32);
+  background: rgba(8, 48, 62, 0.68);
+  color: #f4fcff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.color-choice input {
+  accent-color: #3cbbdc;
+}
+
+.color-choice.color-white {
+  background: linear-gradient(180deg, rgba(232,242,246,0.2), rgba(90,128,144,0.35));
+}
+
+.color-choice.color-black {
+  background: linear-gradient(180deg, rgba(18,28,36,0.84), rgba(7,16,23,0.9));
 }
 
 .ref-shell .control-inline {
@@ -1630,6 +1664,10 @@ body:has(.ref-shell) {
 
 .action-roll {
   background: linear-gradient(180deg, #4a6f62, #34554a);
+}
+
+.action-newgame {
+  background: linear-gradient(180deg, #e16c1e, #b84807);
 }
 
 #roll-btn:disabled,

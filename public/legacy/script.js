@@ -28,6 +28,8 @@ const dom = {
   newGameBtn:      document.getElementById("new-game-btn"),
   undoBtn:         document.getElementById("undo-btn"),
   modeSelect:      document.getElementById("game-mode-select"),
+  colorWhiteInput: document.getElementById("player-color-white"),
+  colorBlackInput: document.getElementById("player-color-black"),
   autoRollToggle:  document.getElementById("auto-roll-toggle"),
   moveLog:         document.getElementById("move-log"),
   offWhite:        document.getElementById("off-white"),
@@ -72,15 +74,15 @@ let pendingMoveChain  = [];
 let isApplyingRemoteState = false;
 let roomChannel       = null;
 let roomSyncCounter   = 0;
+let preferredPlayerColor = WHITE;
 
 const roomParams = parseRoomParamsSafe();
 const roomSenderCounters = new Map();
 
-const botPlayer = BLACK;
-
 buildBoard();
 attachEvents();
 initRoomMode();
+initPreferredPlayerColor();
 addLog(getBootLogMessage());
 render();
 announceRoomJoin();
@@ -211,6 +213,21 @@ function parseRoomParamsSafe() {
   };
 }
 
+function normalizePlayerColor(value) {
+  return value === BLACK ? BLACK : WHITE;
+}
+
+function initPreferredPlayerColor() {
+  if (isRoomMode()) {
+    preferredPlayerColor = roomParams.seat;
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const colorParam = (params.get("color") || params.get("playerColor") || "").toLowerCase();
+  preferredPlayerColor = normalizePlayerColor(colorParam === BLACK ? BLACK : WHITE);
+}
+
 function createRoomSessionId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -235,6 +252,7 @@ function initRoomMode() {
   if (!isRoomMode()) return;
 
   gameMode = "local";
+  preferredPlayerColor = roomParams.seat;
   if (dom.modeSelect) {
     dom.modeSelect.value = "local";
     dom.modeSelect.disabled = true;
@@ -468,6 +486,8 @@ function attachEvents() {
   dom.newGameBtn.addEventListener("click", onNewGame);
   dom.undoBtn.addEventListener("click",  onUndoMove);
   dom.modeSelect.addEventListener("change", onModeChange);
+  dom.colorWhiteInput?.addEventListener("change", onPreferredColorChange);
+  dom.colorBlackInput?.addEventListener("change", onPreferredColorChange);
   dom.autoRollToggle?.addEventListener("change", onAutoRollChange);
 
   dom.offWhite.addEventListener("click",    onOffAreaClick);
@@ -491,8 +511,9 @@ function onNewGame() {
   }
   clearPendingBotTimer();
   clearPendingAutoRollTimer();
+  const startPlayer = isRoomMode() ? WHITE : normalizePlayerColor(preferredPlayerColor);
   gameState         = createInitialState();
-  currentPlayer     = WHITE;
+  currentPlayer     = startPlayer;
   remainingDice     = [];
   hasRolled         = false;
   selectedSource    = null;
@@ -504,10 +525,10 @@ function onNewGame() {
   dragSource        = null;
   pendingMoveChain  = [];
   lastRolledDice    = [];
-  lastDicePlayer    = WHITE;
+  lastDicePlayer    = startPlayer;
   isAnimating       = false;
-  setStatus("Yeni oyun başladı. Beyaz zar atsın.");
-  addLog("Yeni oyun başladı.");
+  setStatus(`Yeni oyun basladi. ${playerText(currentPlayer)} zar atsin.`);
+  addLog("Yeni oyun basladi.");
   hideWinnerPopup();
   clearCenterDiceStage();
   render();
@@ -541,6 +562,21 @@ function onModeChange() {
   render();
   maybeScheduleBotAction();
   maybeScheduleAutoRoll();
+}
+
+function onPreferredColorChange() {
+  if (isRoomMode()) {
+    preferredPlayerColor = roomParams.seat;
+    render();
+    return;
+  }
+
+  const nextColor = dom.colorBlackInput?.checked ? BLACK : WHITE;
+  if (nextColor === preferredPlayerColor) return;
+  preferredPlayerColor = normalizePlayerColor(nextColor);
+
+  addLog(`Pul rengi: ${playerText(preferredPlayerColor)}.`);
+  onNewGame();
 }
 
 function onAutoRollChange() {
@@ -1034,10 +1070,11 @@ function runBotAction() {
     return;
   }
 
-  const mv = chooseBotMove(gameState, botPlayer, availableMoves);
+  const botColor = getBotColor();
+  const mv = chooseBotMove(gameState, botColor, availableMoves);
   isAnimating = true;
   render();
-  animateMove(mv, botPlayer, () => {
+  animateMove(mv, botColor, () => {
     isAnimating = false;
     executeMove(mv);
   });
@@ -1110,6 +1147,15 @@ function renderTurnInfo() {
     dom.autoRollToggle.checked = autoRollEnabled;
     dom.autoRollToggle.disabled = waitingForOpponent;
   }
+  const effectiveColor = isRoomMode() ? roomParams.seat : preferredPlayerColor;
+  if (dom.colorWhiteInput) {
+    dom.colorWhiteInput.checked = effectiveColor === WHITE;
+    dom.colorWhiteInput.disabled = isRoomMode();
+  }
+  if (dom.colorBlackInput) {
+    dom.colorBlackInput.checked = effectiveColor === BLACK;
+    dom.colorBlackInput.disabled = isRoomMode();
+  }
   if (dom.roomMeta) {
     if (isRoomMode()) dom.roomMeta.removeAttribute("hidden");
     else dom.roomMeta.setAttribute("hidden", "");
@@ -1148,7 +1194,7 @@ function renderRoomHeader() {
 
   const titleSub = isRoomMode()
     ? `Masa ${roomParams.tableNo} - Sen: ${playerText(roomParams.seat)}`
-    : `Masa ${roomParams.tableNo}`;
+    : `Masa ${roomParams.tableNo} - Secili: ${playerText(preferredPlayerColor)}`;
 
   dom.roomTitleMain.textContent = titleMain;
   dom.roomTitleSub.textContent = titleSub;
@@ -1935,6 +1981,7 @@ function removeOneDie(dice, val) {
 function entryFromBar(player, die) { return player === WHITE ? 25 - die : die; }
 function directionOf(player)       { return player === WHITE ? -1 : 1; }
 function opponentOf(player)        { return player === WHITE ? BLACK : WHITE; }
+function getBotColor()             { return opponentOf(preferredPlayerColor); }
 function playerText(player)        { return player === WHITE ? "Beyaz" : "Siyah"; }
-function isBotTurn()               { return gameMode === "bot" && currentPlayer === botPlayer && !winner; }
+function isBotTurn()               { return gameMode === "bot" && currentPlayer === getBotColor() && !winner; }
 function randomDie()               { return Math.floor(Math.random() * 6) + 1; }
