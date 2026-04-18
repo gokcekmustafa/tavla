@@ -1,6 +1,7 @@
 export interface Env {
   ASSETS: Fetcher;
   ROOMS: DurableObjectNamespace;
+  AUTH: DurableObjectNamespace;
 }
 
 type RealtimeMessage = {
@@ -12,6 +13,20 @@ type RealtimeMessage = {
   payload?: unknown;
   reason?: string;
 };
+
+type PublicMemberUser = {
+  id: string;
+  displayName: string;
+  email: string;
+  points: number;
+  createdAt: number;
+};
+
+type StoredMemberUser = PublicMemberUser & {
+  password: string;
+};
+
+const AUTH_DO_NAME = "members-v1";
 
 function sanitizeChannel(raw: string | null | undefined) {
   if (!raw) return "";
@@ -29,6 +44,57 @@ function sanitizeCounter(raw: unknown) {
   const intValue = Math.trunc(value);
   if (intValue < 0 || intValue > 9_999_999) return null;
   return intValue;
+}
+
+function sanitizeMemberDisplayName(raw: unknown) {
+  if (typeof raw !== "string") return "";
+  return raw.replace(/\s+/g, " ").trim().slice(0, 24);
+}
+
+function sanitizeMemberEmail(raw: unknown) {
+  if (typeof raw !== "string") return "";
+  return raw.trim().toLowerCase().slice(0, 80);
+}
+
+function sanitizeMemberPassword(raw: unknown) {
+  if (typeof raw !== "string") return "";
+  return raw.trim().slice(0, 64);
+}
+
+function sanitizeMemberId(raw: unknown) {
+  if (typeof raw !== "string") return "";
+  return raw.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+}
+
+function createMemberId() {
+  return sanitizeMemberId(`m${Date.now().toString(36)}${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`);
+}
+
+function toPublicUser(user: StoredMemberUser): PublicMemberUser {
+  return {
+    id: user.id,
+    displayName: user.displayName,
+    email: user.email,
+    points: user.points,
+    createdAt: user.createdAt,
+  };
+}
+
+function normalizeStoredMemberUser(raw: unknown): StoredMemberUser | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<StoredMemberUser>;
+  const id = sanitizeMemberId(candidate.id);
+  const email = sanitizeMemberEmail(candidate.email);
+  const password = sanitizeMemberPassword(candidate.password);
+  if (!id || !email || !password) return null;
+  return {
+    id,
+    displayName: sanitizeMemberDisplayName(candidate.displayName) || "Uye",
+    email,
+    password,
+    points: Number.isFinite(candidate.points) ? Number(candidate.points) : 1500,
+    createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
+  };
 }
 
 function parseRealtimeMessage(raw: string): RealtimeMessage | null {
@@ -58,6 +124,26 @@ function parseRealtimeMessage(raw: string): RealtimeMessage | null {
   };
 }
 
+async function parseJsonBody(request: Request): Promise<unknown | null> {
+  const text = await request.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function jsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  });
+}
+
 async function serveAssetWithSpaFallback(request: Request, env: Env): Promise<Response> {
   const primary = await env.ASSETS.fetch(request);
   if (primary.status !== 404) return primary;
@@ -76,6 +162,12 @@ export default {
 
     if (url.pathname === "/health") {
       return new Response("ok", { status: 200 });
+    }
+
+    if (url.pathname.startsWith("/api/auth/")) {
+      const authId = env.AUTH.idFromName(AUTH_DO_NAME);
+      const auth = env.AUTH.get(authId);
+      return auth.fetch(request);
     }
 
     if (url.pathname === "/realtime") {
@@ -158,5 +250,121 @@ export class RealtimeRoom extends DurableObject<Env> {
 
   webSocketError(_ws: WebSocket, _error: unknown): void {
     // no-op
+  }
+}
+
+export class AuthStore extends DurableObject<Env> {
+  private keyByEmail(email: string) {
+    return `email:${email}`;
+  }
+
+  private keyById(id: string) {
+    return `id:${id}`;
+  }
+
+  private async getByEmail(email: string): Promise<StoredMemberUser | null> {
+    const raw = await this.ctx.storage.get<unknown>(this.keyByEmail(email));
+    return normalizeStoredMemberUser(raw);
+  }
+
+  private async getById(id: string): Promise<StoredMemberUser | null> {
+    const raw = await this.ctx.storage.get<unknown>(this.keyById(id));
+    return normalizeStoredMemberUser(raw);
+  }
+
+  private async putUser(user: StoredMemberUser) {
+    await this.ctx.storage.put(this.keyByEmail(user.email), user);
+    await this.ctx.storage.put(this.keyById(user.id), user);
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const pathname = url.pathname.replace(/\/+$/, "");
+
+    if (request.method === "POST" && pathname === "/api/auth/register") {
+      return this.handleRegister(request);
+    }
+    if (request.method === "POST" && pathname === "/api/auth/login") {
+      return this.handleLogin(request);
+    }
+    if (request.method === "GET" && pathname === "/api/auth/me") {
+      return this.handleMe(url);
+    }
+
+    return jsonResponse({ error: "Bulunamadi." }, 404);
+  }
+
+  private async handleRegister(request: Request): Promise<Response> {
+    const payload = await parseJsonBody(request);
+    if (!payload || typeof payload !== "object") {
+      return jsonResponse({ error: "Gecersiz istek." }, 400);
+    }
+
+    const body = payload as Record<string, unknown>;
+    const displayName = sanitizeMemberDisplayName(body.displayName);
+    const email = sanitizeMemberEmail(body.email);
+    const password = sanitizeMemberPassword(body.password);
+
+    if (!displayName || displayName.length < 3) {
+      return jsonResponse({ error: "Uye adi en az 3 karakter olmali." }, 400);
+    }
+    if (!email.includes("@")) {
+      return jsonResponse({ error: "Gecerli e-posta girin." }, 400);
+    }
+    if (password.length < 4) {
+      return jsonResponse({ error: "Sifre en az 4 karakter olmali." }, 400);
+    }
+
+    const existing = await this.getByEmail(email);
+    if (existing) {
+      return jsonResponse({ error: "Bu e-posta ile hesap zaten var." }, 409);
+    }
+
+    const user: StoredMemberUser = {
+      id: createMemberId(),
+      displayName,
+      email,
+      password,
+      points: 1500,
+      createdAt: Date.now(),
+    };
+
+    await this.putUser(user);
+    return jsonResponse({ ok: true, user: toPublicUser(user) }, 201);
+  }
+
+  private async handleLogin(request: Request): Promise<Response> {
+    const payload = await parseJsonBody(request);
+    if (!payload || typeof payload !== "object") {
+      return jsonResponse({ error: "Gecersiz istek." }, 400);
+    }
+
+    const body = payload as Record<string, unknown>;
+    const email = sanitizeMemberEmail(body.email);
+    const password = sanitizeMemberPassword(body.password);
+    if (!email || !password) {
+      return jsonResponse({ error: "E-posta veya sifre yanlis." }, 401);
+    }
+
+    const user = await this.getByEmail(email);
+    if (!user || user.password !== password) {
+      return jsonResponse({ error: "E-posta veya sifre yanlis." }, 401);
+    }
+
+    return jsonResponse({ ok: true, user: toPublicUser(user) }, 200);
+  }
+
+  private async handleMe(url: URL): Promise<Response> {
+    const userId = sanitizeMemberId(url.searchParams.get("userId"));
+    if (!userId) {
+      return jsonResponse({ error: "Gecersiz oturum." }, 400);
+    }
+
+    const user = await this.getById(userId);
+    if (!user) {
+      return jsonResponse({ error: "Oturum bulunamadi." }, 404);
+    }
+
+    return jsonResponse({ ok: true, user: toPublicUser(user) }, 200);
   }
 }

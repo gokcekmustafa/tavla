@@ -18,7 +18,6 @@ type MemberUser = {
   id: string;
   displayName: string;
   email: string;
-  password: string;
   points: number;
   createdAt: number;
 };
@@ -74,7 +73,6 @@ type RealtimeMessage = {
 
 const GUEST_STORAGE_KEY = "tavla.guestName";
 const GUEST_ID_STORAGE_KEY = "tavla.guest.id.v1";
-const MEMBER_USERS_KEY = "tavla.member.users.v1";
 const MEMBER_SESSION_KEY = "tavla.member.session.v1";
 const LOBBY_STATE_KEY = "tavla.lobby.state.v2";
 const LOBBY_SYNC_CHANNEL = "tavla.lobby.sync.v2";
@@ -149,6 +147,21 @@ function sanitizeLobbyName(value: string) {
 
 function sanitizeEmail(value: string) {
   return value.trim().toLowerCase().slice(0, 80);
+}
+
+function normalizeMemberUser(raw: unknown): MemberUser | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<MemberUser>;
+  const id = typeof candidate.id === "string" ? candidate.id : "";
+  const email = sanitizeEmail(typeof candidate.email === "string" ? candidate.email : "");
+  if (!id || !email) return null;
+  return {
+    id,
+    displayName: sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Uye") || "Uye",
+    email,
+    points: Number.isFinite(candidate.points) ? Number(candidate.points) : 1500,
+    createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
+  };
 }
 
 function sanitizeTableNo(value: string) {
@@ -296,26 +309,6 @@ function loadLobbyState() {
   return normalizeLobbyState(loadJson<unknown>(LOBBY_STATE_KEY, createDefaultLobbyState()));
 }
 
-function loadMemberUsers() {
-  const raw = loadJson<unknown>(MEMBER_USERS_KEY, []);
-  if (!Array.isArray(raw)) return [] as MemberUser[];
-  return raw
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const candidate = item as Partial<MemberUser>;
-      if (!candidate.id || !candidate.email || !candidate.password) return null;
-      return {
-        id: String(candidate.id),
-        displayName: sanitizeGuestName(String(candidate.displayName ?? "Uye")) || "Uye",
-        email: sanitizeEmail(String(candidate.email)),
-        password: String(candidate.password),
-        points: Number.isFinite(candidate.points) ? Number(candidate.points) : 1500,
-        createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
-      } as MemberUser;
-    })
-    .filter((item): item is MemberUser => Boolean(item));
-}
-
 function loadMemberSession() {
   const raw = loadJson<unknown>(MEMBER_SESSION_KEY, null);
   if (!raw || typeof raw !== "object") return null;
@@ -455,18 +448,13 @@ function App() {
     return merged;
   });
 
-  const [memberUsers, setMemberUsers] = useState<MemberUser[]>(() => loadMemberUsers());
-  const [member, setMember] = useState<MemberUser | null>(() => {
-    const users = loadMemberUsers();
-    const session = loadMemberSession();
-    if (!session) return null;
-    return users.find((u) => u.id === session.userId) ?? null;
-  });
+  const [member, setMember] = useState<MemberUser | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>("register");
   const [authDisplayName, setAuthDisplayName] = useState("");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
 
   const lobbyChannelRef = useRef<BroadcastChannel | null>(null);
   const realtimeSocketRef = useRef<WebSocket | null>(null);
@@ -837,7 +825,22 @@ function App() {
     );
   }
 
-  function onRegisterMember() {
+  async function loadMemberFromSession(session: MemberSession | null) {
+    if (!session?.userId) return null;
+    try {
+      const url = new URL("/api/auth/me", window.location.origin);
+      url.searchParams.set("userId", session.userId);
+      const response = await fetch(url.toString(), { method: "GET" });
+      if (!response.ok) return null;
+      const data = (await response.json().catch(() => null)) as { user?: unknown } | null;
+      return normalizeMemberUser(data?.user);
+    } catch {
+      return null;
+    }
+  }
+
+  async function onRegisterMember() {
+    if (authBusy) return;
     const displayName = sanitizeGuestName(authDisplayName);
     const email = sanitizeEmail(authEmail);
     const password = authPassword.trim().slice(0, 64);
@@ -854,52 +857,92 @@ function App() {
       setAuthError("Sifre en az 4 karakter olmali.");
       return;
     }
-    if (memberUsers.some((user) => user.email === email)) {
-      setAuthError("Bu e-posta ile hesap zaten var.");
-      return;
-    }
 
-    const user: MemberUser = {
-      id: createSessionId(),
-      displayName,
-      email,
-      password,
-      points: 1500,
-      createdAt: Date.now(),
-    };
-
-    const nextUsers = [user, ...memberUsers];
-    setMemberUsers(nextUsers);
-    saveJson(MEMBER_USERS_KEY, nextUsers);
-    saveJson(MEMBER_SESSION_KEY, { userId: user.id } satisfies MemberSession);
-    setMember(user);
-    setGuestName(user.displayName);
-    setAuthDisplayName("");
-    setAuthEmail("");
-    setAuthPassword("");
+    setAuthBusy(true);
     setAuthError("");
-    setLobbyNotice("Uyelik acildi.");
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ displayName, email, password }),
+      });
+      const data = (await response.json().catch(() => null)) as { user?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const serverError = typeof data?.error === "string" ? data.error : "Uyelik acilamadi.";
+        setAuthError(serverError);
+        return;
+      }
+      const user = normalizeMemberUser(data?.user);
+      if (!user) {
+        setAuthError("Sunucu uyelik yaniti gecersiz.");
+        return;
+      }
+
+      saveJson(MEMBER_SESSION_KEY, { userId: user.id } satisfies MemberSession);
+      setMember(user);
+      setGuestName(user.displayName);
+      setAuthDisplayName("");
+      setAuthEmail("");
+      setAuthPassword("");
+      setAuthError("");
+      setLobbyNotice("Uyelik acildi.");
+    } catch {
+      setAuthError("Sunucuya baglanilamadi. Tekrar deneyin.");
+    } finally {
+      setAuthBusy(false);
+    }
   }
 
-  function onLoginMember() {
+  async function onLoginMember() {
+    if (authBusy) return;
     const email = sanitizeEmail(authEmail);
     const password = authPassword.trim().slice(0, 64);
-    const found = memberUsers.find((user) => user.email === email && user.password === password);
-    if (!found) {
-      setAuthError("E-posta veya sifre yanlis.");
+    if (!email.includes("@")) {
+      setAuthError("Gecerli e-posta girin.");
       return;
     }
-    setMember(found);
-    saveJson(MEMBER_SESSION_KEY, { userId: found.id } satisfies MemberSession);
-    setGuestName(found.displayName);
-    setAuthPassword("");
+    if (!password) {
+      setAuthError("Sifre girin.");
+      return;
+    }
+
+    setAuthBusy(true);
     setAuthError("");
-    setLobbyNotice("Giris yapildi.");
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = (await response.json().catch(() => null)) as { user?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const serverError = typeof data?.error === "string" ? data.error : "E-posta veya sifre yanlis.";
+        setAuthError(serverError);
+        return;
+      }
+      const user = normalizeMemberUser(data?.user);
+      if (!user) {
+        setAuthError("Sunucu giris yaniti gecersiz.");
+        return;
+      }
+
+      setMember(user);
+      saveJson(MEMBER_SESSION_KEY, { userId: user.id } satisfies MemberSession);
+      setGuestName(user.displayName);
+      setAuthPassword("");
+      setAuthError("");
+      setLobbyNotice("Giris yapildi.");
+    } catch {
+      setAuthError("Sunucuya baglanilamadi. Tekrar deneyin.");
+    } finally {
+      setAuthBusy(false);
+    }
   }
 
   function onLogoutMember() {
     window.localStorage.removeItem(MEMBER_SESSION_KEY);
     setMember(null);
+    setAuthPassword("");
     setAuthError("");
     setLobbyNotice("Uyelik oturumu kapatildi.");
   }
@@ -1114,6 +1157,30 @@ function App() {
   }, [appSessionId]);
 
   useEffect(() => {
+    let cancelled = false;
+    const syncMemberFromSession = async () => {
+      const session = loadMemberSession();
+      if (!session) {
+        if (!cancelled) setMember(null);
+        return;
+      }
+      const user = await loadMemberFromSession(session);
+      if (cancelled) return;
+      if (!user) {
+        window.localStorage.removeItem(MEMBER_SESSION_KEY);
+        setMember(null);
+        return;
+      }
+      setMember(user);
+      setGuestName(user.displayName);
+    };
+    void syncMemberFromSession();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (member) return;
     if (realtimeStatus !== "online") {
       const fallbackName = `Misafir ${getGuestFallbackNo(guestId)}`;
@@ -1206,16 +1273,23 @@ function App() {
       if (event.key === LOBBY_STATE_KEY) {
         refreshLobbyFromStorage();
       }
-      if (event.key === MEMBER_USERS_KEY) {
-        const users = loadMemberUsers();
-        setMemberUsers(users);
-        const session = loadMemberSession();
-        setMember(session ? users.find((u) => u.id === session.userId) ?? null : null);
-      }
       if (event.key === MEMBER_SESSION_KEY) {
-        const users = loadMemberUsers();
-        const session = loadMemberSession();
-        setMember(session ? users.find((u) => u.id === session.userId) ?? null : null);
+        const syncMemberFromSession = async () => {
+          const session = loadMemberSession();
+          if (!session) {
+            setMember(null);
+            return;
+          }
+          const user = await loadMemberFromSession(session);
+          if (!user) {
+            window.localStorage.removeItem(MEMBER_SESSION_KEY);
+            setMember(null);
+            return;
+          }
+          setMember(user);
+          setGuestName(user.displayName);
+        };
+        void syncMemberFromSession();
       }
     };
     window.addEventListener("storage", onStorage);
@@ -1428,10 +1502,14 @@ function App() {
               ) : (
                 <div className="my-auth-form">
                   <div className="my-auth-toggle">
-                    <button className={authMode === "register" ? "active" : ""} onClick={() => setAuthMode("register")}>
+                    <button
+                      className={authMode === "register" ? "active" : ""}
+                      onClick={() => setAuthMode("register")}
+                      disabled={authBusy}
+                    >
                       Uye Ol
                     </button>
-                    <button className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")}>
+                    <button className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")} disabled={authBusy}>
                       Giris
                     </button>
                   </div>
@@ -1443,12 +1521,14 @@ function App() {
                         placeholder="Gorunen ad"
                         value={authDisplayName}
                         onChange={(e) => setAuthDisplayName(e.target.value)}
+                        disabled={authBusy}
                       />
                       <input
                         className="my-input"
                         placeholder="E-posta"
                         value={authEmail}
                         onChange={(e) => setAuthEmail(e.target.value)}
+                        disabled={authBusy}
                       />
                       <input
                         className="my-input"
@@ -1456,9 +1536,10 @@ function App() {
                         placeholder="Sifre"
                         value={authPassword}
                         onChange={(e) => setAuthPassword(e.target.value)}
+                        disabled={authBusy}
                       />
-                      <button className="my-action-btn" onClick={onRegisterMember}>
-                        Uye Ol ve Basla
+                      <button className="my-action-btn" onClick={onRegisterMember} disabled={authBusy}>
+                        {authBusy ? "Isleniyor..." : "Uye Ol ve Basla"}
                       </button>
                     </>
                   ) : (
@@ -1468,6 +1549,7 @@ function App() {
                         placeholder="E-posta"
                         value={authEmail}
                         onChange={(e) => setAuthEmail(e.target.value)}
+                        disabled={authBusy}
                       />
                       <input
                         className="my-input"
@@ -1475,9 +1557,10 @@ function App() {
                         placeholder="Sifre"
                         value={authPassword}
                         onChange={(e) => setAuthPassword(e.target.value)}
+                        disabled={authBusy}
                       />
-                      <button className="my-action-btn" onClick={onLoginMember}>
-                        Giris Yap
+                      <button className="my-action-btn" onClick={onLoginMember} disabled={authBusy}>
+                        {authBusy ? "Isleniyor..." : "Giris Yap"}
                       </button>
                     </>
                   )}
