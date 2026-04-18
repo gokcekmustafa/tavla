@@ -71,11 +71,19 @@ const MEMBER_SESSION_KEY = "tavla.member.session.v1";
 const LOBBY_STATE_KEY = "tavla.lobby.state.v2";
 const LOBBY_SYNC_CHANNEL = "tavla.lobby.sync.v2";
 const REALTIME_LOBBY_ROOM = "tavla-global-lobby-v1";
-const REALTIME_LOBBY_WS_URL = (import.meta.env.VITE_LOBBY_WS_URL as string | undefined) || "wss://demos.yjs.dev";
 const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_LOBBY_NAME = "Lobi 1";
 const SEAT_STALE_MS = 25_000;
 const HEARTBEAT_MS = 5_000;
+
+function getDefaultLobbyWsUrl() {
+  if (typeof window === "undefined") return "ws://127.0.0.1:1234";
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const host = window.location.hostname || "127.0.0.1";
+  return `${protocol}//${host}:1234`;
+}
+
+const REALTIME_LOBBY_WS_URL = (import.meta.env.VITE_LOBBY_WS_URL as string | undefined)?.trim() || getDefaultLobbyWsUrl();
 
 function loadJson<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -140,6 +148,14 @@ function getOrCreateGuestId() {
   const next = sanitizeGuestId(`g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`) || "guest1";
   window.localStorage.setItem(GUEST_ID_STORAGE_KEY, next);
   return next;
+}
+
+function getGuestFallbackNo(guestId: string) {
+  let hash = 0;
+  for (let i = 0; i < guestId.length; i += 1) {
+    hash = (hash * 31 + guestId.charCodeAt(i)) % 9000;
+  }
+  return hash + 1000;
 }
 
 function seatText(seat: Seat) {
@@ -945,7 +961,7 @@ function App() {
 
     const onStatus = (event: { status: string }) => {
       if (event.status === "connected") {
-        setRealtimeStatus("online");
+        setRealtimeStatus("connecting");
         return;
       }
       if (event.status === "connecting") {
@@ -955,9 +971,14 @@ function App() {
       setRealtimeStatus("offline");
     };
 
+    const onConnectionError = () => {
+      setRealtimeStatus("offline");
+    };
+
     const onSync = (isSynced: boolean) => {
       if (!isSynced) return;
       realtimeSyncedRef.current = true;
+      setRealtimeStatus("online");
       const remoteRaw = lobbyMap.get("state");
       const localSnapshot = loadLobbyState();
       if (remoteRaw) {
@@ -978,6 +999,7 @@ function App() {
     lobbyMap.observe(applyRemoteState);
     provider.on("status", onStatus);
     provider.on("sync", onSync);
+    provider.on("connection-error", onConnectionError);
 
     return () => {
       lobbyMap.unobserve(applyRemoteState);
@@ -993,6 +1015,13 @@ function App() {
 
   useEffect(() => {
     if (member) return;
+    if (realtimeStatus !== "online") {
+      const fallbackName = `Misafir ${getGuestFallbackNo(guestId)}`;
+      if (guestName !== fallbackName) {
+        setGuestName(fallbackName);
+      }
+      return;
+    }
     let resolvedGuestNo = 0;
 
     const next = writeLobby((current) => {
@@ -1019,12 +1048,12 @@ function App() {
     });
 
     const source = next ?? getCurrentLobbyState();
-    const finalGuestNo = source.guestLabels[guestId] ?? resolvedGuestNo ?? 1;
+    const finalGuestNo = source.guestLabels[guestId] ?? resolvedGuestNo ?? getGuestFallbackNo(guestId);
     const desiredName = `Misafir ${finalGuestNo}`;
     if (guestName !== desiredName) {
       setGuestName(desiredName);
     }
-  }, [member, guestId, guestName]);
+  }, [member, guestId, guestName, realtimeStatus]);
 
   useEffect(() => {
     window.localStorage.setItem(GUEST_STORAGE_KEY, safeGuestName);
@@ -1176,7 +1205,7 @@ function App() {
               ? "Canli Senkron Acik"
               : realtimeStatus === "connecting"
                 ? "Canli Senkron Baglaniyor"
-                : "Yerel Senkron"}
+                : "Canli Senkron Kapali"}
           </span>
           <span className={`my-chip ${roomSession ? "active" : ""}`}>
             {roomSession ? `Masa ${roomSession.tableNo}` : mode === "bot" ? "Bot Modu" : "Yerel"}

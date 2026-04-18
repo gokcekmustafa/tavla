@@ -15,7 +15,18 @@ Bu repo, tavla uygulamasinin React/TypeScript tabanina gecis surumudur.
 
 ```bash
 npm install
+npm run lobby:server
 npm run dev
+```
+
+Iki farkli bilgisayarin ayni lobiyi gormesi icin:
+
+1. Bir makinede `npm run lobby:server` calistir.
+2. Her iki cihazda da ayni React URL'ini ac (ornek: `http://SUNUCU_IP:5173`).
+3. Gerekirse istemciyi bu WS sunucusuna yonlendir:
+
+```env
+VITE_LOBBY_WS_URL=ws://SUNUCU_IP:1234
 ```
 
 ## Build
@@ -33,10 +44,10 @@ npm run build
 ```env
 VITE_NHOST_SUBDOMAIN=senin-subdomain
 VITE_NHOST_REGION=senin-region
-VITE_LOBBY_WS_URL=wss://demos.yjs.dev
+VITE_LOBBY_WS_URL=ws://127.0.0.1:1234
 ```
 
-`VITE_LOBBY_WS_URL` verilmezse varsayilan olarak `wss://demos.yjs.dev` kullanilir.
+`VITE_LOBBY_WS_URL` verilmezse istemci varsayilan olarak `ws://<aktif-host>:1234` adresine baglanir.
 
 Not: Bu asamada tam auth/chat entegrasyonu henuz eklenmedi. Sonraki adimda React tarafina Nhost auth ve sohbet katmani baglanacak.
 
