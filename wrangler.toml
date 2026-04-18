@@ -1,6 +1,10 @@
-name = "tavla-realtime"
-main = "src/index.ts"
+name = "tavla"
+main = "worker/index.ts"
 compatibility_date = "2026-04-18"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
 
 [durable_objects]
 bindings = [

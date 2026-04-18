@@ -6,7 +6,7 @@ Bu repo, tavla uygulamasinin React/TypeScript tabanina gecis surumudur.
 
 - Vite + React + TypeScript proje yapisi
 - Legacy tavla motoru (`public/legacy`) iframe icinde calisir
-- Lobi + oda senkronu global WebSocket uzerinden calisir
+- Lobi + oda senkronu global WebSocket + Durable Object uzerinden calisir
 - Misafirler cihaz-bazli benzersiz isim alir (`Misafir N`)
 - Oyun modu secimi (iki oyuncu / bilgisayara karsi) React kabugundan yonetilir
 
@@ -23,30 +23,41 @@ npm run dev
 npm run build
 ```
 
-## Online Realtime Kurulumu (Cloudflare Worker)
+## Uretim Deploy (Tek Worker)
 
-Global (farkli sehirlerden) kullanicilarin ayni masalari ve ayni oyunu gorebilmesi icin `realtime-worker` deployment'i gerekir.
+Bu proje tek Cloudflare Worker olarak deploy edilir:
+- Statik `dist` dosyalari servisi
+- `/realtime` websocket endpoint'i
+- Durable Object ile kanal bazli canli senkron
 
-1. `realtime-worker` klasorune gir:
+1. Build al:
 
 ```bash
-cd realtime-worker
+npm run build
 ```
 
 2. Worker'i deploy et:
 
 ```bash
 wrangler login
-wrangler deploy
+npm run deploy
 ```
 
-3. Frontend `.env` dosyasina realtime endpoint yaz:
+Deploy sonrasi uygulama URL'i ornek:
+
+`https://tavla.gokcek.workers.dev`
+
+Realtime endpoint otomatik:
+
+`wss://tavla.gokcek.workers.dev/realtime`
+
+3. Gerekirse `.env` icinde manuel override:
 
 ```env
 VITE_REALTIME_WS_URL=wss://<worker-adi>.<hesap>.workers.dev/realtime
 ```
 
-`VITE_REALTIME_WS_URL` verilmezse istemci varsayilan olarak ayni origin altinda `/realtime` endpoint'ine baglanir.
+`VITE_REALTIME_WS_URL` verilmezse istemci otomatik olarak ayni origin'de `/realtime` endpoint'ine baglanir.
 
 ## Nhost Hazirligi
 

@@ -1,4 +1,5 @@
 export interface Env {
+  ASSETS: Fetcher;
   ROOMS: DurableObjectNamespace;
 }
 
@@ -37,6 +38,7 @@ function parseRealtimeMessage(raw: string): RealtimeMessage | null {
   } catch {
     return null;
   }
+
   if (!parsed || typeof parsed !== "object") return null;
   const candidate = parsed as Partial<RealtimeMessage>;
   const kind = candidate.kind === "hello" || candidate.kind === "snapshot" ? candidate.kind : null;
@@ -44,6 +46,7 @@ function parseRealtimeMessage(raw: string): RealtimeMessage | null {
   const sender = sanitizeSender(candidate.sender);
   const counter = sanitizeCounter(candidate.counter);
   if (!kind || !channel || !sender || counter === null) return null;
+
   return {
     kind,
     channel,
@@ -55,6 +58,18 @@ function parseRealtimeMessage(raw: string): RealtimeMessage | null {
   };
 }
 
+async function serveAssetWithSpaFallback(request: Request, env: Env): Promise<Response> {
+  const primary = await env.ASSETS.fetch(request);
+  if (primary.status !== 404) return primary;
+  if (request.method !== "GET") return primary;
+  const accept = request.headers.get("accept") || "";
+  if (!accept.includes("text/html")) return primary;
+
+  const url = new URL(request.url);
+  url.pathname = "/index.html";
+  return env.ASSETS.fetch(new Request(url.toString(), request));
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -63,22 +78,20 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
-    if (url.pathname !== "/realtime") {
-      return new Response("Realtime worker is running.", { status: 200 });
+    if (url.pathname === "/realtime") {
+      if (request.headers.get("Upgrade") !== "websocket") {
+        return new Response("Expected websocket upgrade", { status: 426 });
+      }
+      const channel = sanitizeChannel(url.searchParams.get("channel"));
+      if (!channel) {
+        return new Response("Missing or invalid channel", { status: 400 });
+      }
+      const roomId = env.ROOMS.idFromName(channel);
+      const room = env.ROOMS.get(roomId);
+      return room.fetch(request);
     }
 
-    if (request.headers.get("Upgrade") !== "websocket") {
-      return new Response("Expected websocket upgrade", { status: 426 });
-    }
-
-    const channel = sanitizeChannel(url.searchParams.get("channel"));
-    if (!channel) {
-      return new Response("Missing or invalid channel", { status: 400 });
-    }
-
-    const id = env.ROOMS.idFromName(channel);
-    const room = env.ROOMS.get(id);
-    return room.fetch(request);
+    return serveAssetWithSpaFallback(request, env);
   },
 };
 
@@ -129,10 +142,10 @@ export class RealtimeRoom extends DurableObject<Env> {
     };
 
     await this.ctx.storage.put(this.snapshotKey, snapshot);
-    const payload = JSON.stringify(snapshot);
+    const encoded = JSON.stringify(snapshot);
     for (const socket of this.ctx.getWebSockets()) {
       try {
-        socket.send(payload);
+        socket.send(encoded);
       } catch {
         // ignore dead sockets
       }
