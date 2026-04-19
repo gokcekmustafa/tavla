@@ -1,5 +1,3 @@
-import { DurableObject } from "cloudflare:workers";
-
 export interface Env {
   ASSETS: Fetcher;
   ROOMS: DurableObjectNamespace;
@@ -287,9 +285,21 @@ export default {
     }
 
     if (url.pathname.startsWith("/api/auth/")) {
-      const authId = env.AUTH.idFromName(AUTH_DO_NAME);
-      const auth = env.AUTH.get(authId);
-      return auth.fetch(request);
+      if (!env.AUTH || typeof env.AUTH.idFromName !== "function") {
+        return jsonResponse({
+          error: "Kimlik servisi baglantisi eksik (AUTH binding). Deploy ayarini kontrol edin.",
+        }, 503);
+      }
+      try {
+        const authId = env.AUTH.idFromName(AUTH_DO_NAME);
+        const auth = env.AUTH.get(authId);
+        return auth.fetch(request);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Bilinmeyen hata";
+        return jsonResponse({
+          error: `Kimlik servisi gecici hata verdi: ${message}`,
+        }, 500);
+      }
     }
 
     if (url.pathname === "/realtime") {
@@ -309,8 +319,13 @@ export default {
   },
 };
 
-export class RealtimeRoom extends DurableObject<Env> {
+export class RealtimeRoom {
   private readonly snapshotKey = "snapshot";
+  private readonly ctx: DurableObjectState;
+
+  constructor(ctx: DurableObjectState, _env: Env) {
+    this.ctx = ctx;
+  }
 
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get("Upgrade") !== "websocket") {
@@ -375,7 +390,13 @@ export class RealtimeRoom extends DurableObject<Env> {
   }
 }
 
-export class AuthStore extends DurableObject<Env> {
+export class AuthStore {
+  private readonly ctx: DurableObjectState;
+
+  constructor(ctx: DurableObjectState, _env: Env) {
+    this.ctx = ctx;
+  }
+
   private keyByEmail(email: string) {
     return `email:${email}`;
   }

@@ -236,6 +236,22 @@ function saveJson<T>(key: string, value: T) {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
+async function readApiError(response: Response, fallback: string) {
+  const clone = response.clone();
+  const data = (await response.json().catch(() => null)) as { error?: unknown } | null;
+  if (typeof data?.error === "string" && data.error.trim()) {
+    return data.error.trim();
+  }
+  const text = (await clone.text().catch(() => "")).trim();
+  if (text) {
+    return text.slice(0, 220);
+  }
+  if (response.status === 503) {
+    return "Kimlik servisi gecici olarak kullanilamiyor. Lutfen biraz sonra tekrar deneyin.";
+  }
+  return fallback;
+}
+
 function sanitizeRoomCode(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
 }
@@ -1955,12 +1971,11 @@ function App() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ displayName, email, password }),
       });
-      const data = (await response.json().catch(() => null)) as { user?: unknown; error?: unknown } | null;
       if (!response.ok) {
-        const serverError = typeof data?.error === "string" ? data.error : "Uyelik acilamadi.";
-        setAuthError(serverError);
+        setAuthError(await readApiError(response, "Uyelik acilamadi."));
         return;
       }
+      const data = (await response.json().catch(() => null)) as { user?: unknown } | null;
       const user = normalizeMemberUser(data?.user);
       if (!user) {
         setAuthError("Sunucu uyelik yaniti gecersiz.");
@@ -2003,12 +2018,11 @@ function App() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ identifier, password }),
       });
-      const data = (await response.json().catch(() => null)) as { user?: unknown; error?: unknown } | null;
       if (!response.ok) {
-        const serverError = typeof data?.error === "string" ? data.error : "Kullanici adi/e-posta veya sifre yanlis.";
-        setAuthError(serverError);
+        setAuthError(await readApiError(response, "Kullanici adi/e-posta veya sifre yanlis."));
         return;
       }
+      const data = (await response.json().catch(() => null)) as { user?: unknown } | null;
       const user = normalizeMemberUser(data?.user);
       if (!user) {
         setAuthError("Sunucu giris yaniti gecersiz.");
