@@ -65,6 +65,9 @@ type LobbyTable = {
   roomCode: string;
   white: LobbySeatState | null;
   black: LobbySeatState | null;
+  whiteReadyAt: number | null;
+  blackReadyAt: number | null;
+  startedAt: number | null;
 };
 
 type LobbyState = {
@@ -438,6 +441,53 @@ function presenceFromSeat(seat: LobbySeatState): LobbyPresenceState {
   };
 }
 
+function parseReadyStamp(value: unknown) {
+  if (!Number.isFinite(value)) return null;
+  const parsed = Number(value);
+  return parsed > 0 ? parsed : null;
+}
+
+function resetTableStartGate(table: LobbyTable): LobbyTable {
+  if (!table.whiteReadyAt && !table.blackReadyAt && !table.startedAt) return table;
+  return {
+    ...table,
+    whiteReadyAt: null,
+    blackReadyAt: null,
+    startedAt: null,
+  };
+}
+
+function normalizeTableStartGate(table: LobbyTable): LobbyTable {
+  let whiteReadyAt = table.whiteReadyAt;
+  let blackReadyAt = table.blackReadyAt;
+  let startedAt = table.startedAt;
+
+  if (!table.white || !table.black) {
+    whiteReadyAt = null;
+    blackReadyAt = null;
+    startedAt = null;
+  } else {
+    if (!whiteReadyAt || !blackReadyAt) {
+      startedAt = null;
+    }
+  }
+
+  if (
+    whiteReadyAt === table.whiteReadyAt
+    && blackReadyAt === table.blackReadyAt
+    && startedAt === table.startedAt
+  ) {
+    return table;
+  }
+
+  return {
+    ...table,
+    whiteReadyAt,
+    blackReadyAt,
+    startedAt,
+  };
+}
+
 function normalizeTable(raw: unknown, index: number): LobbyTable | null {
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Partial<LobbyTable>;
@@ -446,7 +496,16 @@ function normalizeTable(raw: unknown, index: number): LobbyTable | null {
   const white = normalizeSeat(candidate.white);
   const black = normalizeSeat(candidate.black);
   if (!white && !black) return null;
-  return { id, roomCode, white, black };
+  const table: LobbyTable = {
+    id,
+    roomCode,
+    white,
+    black,
+    whiteReadyAt: parseReadyStamp(candidate.whiteReadyAt),
+    blackReadyAt: parseReadyStamp(candidate.blackReadyAt),
+    startedAt: parseReadyStamp(candidate.startedAt),
+  };
+  return normalizeTableStartGate(table);
 }
 
 function cleanupStaleAndPrune(tables: LobbyTable[]): CleanupResult {
@@ -464,8 +523,14 @@ function cleanupStaleAndPrune(tables: LobbyTable[]): CleanupResult {
       changed = true;
       return;
     }
-    if (white !== table.white || black !== table.black) changed = true;
-    next.push({ ...table, white, black });
+    let nextTable: LobbyTable = { ...table, white, black };
+    if (white !== table.white || black !== table.black) {
+      changed = true;
+      nextTable = resetTableStartGate(nextTable);
+    }
+    const normalized = normalizeTableStartGate(nextTable);
+    if (normalized !== nextTable) changed = true;
+    next.push(normalized);
   });
 
   return { tables: sortTables(next), changed };
@@ -629,11 +694,11 @@ function clearSessionFromTables(tables: LobbyTable[], sessionId: string): { tabl
     const blackOwned = table.black?.sessionId === sessionId;
     if (!whiteOwned && !blackOwned) return table;
     changed = true;
-    return {
+    return resetTableStartGate({
       ...table,
       white: whiteOwned ? null : table.white,
       black: blackOwned ? null : table.black,
-    };
+    });
   });
   return { tables: next, changed };
 }
@@ -664,6 +729,12 @@ function mergeSeatState(base: LobbySeatState | null, incoming: LobbySeatState | 
   return incoming.touchedAt >= base.touchedAt ? incoming : base;
 }
 
+function mergeReadyStamp(base: number | null, incoming: number | null) {
+  if (!base) return incoming;
+  if (!incoming) return base;
+  return incoming >= base ? incoming : base;
+}
+
 function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
   const keyOf = (table: LobbyTable) => sanitizeRoomCode(table.roomCode) || `id-${table.id}`;
   const mergedTables = new Map<string, LobbyTable>();
@@ -679,12 +750,16 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
       mergedTables.set(key, table);
       return;
     }
-    mergedTables.set(key, {
+    const mergedTable: LobbyTable = {
       id: Math.min(existing.id, table.id),
       roomCode: sanitizeRoomCode(existing.roomCode) || sanitizeRoomCode(table.roomCode) || createRoomCode(),
       white: mergeSeatState(existing.white, table.white),
       black: mergeSeatState(existing.black, table.black),
-    });
+      whiteReadyAt: mergeReadyStamp(existing.whiteReadyAt, table.whiteReadyAt),
+      blackReadyAt: mergeReadyStamp(existing.blackReadyAt, table.blackReadyAt),
+      startedAt: mergeReadyStamp(existing.startedAt, table.startedAt),
+    };
+    mergedTables.set(key, normalizeTableStartGate(mergedTable));
   });
 
   const guestLabels: Record<string, number> = { ...remote.guestLabels };
@@ -873,6 +948,31 @@ function App() {
       .sort((a, b) => a.name.localeCompare(b.name, "tr", { sensitivity: "base" }));
   }, [openedTables, lobbyState.presence, appSessionId, safeGuestName, currentProfile.userId, currentProfile.points, currentProfile.stats]);
 
+  const currentRoomTable = useMemo(() => {
+    if (!roomSession) return null;
+    return lobbyState.tables.find((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code) ?? null;
+  }, [lobbyState.tables, roomSession]);
+
+  const roomStartState = useMemo(() => {
+    if (!roomSession || !currentRoomTable) return null;
+    const mine = roomSession.seat === "white" ? currentRoomTable.white : currentRoomTable.black;
+    const opponent = roomSession.seat === "white" ? currentRoomTable.black : currentRoomTable.white;
+    const mineReady = roomSession.seat === "white" ? Boolean(currentRoomTable.whiteReadyAt) : Boolean(currentRoomTable.blackReadyAt);
+    const opponentReady = roomSession.seat === "white" ? Boolean(currentRoomTable.blackReadyAt) : Boolean(currentRoomTable.whiteReadyAt);
+    const bothSeated = Boolean(currentRoomTable.white && currentRoomTable.black);
+    const started = Boolean(currentRoomTable.startedAt && bothSeated);
+
+    return {
+      mine,
+      opponent,
+      mineReady,
+      opponentReady,
+      bothSeated,
+      started,
+      readyCount: Number(Boolean(currentRoomTable.whiteReadyAt)) + Number(Boolean(currentRoomTable.blackReadyAt)),
+    };
+  }, [roomSession, currentRoomTable]);
+
   function broadcastLobbySync() {
     lobbyChannelRef.current?.postMessage({ type: "lobby-sync", at: Date.now() });
   }
@@ -1023,6 +1123,9 @@ function App() {
           roomCode: code || createRoomCode(),
           white: null,
           black: null,
+          whiteReadyAt: null,
+          blackReadyAt: null,
+          startedAt: null,
         };
         tables.push(table);
         index = tables.length - 1;
@@ -1041,16 +1144,26 @@ function App() {
         return current;
       }
 
+      let gateShouldReset = false;
+
       if (existingSeat && isSameTable && existingSeat.seat !== seat) {
         table = existingSeat.seat === "white"
           ? { ...table, white: null }
           : { ...table, black: null };
+        gateShouldReset = true;
       }
 
       const occupied = seat === "white" ? table.white : table.black;
       if (occupied && occupied.sessionId !== appSessionId) {
         seatBlocked = true;
         return current;
+      }
+      if (occupied && (occupied.sessionId !== appSessionId || occupied.userId !== currentProfile.userId)) {
+        gateShouldReset = true;
+      }
+
+      if (gateShouldReset) {
+        table = resetTableStartGate(table);
       }
 
       const seatState: LobbySeatState = {
@@ -1067,9 +1180,9 @@ function App() {
           ? { ...table, white: seatState }
           : { ...table, black: seatState };
 
-      tables[index] = patched;
+      tables[index] = normalizeTableStartGate(patched);
       const nextTables = sortTables(tables);
-      resolvedTable = nextTables.find((row) => row.id === patched.id) ?? patched;
+      resolvedTable = nextTables.find((row) => row.id === patched.id) ?? normalizeTableStartGate(patched);
 
       return {
         ...current,
@@ -1126,6 +1239,80 @@ function App() {
       setLobbyNotice(`Masa ${table.id} acildi. Diger oyuncu bekleniyor.`);
     }
     return table;
+  }
+
+  function onRoomStartReady() {
+    if (!roomSession) return;
+    let seatMissing = false;
+    let alreadyStarted = false;
+    let alreadyReady = false;
+    let startNow = false;
+
+    writeLobby((current) => {
+      const cleaned = cleanupStaleAndPrune(current.tables).tables;
+      const tables = [...cleaned];
+      const index = tables.findIndex((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code);
+      if (index < 0) {
+        seatMissing = true;
+        return current;
+      }
+
+      let table = tables[index];
+      const mySeat = roomSession.seat === "white" ? table.white : table.black;
+      if (!mySeat || mySeat.sessionId !== appSessionId) {
+        seatMissing = true;
+        return current;
+      }
+
+      if (table.startedAt) {
+        alreadyStarted = true;
+        return current;
+      }
+
+      const mineReady = roomSession.seat === "white" ? table.whiteReadyAt : table.blackReadyAt;
+      if (mineReady) {
+        alreadyReady = true;
+        return current;
+      }
+
+      const now = Date.now();
+      table = roomSession.seat === "white"
+        ? { ...table, whiteReadyAt: now }
+        : { ...table, blackReadyAt: now };
+
+      if (table.white && table.black && table.whiteReadyAt && table.blackReadyAt) {
+        table = {
+          ...table,
+          startedAt: Math.max(now, table.whiteReadyAt, table.blackReadyAt),
+        };
+        startNow = true;
+      }
+
+      tables[index] = normalizeTableStartGate(table);
+      return {
+        ...current,
+        tables: sortTables(tables),
+        updatedAt: now,
+      };
+    });
+
+    if (seatMissing) {
+      setLobbyNotice("Masadaki koltugun bulunamadi. Lutfen tekrar masaya otur.");
+      return;
+    }
+    if (alreadyStarted) {
+      setLobbyNotice("Oyun zaten basladi.");
+      return;
+    }
+    if (alreadyReady) {
+      setLobbyNotice("Hazir durumdasin. Rakibin Oyuna Basla butonuna basmasi bekleniyor.");
+      return;
+    }
+    if (startNow) {
+      setLobbyNotice("Iki oyuncu da hazirlandi. Oyun basladi.");
+      return;
+    }
+    setLobbyNotice("Hazir oldun. Rakibin de Oyuna Basla butonuna basmasi bekleniyor.");
   }
 
   function onOpenTable() {
@@ -1298,6 +1485,9 @@ function App() {
         roomCode: roomSession.code,
         white: null,
         black: null,
+        whiteReadyAt: null,
+        blackReadyAt: null,
+        startedAt: null,
       },
       roomSession.seat,
     );
@@ -1654,10 +1844,10 @@ function App() {
 
     writeLobby((current) => {
       const cleaned = cleanupStaleAndPrune(current.tables).tables;
-      const withoutMine = clearSessionFromTables(cleaned, appSessionId).tables;
-      const tables = [...withoutMine];
+      const tables = [...cleaned];
       const idx = tables.findIndex((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code);
       const roomCode = sanitizeRoomCode(roomSession.code) || createRoomCode();
+      const now = Date.now();
 
       let index = idx;
       let table: LobbyTable;
@@ -1669,16 +1859,42 @@ function App() {
           roomCode,
           white: null,
           black: null,
+          whiteReadyAt: null,
+          blackReadyAt: null,
+          startedAt: null,
         };
         tables.push(table);
         index = tables.length - 1;
       }
 
       table = { ...table, roomCode };
+      const existingSeat = findSessionSeat(cleaned, appSessionId);
+      const isSameTable = existingSeat
+        ? existingSeat.table.id === table.id || existingSeat.table.roomCode === roomCode
+        : false;
+      if (existingSeat && !isSameTable) {
+        blocked = true;
+        return current;
+      }
+
+      let gateShouldReset = false;
+      if (existingSeat && isSameTable && existingSeat.seat !== roomSession.seat) {
+        table = existingSeat.seat === "white"
+          ? { ...table, white: null }
+          : { ...table, black: null };
+        gateShouldReset = true;
+      }
+
       const occupied = roomSession.seat === "white" ? table.white : table.black;
       if (occupied && occupied.sessionId !== appSessionId) {
         blocked = true;
         return current;
+      }
+      if (occupied && (occupied.sessionId !== appSessionId || occupied.userId !== currentProfile.userId)) {
+        gateShouldReset = true;
+      }
+      if (gateShouldReset) {
+        table = resetTableStartGate(table);
       }
 
       const seatState: LobbySeatState = {
@@ -1687,7 +1903,7 @@ function App() {
         displayName: currentProfile.displayName,
         points: currentProfile.points,
         stats: normalizeStats(currentProfile.stats),
-        touchedAt: Date.now(),
+        touchedAt: now,
       };
 
       const patched =
@@ -1695,12 +1911,12 @@ function App() {
           ? { ...table, white: seatState }
           : { ...table, black: seatState };
 
-      tables[index] = patched;
+      tables[index] = normalizeTableStartGate(patched);
       return {
         ...current,
         lobbyName: sanitizeLobbyName(roomSession.roomName || current.lobbyName),
         tables: sortTables(tables),
-        updatedAt: Date.now(),
+        updatedAt: now,
       };
     });
 
@@ -2419,6 +2635,33 @@ function App() {
         <section className="my-game-layout">
           <div className="my-game-frame">
             <iframe ref={iframeRef} title="Tavla Oyunu" src={iframeUrl} />
+            {roomSession && mode === "local" && roomStartState && !roomStartState.started ? (
+              <section className="my-start-overlay">
+                <article className="my-start-card">
+                  <h3>Oyuna Basla</h3>
+                  <p className="line">
+                    {!roomStartState.bothSeated
+                      ? roomStartState.mineReady
+                        ? "Hazirsin. Rakip masaya oturunca oyun baslayacak."
+                        : "Rakip bekleniyor. Hazirsan Oyuna Basla butonuna bas."
+                      : roomStartState.mineReady
+                        ? roomStartState.opponentReady
+                          ? "Iki oyuncu da hazirlandi, oyun aciliyor..."
+                          : "Rakibin Oyuna Basla butonuna basmasi bekleniyor."
+                        : roomStartState.opponentReady
+                          ? "Rakip hazir. Baslamak icin Oyuna Basla butonuna bas."
+                          : "Iki oyuncu da Oyuna Basla butonuna basmali."}
+                  </p>
+                  <button
+                    className="my-action-btn"
+                    onClick={onRoomStartReady}
+                    disabled={!roomStartState.mine || roomStartState.mineReady}
+                  >
+                    {roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
+                  </button>
+                </article>
+              </section>
+            ) : null}
           </div>
 
           <aside className="my-game-controls">
@@ -2465,6 +2708,23 @@ function App() {
                   <p className="line">
                     Masa: <code>{roomSession.tableNo}</code> / Sen: <code>{seatText(roomSession.seat)}</code>
                   </p>
+                  {roomStartState ? (
+                    <>
+                      <p className="line">
+                        Baslangic:{" "}
+                        <code>{roomStartState.started ? "Basladi" : `${roomStartState.readyCount}/2 Hazir`}</code>
+                      </p>
+                      {!roomStartState.started ? (
+                        <button
+                          className="my-action-btn"
+                          onClick={onRoomStartReady}
+                          disabled={!roomStartState.mine || roomStartState.mineReady}
+                        >
+                          {roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
+                        </button>
+                      ) : null}
+                    </>
+                  ) : null}
                   <button className="my-action-btn" onClick={onCopyInvite}>
                     {copied ? "Kopyalandi" : "Davet Linki Kopyala"}
                   </button>
