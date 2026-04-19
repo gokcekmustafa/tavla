@@ -186,6 +186,15 @@ function createMemberId() {
   return sanitizeMemberId(`m${Date.now().toString(36)}${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`);
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return String(error ?? "Bilinmeyen hata");
+}
+
+function isDoFreeTierWriteLimitError(error: unknown) {
+  return getErrorMessage(error).includes("Exceeded allowed rows written in Durable Objects free tier");
+}
+
 function toPublicUser(user: StoredMemberUser): PublicMemberUser {
   return {
     id: user.id,
@@ -320,8 +329,8 @@ export default {
 };
 
 export class RealtimeRoom {
-  private readonly snapshotKey = "snapshot";
   private readonly ctx: DurableObjectState;
+  private latestSnapshot: RealtimeMessage | null = null;
 
   constructor(ctx: DurableObjectState, _env: Env) {
     this.ctx = ctx;
@@ -339,10 +348,9 @@ export class RealtimeRoom {
   }
 
   async webSocketOpen(ws: WebSocket): Promise<void> {
-    const latest = await this.ctx.storage.get<RealtimeMessage>(this.snapshotKey);
-    if (!latest) return;
+    if (!this.latestSnapshot) return;
     try {
-      ws.send(JSON.stringify(latest));
+      ws.send(JSON.stringify(this.latestSnapshot));
     } catch {
       // no-op
     }
@@ -354,10 +362,9 @@ export class RealtimeRoom {
     if (!incoming) return;
 
     if (incoming.kind === "hello") {
-      const latest = await this.ctx.storage.get<RealtimeMessage>(this.snapshotKey);
-      if (!latest) return;
+      if (!this.latestSnapshot) return;
       try {
-        ws.send(JSON.stringify(latest));
+        ws.send(JSON.stringify(this.latestSnapshot));
       } catch {
         // no-op
       }
@@ -370,7 +377,7 @@ export class RealtimeRoom {
       at: Date.now(),
     };
 
-    await this.ctx.storage.put(this.snapshotKey, snapshot);
+    this.latestSnapshot = snapshot;
     const encoded = JSON.stringify(snapshot);
     for (const socket of this.ctx.getWebSockets()) {
       try {
@@ -392,19 +399,12 @@ export class RealtimeRoom {
 
 export class AuthStore {
   private readonly ctx: DurableObjectState;
+  private readonly transientUsersById = new Map<string, StoredMemberUser>();
+  private readonly transientMatchDedupe = new Set<string>();
+  private transientRules: GameRules | null = null;
 
   constructor(ctx: DurableObjectState, _env: Env) {
     this.ctx = ctx;
-  }
-
-  private keyByEmail(email: string) {
-    return `email:${email}`;
-  }
-
-  private keyByDisplayName(displayName: string) {
-    const key = normalizeDisplayLookupKey(displayName);
-    if (!key) return "";
-    return `name:${key}`;
   }
 
   private keyById(id: string) {
@@ -415,35 +415,85 @@ export class AuthStore {
     return AUTH_RULES_KEY;
   }
 
+  private listTransientUsers(): StoredMemberUser[] {
+    return [...this.transientUsersById.values()].map((user) => ({
+      ...user,
+      stats: normalizeMemberStats(user.stats),
+      role: sanitizeMemberRole(user.role),
+    }));
+  }
+
+  private findTransientByEmail(email: string): StoredMemberUser | null {
+    for (const user of this.transientUsersById.values()) {
+      if (user.email === email) return user;
+    }
+    return null;
+  }
+
+  private findTransientByDisplayName(displayName: string): StoredMemberUser | null {
+    const lookup = normalizeDisplayLookupKey(displayName);
+    if (!lookup) return null;
+    for (const user of this.transientUsersById.values()) {
+      if (normalizeDisplayLookupKey(user.displayName) === lookup) return user;
+    }
+    return null;
+  }
+
+  private mergeUsers(durableUsers: StoredMemberUser[]): StoredMemberUser[] {
+    const byId = new Map<string, StoredMemberUser>();
+    for (const user of durableUsers) {
+      byId.set(user.id, user);
+    }
+    for (const user of this.listTransientUsers()) {
+      byId.set(user.id, user);
+    }
+    const users = [...byId.values()];
+    users.sort((a, b) => a.displayName.localeCompare(b.displayName, "tr"));
+    return users;
+  }
+
+  private async listDurableUsers(): Promise<StoredMemberUser[]> {
+    const users: StoredMemberUser[] = [];
+    const rows = await this.ctx.storage.list<unknown>({ prefix: "id:" });
+    for (const raw of rows.values()) {
+      const user = normalizeStoredMemberUser(raw);
+      if (!user) continue;
+      users.push(user);
+    }
+    return users;
+  }
+
   private async getByEmail(email: string): Promise<StoredMemberUser | null> {
-    const raw = await this.ctx.storage.get<unknown>(this.keyByEmail(email));
-    return normalizeStoredMemberUser(raw);
+    const transient = this.findTransientByEmail(email);
+    if (transient) return transient;
+    const users = await this.listDurableUsers();
+    for (const user of users) {
+      if (user.email === email) return user;
+    }
+    return null;
   }
 
   private async getByDisplayName(displayName: string): Promise<StoredMemberUser | null> {
-    const key = this.keyByDisplayName(displayName);
-    if (!key) return null;
-    const raw = await this.ctx.storage.get<unknown>(key);
-    return normalizeStoredMemberUser(raw);
+    const transient = this.findTransientByDisplayName(displayName);
+    if (transient) return transient;
+    const lookup = normalizeDisplayLookupKey(displayName);
+    if (!lookup) return null;
+    const users = await this.listDurableUsers();
+    for (const user of users) {
+      if (normalizeDisplayLookupKey(user.displayName) === lookup) return user;
+    }
+    return null;
   }
 
   private async getById(id: string): Promise<StoredMemberUser | null> {
+    const transient = this.transientUsersById.get(id);
+    if (transient) return transient;
     const raw = await this.ctx.storage.get<unknown>(this.keyById(id));
     return normalizeStoredMemberUser(raw);
   }
 
   private async findDisplayNameFallback(displayName: string): Promise<StoredMemberUser | null> {
-    const lookupKey = normalizeDisplayLookupKey(displayName);
-    if (!lookupKey) return null;
-    const rows = await this.ctx.storage.list<unknown>({ prefix: "id:" });
-    for (const raw of rows.values()) {
-      const user = normalizeStoredMemberUser(raw);
-      if (!user) continue;
-      if (normalizeDisplayLookupKey(user.displayName) === lookupKey) {
-        return user;
-      }
-    }
-    return null;
+    return this.getByDisplayName(displayName);
   }
 
   private async findByIdentifier(identifierRaw: unknown): Promise<StoredMemberUser | null> {
@@ -458,25 +508,12 @@ export class AuthStore {
     const displayName = sanitizeMemberDisplayName(identifier);
     if (!displayName) return null;
 
-    const indexed = await this.getByDisplayName(displayName);
-    if (indexed) return indexed;
-
-    const fallback = await this.findDisplayNameFallback(displayName);
-    if (!fallback) return null;
-    await this.putUser(fallback);
-    return fallback;
+    return this.getByDisplayName(displayName);
   }
 
   private async listUsers(): Promise<StoredMemberUser[]> {
-    const users: StoredMemberUser[] = [];
-    const rows = await this.ctx.storage.list<unknown>({ prefix: "id:" });
-    for (const raw of rows.values()) {
-      const user = normalizeStoredMemberUser(raw);
-      if (!user) continue;
-      users.push(user);
-    }
-    users.sort((a, b) => a.displayName.localeCompare(b.displayName, "tr"));
-    return users;
+    const durableUsers = await this.listDurableUsers();
+    return this.mergeUsers(durableUsers);
   }
 
   private async countAdmins(): Promise<number> {
@@ -485,13 +522,21 @@ export class AuthStore {
   }
 
   private async getRules(): Promise<GameRules> {
+    const fallback = this.transientRules ?? createDefaultGameRules();
     const raw = await this.ctx.storage.get<unknown>(this.keyRules());
-    return normalizeGameRules(raw);
+    const normalized = normalizeGameRules(raw, fallback);
+    this.transientRules = normalized;
+    return normalized;
   }
 
   private async putRules(rules: GameRules): Promise<GameRules> {
     const normalized = normalizeGameRules(rules, rules);
-    await this.ctx.storage.put(this.keyRules(), normalized);
+    this.transientRules = normalized;
+    try {
+      await this.ctx.storage.put(this.keyRules(), normalized);
+    } catch (error) {
+      if (!isDoFreeTierWriteLimitError(error)) throw error;
+    }
     return normalized;
   }
 
@@ -515,37 +560,30 @@ export class AuthStore {
     return promoted;
   }
 
-  private async putUser(user: StoredMemberUser, previous?: StoredMemberUser | null) {
+  private async putUser(user: StoredMemberUser, _previous?: StoredMemberUser | null) {
     const normalized: StoredMemberUser = {
       ...user,
       role: sanitizeMemberRole(user.role),
+      stats: normalizeMemberStats(user.stats),
     };
-
-    if (previous) {
-      if (previous.email !== normalized.email) {
-        await this.ctx.storage.delete(this.keyByEmail(previous.email));
+    this.transientUsersById.set(normalized.id, normalized);
+    try {
+      await this.ctx.storage.put(this.keyById(normalized.id), normalized);
+    } catch (error) {
+      if (!isDoFreeTierWriteLimitError(error)) {
+        throw error;
       }
-      const previousNameKey = this.keyByDisplayName(previous.displayName);
-      const nextNameKey = this.keyByDisplayName(normalized.displayName);
-      if (previousNameKey && previousNameKey !== nextNameKey) {
-        await this.ctx.storage.delete(previousNameKey);
-      }
-    }
-
-    await this.ctx.storage.put(this.keyByEmail(normalized.email), normalized);
-    await this.ctx.storage.put(this.keyById(normalized.id), normalized);
-    const nameKey = this.keyByDisplayName(normalized.displayName);
-    if (nameKey) {
-      await this.ctx.storage.put(nameKey, normalized);
     }
   }
 
   private async deleteUser(user: StoredMemberUser) {
-    await this.ctx.storage.delete(this.keyById(user.id));
-    await this.ctx.storage.delete(this.keyByEmail(user.email));
-    const nameKey = this.keyByDisplayName(user.displayName);
-    if (nameKey) {
-      await this.ctx.storage.delete(nameKey);
+    this.transientUsersById.delete(user.id);
+    try {
+      await this.ctx.storage.delete(this.keyById(user.id));
+    } catch (error) {
+      if (!isDoFreeTierWriteLimitError(error)) {
+        throw error;
+      }
     }
   }
 
@@ -620,7 +658,7 @@ export class AuthStore {
       return jsonResponse({ error: "Bu e-posta ile hesap zaten var." }, 409);
     }
 
-    const existingName = (await this.getByDisplayName(displayName)) ?? (await this.findDisplayNameFallback(displayName));
+    const existingName = await this.getByDisplayName(displayName);
     if (existingName) {
       return jsonResponse({ error: "Bu kullanici adi zaten alinmis." }, 409);
     }
@@ -721,6 +759,18 @@ export class AuthStore {
 
     const dedupeKey = matchToken ? `match:${userId}:${matchToken}` : "";
     if (dedupeKey) {
+      if (this.transientMatchDedupe.has(dedupeKey)) {
+        return jsonResponse({
+          ok: true,
+          user: toPublicUser(user),
+          applied: {
+            outcome,
+            pointsDelta: 0,
+            duplicate: true,
+            matchToken,
+          },
+        }, 200);
+      }
       const alreadyProcessed = await this.ctx.storage.get<boolean>(dedupeKey);
       if (alreadyProcessed) {
         return jsonResponse({
@@ -762,7 +812,12 @@ export class AuthStore {
 
     await this.putUser(updated, user);
     if (dedupeKey) {
-      await this.ctx.storage.put(dedupeKey, true);
+      this.transientMatchDedupe.add(dedupeKey);
+      try {
+        await this.ctx.storage.put(dedupeKey, true);
+      } catch (error) {
+        if (!isDoFreeTierWriteLimitError(error)) throw error;
+      }
     }
     return jsonResponse({
       ok: true,
