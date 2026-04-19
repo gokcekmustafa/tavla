@@ -87,18 +87,19 @@
 
 .my-lobby-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 12px;
   padding: 10px;
+  align-items: start;
 }
 
 .my-lobby-main {
-  padding: 2px 10px;
-  gap: 4px;
-  border-radius: 8px;
-  border: 2px solid rgba(10, 107, 132, 0.66);
-  background: linear-gradient(180deg, rgba(7, 116, 149, 0.95), rgba(7, 83, 108, 0.96));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  padding: 8px;
+  gap: 8px;
+  border-radius: 9px;
+  border: 2px solid rgba(8, 95, 121, 0.8);
+  background: linear-gradient(180deg, #0c809e, #0a6f8a 40%, #0b5f77);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -108,28 +109,31 @@
 .my-lobby-header {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   margin: 0;
 }
 
 .my-lobby-header h2 {
   margin: 0;
-  color: #f4f9ff;
-  font-size: 1.12rem;
-  line-height: 1.02;
+  color: #edf8ff;
+  font-size: 1.24rem;
+  line-height: 1;
+  letter-spacing: 0.01em;
 }
 
 .my-lobby-header p {
   margin: 0;
-  color: #d5eef8;
-  font-size: 0.76rem;
-  line-height: 1.06;
+  color: #cde8f4;
+  font-size: 0.8rem;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .my-lobby-controls {
   display: grid;
-  grid-template-columns: minmax(130px, 1fr) minmax(130px, 1fr) 180px minmax(140px, 1fr);
-  gap: 4px;
+  grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr) 180px minmax(190px, 1fr);
+  gap: 6px;
   margin-top: 0;
   align-items: start;
 }
@@ -198,16 +202,25 @@
   gap: 6px;
 }
 
+.my-lobby-table-zone {
+  border-radius: 8px;
+  border: 2px solid rgba(18, 128, 160, 0.72);
+  background: linear-gradient(180deg, rgba(9, 102, 129, 0.92), rgba(7, 86, 109, 0.96));
+  padding: 8px;
+  max-height: 560px;
+  overflow-y: auto;
+}
+
 .my-notice {
   margin: 0;
   border-radius: 6px;
-  border: 1px solid rgba(255, 216, 106, 0.7);
-  background: rgba(150, 99, 8, 0.35);
-  color: #fff4cd;
-  font-size: 0.78rem;
+  border: 1px solid rgba(127, 214, 145, 0.75);
+  background: rgba(74, 128, 98, 0.78);
+  color: #f0fff3;
+  font-size: 0.76rem;
   font-weight: 700;
-  line-height: 1;
-  padding: 1px 8px;
+  line-height: 1.08;
+  padding: 2px 8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -231,18 +244,76 @@
 
 .my-table-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
 }
 
 .my-chat-card {
   border-radius: 8px;
-  border: 2px solid rgba(11, 99, 124, 0.62);
-  background: linear-gradient(180deg, rgba(8, 90, 115, 0.92), rgba(6, 66, 86, 0.94));
+  border: 2px solid rgba(12, 112, 140, 0.72);
+  background: linear-gradient(180deg, rgba(9, 104, 131, 0.95), rgba(7, 76, 98, 0.96));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  padding: 10px;
+  padding: 8px;
   display: grid;
-  gap: 8px;
+  gap: 6px;
+}
+
+.my-chat-card-lobby {
+  margin-top: 2px;
+}
+
+.my-chat-compose-lobby {
+  border-radius: 7px;
+  border: 1px solid rgba(22, 128, 160, 0.66);
+  background: linear-gradient(180deg, rgba(9, 103, 130, 0.78), rgba(8, 78, 99, 0.86));
+  padding: 6px;
+}
+
+.my-chat-compose-lobby .my-input {
+  min-height: 34px;
+  border-color: rgba(43, 126, 154, 0.8);
+  background: #f4f8fa;
+  color: #143342;
+}
+
+.my-chat-compose-lobby .my-input::placeholder {
+  color: #55717f;
+}
+
+.my-chat-compose-lobby .my-action-btn {
+  min-height: 34px;
+  min-width: 100px;
+}
+
+.my-chat-list-lobby {
+  max-height: 170px;
+  border-radius: 7px;
+  border: 2px solid rgba(26, 131, 161, 0.74);
+  background: linear-gradient(180deg, rgba(239, 246, 249, 0.96), rgba(225, 238, 244, 0.98));
+  padding: 7px;
+}
+
+.my-chat-list-lobby .my-chat-empty {
+  border-color: rgba(53, 120, 144, 0.32);
+  background: rgba(21, 103, 131, 0.1);
+  color: #194a61;
+}
+
+.my-chat-list-lobby .my-chat-row {
+  border-color: rgba(38, 112, 138, 0.24);
+  background: rgba(32, 114, 143, 0.12);
+}
+
+.my-chat-list-lobby .my-chat-meta {
+  color: #164e65;
+}
+
+.my-chat-list-lobby .my-chat-meta time {
+  color: #256786;
+}
+
+.my-chat-list-lobby .my-chat-row p {
+  color: #1b4d63;
 }
 
 .my-chat-head {
@@ -562,19 +633,25 @@
 }
 
 .my-side-card {
-  border-radius: 8px;
-  border: 2px solid rgba(8, 98, 123, 0.66);
-  background: linear-gradient(180deg, rgba(7, 86, 111, 0.94), rgba(5, 64, 84, 0.96));
+  border-radius: 9px;
+  border: 2px solid rgba(7, 94, 120, 0.74);
+  background: linear-gradient(180deg, rgba(7, 89, 114, 0.96), rgba(6, 66, 86, 0.97));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  padding: 10px;
+  padding: 9px;
   display: grid;
-  gap: 8px;
+  gap: 7px;
+}
+
+.my-side-card-online {
+  padding: 8px 8px 6px;
+  gap: 6px;
 }
 
 .my-side-card h3 {
   margin: 0;
-  color: #e9f8ff;
-  font-size: 1rem;
+  color: #ecf9ff;
+  font-size: 0.98rem;
+  line-height: 1;
 }
 
 .my-member-card .line,
@@ -694,39 +771,100 @@
 }
 
 .my-online-list {
-  max-height: 420px;
+  max-height: 560px;
   overflow-y: auto;
   display: grid;
-  gap: 4px;
+  gap: 2px;
+  border-radius: 6px;
+  border: 1px solid rgba(38, 133, 162, 0.65);
+  background: rgba(4, 71, 93, 0.72);
+  padding: 4px;
+}
+
+.my-online-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 86px 60px 30px;
+  gap: 8px;
+  align-items: center;
+  border-radius: 6px;
+  border: 1px solid rgba(63, 170, 203, 0.5);
+  background: rgba(4, 61, 80, 0.82);
+  color: #d6f5ff;
+  font-size: 0.8rem;
+  font-weight: 900;
+  padding: 6px 8px;
+}
+
+.my-online-head span:nth-child(2),
+.my-online-head span:nth-child(3) {
+  text-align: right;
+}
+
+.my-online-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .my-online-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 6px;
+  grid-template-columns: 9px minmax(0, 1fr) 86px 60px 30px;
+  gap: 8px;
   align-items: center;
-  border-radius: 5px;
-  border: 1px solid rgba(96, 181, 205, 0.28);
-  background: rgba(6, 47, 61, 0.72);
-  color: #effbff;
-  font-size: 0.8rem;
-  padding: 5px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(78, 167, 196, 0.28);
+  background: rgba(4, 61, 80, 0.7);
+  color: #eef9ff;
+  font-size: 0.88rem;
+  padding: 4px 7px;
 }
 
 .my-online-row .name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 800;
 }
 
 .my-online-row .points {
-  color: #f8db8f;
+  color: #eff8ff;
   font-weight: 800;
+  text-align: right;
 }
 
 .my-online-row .table {
-  color: #b0f1be;
+  color: #d6f4ff;
   font-weight: 800;
+  text-align: right;
+}
+
+.my-online-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: #38d95a;
+  box-shadow: 0 0 0 1px rgba(15, 80, 25, 0.72);
+}
+
+.my-online-wave {
+  width: 24px;
+  height: 9px;
+  justify-self: end;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #74cc72, #3d9d47);
+  box-shadow: inset 0 1px 0 rgba(245, 255, 244, 0.4);
+  opacity: 0.58;
+  transform: rotate(-8deg);
+}
+
+.my-online-wave.active {
+  opacity: 1;
 }
 
 .my-game-layout {
@@ -841,6 +979,14 @@
     grid-template-columns: 1fr 1fr;
   }
 
+  .my-side-card-online {
+    grid-column: 1 / -1;
+  }
+
+  .my-lobby-table-zone {
+    max-height: 520px;
+  }
+
   .my-game-layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -855,11 +1001,18 @@
   .my-lobby-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
-    align-items: start;
   }
 
   .my-lobby-side {
     grid-template-columns: 1fr;
+  }
+
+  .my-online-list {
+    max-height: 380px;
+  }
+
+  .my-lobby-table-zone {
+    max-height: 470px;
   }
 
   .my-topbar {
@@ -877,76 +1030,92 @@
 }
 
 @media (max-width: 640px) {
-  /* 1. ÜST BARIN GENEL DARALTILMASI */
   .my-topbar {
-    padding: 4px 8px !important; /* Dikey boşluğu azalttık */
-    gap: 4px !important;
-    flex-direction: column; /* Öğeleri alt alta ama sıkışık dizer */
+    padding: 4px 8px;
+    gap: 4px;
+    flex-direction: column;
   }
 
   .my-topbar-left {
     display: grid;
-    grid-template-columns: 1fr 1fr; /* Butonları yan yana ikişerli dizer */
-    gap: 4px !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
     width: 100%;
   }
 
   .my-topbar-right {
     display: flex;
     justify-content: center;
-    gap: 4px !important;
+    gap: 4px;
     width: 100%;
   }
 
-  /* 2. BUTON VE CHIP BOYUTLARI */
   .my-top-btn {
     width: 100%;
-    min-height: 32px !important; /* Yüksekliği 38'den 32'ye çektik */
-    font-size: 0.8rem !important; /* Yazıyı hafif küçülttük */
-    padding: 0 6px !important;
+    min-height: 32px;
+    font-size: 0.8rem;
+    padding: 0 6px;
   }
 
   .my-chip {
-    min-height: 24px !important; /* Puan/İsim kutusunu daralttık */
-    font-size: 0.7rem !important;
+    min-height: 24px;
+    font-size: 0.7rem;
   }
 
-  /* 3. LOBİ ALANI (Lobi 1 yazan yer) */
+  .my-lobby-layout {
+    padding: 6px;
+    gap: 8px;
+  }
+
   .my-lobby-main {
-    padding: 2px 8px;
-    gap: 4px;
+    padding: 6px;
+    gap: 6px;
   }
 
-  .my-lobby-header {
-    gap: 1px;
+  .my-lobby-header h2 {
+    font-size: 1.08rem;
   }
-
-.my-lobby-header h2 {
-  margin: 0;
-  color: #f4f9ff;
-  font-size: 1.12rem;
-  line-height: 1.02;
-}
 
   .my-lobby-header p {
-  margin: 0;
-  color: #d5eef8;
-  font-size: 0.76rem;
-  line-height: 1.06;
-}
+    font-size: 0.72rem;
+  }
 
-  /* 4. MASALARIN DİZİLİMİ VE OYUN ALANI */
+  .my-lobby-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .my-lobby-table-zone {
+    max-height: 420px;
+    padding: 6px;
+  }
+
+  .my-chat-compose {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .my-chat-compose-lobby .my-action-btn {
+    width: 100%;
+  }
+
+  .my-online-head {
+    grid-template-columns: minmax(0, 1fr) 72px 54px 24px;
+    gap: 6px;
+    font-size: 0.72rem;
+    padding: 5px 6px;
+  }
+
+  .my-online-row {
+    grid-template-columns: 7px minmax(0, 1fr) 72px 54px 24px;
+    gap: 6px;
+    font-size: 0.8rem;
+  }
+
   .my-table-grid {
-    grid-template-columns: 1fr; /* Masalar mobilde tek sıra halinde alt alta gelir */
+    grid-template-columns: 1fr;
   }
 
   .my-game-frame iframe {
-    /* Oyun ekranının mobildeki yüksekliği */
-    height: calc(100svh - 220px); 
+    height: calc(100svh - 220px);
     min-height: 380px;
   }
 }
-
-
-
-

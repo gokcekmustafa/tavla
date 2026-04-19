@@ -3121,95 +3121,59 @@ function App() {
 
             {lobbyNotice ? <p className="my-notice">{lobbyNotice}</p> : null}
 
-            {openedTables.length === 0 ? (
-              <div className="my-empty-state">
-                Henuz acik masa yok. <strong>Masa Ac</strong> ile ilk masayi acabilirsin.
-              </div>
-            ) : (
-              <div className="my-table-grid">
-                {openedTables.map((table) => {
-                  const status = tableStatus(table);
-                  const mySeatHere: Seat | null =
-                    table.white?.sessionId === appSessionId
-                      ? "white"
-                      : table.black?.sessionId === appSessionId
-                        ? "black"
-                        : null;
-
-                  return (
-                    <article key={table.id} className={`my-table-card ${status}`}>
-                      <div className="my-table-card-head">
-                        <strong>Masa {table.id}</strong>
-                        <span className="my-table-status">
-                          {status === "full" ? "Dolu" : status === "waiting" ? "Bekliyor" : "Bos"}
-                        </span>
-                      </div>
-
-                      <div className="my-table-board">
-                        <div className="my-seat-slot white">{seatCell(table, "white")}</div>
-                        <div className="my-board-mid">{table.id}</div>
-                        <div className="my-seat-slot black">{seatCell(table, "black")}</div>
-                      </div>
-
-                      <div className="my-table-footer">
-                        <span className="my-table-code">Kod: {table.roomCode}</span>
-                        {mySeatHere ? (
-                          <div className="my-mini-actions">
-                            <button className="my-action-btn" onClick={() => goToTable(table, mySeatHere)}>
-                              Masaya Git
-                            </button>
-                            <button className="my-action-btn soft" onClick={() => copyInviteFromTable(table, mySeatHere)}>
-                              {copied ? "Kopyalandi" : "Davet"}
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-
-            <section className="my-chat-card">
-              <div className="my-chat-head">
-                <h3>Lobi Sohbeti</h3>
-                <div className="my-chat-head-actions">
-                  <span>{lobbyChatRows.length} mesaj</span>
-                  {!lobbyChatAutoScroll || lobbyChatUnread > 0 ? (
-                    <button
-                      className="my-action-btn soft my-chat-jump-btn"
-                      onClick={() => {
-                        setLobbyChatAutoScroll(true);
-                        setLobbyChatUnread(0);
-                        scrollLobbyChatToBottom();
-                      }}
-                    >
-                      {lobbyChatUnread > 0 ? `Sona Git (${lobbyChatUnread})` : "Sona Git"}
-                    </button>
-                  ) : null}
+            <div className="my-lobby-table-zone">
+              {openedTables.length === 0 ? (
+                <div className="my-empty-state">
+                  Henuz acik masa yok. <strong>Masa Ac</strong> ile ilk masayi acabilirsin.
                 </div>
-              </div>
+              ) : (
+                <div className="my-table-grid">
+                  {openedTables.map((table) => {
+                    const status = tableStatus(table);
+                    const mySeatHere: Seat | null =
+                      table.white?.sessionId === appSessionId
+                        ? "white"
+                        : table.black?.sessionId === appSessionId
+                          ? "black"
+                          : null;
 
-              <div ref={lobbyChatListRef} className="my-chat-list" onScroll={onLobbyChatScroll}>
-                {lobbyChatRows.length === 0 ? (
-                  <p className="my-chat-empty">Bu oturumda henuz lobi mesaji yok.</p>
-                ) : (
-                  lobbyChatRows.map((message) => (
-                    <article key={message.id} className="my-chat-row">
-                      <div className="my-chat-meta">
-                        <strong>{message.displayName}</strong>
-                        <time>{formatChatTime(message.at)}</time>
-                      </div>
-                      <p>{message.text}</p>
-                    </article>
-                  ))
-                )}
-              </div>
-              <p className="my-chat-hint">
-                Sohbet gecmisi bu oturuma girdigin andan itibaren gosterilir. Yukari kaydirarak onceki mesajlari okuyabilirsin.
-              </p>
+                    return (
+                      <article key={table.id} className={`my-table-card ${status}`}>
+                        <div className="my-table-card-head">
+                          <strong>Masa {table.id}</strong>
+                          <span className="my-table-status">
+                            {status === "full" ? "Dolu" : status === "waiting" ? "Bekliyor" : "Bos"}
+                          </span>
+                        </div>
 
-              <div className="my-chat-compose">
+                        <div className="my-table-board">
+                          <div className="my-seat-slot white">{seatCell(table, "white")}</div>
+                          <div className="my-board-mid">{table.id}</div>
+                          <div className="my-seat-slot black">{seatCell(table, "black")}</div>
+                        </div>
+
+                        <div className="my-table-footer">
+                          <span className="my-table-code">Kod: {table.roomCode}</span>
+                          {mySeatHere ? (
+                            <div className="my-mini-actions">
+                              <button className="my-action-btn" onClick={() => goToTable(table, mySeatHere)}>
+                                Masaya Git
+                              </button>
+                              <button className="my-action-btn soft" onClick={() => copyInviteFromTable(table, mySeatHere)}>
+                                {copied ? "Kopyalandi" : "Davet"}
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <section className="my-chat-card my-chat-card-lobby">
+              <div className="my-chat-compose my-chat-compose-lobby">
                 <input
                   className="my-input"
                   placeholder={canWriteLobbyChat ? "Lobiye mesaj yaz..." : "Yazmak icin uye girisi yap"}
@@ -3231,11 +3195,74 @@ function App() {
                   Gonder
                 </button>
               </div>
+
+              <div className="my-chat-head">
+                <h3>Lobi Sohbeti</h3>
+                <div className="my-chat-head-actions">
+                  <span>{lobbyChatRows.length} mesaj</span>
+                  {!lobbyChatAutoScroll || lobbyChatUnread > 0 ? (
+                    <button
+                      className="my-action-btn soft my-chat-jump-btn"
+                      onClick={() => {
+                        setLobbyChatAutoScroll(true);
+                        setLobbyChatUnread(0);
+                        scrollLobbyChatToBottom();
+                      }}
+                    >
+                      {lobbyChatUnread > 0 ? `Sona Git (${lobbyChatUnread})` : "Sona Git"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div ref={lobbyChatListRef} className="my-chat-list my-chat-list-lobby" onScroll={onLobbyChatScroll}>
+                {lobbyChatRows.length === 0 ? (
+                  <p className="my-chat-empty">Bu oturumda henuz lobi mesaji yok.</p>
+                ) : (
+                  lobbyChatRows.map((message) => (
+                    <article key={message.id} className="my-chat-row">
+                      <div className="my-chat-meta">
+                        <strong>{message.displayName}</strong>
+                        <time>{formatChatTime(message.at)}</time>
+                      </div>
+                      <p>{message.text}</p>
+                    </article>
+                  ))
+                )}
+              </div>
               {!canWriteLobbyChat ? <p className="my-chat-hint">Lobiye sadece uye oyuncular yazabilir.</p> : null}
             </section>
           </div>
 
           <aside className="my-lobby-side">
+            <section className="my-side-card my-side-card-online">
+              <h3>Oyuncu Listesi</h3>
+              <div className="my-online-head">
+                <span>ISIM</span>
+                <span>PUAN</span>
+                <span>MASA</span>
+                <span className="my-online-sr-only">Durum</span>
+              </div>
+              <div className="my-online-list">
+                {onlineRows.map((row) => (
+                  <div key={row.key} className="my-online-row">
+                    <span className="my-online-dot" aria-hidden="true" />
+                    <button
+                      type="button"
+                      className="my-name-link name"
+                      onClick={() => openPlayerProfile(row.userId, row.name, row.points, row.stats)}
+                      title={`${row.name} profilini goster`}
+                    >
+                      {row.name}
+                    </button>
+                    <span className="points">{row.points}</span>
+                    <span className="table">{row.tableNo ? String(row.tableNo) : "-"}</span>
+                    <span className={`my-online-wave ${row.tableNo ? "active" : ""}`} aria-hidden="true" />
+                  </div>
+                ))}
+              </div>
+            </section>
+
             <section className="my-side-card">
               <h3>Uyelik</h3>
               {member ? (
@@ -3534,25 +3561,6 @@ function App() {
               </section>
             ) : null}
 
-            <section className="my-side-card">
-              <h3>Odadakiler</h3>
-              <div className="my-online-list">
-                {onlineRows.map((row) => (
-                  <div key={row.key} className="my-online-row">
-                    <button
-                      type="button"
-                      className="my-name-link name"
-                      onClick={() => openPlayerProfile(row.userId, row.name, row.points, row.stats)}
-                      title={`${row.name} profilini goster`}
-                    >
-                      {row.name}
-                    </button>
-                    <span className="points">{row.points}</span>
-                    <span className="table">{row.tableNo ? `M${row.tableNo}` : "-"}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
           </aside>
         </section>
       ) : (
