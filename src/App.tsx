@@ -74,6 +74,8 @@ type LobbyState = {
   lobbyName: string;
   tables: LobbyTable[];
   presence: LobbyPresenceState[];
+  lobbyChat: ChatMessage[];
+  tableChats: Record<string, ChatMessage[]>;
   guestCounter: number;
   guestLabels: Record<string, number>;
   updatedAt: number;
@@ -87,6 +89,14 @@ type OnlineRow = {
   points: number;
   stats: PlayerStats;
   tableNo: number | null;
+};
+
+type ChatMessage = {
+  id: string;
+  at: number;
+  userId: string;
+  displayName: string;
+  text: string;
 };
 
 type LegacyHostStateMessage = {
@@ -151,6 +161,9 @@ const PRESENCE_STALE_MS = 35_000;
 const HEARTBEAT_MS = 5_000;
 const WIN_POINTS = 100;
 const RESIGN_PENALTY_POINTS = 50;
+const CHAT_TEXT_MAX = 180;
+const LOBBY_CHAT_LIMIT = 120;
+const TABLE_CHAT_LIMIT = 80;
 
 function getDefaultRealtimeWsBase() {
   if (typeof window === "undefined") return "ws://127.0.0.1:8787/realtime";
@@ -217,6 +230,43 @@ function sanitizeLobbyName(value: string) {
 
 function sanitizeEmail(value: string) {
   return value.trim().toLowerCase().slice(0, 80);
+}
+
+function sanitizeChatId(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+}
+
+function sanitizeChatText(value: string) {
+  return value.replace(/\s+/g, " ").trim().slice(0, CHAT_TEXT_MAX);
+}
+
+function sanitizeTableChatKey(value: string) {
+  const roomCode = sanitizeRoomCode(value);
+  if (roomCode) return roomCode;
+  return value.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24);
+}
+
+function tableChatKey(table: Pick<LobbyTable, "roomCode" | "id">) {
+  const roomCode = sanitizeRoomCode(table.roomCode);
+  if (roomCode) return roomCode;
+  return `T${Math.max(1, table.id)}`;
+}
+
+function createChatMessageId(seed: string) {
+  const safeSeed = sanitizeGuestId(seed).slice(-8) || "chat";
+  return sanitizeChatId(`${Date.now().toString(36)}-${safeSeed}-${Math.random().toString(36).slice(2, 8)}`);
+}
+
+function formatChatTime(timestamp: number) {
+  if (!Number.isFinite(timestamp)) return "--:--";
+  try {
+    return new Date(timestamp).toLocaleTimeString("tr-TR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "--:--";
+  }
 }
 
 function createEmptyStats(): PlayerStats {
@@ -350,6 +400,8 @@ function createDefaultLobbyState(): LobbyState {
     lobbyName: DEFAULT_LOBBY_NAME,
     tables: [],
     presence: [],
+    lobbyChat: [],
+    tableChats: {},
     guestCounter: 0,
     guestLabels: {},
     updatedAt: Date.now(),
@@ -391,6 +443,46 @@ function normalizeGuestLabels(rawLabels: Record<string, unknown>, preferredCount
     guestLabels,
     guestCounter: Math.max(0, Math.trunc(preferredCounter), highest),
   };
+}
+
+function normalizeChatMessage(raw: unknown): ChatMessage | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<ChatMessage>;
+  const id = sanitizeChatId(typeof candidate.id === "string" ? candidate.id : "");
+  const userId = sanitizeGuestId(typeof candidate.userId === "string" ? candidate.userId : "");
+  const text = sanitizeChatText(typeof candidate.text === "string" ? candidate.text : "");
+  if (!id || !userId || !text) return null;
+  return {
+    id,
+    at: Number.isFinite(candidate.at) ? Number(candidate.at) : Date.now(),
+    userId,
+    displayName: sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Oyuncu") || "Oyuncu",
+    text,
+  };
+}
+
+function normalizeChatLog(raw: unknown, limit: number) {
+  const rows = Array.isArray(raw) ? raw : [];
+  const byId = new Map<string, ChatMessage>();
+  rows.forEach((row) => {
+    const normalized = normalizeChatMessage(row);
+    if (!normalized) return;
+    const existing = byId.get(normalized.id);
+    if (!existing || normalized.at >= existing.at) {
+      byId.set(normalized.id, normalized);
+    }
+  });
+  return Array.from(byId.values())
+    .sort((a, b) => a.at - b.at || a.id.localeCompare(b.id))
+    .slice(-limit);
+}
+
+function mergeChatLogs(base: ChatMessage[], incoming: ChatMessage[], limit: number) {
+  return normalizeChatLog([...base, ...incoming], limit);
+}
+
+function appendChatMessage(log: ChatMessage[], message: ChatMessage, limit: number) {
+  return normalizeChatLog([...log, message], limit);
 }
 
 function normalizeSeat(raw: unknown): LobbySeatState | null {
@@ -584,6 +676,20 @@ function normalizeLobbyState(raw: unknown): LobbyState {
     return rows;
   });
   const cleanedPresence = cleanupPresenceRows([...normalizedPresenceRows, ...seatPresenceRows]).presence;
+  const lobbyChat = normalizeChatLog(candidate.lobbyChat, LOBBY_CHAT_LIMIT);
+  const activeTableChatKeys = new Set(cleaned.map((table) => tableChatKey(table)));
+  const rawTableChats = candidate.tableChats && typeof candidate.tableChats === "object"
+    ? candidate.tableChats as Record<string, unknown>
+    : {};
+  const tableChats: Record<string, ChatMessage[]> = {};
+  Object.entries(rawTableChats).forEach(([rawKey, value]) => {
+    const safeKey = sanitizeTableChatKey(rawKey);
+    if (!safeKey || !activeTableChatKeys.has(safeKey)) return;
+    const log = normalizeChatLog(value, TABLE_CHAT_LIMIT);
+    if (log.length > 0) {
+      tableChats[safeKey] = log;
+    }
+  });
   const rawGuestCounter = Number.isInteger(candidate.guestCounter) && Number(candidate.guestCounter) >= 0
     ? Number(candidate.guestCounter)
     : 0;
@@ -595,6 +701,8 @@ function normalizeLobbyState(raw: unknown): LobbyState {
     lobbyName,
     tables: cleaned,
     presence: cleanedPresence,
+    lobbyChat,
+    tableChats,
     guestCounter,
     guestLabels,
     updatedAt: Number.isFinite(candidate.updatedAt) ? Number(candidate.updatedAt) : Date.now(),
@@ -762,10 +870,26 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     if (table.black) upsertPresence(presenceFromSeat(table.black));
   });
 
+  const mergedLobbyChat = mergeChatLogs(local.lobbyChat, remote.lobbyChat, LOBBY_CHAT_LIMIT);
+  const mergedTableChats: Record<string, ChatMessage[]> = {};
+  const tableChatKeys = new Set<string>();
+  Object.keys(local.tableChats).forEach((key) => tableChatKeys.add(sanitizeTableChatKey(key)));
+  Object.keys(remote.tableChats).forEach((key) => tableChatKeys.add(sanitizeTableChatKey(key)));
+  Array.from(mergedTables.values()).forEach((table) => tableChatKeys.add(tableChatKey(table)));
+  tableChatKeys.forEach((key) => {
+    if (!key) return;
+    const mergedLog = mergeChatLogs(local.tableChats[key] ?? [], remote.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
+    if (mergedLog.length > 0) {
+      mergedTableChats[key] = mergedLog;
+    }
+  });
+
   return normalizeLobbyState({
     lobbyName: sanitizeLobbyName(remote.lobbyName || local.lobbyName),
     tables: Array.from(mergedTables.values()),
     presence: Array.from(presenceBySession.values()),
+    lobbyChat: mergedLobbyChat,
+    tableChats: mergedTableChats,
     guestCounter: Math.max(remote.guestCounter, local.guestCounter),
     guestLabels,
     updatedAt: Math.max(remote.updatedAt, local.updatedAt),
@@ -817,6 +941,8 @@ function App() {
     winner: null as Seat | null,
     localColor: null as Seat | null,
   });
+  const [lobbyChatInput, setLobbyChatInput] = useState("");
+  const [tableChatInput, setTableChatInput] = useState("");
 
   const lobbyChannelRef = useRef<BroadcastChannel | null>(null);
   const realtimeSocketRef = useRef<WebSocket | null>(null);
@@ -951,6 +1077,27 @@ function App() {
     };
   }, [roomSession, currentRoomTable]);
 
+  const lobbyChatRows = useMemo(() => {
+    return normalizeChatLog(lobbyState.lobbyChat, LOBBY_CHAT_LIMIT);
+  }, [lobbyState.lobbyChat]);
+
+  const tableChatRows = useMemo(() => {
+    if (!currentRoomTable) return [];
+    const key = tableChatKey(currentRoomTable);
+    return normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
+  }, [currentRoomTable, lobbyState.tableChats]);
+
+  const canViewTableChat = useMemo(() => {
+    if (!roomSession || !currentRoomTable) return false;
+    const mySeat = roomSession.seat === "white" ? currentRoomTable.white : currentRoomTable.black;
+    return Boolean(mySeat && mySeat.sessionId === appSessionId);
+  }, [roomSession, currentRoomTable, appSessionId]);
+
+  const canWriteLobbyChat = Boolean(member);
+  const canWriteTableChat = Boolean(member && roomSession && canViewTableChat && mode === "local");
+  const lobbyDraft = sanitizeChatText(lobbyChatInput);
+  const tableDraft = sanitizeChatText(tableChatInput);
+
   function broadcastLobbySync() {
     lobbyChannelRef.current?.postMessage({ type: "lobby-sync", at: Date.now() });
   }
@@ -1008,6 +1155,82 @@ function App() {
     }
     persistLobbyState(normalized);
     return normalized;
+  }
+
+  function createOutgoingChatMessage(text: string): ChatMessage | null {
+    const clean = sanitizeChatText(text);
+    if (!clean) return null;
+    const userId = sanitizeGuestId(currentProfile.userId);
+    if (!userId) return null;
+    return {
+      id: createChatMessageId(`${userId}-${appSessionId}`),
+      at: Date.now(),
+      userId,
+      displayName: sanitizeGuestName(currentProfile.displayName) || "Oyuncu",
+      text: clean,
+    };
+  }
+
+  function sendLobbyChat(rawText: string) {
+    if (!member) {
+      setLobbyNotice("Lobi sohbetine yazmak icin uye girisi yapmalisin.");
+      return;
+    }
+    const message = createOutgoingChatMessage(rawText);
+    if (!message) return;
+    writeLobby((current) => ({
+      ...current,
+      lobbyChat: appendChatMessage(current.lobbyChat, message, LOBBY_CHAT_LIMIT),
+      updatedAt: Date.now(),
+    }));
+    setLobbyChatInput("");
+  }
+
+  function sendTableChat(rawText: string) {
+    if (!member) {
+      setLobbyNotice("Masa sohbeti sadece uye oyuncular icin acik.");
+      return;
+    }
+    if (!roomSession) return;
+    const message = createOutgoingChatMessage(rawText);
+    if (!message) return;
+
+    let blocked = false;
+    let tableMissing = false;
+    writeLobby((current) => {
+      const cleanedTables = cleanupStaleAndPrune(current.tables).tables;
+      const index = cleanedTables.findIndex((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code);
+      if (index < 0) {
+        tableMissing = true;
+        return current;
+      }
+      const table = cleanedTables[index];
+      const mySeat = roomSession.seat === "white" ? table.white : table.black;
+      if (!mySeat || mySeat.sessionId !== appSessionId) {
+        blocked = true;
+        return current;
+      }
+      const key = tableChatKey(table);
+      const nextTableChats = {
+        ...current.tableChats,
+        [key]: appendChatMessage(current.tableChats[key] ?? [], message, TABLE_CHAT_LIMIT),
+      };
+      return {
+        ...current,
+        tableChats: nextTableChats,
+        updatedAt: Date.now(),
+      };
+    });
+
+    if (tableMissing) {
+      setLobbyNotice("Masa bulunamadi, sohbet gonderilemedi.");
+      return;
+    }
+    if (blocked) {
+      setLobbyNotice("Masa sohbetini sadece masadaki oyuncular gonderebilir.");
+      return;
+    }
+    setTableChatInput("");
   }
 
   function refreshBoard() {
@@ -2545,6 +2768,53 @@ function App() {
                 })}
               </div>
             )}
+
+            <section className="my-chat-card">
+              <div className="my-chat-head">
+                <h3>Lobi Sohbeti</h3>
+                <span>{lobbyChatRows.length} mesaj</span>
+              </div>
+
+              <div className="my-chat-list">
+                {lobbyChatRows.length === 0 ? (
+                  <p className="my-chat-empty">Henuz lobi mesaji yok.</p>
+                ) : (
+                  lobbyChatRows.map((message) => (
+                    <article key={message.id} className="my-chat-row">
+                      <div className="my-chat-meta">
+                        <strong>{message.displayName}</strong>
+                        <time>{formatChatTime(message.at)}</time>
+                      </div>
+                      <p>{message.text}</p>
+                    </article>
+                  ))
+                )}
+              </div>
+
+              <div className="my-chat-compose">
+                <input
+                  className="my-input"
+                  placeholder={canWriteLobbyChat ? "Lobiye mesaj yaz..." : "Yazmak icin uye girisi yap"}
+                  value={lobbyChatInput}
+                  maxLength={CHAT_TEXT_MAX}
+                  onChange={(e) => setLobbyChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    sendLobbyChat(lobbyChatInput);
+                  }}
+                  disabled={!canWriteLobbyChat}
+                />
+                <button
+                  className="my-action-btn"
+                  onClick={() => sendLobbyChat(lobbyChatInput)}
+                  disabled={!canWriteLobbyChat || !lobbyDraft}
+                >
+                  Gonder
+                </button>
+              </div>
+              {!canWriteLobbyChat ? <p className="my-chat-hint">Lobiye sadece uye oyuncular yazabilir.</p> : null}
+            </section>
           </div>
 
           <aside className="my-lobby-side">
@@ -2764,6 +3034,70 @@ function App() {
                 </>
               )}
             </section>
+
+            {roomSession && mode === "local" ? (
+              <section className="my-side-card">
+                <h3>Masa Sohbeti</h3>
+                {canViewTableChat ? (
+                  <>
+                    <div className="my-chat-list my-chat-list-compact">
+                      {tableChatRows.length === 0 ? (
+                        <p className="my-chat-empty">Masa sohbeti henuz bos.</p>
+                      ) : (
+                        tableChatRows.map((message) => (
+                          <article key={message.id} className="my-chat-row">
+                            <div className="my-chat-meta">
+                              <strong>{message.displayName}</strong>
+                              <time>{formatChatTime(message.at)}</time>
+                            </div>
+                            <p>{message.text}</p>
+                          </article>
+                        ))
+                      )}
+                    </div>
+                    <div className="my-chat-compose">
+                      <input
+                        className="my-input"
+                        placeholder={canWriteTableChat ? "Masaya mesaj yaz..." : "Yazmak icin uye girisi yap"}
+                        value={tableChatInput}
+                        maxLength={CHAT_TEXT_MAX}
+                        onChange={(e) => setTableChatInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter") return;
+                          e.preventDefault();
+                          sendTableChat(tableChatInput);
+                        }}
+                        disabled={!canWriteTableChat}
+                      />
+                      <button
+                        className="my-action-btn"
+                        onClick={() => sendTableChat(tableChatInput)}
+                        disabled={!canWriteTableChat || !tableDraft}
+                      >
+                        Gonder
+                      </button>
+                    </div>
+                    <div className="my-emoji-row">
+                      {["😀", "😂", "👏", "👍", "🔥", "🎲", "😎", "🥳"].map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          className="my-emoji-btn"
+                          onClick={() => sendTableChat(emoji)}
+                          disabled={!canWriteTableChat}
+                          title={`${emoji} gonder`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                    {!canWriteTableChat ? <p className="my-chat-hint">Masa sohbetine sadece uye oyuncular yazabilir.</p> : null}
+                  </>
+                ) : (
+                  <p className="line">Masa sohbetini sadece masadaki oyuncular gorebilir.</p>
+                )}
+              </section>
+            ) : null}
           </aside>
         </section>
       )}

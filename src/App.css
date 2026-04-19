@@ -209,6 +209,134 @@
   gap: 8px;
 }
 
+.my-chat-card {
+  border-radius: 8px;
+  border: 2px solid rgba(11, 99, 124, 0.62);
+  background: linear-gradient(180deg, rgba(8, 90, 115, 0.92), rgba(6, 66, 86, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.my-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.my-chat-head h3 {
+  margin: 0;
+  color: #ecf8ff;
+  font-size: 0.96rem;
+}
+
+.my-chat-head span {
+  font-size: 0.74rem;
+  color: #c5eaff;
+  font-weight: 700;
+}
+
+.my-chat-list {
+  max-height: 200px;
+  overflow-y: auto;
+  display: grid;
+  gap: 6px;
+}
+
+.my-chat-list.my-chat-list-compact {
+  max-height: 170px;
+}
+
+.my-chat-empty {
+  margin: 0;
+  border-radius: 6px;
+  border: 1px dashed rgba(157, 214, 233, 0.42);
+  background: rgba(4, 50, 66, 0.5);
+  color: #d9f2fc;
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 9px 10px;
+}
+
+.my-chat-row {
+  border-radius: 6px;
+  border: 1px solid rgba(107, 193, 220, 0.3);
+  background: rgba(6, 49, 63, 0.72);
+  padding: 6px 7px;
+  display: grid;
+  gap: 4px;
+}
+
+.my-chat-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #f4fbff;
+  font-size: 0.74rem;
+}
+
+.my-chat-meta strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-chat-meta time {
+  color: #a9dbec;
+  font-weight: 700;
+}
+
+.my-chat-row p {
+  margin: 0;
+  color: #dbf2fa;
+  font-size: 0.83rem;
+  line-height: 1.3;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.my-chat-compose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.my-chat-compose .my-action-btn {
+  min-width: 84px;
+}
+
+.my-chat-hint {
+  margin: 0;
+  color: #d5ebf5;
+  font-size: 0.75rem;
+}
+
+.my-emoji-row {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.my-emoji-btn {
+  min-height: 30px;
+  border-radius: 6px;
+  border: 1px solid rgba(111, 194, 219, 0.5);
+  background: rgba(5, 60, 78, 0.85);
+  color: #e9f7ff;
+  font-size: 1.04rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.my-emoji-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .my-table-card {
   border-radius: 10px;
   border: 1px solid rgba(107, 69, 12, 0.54);
