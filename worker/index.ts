@@ -24,6 +24,14 @@ type MemberStats = {
 type MatchOutcome = "win" | "loss" | "resign";
 type MemberRole = "user" | "admin";
 type MemberGender = "male" | "female" | "unknown";
+type AvatarId =
+  | "male_01"
+  | "male_02"
+  | "male_03"
+  | "female_01"
+  | "female_02"
+  | "female_03"
+  | "neutral_01";
 
 type GameRules = {
   winPoints: number;
@@ -38,6 +46,7 @@ type PublicMemberUser = {
   displayName: string;
   email: string;
   gender: MemberGender;
+  avatarId: AvatarId;
   points: number;
   createdAt: number;
   stats: MemberStats;
@@ -54,6 +63,11 @@ const DEFAULT_WIN_POINTS = 100;
 const DEFAULT_LOSS_POINTS = 0;
 const DEFAULT_RESIGN_PENALTY_POINTS = 50;
 const PRIMARY_ADMIN_EMAIL = "gokcek@outlook.com";
+const DEFAULT_AVATAR_BY_GENDER: Record<MemberGender, AvatarId> = {
+  male: "male_01",
+  female: "female_01",
+  unknown: "neutral_01",
+};
 
 function sanitizeChannel(raw: string | null | undefined) {
   if (!raw) return "";
@@ -106,6 +120,21 @@ function sanitizeMemberRole(raw: unknown): MemberRole {
 function sanitizeMemberGender(raw: unknown): MemberGender {
   if (raw === "male" || raw === "female") return raw;
   return "unknown";
+}
+
+function sanitizeAvatarId(raw: unknown, gender: MemberGender = "unknown"): AvatarId {
+  if (
+    raw === "male_01"
+    || raw === "male_02"
+    || raw === "male_03"
+    || raw === "female_01"
+    || raw === "female_02"
+    || raw === "female_03"
+    || raw === "neutral_01"
+  ) {
+    return raw;
+  }
+  return DEFAULT_AVATAR_BY_GENDER[sanitizeMemberGender(gender)];
 }
 
 function normalizeDisplayLookupKey(raw: unknown) {
@@ -213,12 +242,14 @@ function isDoFreeTierWriteLimitError(error: unknown) {
 }
 
 function toPublicUser(user: StoredMemberUser): PublicMemberUser {
+  const gender = sanitizeMemberGender(user.gender);
   return {
     id: user.id,
     username: user.username,
     displayName: user.displayName,
     email: user.email,
-    gender: sanitizeMemberGender(user.gender),
+    gender,
+    avatarId: sanitizeAvatarId(user.avatarId, gender),
     points: user.points,
     createdAt: user.createdAt,
     stats: normalizeMemberStats(user.stats),
@@ -239,12 +270,14 @@ function normalizeStoredMemberUser(raw: unknown): StoredMemberUser | null {
     || sanitizeMemberUsername(displayName.replace(/\s+/g, "_"))
     || sanitizeMemberUsername(`u${id.slice(-10)}`)
     || `u${Date.now().toString(36).slice(-6)}`;
+  const gender = sanitizeMemberGender(candidate.gender);
   return {
     id,
     username,
     displayName,
     email,
-    gender: sanitizeMemberGender(candidate.gender),
+    gender,
+    avatarId: sanitizeAvatarId(candidate.avatarId, gender),
     password,
     points: Math.max(0, sanitizeFinitePoints(candidate.points, 1500)),
     createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
@@ -615,8 +648,11 @@ export class AuthStore {
   }
 
   private async putUser(user: StoredMemberUser, _previous?: StoredMemberUser | null) {
+    const gender = sanitizeMemberGender(user.gender);
     const normalized: StoredMemberUser = {
       ...user,
+      gender,
+      avatarId: sanitizeAvatarId(user.avatarId, gender),
       role: sanitizeMemberRole(user.role),
       stats: normalizeMemberStats(user.stats),
     };
@@ -676,6 +712,9 @@ export class AuthStore {
     if (request.method === "GET" && pathname === "/api/auth/profile") {
       return this.handleProfile(url);
     }
+    if (request.method === "POST" && pathname === "/api/auth/profile/update") {
+      return this.handleProfileUpdate(request);
+    }
     if (request.method === "POST" && pathname === "/api/auth/match") {
       return this.handleMatch(request);
     }
@@ -704,6 +743,7 @@ export class AuthStore {
     const email = sanitizeMemberEmail(body.email);
     const password = sanitizeMemberPassword(body.password);
     const gender = sanitizeMemberGender(body.gender);
+    const avatarId = sanitizeAvatarId(body.avatarId, gender);
 
     if (!username || username.length < 3) {
       return jsonResponse({ error: "Kullanici adi en az 3 karakter olmali (harf, rakam, alt cizgi)." }, 400);
@@ -741,6 +781,7 @@ export class AuthStore {
       displayName,
       email,
       gender,
+      avatarId,
       password,
       points: 1500,
       createdAt: Date.now(),
@@ -870,6 +911,37 @@ export class AuthStore {
     }
 
     const normalized = await this.ensureBootstrapAdmin(user);
+    return jsonResponse({ ok: true, user: toPublicUser(normalized) }, 200);
+  }
+
+  private async handleProfileUpdate(request: Request): Promise<Response> {
+    const payload = await parseJsonBody(request);
+    if (!payload || typeof payload !== "object") {
+      return jsonResponse({ error: "Gecersiz istek." }, 400);
+    }
+    const body = payload as Record<string, unknown>;
+    const userId = sanitizeMemberId(body.userId);
+    if (!userId) {
+      return jsonResponse({ error: "Gecersiz kullanici." }, 400);
+    }
+
+    const user = await this.getById(userId);
+    if (!user) {
+      return jsonResponse({ error: "Kullanici bulunamadi." }, 404);
+    }
+
+    const nextGender = sanitizeMemberGender(body.gender ?? user.gender);
+    const nextAvatarId = sanitizeAvatarId(body.avatarId, nextGender);
+    const nextDisplayName = sanitizeMemberDisplayName(body.displayName ?? user.displayName) || user.displayName;
+
+    const updated: StoredMemberUser = {
+      ...user,
+      displayName: nextDisplayName,
+      gender: nextGender,
+      avatarId: nextAvatarId,
+    };
+    await this.putUser(updated, user);
+    const normalized = await this.ensureBootstrapAdmin(updated);
     return jsonResponse({ ok: true, user: toPublicUser(normalized) }, 200);
   }
 

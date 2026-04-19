@@ -648,64 +648,46 @@
 }
 
 .my-avatar {
-  width: 38px;
-  height: 38px;
+  width: 46px;
+  height: 46px;
   border-radius: 8px;
-  border: 1px solid rgba(90, 62, 20, 0.55);
-  background: linear-gradient(180deg, #e5d5b7, #c9aa73);
+  border: 2px solid rgba(90, 62, 20, 0.55);
+  background: linear-gradient(180deg, #ead8b2, #c79b53);
   position: relative;
   overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(20, 20, 20, 0.35);
 }
 
-.my-avatar::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 8px;
-  width: 17px;
-  height: 17px;
-  border-radius: 999px;
-  background: #f2d2b0;
-  transform: translateX(-50%);
-  border: 1px solid rgba(97, 65, 26, 0.35);
-}
-
-.my-avatar::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 3px;
-  width: 24px;
-  height: 14px;
-  border-radius: 12px 12px 4px 4px;
-  transform: translateX(-50%);
-  background: linear-gradient(180deg, #5a8dbb, #2d5c84);
-}
-
-.my-avatar-male::before {
-  box-shadow: 0 -8px 0 0 #3c2d1f inset;
-}
-
-.my-avatar-male::after {
-  background: linear-gradient(180deg, #5d89b4, #2d5880);
-}
-
-.my-avatar-female::before {
-  box-shadow: 0 -8px 0 0 #7b4a2c inset;
-}
-
-.my-avatar-female::after {
+.my-avatar-sm {
   width: 26px;
-  border-radius: 12px 12px 6px 6px;
-  background: linear-gradient(180deg, #d16b7f, #a64f63);
+  height: 26px;
+  border-radius: 6px;
+  border-width: 1px;
 }
 
-.my-avatar-unknown::before {
-  box-shadow: 0 -7px 0 0 #5a4d3f inset;
+.my-avatar-md {
+  width: 46px;
+  height: 46px;
 }
 
-.my-avatar-unknown::after {
-  background: linear-gradient(180deg, #7e8797, #5a6475);
+.my-avatar-lg {
+  width: 68px;
+  height: 68px;
+  border-radius: 12px;
+}
+
+.my-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.my-online-avatar {
+  margin-right: 4px;
 }
 
 .my-occupant-lines {
@@ -835,6 +817,47 @@
   margin: 0;
   color: #d9f2fc;
   font-size: 0.86rem;
+}
+
+.my-member-avatar-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.my-member-avatar-meta {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.my-avatar-picker {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.my-avatar-option {
+  border: 1px solid rgba(93, 164, 188, 0.5);
+  background: rgba(8, 66, 84, 0.86);
+  border-radius: 8px;
+  padding: 4px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.my-avatar-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.my-avatar-option.active {
+  border-color: rgba(255, 221, 145, 0.95);
+  background: rgba(164, 114, 26, 0.66);
 }
 
 .my-auth-form {
@@ -992,7 +1015,7 @@
 
 .my-online-row {
   display: grid;
-  grid-template-columns: 9px minmax(0, 1fr) 86px 60px 30px;
+  grid-template-columns: 28px minmax(0, 1fr) 86px 60px 30px;
   gap: 8px;
   align-items: center;
   border-radius: 4px;
@@ -1146,6 +1169,13 @@
 .my-modal-card h3 {
   margin: 0;
   font-size: 0.98rem;
+}
+
+.my-profile-modal-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
 }
 
 .my-modal-card .line {

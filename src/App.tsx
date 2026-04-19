@@ -11,6 +11,20 @@ type MemberRole = "user" | "admin";
 type MemberGender = "male" | "female" | "unknown";
 type AdminRoleFilter = "all" | MemberRole;
 type AdminSortKey = "name" | "points" | "games" | "wins" | "losses" | "resigns" | "createdAt";
+type AvatarId =
+  | "male_01"
+  | "male_02"
+  | "male_03"
+  | "female_01"
+  | "female_02"
+  | "female_03"
+  | "neutral_01";
+
+type AvatarPreset = {
+  id: AvatarId;
+  label: string;
+  gender: MemberGender;
+};
 
 type PlayerStats = {
   gamesPlayed: number;
@@ -35,6 +49,7 @@ type MemberUser = {
   displayName: string;
   email: string;
   gender: MemberGender;
+  avatarId: AvatarId;
   points: number;
   createdAt: number;
   stats: PlayerStats;
@@ -52,6 +67,7 @@ type GuestProfile = {
   userId: string;
   displayName: string;
   gender: MemberGender;
+  avatarId: AvatarId;
   points: number;
   stats: PlayerStats;
 };
@@ -66,6 +82,7 @@ type LobbySeatState = {
   username: string;
   displayName: string;
   gender: MemberGender;
+  avatarId: AvatarId;
   points: number;
   stats: PlayerStats;
   touchedAt: number;
@@ -77,6 +94,7 @@ type LobbyPresenceState = {
   username: string;
   displayName: string;
   gender: MemberGender;
+  avatarId: AvatarId;
   points: number;
   stats: PlayerStats;
   touchedAt: number;
@@ -117,6 +135,7 @@ type OnlineRow = {
   sessionId: string;
   username: string;
   gender: MemberGender;
+  avatarId: AvatarId;
   name: string;
   points: number;
   stats: PlayerStats;
@@ -174,6 +193,7 @@ type PlayerProfileModalState = {
   name: string;
   username?: string;
   gender: MemberGender;
+  avatarId: AvatarId;
   points: number;
   stats: PlayerStats;
   email?: string;
@@ -220,6 +240,24 @@ const CHAT_TEXT_MAX = 180;
 const LOBBY_CHAT_LIMIT = 120;
 const TABLE_CHAT_LIMIT = 80;
 const LOBBY_CHAT_AUTO_SCROLL_THRESHOLD = 24;
+const AVATAR_PRESETS: readonly AvatarPreset[] = [
+  { id: "male_01", label: "Erkek Klasik", gender: "male" },
+  { id: "male_02", label: "Erkek Sakalli", gender: "male" },
+  { id: "male_03", label: "Erkek Sapkali", gender: "male" },
+  { id: "female_01", label: "Kadin Klasik", gender: "female" },
+  { id: "female_02", label: "Kadin Kizil", gender: "female" },
+  { id: "female_03", label: "Kadin Gozluklu", gender: "female" },
+  { id: "neutral_01", label: "Notr Robot", gender: "unknown" },
+] as const;
+const AVATAR_PRESET_BY_ID: Record<AvatarId, AvatarPreset> = AVATAR_PRESETS.reduce((acc, preset) => {
+  acc[preset.id] = preset;
+  return acc;
+}, {} as Record<AvatarId, AvatarPreset>);
+const DEFAULT_AVATAR_BY_GENDER: Record<MemberGender, AvatarId> = {
+  male: "male_01",
+  female: "female_01",
+  unknown: "neutral_01",
+};
 
 function getDefaultRealtimeWsBase() {
   if (typeof window === "undefined") return "ws://127.0.0.1:8787/realtime";
@@ -323,6 +361,27 @@ function genderLabel(gender: MemberGender) {
   if (gender === "male") return "Erkek";
   if (gender === "female") return "Kadin";
   return "Belirtilmedi";
+}
+
+function sanitizeAvatarId(raw: unknown, gender: MemberGender = "unknown"): AvatarId {
+  if (typeof raw === "string") {
+    const trimmed = raw.trim().toLowerCase();
+    if (trimmed in AVATAR_PRESET_BY_ID) {
+      return trimmed as AvatarId;
+    }
+  }
+  return DEFAULT_AVATAR_BY_GENDER[sanitizeMemberGender(gender)];
+}
+
+function avatarAssetPath(avatarId: AvatarId) {
+  return `/avatars/${sanitizeAvatarId(avatarId)}.svg`;
+}
+
+function avatarOptionsForGender(gender: MemberGender) {
+  const normalized = sanitizeMemberGender(gender);
+  const preferred = AVATAR_PRESETS.filter((preset) => preset.gender === normalized);
+  const rest = AVATAR_PRESETS.filter((preset) => preset.gender !== normalized);
+  return [...preferred, ...rest];
 }
 
 function sanitizeMemberRole(raw: unknown): MemberRole {
@@ -479,6 +538,7 @@ function normalizeMemberUser(raw: unknown): MemberUser | null {
     displayName,
     email,
     gender: sanitizeMemberGender(candidate.gender),
+    avatarId: sanitizeAvatarId(candidate.avatarId, sanitizeMemberGender(candidate.gender)),
     points: normalizeNonNegativeInt(candidate.points, 1500),
     createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
     stats: normalizeStats(candidate.stats),
@@ -755,6 +815,7 @@ function normalizeSeat(raw: unknown): LobbySeatState | null {
   const sessionId = typeof candidate.sessionId === "string" ? candidate.sessionId : "";
   if (!sessionId) return null;
   const displayName = sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Misafir") || "Misafir";
+  const gender = sanitizeMemberGender(candidate.gender);
   return {
     sessionId,
     userId: typeof candidate.userId === "string" ? candidate.userId : `guest-${sessionId}`,
@@ -762,7 +823,8 @@ function normalizeSeat(raw: unknown): LobbySeatState | null {
       sanitizeMemberUsername(typeof candidate.username === "string" ? candidate.username : "")
       || fallbackUsernameFromName(displayName),
     displayName,
-    gender: sanitizeMemberGender(candidate.gender),
+    gender,
+    avatarId: sanitizeAvatarId(candidate.avatarId, gender),
     points: normalizeNonNegativeInt(candidate.points, 1500),
     stats: normalizeStats(candidate.stats),
     touchedAt: Number.isFinite(candidate.touchedAt) ? Number(candidate.touchedAt) : Date.now(),
@@ -775,6 +837,7 @@ function normalizePresence(raw: unknown): LobbyPresenceState | null {
   const sessionId = typeof candidate.sessionId === "string" ? candidate.sessionId : "";
   if (!sessionId) return null;
   const displayName = sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Misafir") || "Misafir";
+  const gender = sanitizeMemberGender(candidate.gender);
   return {
     sessionId,
     userId: typeof candidate.userId === "string" ? candidate.userId : `guest-${sessionId}`,
@@ -782,7 +845,8 @@ function normalizePresence(raw: unknown): LobbyPresenceState | null {
       sanitizeMemberUsername(typeof candidate.username === "string" ? candidate.username : "")
       || fallbackUsernameFromName(displayName),
     displayName,
-    gender: sanitizeMemberGender(candidate.gender),
+    gender,
+    avatarId: sanitizeAvatarId(candidate.avatarId, gender),
     points: normalizeNonNegativeInt(candidate.points, 1500),
     stats: normalizeStats(candidate.stats),
     touchedAt: Number.isFinite(candidate.touchedAt) ? Number(candidate.touchedAt) : Date.now(),
@@ -796,6 +860,7 @@ function presenceFromSeat(seat: LobbySeatState): LobbyPresenceState {
     username: seat.username,
     displayName: seat.displayName,
     gender: sanitizeMemberGender(seat.gender),
+    avatarId: sanitizeAvatarId(seat.avatarId, seat.gender),
     points: seat.points,
     stats: normalizeStats(seat.stats),
     touchedAt: seat.touchedAt,
@@ -828,7 +893,9 @@ function normalizeTableStartGate(table: LobbyTable): LobbyTable {
     blackReadyAt = null;
     startedAt = null;
   } else {
-    if (!whiteReadyAt || !blackReadyAt) {
+    if (whiteReadyAt && blackReadyAt) {
+      startedAt = Math.max(startedAt ?? 0, whiteReadyAt, blackReadyAt);
+    } else {
       startedAt = null;
     }
   }
@@ -1005,6 +1072,7 @@ function loadGuestProfile(guestId: string, fallbackName: string): GuestProfile {
       userId: `guest-${guestId}`,
       displayName: sanitizeGuestName(fallbackName) || "Misafir",
       gender: "unknown",
+      avatarId: DEFAULT_AVATAR_BY_GENDER.unknown,
       points: 1500,
       stats: createEmptyStats(),
     };
@@ -1018,14 +1086,17 @@ function loadGuestProfile(guestId: string, fallbackName: string): GuestProfile {
       userId,
       displayName: sanitizeGuestName(fallbackName) || "Misafir",
       gender: "unknown",
+      avatarId: DEFAULT_AVATAR_BY_GENDER.unknown,
       points: 1500,
       stats: createEmptyStats(),
     };
   }
+  const gender = sanitizeMemberGender(candidate.gender);
   return {
     userId,
     displayName: sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : fallbackName) || "Misafir",
-    gender: sanitizeMemberGender(candidate.gender),
+    gender,
+    avatarId: sanitizeAvatarId(candidate.avatarId, gender),
     points: normalizeNonNegativeInt(candidate.points, 1500),
     stats: normalizeStats(candidate.stats),
   };
@@ -1037,6 +1108,7 @@ function saveGuestProfile(profile: GuestProfile) {
     userId: profile.userId,
     displayName: sanitizeGuestName(profile.displayName) || "Misafir",
     gender: sanitizeMemberGender(profile.gender),
+    avatarId: sanitizeAvatarId(profile.avatarId, profile.gender),
     points: normalizeNonNegativeInt(profile.points, 1500),
     stats: normalizeStats(profile.stats),
   } satisfies GuestProfile);
@@ -1220,6 +1292,22 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
   });
 }
 
+function AvatarBadge(props: {
+  avatarId: AvatarId;
+  gender: MemberGender;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}) {
+  const size = props.size ?? "md";
+  const avatarId = sanitizeAvatarId(props.avatarId, props.gender);
+  const className = props.className ? ` ${props.className}` : "";
+  return (
+    <span className={`my-avatar my-avatar-${size}${className}`} aria-hidden="true">
+      <img className="my-avatar-img" src={avatarAssetPath(avatarId)} alt="" loading="lazy" />
+    </span>
+  );
+}
+
 function App() {
   const [initialRoom] = useState<RoomSession | null>(() => getInitialRoomSession());
   const [mode, setMode] = useState<GameMode>("local");
@@ -1257,12 +1345,14 @@ function App() {
   const [authDisplayName, setAuthDisplayName] = useState("");
   const [authEmail, setAuthEmail] = useState("");
   const [authGender, setAuthGender] = useState<MemberGender>("unknown");
+  const [authAvatarId, setAuthAvatarId] = useState<AvatarId>(DEFAULT_AVATAR_BY_GENDER.unknown);
   const [authPassword, setAuthPassword] = useState("");
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
   const [forgotBusy, setForgotBusy] = useState(false);
   const [memberPasswordCurrent, setMemberPasswordCurrent] = useState("");
   const [memberPasswordNext, setMemberPasswordNext] = useState("");
+  const [memberAvatarDraft, setMemberAvatarDraft] = useState<AvatarId>(DEFAULT_AVATAR_BY_GENDER.unknown);
   const [memberActionBusy, setMemberActionBusy] = useState(false);
   const [memberNotice, setMemberNotice] = useState("");
   const [authError, setAuthError] = useState("");
@@ -1273,6 +1363,7 @@ function App() {
     isMember: false,
     name: "",
     gender: "unknown",
+    avatarId: DEFAULT_AVATAR_BY_GENDER.unknown,
     points: 0,
     stats: createEmptyStats(),
   });
@@ -1315,16 +1406,18 @@ function App() {
 
   const currentProfile = useMemo(() => {
     const fallbackUsername = fallbackUsernameFromName(safeGuestName);
+    const gender = member?.gender ?? guestProfile.gender;
     return {
       userId: member ? member.id : guestProfile.userId,
       username: member?.username ?? fallbackUsername,
       displayName: safeGuestName,
-      gender: member?.gender ?? guestProfile.gender,
+      gender,
+      avatarId: sanitizeAvatarId(member?.avatarId ?? guestProfile.avatarId, gender),
       points: member?.points ?? guestProfile.points,
       stats: member?.stats ?? guestProfile.stats,
       isMember: Boolean(member),
     };
-  }, [member, safeGuestName, guestProfile.userId, guestProfile.gender, guestProfile.points, guestProfile.stats]);
+  }, [member, safeGuestName, guestProfile.userId, guestProfile.gender, guestProfile.avatarId, guestProfile.points, guestProfile.stats]);
 
   const isRoomMode = Boolean(roomSession);
 
@@ -1391,6 +1484,7 @@ function App() {
       username: currentProfile.username,
       displayName: safeGuestName,
       gender: currentProfile.gender,
+      avatarId: currentProfile.avatarId,
       points: currentProfile.points,
       stats: normalizeStats(currentProfile.stats),
       touchedAt: Date.now(),
@@ -1403,13 +1497,14 @@ function App() {
         sessionId: row.sessionId,
         username: row.username,
         gender: row.gender,
+        avatarId: sanitizeAvatarId(row.avatarId, row.gender),
         name: row.displayName,
         points: row.points,
         stats: normalizeStats(row.stats),
         tableNo: tableByUser.get(row.userId) ?? tableBySession.get(row.sessionId) ?? null,
       }))
       .sort((a, b) => a.name.localeCompare(b.name, "tr", { sensitivity: "base" }));
-  }, [openedTables, lobbyState.presence, appSessionId, safeGuestName, currentProfile.userId, currentProfile.username, currentProfile.gender, currentProfile.points, currentProfile.stats]);
+  }, [openedTables, lobbyState.presence, appSessionId, safeGuestName, currentProfile.userId, currentProfile.username, currentProfile.gender, currentProfile.avatarId, currentProfile.points, currentProfile.stats]);
 
   const currentRoomTable = useMemo(() => {
     if (!roomSession) return null;
@@ -1714,6 +1809,7 @@ function App() {
         username: currentProfile.username,
         displayName: currentProfile.displayName,
         gender: currentProfile.gender,
+        avatarId: currentProfile.avatarId,
         points: currentProfile.points,
         stats: normalizeStats(currentProfile.stats),
         touchedAt: now,
@@ -1724,6 +1820,7 @@ function App() {
         || existing.username !== myPresence.username
         || existing.displayName !== myPresence.displayName
         || existing.gender !== myPresence.gender
+        || existing.avatarId !== myPresence.avatarId
         || existing.points !== myPresence.points
         || !sameStats(existing.stats, myPresence.stats);
 
@@ -1902,6 +1999,7 @@ function App() {
         username: currentProfile.username,
         displayName: currentProfile.displayName,
         gender: currentProfile.gender,
+        avatarId: currentProfile.avatarId,
         points: currentProfile.points,
         stats: normalizeStats(currentProfile.stats),
         touchedAt: Date.now(),
@@ -2031,16 +2129,9 @@ function App() {
       table = roomSession.seat === "white"
         ? { ...table, whiteReadyAt: now }
         : { ...table, blackReadyAt: now };
-
-      if (table.white && table.black && table.whiteReadyAt && table.blackReadyAt) {
-        table = {
-          ...table,
-          startedAt: Math.max(now, table.whiteReadyAt, table.blackReadyAt),
-        };
-        startNow = true;
-      }
-
-      tables[index] = normalizeTableStartGate(table);
+      const nextTable = normalizeTableStartGate(table);
+      startNow = Boolean(nextTable.startedAt);
+      tables[index] = nextTable;
       return {
         ...current,
         tables: sortTables(tables),
@@ -2318,9 +2409,10 @@ function App() {
         });
         setAdminPointDrafts((prev) => ({ ...prev, [updated.id]: String(updated.points) }));
         setAdminDeltaDrafts((prev) => ({ ...prev, [updated.id]: "" }));
-        patchSeatByUserId(updated.id, updated.points, updated.stats, updated.displayName);
+        patchSeatByUserId(updated.id, updated.points, updated.stats, updated.displayName, updated.username, updated.gender, updated.avatarId);
         if (member.id === updated.id) {
           setMember(updated);
+          setMemberAvatarDraft(updated.avatarId);
           setGuestName(updated.displayName);
         }
       } else if (data?.deleted) {
@@ -2426,6 +2518,7 @@ function App() {
     setAuthMode("register");
     setAuthError("");
     setMemberNotice("");
+    setAuthAvatarId(DEFAULT_AVATAR_BY_GENDER[sanitizeMemberGender(authGender)]);
     setLobbyNotice("Uyelik paneli sag tarafta.");
   }
 
@@ -2764,6 +2857,7 @@ function App() {
     const email = sanitizeEmail(authEmail);
     const password = authPassword.trim().slice(0, 64);
     const gender = sanitizeMemberGender(authGender);
+    const avatarId = sanitizeAvatarId(authAvatarId, gender);
 
     if (!username || username.length < 3) {
       setAuthError("Kullanici adi en az 3 karakter olmali (harf, rakam, alt cizgi).");
@@ -2789,7 +2883,7 @@ function App() {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, displayName, email, gender, password }),
+        body: JSON.stringify({ username, displayName, email, gender, avatarId, password }),
       });
       if (!response.ok) {
         setAuthError(await readApiError(response, "Uyelik acilamadi."));
@@ -2804,16 +2898,18 @@ function App() {
 
       saveJson(MEMBER_SESSION_KEY, { userId: user.id } satisfies MemberSession);
       setMember(user);
+      setMemberAvatarDraft(user.avatarId);
       setGuestName(user.displayName);
       setAuthUsername("");
       setAuthDisplayName("");
       setAuthEmail("");
       setAuthGender("unknown");
+      setAuthAvatarId(DEFAULT_AVATAR_BY_GENDER.unknown);
       setAuthPassword("");
       setAuthError("");
       setMemberNotice("");
       setLobbyNotice("Uyelik acildi.");
-      patchSeatByUserId(user.id, user.points, user.stats, user.displayName, user.username, user.gender);
+      patchSeatByUserId(user.id, user.points, user.stats, user.displayName, user.username, user.gender, user.avatarId);
     } catch {
       setAuthError("Sunucuya baglanilamadi. Tekrar deneyin.");
     } finally {
@@ -2854,13 +2950,14 @@ function App() {
       }
 
       setMember(user);
+      setMemberAvatarDraft(user.avatarId);
       saveJson(MEMBER_SESSION_KEY, { userId: user.id } satisfies MemberSession);
       setGuestName(user.displayName);
       setAuthPassword("");
       setAuthError("");
       setMemberNotice("");
       setLobbyNotice("Giris yapildi.");
-      patchSeatByUserId(user.id, user.points, user.stats, user.displayName, user.username, user.gender);
+      patchSeatByUserId(user.id, user.points, user.stats, user.displayName, user.username, user.gender, user.avatarId);
     } catch {
       setAuthError("Sunucuya baglanilamadi. Tekrar deneyin.");
     } finally {
@@ -2935,6 +3032,7 @@ function App() {
       const user = normalizeMemberUser(data?.user);
       if (user) {
         setMember(user);
+        setMemberAvatarDraft(user.avatarId);
         setGuestName(user.displayName);
       }
       setMemberPasswordCurrent("");
@@ -2947,15 +3045,58 @@ function App() {
     }
   }
 
+  async function onChangeMyAvatar() {
+    if (!member || memberActionBusy) return;
+    const nextAvatarId = sanitizeAvatarId(memberAvatarDraft, member.gender);
+    if (nextAvatarId === member.avatarId) {
+      setMemberNotice("Avatar zaten secili.");
+      return;
+    }
+
+    setMemberActionBusy(true);
+    setMemberNotice("");
+    try {
+      const response = await fetch("/api/auth/profile/update", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          userId: member.id,
+          avatarId: nextAvatarId,
+        }),
+      });
+      if (!response.ok) {
+        setMemberNotice(await readApiError(response, "Avatar guncellenemedi."));
+        return;
+      }
+      const data = (await response.json().catch(() => null)) as { user?: unknown } | null;
+      const user = normalizeMemberUser(data?.user);
+      if (!user) {
+        setMemberNotice("Sunucu avatar yaniti gecersiz.");
+        return;
+      }
+      setMember(user);
+      setMemberAvatarDraft(user.avatarId);
+      patchSeatByUserId(user.id, user.points, user.stats, user.displayName, user.username, user.gender, user.avatarId);
+      setMemberNotice("Avatar basariyla guncellendi.");
+      setLobbyNotice("Profil avatarin guncellendi.");
+    } catch {
+      setMemberNotice("Avatar guncelleme servisinde baglanti hatasi.");
+    } finally {
+      setMemberActionBusy(false);
+    }
+  }
+
   function onLogoutMember() {
     window.localStorage.removeItem(MEMBER_SESSION_KEY);
     setMember(null);
+    setMemberAvatarDraft(DEFAULT_AVATAR_BY_GENDER.unknown);
     setMemberPasswordCurrent("");
     setMemberPasswordNext("");
     setMemberNotice("");
     setForgotEmail("");
     setForgotNewPassword("");
     setAuthPassword("");
+    setAuthAvatarId(DEFAULT_AVATAR_BY_GENDER.unknown);
     setAuthError("");
     setLobbyNotice("Uyelik oturumu kapatildi.");
   }
@@ -2967,6 +3108,7 @@ function App() {
     displayName?: string,
     username?: string,
     gender?: MemberGender,
+    avatarId?: AvatarId,
   ) {
     writeLobby((current) => {
       let anyChanged = false;
@@ -2979,6 +3121,7 @@ function App() {
           const nextName = displayName ? sanitizeGuestName(displayName) || seat.displayName : seat.displayName;
           const nextUsername = username ? sanitizeMemberUsername(username) || seat.username : seat.username;
           const nextGender = gender ? sanitizeMemberGender(gender) : seat.gender;
+          const nextAvatar = avatarId ? sanitizeAvatarId(avatarId, nextGender) : sanitizeAvatarId(seat.avatarId, nextGender);
           return {
             ...seat,
             points: normalizeNonNegativeInt(points, seat.points),
@@ -2986,6 +3129,7 @@ function App() {
             displayName: nextName,
             username: nextUsername,
             gender: nextGender,
+            avatarId: nextAvatar,
             touchedAt: now,
           };
         };
@@ -3002,12 +3146,14 @@ function App() {
         const nextName = displayName ? sanitizeGuestName(displayName) || entry.displayName : entry.displayName;
         const nextUsername = username ? sanitizeMemberUsername(username) || entry.username : entry.username;
         const nextGender = gender ? sanitizeMemberGender(gender) : entry.gender;
+        const nextAvatar = avatarId ? sanitizeAvatarId(avatarId, nextGender) : sanitizeAvatarId(entry.avatarId, nextGender);
         const nextPoints = normalizeNonNegativeInt(points, entry.points);
         const nextStats = normalizeStats(stats);
         if (
           entry.displayName === nextName
           && entry.username === nextUsername
           && entry.gender === nextGender
+          && entry.avatarId === nextAvatar
           && entry.points === nextPoints
           && sameStats(entry.stats, nextStats)
         ) {
@@ -3019,6 +3165,7 @@ function App() {
           displayName: nextName,
           username: nextUsername,
           gender: nextGender,
+          avatarId: nextAvatar,
           points: nextPoints,
           stats: nextStats,
           touchedAt: now,
@@ -3065,7 +3212,7 @@ function App() {
         stats: nextStats,
       };
       saveGuestProfile(next);
-      patchSeatByUserId(next.userId, next.points, next.stats, next.displayName, fallbackUsernameFromName(next.displayName), next.gender);
+      patchSeatByUserId(next.userId, next.points, next.stats, next.displayName, fallbackUsernameFromName(next.displayName), next.gender, next.avatarId);
       return next;
     });
   }
@@ -3081,9 +3228,11 @@ function App() {
         updatedMember.displayName,
         updatedMember.username,
         updatedMember.gender,
+        updatedMember.avatarId,
       );
       if (member?.id === updatedMember.id) {
         setMember(updatedMember);
+        setMemberAvatarDraft(updatedMember.avatarId);
         setGuestName(updatedMember.displayName);
       }
       return updatedMember;
@@ -3101,11 +3250,12 @@ function App() {
 
     const syntheticStats = applyStatsOutcome(createEmptyStats(), outcome);
     const syntheticPoints = Math.max(0, 1500 + pointsDeltaForOutcome(outcome, gameRules));
-    patchSeatByUserId(userId, syntheticPoints, syntheticStats, fallbackName);
+    patchSeatByUserId(userId, syntheticPoints, syntheticStats, fallbackName, undefined, "unknown", DEFAULT_AVATAR_BY_GENDER.unknown);
     return {
       userId,
       displayName: sanitizeGuestName(fallbackName ?? "Misafir") || "Misafir",
       gender: "unknown",
+      avatarId: DEFAULT_AVATAR_BY_GENDER.unknown,
       points: syntheticPoints,
       stats: syntheticStats,
     } satisfies GuestProfile;
@@ -3203,6 +3353,7 @@ function App() {
     stats: PlayerStats,
     username?: string,
     gender?: MemberGender,
+    avatarId?: AvatarId,
   ) {
     const baseState: PlayerProfileModalState = {
       open: true,
@@ -3211,6 +3362,7 @@ function App() {
       name: sanitizeGuestName(displayName) || "Oyuncu",
       username: sanitizeMemberUsername(username ?? "") || fallbackUsernameFromName(displayName),
       gender: sanitizeMemberGender(gender),
+      avatarId: sanitizeAvatarId(avatarId, sanitizeMemberGender(gender)),
       points: normalizeNonNegativeInt(points, 0),
       stats: normalizeStats(stats),
       userId,
@@ -3247,6 +3399,7 @@ function App() {
         name: user.displayName,
         username: user.username,
         gender: user.gender,
+        avatarId: user.avatarId,
         points: user.points,
         stats: normalizeStats(user.stats),
         email: user.email,
@@ -3340,6 +3493,7 @@ function App() {
         username: currentProfile.username,
         displayName: currentProfile.displayName,
         gender: currentProfile.gender,
+        avatarId: currentProfile.avatarId,
         points: currentProfile.points,
         stats: normalizeStats(currentProfile.stats),
         touchedAt: now,
@@ -3395,7 +3549,7 @@ function App() {
     }
     return (
       <div className={`my-seat-occupant ${mine ? "mine" : ""}`}>
-        <span className={`my-avatar my-avatar-${sanitizeMemberGender(occupant.gender)}`} aria-hidden="true" />
+        <AvatarBadge avatarId={occupant.avatarId} gender={occupant.gender} />
         <div className="my-occupant-lines">
           <button
             type="button"
@@ -3407,6 +3561,7 @@ function App() {
               occupant.stats,
               occupant.username,
               occupant.gender,
+              occupant.avatarId,
             )}
             title={`${occupant.displayName} profilini goster`}
           >
@@ -3667,7 +3822,10 @@ function App() {
     const syncMemberFromSession = async () => {
       const session = loadMemberSession();
       if (!session) {
-        if (!cancelled) setMember(null);
+        if (!cancelled) {
+          setMember(null);
+          setMemberAvatarDraft(DEFAULT_AVATAR_BY_GENDER.unknown);
+        }
         return;
       }
       const user = await loadMemberFromSession(session);
@@ -3675,9 +3833,11 @@ function App() {
       if (!user) {
         window.localStorage.removeItem(MEMBER_SESSION_KEY);
         setMember(null);
+        setMemberAvatarDraft(DEFAULT_AVATAR_BY_GENDER.unknown);
         return;
       }
       setMember(user);
+      setMemberAvatarDraft(user.avatarId);
       setGuestName(user.displayName);
     };
     void syncMemberFromSession();
@@ -3853,15 +4013,18 @@ function App() {
           const session = loadMemberSession();
           if (!session) {
             setMember(null);
+            setMemberAvatarDraft(DEFAULT_AVATAR_BY_GENDER.unknown);
             return;
           }
           const user = await loadMemberFromSession(session);
           if (!user) {
             window.localStorage.removeItem(MEMBER_SESSION_KEY);
             setMember(null);
+            setMemberAvatarDraft(DEFAULT_AVATAR_BY_GENDER.unknown);
             return;
           }
           setMember(user);
+          setMemberAvatarDraft(user.avatarId);
           setGuestName(user.displayName);
         };
         void syncMemberFromSession();
@@ -3903,6 +4066,7 @@ function App() {
     currentProfile.username,
     currentProfile.displayName,
     currentProfile.gender,
+    currentProfile.avatarId,
     currentProfile.points,
     currentProfile.stats,
     appSessionId,
@@ -3954,6 +4118,7 @@ function App() {
     currentProfile.username,
     currentProfile.displayName,
     currentProfile.gender,
+    currentProfile.avatarId,
     currentProfile.points,
     currentProfile.stats,
     member,
@@ -4286,16 +4451,45 @@ function App() {
               <h3>Uyelik</h3>
               {member ? (
                 <div className="my-member-card">
+                  <div className="my-member-avatar-row">
+                    <AvatarBadge avatarId={member.avatarId} gender={member.gender} size="lg" />
+                    <div className="my-member-avatar-meta">
+                      <p className="line">
+                        <strong>{member.displayName}</strong>
+                      </p>
+                      <p className="line">Kullanici: @{member.username}</p>
+                    </div>
+                  </div>
                   <p className="line">
-                    <strong>{member.displayName}</strong>
+                    Avatar: <code>{AVATAR_PRESET_BY_ID[member.avatarId]?.label ?? member.avatarId}</code>
                   </p>
-                  <p className="line">Kullanici: @{member.username}</p>
                   <p className="line">{member.email}</p>
                   <p className="line">Cinsiyet: {genderLabel(member.gender)}</p>
                   <p className="line">Rol: {member.role === "admin" ? "Admin" : "Uye"}</p>
                   <p className="line">Puan: {member.points}</p>
                   <p className="line">Oyun: {member.stats.gamesPlayed} / K: {member.stats.wins} / M: {member.stats.losses}</p>
                   <p className="line">Masadan Kacis: {member.stats.resigns}</p>
+                  <div className="my-avatar-picker">
+                    {avatarOptionsForGender(member.gender).map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        className={`my-avatar-option ${memberAvatarDraft === preset.id ? "active" : ""}`}
+                        onClick={() => setMemberAvatarDraft(preset.id)}
+                        disabled={memberActionBusy}
+                        title={preset.label}
+                      >
+                        <AvatarBadge avatarId={preset.id} gender={preset.gender} size="sm" />
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    className="my-action-btn soft"
+                    onClick={onChangeMyAvatar}
+                    disabled={memberActionBusy || memberAvatarDraft === member.avatarId}
+                  >
+                    {memberActionBusy ? "Isleniyor..." : "Avatari Degistir"}
+                  </button>
                   <div className="my-auth-form">
                     <input
                       className="my-input"
@@ -4327,7 +4521,10 @@ function App() {
                   <div className="my-auth-toggle">
                     <button
                       className={authMode === "register" ? "active" : ""}
-                      onClick={() => setAuthMode("register")}
+                      onClick={() => {
+                        setAuthMode("register");
+                        setAuthAvatarId(DEFAULT_AVATAR_BY_GENDER[sanitizeMemberGender(authGender)]);
+                      }}
                       disabled={authBusy}
                     >
                       Uye Ol
@@ -4356,13 +4553,31 @@ function App() {
                       <select
                         className="my-input"
                         value={authGender}
-                        onChange={(e) => setAuthGender(sanitizeMemberGender(e.target.value))}
+                        onChange={(e) => {
+                          const nextGender = sanitizeMemberGender(e.target.value);
+                          setAuthGender(nextGender);
+                          setAuthAvatarId(DEFAULT_AVATAR_BY_GENDER[nextGender]);
+                        }}
                         disabled={authBusy}
                       >
                         <option value="unknown">Cinsiyet secin</option>
                         <option value="female">Kadin</option>
                         <option value="male">Erkek</option>
                       </select>
+                      <div className="my-avatar-picker">
+                        {avatarOptionsForGender(authGender).map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            className={`my-avatar-option ${authAvatarId === preset.id ? "active" : ""}`}
+                            onClick={() => setAuthAvatarId(preset.id)}
+                            disabled={authBusy}
+                            title={preset.label}
+                          >
+                            <AvatarBadge avatarId={preset.id} gender={preset.gender} size="sm" />
+                          </button>
+                        ))}
+                      </div>
                       <input
                         className="my-input"
                         placeholder="E-posta"
@@ -4440,11 +4655,11 @@ function App() {
               <div className="my-online-list">
                 {onlineRows.map((row) => (
                   <div key={row.key} className="my-online-row">
-                    <span className="my-online-dot" aria-hidden="true" />
+                    <AvatarBadge avatarId={row.avatarId} gender={row.gender} size="sm" className="my-online-avatar" />
                     <button
                       type="button"
                       className="my-name-link name"
-                      onClick={() => openPlayerProfile(row.userId, row.name, row.points, row.stats, row.username, row.gender)}
+                      onClick={() => openPlayerProfile(row.userId, row.name, row.points, row.stats, row.username, row.gender, row.avatarId)}
                       title={`${row.name} profilini goster`}
                     >
                       {row.name}
@@ -4867,7 +5082,10 @@ function App() {
       {profileModal.open ? (
         <section className="my-modal-backdrop" role="presentation" onClick={closeProfileModal}>
           <article className="my-modal-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <h3>{profileModal.name}</h3>
+            <div className="my-profile-modal-head">
+              <AvatarBadge avatarId={profileModal.avatarId} gender={profileModal.gender} size="lg" />
+              <h3>{profileModal.name}</h3>
+            </div>
             {profileModal.loading ? (
               <p className="line">Profil yukleniyor...</p>
             ) : (
