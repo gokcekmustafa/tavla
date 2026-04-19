@@ -118,7 +118,22 @@ type LegacyMatchFinishedMessage = {
   localColor: Seat | null;
 };
 
-type LegacyHostMessage = LegacyHostStateMessage | LegacyMatchFinishedMessage;
+type LegacyTableChatSendMessage = {
+  source: "tavla-legacy";
+  type: "table-chat-send";
+  text: string;
+};
+
+type LegacyTableChatReadyMessage = {
+  source: "tavla-legacy";
+  type: "table-chat-ready";
+};
+
+type LegacyHostMessage =
+  | LegacyHostStateMessage
+  | LegacyMatchFinishedMessage
+  | LegacyTableChatSendMessage
+  | LegacyTableChatReadyMessage;
 
 type PlayerProfileModalState = {
   open: boolean;
@@ -942,7 +957,6 @@ function App() {
     localColor: null as Seat | null,
   });
   const [lobbyChatInput, setLobbyChatInput] = useState("");
-  const [tableChatInput, setTableChatInput] = useState("");
 
   const lobbyChannelRef = useRef<BroadcastChannel | null>(null);
   const realtimeSocketRef = useRef<WebSocket | null>(null);
@@ -956,6 +970,7 @@ function App() {
   const [realtimeStatus, setRealtimeStatus] = useState<"offline" | "connecting" | "online">("offline");
   const processedMatchTokensRef = useRef<Set<string>>(new Set());
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const lobbyChatListRef = useRef<HTMLDivElement | null>(null);
 
   const safeGuestName = useMemo(() => {
     const memberName = member ? sanitizeGuestName(member.displayName) : "";
@@ -981,6 +996,7 @@ function App() {
     qp.set("t", String(iframeKey));
     qp.set("guest", safeGuestName);
     qp.set("sync_ws", REALTIME_WS_BASE_URL);
+    qp.set("member", member ? "1" : "0");
     if (roomSession) {
       qp.set("room", roomSession.code);
       qp.set("seat", roomSession.seat);
@@ -989,7 +1005,7 @@ function App() {
       qp.set("table", String(roomSession.tableNo));
     }
     return `/legacy/index.html?${qp.toString()}`;
-  }, [mode, iframeKey, roomSession, safeGuestName, isRoomMode]);
+  }, [mode, iframeKey, roomSession, safeGuestName, isRoomMode, member]);
 
   const openedTables = useMemo(() => {
     return sortTables(lobbyState.tables).filter((table) => Boolean(table.white || table.black));
@@ -1096,7 +1112,6 @@ function App() {
   const canWriteLobbyChat = Boolean(member);
   const canWriteTableChat = Boolean(member && roomSession && canViewTableChat && mode === "local");
   const lobbyDraft = sanitizeChatText(lobbyChatInput);
-  const tableDraft = sanitizeChatText(tableChatInput);
 
   function broadcastLobbySync() {
     lobbyChannelRef.current?.postMessage({ type: "lobby-sync", at: Date.now() });
@@ -1230,7 +1245,6 @@ function App() {
       setLobbyNotice("Masa sohbetini sadece masadaki oyuncular gonderebilir.");
       return;
     }
-    setTableChatInput("");
   }
 
   function refreshBoard() {
@@ -2001,6 +2015,22 @@ function App() {
     );
   }
 
+  function syncTableChatToIframe(targetWindow?: Window | null) {
+    const frameWindow = targetWindow ?? iframeRef.current?.contentWindow;
+    if (!frameWindow) return;
+    const tableChatVisible = Boolean(roomSession && mode === "local" && canViewTableChat);
+    frameWindow.postMessage(
+      {
+        source: "tavla-host",
+        type: "table-chat-sync",
+        rows: tableChatVisible ? tableChatRows : [],
+        canView: tableChatVisible,
+        canWrite: tableChatVisible && canWriteTableChat,
+      },
+      window.location.origin,
+    );
+  }
+
   function closeProfileModal() {
     setProfileModal((prev) => ({ ...prev, open: false, loading: false }));
   }
@@ -2341,6 +2371,18 @@ function App() {
       if (!payload || typeof payload !== "object") return;
       if ((payload as { source?: unknown }).source !== "tavla-legacy") return;
 
+      if (payload.type === "table-chat-ready") {
+        syncTableChatToIframe();
+        return;
+      }
+
+      if (payload.type === "table-chat-send") {
+        if (typeof payload.text === "string") {
+          sendTableChat(payload.text);
+        }
+        return;
+      }
+
       if (payload.type === "state") {
         const winner = payload.winner === "white" || payload.winner === "black" ? payload.winner : null;
         const localColor = payload.localColor === "white" || payload.localColor === "black" ? payload.localColor : null;
@@ -2373,7 +2415,7 @@ function App() {
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [currentProfile.userId, currentProfile.displayName, handleLegacyMatchFinished]);
+  }, [currentProfile.userId, currentProfile.displayName, handleLegacyMatchFinished, sendTableChat, syncTableChatToIframe]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2487,6 +2529,15 @@ function App() {
     if (!isRoomMode || mode === "local") return;
     setMode("local");
   }, [isRoomMode, mode]);
+
+  useEffect(() => {
+    if (!lobbyChatListRef.current) return;
+    lobbyChatListRef.current.scrollTop = lobbyChatListRef.current.scrollHeight;
+  }, [lobbyChatRows]);
+
+  useEffect(() => {
+    syncTableChatToIframe();
+  }, [syncTableChatToIframe, tableChatRows, canViewTableChat, canWriteTableChat, roomSession, mode, iframeKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2775,7 +2826,7 @@ function App() {
                 <span>{lobbyChatRows.length} mesaj</span>
               </div>
 
-              <div className="my-chat-list">
+              <div ref={lobbyChatListRef} className="my-chat-list">
                 {lobbyChatRows.length === 0 ? (
                   <p className="my-chat-empty">Henuz lobi mesaji yok.</p>
                 ) : (
@@ -2927,7 +2978,7 @@ function App() {
       ) : (
         <section className="my-game-layout">
           <div className="my-game-frame">
-            <iframe ref={iframeRef} title="Tavla Oyunu" src={iframeUrl} />
+            <iframe ref={iframeRef} title="Tavla Oyunu" src={iframeUrl} onLoad={() => syncTableChatToIframe()} />
             {roomSession && mode === "local" && roomStartState && !roomStartState.started ? (
               <section className="my-start-overlay">
                 <article className="my-start-card">
@@ -3035,69 +3086,6 @@ function App() {
               )}
             </section>
 
-            {roomSession && mode === "local" ? (
-              <section className="my-side-card">
-                <h3>Masa Sohbeti</h3>
-                {canViewTableChat ? (
-                  <>
-                    <div className="my-chat-list my-chat-list-compact">
-                      {tableChatRows.length === 0 ? (
-                        <p className="my-chat-empty">Masa sohbeti henuz bos.</p>
-                      ) : (
-                        tableChatRows.map((message) => (
-                          <article key={message.id} className="my-chat-row">
-                            <div className="my-chat-meta">
-                              <strong>{message.displayName}</strong>
-                              <time>{formatChatTime(message.at)}</time>
-                            </div>
-                            <p>{message.text}</p>
-                          </article>
-                        ))
-                      )}
-                    </div>
-                    <div className="my-chat-compose">
-                      <input
-                        className="my-input"
-                        placeholder={canWriteTableChat ? "Masaya mesaj yaz..." : "Yazmak icin uye girisi yap"}
-                        value={tableChatInput}
-                        maxLength={CHAT_TEXT_MAX}
-                        onChange={(e) => setTableChatInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key !== "Enter") return;
-                          e.preventDefault();
-                          sendTableChat(tableChatInput);
-                        }}
-                        disabled={!canWriteTableChat}
-                      />
-                      <button
-                        className="my-action-btn"
-                        onClick={() => sendTableChat(tableChatInput)}
-                        disabled={!canWriteTableChat || !tableDraft}
-                      >
-                        Gonder
-                      </button>
-                    </div>
-                    <div className="my-emoji-row">
-                      {["😀", "😂", "👏", "👍", "🔥", "🎲", "😎", "🥳"].map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          className="my-emoji-btn"
-                          onClick={() => sendTableChat(emoji)}
-                          disabled={!canWriteTableChat}
-                          title={`${emoji} gonder`}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                    {!canWriteTableChat ? <p className="my-chat-hint">Masa sohbetine sadece uye oyuncular yazabilir.</p> : null}
-                  </>
-                ) : (
-                  <p className="line">Masa sohbetini sadece masadaki oyuncular gorebilir.</p>
-                )}
-              </section>
-            ) : null}
           </aside>
         </section>
       )}

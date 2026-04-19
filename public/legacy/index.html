@@ -63,6 +63,7 @@
           <p id="status-text" class="status-text">Beyaz basliyor. Zar atarak oyunu baslat.</p>
           <p class="label mini-gap">Son Zar</p>
           <div id="dice-container" class="dice-container" aria-live="polite"></div>
+          <p id="room-boot-note" class="room-boot-note"></p>
         </div>
       </aside>
 
@@ -93,8 +94,21 @@
 
     <section class="activity-wrap">
       <section class="history-card">
-        <p class="label">Hamle Gecmisi</p>
-        <ol id="move-log" class="move-log"></ol>
+        <p class="label">Masa Sohbeti</p>
+        <ol id="move-log" class="move-log history-hidden" hidden></ol>
+        <div id="table-chat-log" class="table-chat-log" aria-live="polite"></div>
+        <div class="table-chat-compose">
+          <input id="table-chat-input" class="chat-input" type="text" maxlength="180" placeholder="Masaya mesaj yaz..." autocomplete="off">
+          <button id="table-chat-send-btn" class="chat-send-btn" type="button">Gonder</button>
+        </div>
+        <div id="table-chat-emoji-row" class="table-chat-emoji-row">
+          <button type="button" class="table-chat-emoji-btn" data-chat-emoji=":)">:)</button>
+          <button type="button" class="table-chat-emoji-btn" data-chat-emoji=":D">:D</button>
+          <button type="button" class="table-chat-emoji-btn" data-chat-emoji=";)">;)</button>
+          <button type="button" class="table-chat-emoji-btn" data-chat-emoji="&lt;3">&lt;3</button>
+          <button type="button" class="table-chat-emoji-btn" data-chat-emoji="GG">GG</button>
+        </div>
+        <p id="table-chat-hint" class="table-chat-hint"></p>
       </section>
 
       <section class="help">

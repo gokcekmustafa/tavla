@@ -18,6 +18,8 @@ const SHOW_MOVE_PATH_GUIDES = false;
 const CHECKER_SIZE_MIN = 16;
 const CHECKER_SIZE_MAX = 48;
 const CHECKER_VISIBLE_PER_POINT = 6;
+const TABLE_CHAT_LIMIT = 80;
+const TABLE_CHAT_TEXT_MAX = 180;
 
 const dom = {
   tableWrap:       document.querySelector(".table-wrap"),
@@ -35,6 +37,11 @@ const dom = {
   colorBlackInput: document.getElementById("player-color-black"),
   autoRollToggle:  document.getElementById("auto-roll-toggle"),
   moveLog:         document.getElementById("move-log"),
+  tableChatLog:    document.getElementById("table-chat-log"),
+  tableChatInput:  document.getElementById("table-chat-input"),
+  tableChatSendBtn: document.getElementById("table-chat-send-btn"),
+  tableChatEmojiRow: document.getElementById("table-chat-emoji-row"),
+  tableChatHint:   document.getElementById("table-chat-hint"),
   offWhite:        document.getElementById("off-white"),
   offBlack:        document.getElementById("off-black"),
   offWhiteCount:   document.getElementById("off-white-count"),
@@ -49,6 +56,7 @@ const dom = {
   roomMetaSeat:    document.getElementById("room-meta-seat"),
   roomTitleMain:   document.getElementById("room-title-main"),
   roomTitleSub:    document.getElementById("room-title-sub"),
+  roomBootNote:    document.getElementById("room-boot-note"),
 };
 
 const pointElements   = new Map();
@@ -87,18 +95,23 @@ let diceSpriteSheetPromise = null;
 let diceSpriteSheet = null;
 let matchToken = createMatchToken();
 let lastHostStateSignature = "";
+let tableChatRows = [];
 
 const roomParams = parseRoomParamsSafe();
 const roomSenderCounters = new Map();
+const roomQueryParams = new URLSearchParams(window.location.search);
+const memberChatEnabledFromQuery = roomQueryParams.get("member") === "1";
+let tableChatCanView = isRoomMode();
+let tableChatCanWrite = memberChatEnabledFromQuery && isRoomMode();
 
 initPreferredPlayerColor();
 void preloadDiceSpriteSheet();
 buildBoard();
 attachEvents();
 initRoomMode();
-addLog(getBootLogMessage());
 render();
 announceRoomJoin();
+notifyHostTableChatReady();
 
 // ── State ────────────────────────────────────────────────────────
 
@@ -440,6 +453,154 @@ function announceRoomJoin() {
   sendRoomMessage("hello");
 }
 
+function notifyHostTableChatReady() {
+  if (!window.parent || window.parent === window) return;
+  window.parent.postMessage(
+    {
+      source: "tavla-legacy",
+      type: "table-chat-ready",
+    },
+    window.location.origin
+  );
+}
+
+function sanitizeTableChatText(raw) {
+  if (typeof raw !== "string") return "";
+  return raw.replace(/\s+/g, " ").trim().slice(0, TABLE_CHAT_TEXT_MAX);
+}
+
+function normalizeTableChatMessage(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw;
+  const id = typeof candidate.id === "string" ? candidate.id.trim().slice(0, 64) : "";
+  const text = sanitizeTableChatText(typeof candidate.text === "string" ? candidate.text : "");
+  if (!id || !text) return null;
+  const at = Number.isFinite(candidate.at) ? Number(candidate.at) : Date.now();
+  const displayNameRaw = typeof candidate.displayName === "string" ? candidate.displayName.trim() : "";
+  const displayName = displayNameRaw ? displayNameRaw.slice(0, 32) : "Oyuncu";
+  return {
+    id,
+    at,
+    displayName,
+    text,
+  };
+}
+
+function normalizeTableChatRows(raw) {
+  if (!Array.isArray(raw)) return [];
+  const byId = new Map();
+  raw.forEach((item) => {
+    const row = normalizeTableChatMessage(item);
+    if (!row) return;
+    const existing = byId.get(row.id);
+    if (!existing || row.at >= existing.at) {
+      byId.set(row.id, row);
+    }
+  });
+  return [...byId.values()]
+    .sort((a, b) => a.at - b.at || a.id.localeCompare(b.id))
+    .slice(-TABLE_CHAT_LIMIT);
+}
+
+function formatTableChatTime(timestamp) {
+  const date = new Date(Number.isFinite(timestamp) ? timestamp : Date.now());
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${hour}:${minute}`;
+}
+
+function applyHostTableChatSync(payload) {
+  const canView = Boolean(payload && payload.canView);
+  const canWrite = Boolean(payload && payload.canWrite);
+  tableChatCanView = canView;
+  tableChatCanWrite = canView && canWrite;
+  tableChatRows = canView ? normalizeTableChatRows(payload?.rows) : [];
+  renderTableChat();
+}
+
+function renderTableChat() {
+  if (!dom.tableChatLog || !dom.tableChatInput || !dom.tableChatSendBtn) return;
+  dom.tableChatLog.innerHTML = "";
+
+  if (!tableChatCanView) {
+    const empty = document.createElement("p");
+    empty.className = "table-chat-empty";
+    empty.textContent = "Masa sohbetini sadece masadaki oyuncular gorebilir.";
+    dom.tableChatLog.appendChild(empty);
+  } else if (!tableChatRows.length) {
+    const empty = document.createElement("p");
+    empty.className = "table-chat-empty";
+    empty.textContent = "Masa sohbeti henuz bos.";
+    dom.tableChatLog.appendChild(empty);
+  } else {
+    tableChatRows.forEach((row) => {
+      const article = document.createElement("article");
+      article.className = "table-chat-row";
+
+      const meta = document.createElement("div");
+      meta.className = "table-chat-meta";
+
+      const name = document.createElement("strong");
+      name.textContent = row.displayName;
+      const time = document.createElement("time");
+      time.textContent = formatTableChatTime(row.at);
+      meta.appendChild(name);
+      meta.appendChild(time);
+
+      const text = document.createElement("p");
+      text.textContent = row.text;
+
+      article.appendChild(meta);
+      article.appendChild(text);
+      dom.tableChatLog.appendChild(article);
+    });
+  }
+
+  dom.tableChatInput.disabled = !tableChatCanWrite;
+  dom.tableChatInput.placeholder = tableChatCanWrite ? "Masaya mesaj yaz..." : "Yazmak icin uye girisi yap";
+  dom.tableChatSendBtn.disabled = !tableChatCanWrite;
+
+  if (dom.tableChatEmojiRow) {
+    const buttons = dom.tableChatEmojiRow.querySelectorAll("button");
+    buttons.forEach((button) => {
+      button.disabled = !tableChatCanWrite;
+    });
+  }
+
+  if (dom.tableChatHint) {
+    dom.tableChatHint.textContent = tableChatCanWrite
+      ? "Son mesajlar altta gorunur."
+      : "Masa sohbetine sadece uye oyuncular yazabilir.";
+  }
+
+  window.requestAnimationFrame(() => {
+    if (!dom.tableChatLog) return;
+    dom.tableChatLog.scrollTop = dom.tableChatLog.scrollHeight;
+  });
+}
+
+function sendTableChatToHost(rawText) {
+  const text = sanitizeTableChatText(rawText);
+  if (!text) return;
+  if (!tableChatCanWrite) {
+    renderTableChat();
+    return;
+  }
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage(
+      {
+        source: "tavla-legacy",
+        type: "table-chat-send",
+        text,
+      },
+      window.location.origin
+    );
+  }
+  if (dom.tableChatInput) {
+    dom.tableChatInput.value = "";
+  }
+}
+
 function onRoomChannelMessage(event) {
   const msg = event?.data;
   const expectedChannel = `${ROOM_CHANNEL_PREFIX}${roomParams.code}`;
@@ -680,6 +841,19 @@ function attachEvents() {
     renderGuideLines();
   });
   window.addEventListener("message", onHostMessage);
+  dom.tableChatSendBtn?.addEventListener("click", () => sendTableChatToHost(dom.tableChatInput?.value || ""));
+  dom.tableChatInput?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    sendTableChatToHost(dom.tableChatInput?.value || "");
+  });
+  dom.tableChatEmojiRow?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const emoji = target.dataset.chatEmoji;
+    if (!emoji) return;
+    sendTableChatToHost(emoji);
+  });
 }
 
 function getLocalHumanColor() {
@@ -720,6 +894,10 @@ function onHostMessage(event) {
   const data = event.data;
   if (!data || typeof data !== "object") return;
   if (data.source !== "tavla-host") return;
+  if (data.type === "table-chat-sync") {
+    applyHostTableChatSync(data);
+    return;
+  }
   if (data.type !== "request-resign") return;
 
   const incomingToken = typeof data.matchToken === "string" ? data.matchToken.slice(0, 96) : "";
@@ -1388,10 +1566,12 @@ function render() {
   syncCheckerSizeToBoard();
   renderTurnInfo();
   renderStatus();
+  renderRoomBootNote();
   renderDice();
   renderBoardState();
   renderHighlights();
   renderGuideLines();
+  renderTableChat();
   renderMoveLog();
   emitHostState();
 }
@@ -1465,6 +1645,11 @@ function renderRoomHeader() {
 
 function renderStatus() {
   dom.statusText.textContent = statusMessage;
+}
+
+function renderRoomBootNote() {
+  if (!dom.roomBootNote) return;
+  dom.roomBootNote.textContent = getBootLogMessage();
 }
 
 function renderDice() {
@@ -1724,6 +1909,7 @@ function buildGuidePath(from, to) {
 }
 
 function renderMoveLog() {
+  if (!dom.moveLog) return;
   dom.moveLog.innerHTML = "";
   if (!moveLog.length) {
     const li = document.createElement("li");
