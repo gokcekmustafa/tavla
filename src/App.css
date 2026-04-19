@@ -478,12 +478,39 @@
 }
 
 .my-table-card {
+  position: relative;
   border-radius: 10px;
   border: 1px solid rgba(107, 69, 12, 0.54);
   background: linear-gradient(180deg, #e4b948, #c99526);
   padding: 8px;
   display: grid;
   gap: 8px;
+}
+
+.my-watch-eye-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 30px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid rgba(107, 72, 12, 0.62);
+  background: linear-gradient(180deg, #f6cb61, #d8981c);
+  color: transparent;
+  font-size: 0;
+  cursor: pointer;
+}
+
+.my-watch-eye-btn::before {
+  content: "\01F441";
+  font-size: 0.95rem;
+  color: #4d2f07;
+  line-height: 1;
+}
+
+.my-watch-eye-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .my-table-card.waiting {

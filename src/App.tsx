@@ -3,6 +3,7 @@ import "./App.css";
 
 type GameMode = "local" | "bot";
 type Seat = "white" | "black";
+type RoomRole = "player" | "spectator";
 type ViewMode = "lobby" | "table";
 type AuthMode = "login" | "register";
 type MatchOutcome = "win" | "loss" | "resign";
@@ -23,6 +24,8 @@ type RoomSession = {
   sessionId: string;
   roomName: string;
   tableNo: number;
+  role: RoomRole;
+  joinedAt: number;
 };
 
 type MemberUser = {
@@ -76,6 +79,7 @@ type LobbyTable = {
   roomCode: string;
   white: LobbySeatState | null;
   black: LobbySeatState | null;
+  allowSpectatorChat: boolean;
   ownerUserId: string;
   isPrivate: boolean;
   invitedUserId: string | null;
@@ -487,6 +491,10 @@ function seatText(seat: Seat) {
   return seat === "white" ? "Beyaz" : "Siyah";
 }
 
+function roomRoleText(role: RoomRole) {
+  return role === "spectator" ? "Izleyici" : "Oyuncu";
+}
+
 function initialsOf(name: string) {
   const clean = sanitizeGuestName(name);
   if (!clean) return "M";
@@ -530,6 +538,7 @@ function getOpenSeat(table: LobbyTable): Seat | null {
 }
 
 function normalizeTableAccess(table: LobbyTable): LobbyTable {
+  const allowSpectatorChat = table.allowSpectatorChat !== false;
   const seatUsers = getSeatUserIds(table);
   const rawOwnerUserId = sanitizeGuestId(table.ownerUserId ?? "");
   let ownerUserId = rawOwnerUserId;
@@ -593,6 +602,8 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
   const normalizedInviteNoticeText = inviteNoticeText || null;
 
   if (
+    table.allowSpectatorChat === allowSpectatorChat
+    &&
     table.ownerUserId === ownerUserId
     && table.isPrivate === isPrivate
     && table.invitedUserId === normalizedInvitedUserId
@@ -606,6 +617,7 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
 
   return {
     ...table,
+    allowSpectatorChat,
     ownerUserId,
     isPrivate,
     invitedUserId: normalizedInvitedUserId,
@@ -807,6 +819,7 @@ function normalizeTable(raw: unknown, index: number): LobbyTable | null {
     roomCode,
     white,
     black,
+    allowSpectatorChat: candidate.allowSpectatorChat !== false,
     ownerUserId: sanitizeGuestId(candidate.ownerUserId ?? ""),
     isPrivate: Boolean(candidate.isPrivate),
     invitedUserId: sanitizeGuestId(candidate.invitedUserId ?? "") || null,
@@ -1041,10 +1054,27 @@ function getNextTableId(tables: LobbyTable[]) {
   return tables.reduce((max, table) => Math.max(max, table.id), 0) + 1;
 }
 
-function mergeSeatState(base: LobbySeatState | null, incoming: LobbySeatState | null) {
-  if (!base) return incoming;
-  if (!incoming) return base;
-  return incoming.touchedAt >= base.touchedAt ? incoming : base;
+function mergeSeatState(
+  base: LobbySeatState | null,
+  incoming: LobbySeatState | null,
+  baseStateUpdatedAt: number,
+  incomingStateUpdatedAt: number,
+  preferBase: boolean,
+) {
+  if (base && !incoming) {
+    if (base.touchedAt <= incomingStateUpdatedAt) return null;
+    return base;
+  }
+  if (!base && incoming) {
+    if (incoming.touchedAt <= baseStateUpdatedAt) return null;
+    return incoming;
+  }
+  if (!base && !incoming) return null;
+  if (!base || !incoming) return null;
+  if (incoming.touchedAt === base.touchedAt) {
+    return preferBase ? base : incoming;
+  }
+  return incoming.touchedAt > base.touchedAt ? incoming : base;
 }
 
 function mergeReadyStamp(base: number | null, incoming: number | null) {
@@ -1074,8 +1104,9 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     const mergedTable: LobbyTable = {
       id: Math.min(existing.id, table.id),
       roomCode: sanitizeRoomCode(existing.roomCode) || sanitizeRoomCode(table.roomCode) || createRoomCode(),
-      white: mergeSeatState(existing.white, table.white),
-      black: mergeSeatState(existing.black, table.black),
+      white: mergeSeatState(existing.white, table.white, remote.updatedAt, local.updatedAt, preferRemote),
+      black: mergeSeatState(existing.black, table.black, remote.updatedAt, local.updatedAt, preferRemote),
+      allowSpectatorChat: preferred.allowSpectatorChat !== false,
       ownerUserId: sanitizeGuestId(preferred.ownerUserId) || sanitizeGuestId(fallback.ownerUserId) || "",
       isPrivate: Boolean(preferred.isPrivate),
       invitedUserId: sanitizeGuestId(preferred.invitedUserId ?? "") || sanitizeGuestId(fallback.invitedUserId ?? "") || null,
@@ -1246,6 +1277,7 @@ function App() {
       qp.set("session", roomSession.sessionId);
       qp.set("room_name", roomSession.roomName);
       qp.set("table", String(roomSession.tableNo));
+      qp.set("observer", roomSession.role === "spectator" ? "1" : "0");
     }
     return `/legacy/index.html?${qp.toString()}`;
   }, [mode, iframeKey, roomSession, safeGuestName, isRoomMode, member]);
@@ -1318,6 +1350,7 @@ function App() {
 
   const roomStartState = useMemo(() => {
     if (!roomSession || !currentRoomTable) return null;
+    if (roomSession.role !== "player") return null;
     const mine = roomSession.seat === "white" ? currentRoomTable.white : currentRoomTable.black;
     const opponent = roomSession.seat === "white" ? currentRoomTable.black : currentRoomTable.white;
     const mineReady = roomSession.seat === "white" ? Boolean(currentRoomTable.whiteReadyAt) : Boolean(currentRoomTable.blackReadyAt);
@@ -1367,6 +1400,7 @@ function App() {
 
   const canCopyInviteLink = useMemo(() => {
     if (!roomSession || !currentRoomTable || !currentRoomIsOwner) return false;
+    if (roomSession.role !== "player") return false;
     if (roomStartState?.started) return false;
     if (matchLiveState.matchActive) return false;
     return true;
@@ -1381,17 +1415,26 @@ function App() {
   const tableChatRows = useMemo(() => {
     if (!currentRoomTable) return [];
     const key = tableChatKey(currentRoomTable);
-    return normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
-  }, [currentRoomTable, lobbyState.tableChats]);
+    const rows = normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
+    if (!roomSession || roomSession.role !== "spectator") return rows;
+    return rows.filter((row) => row.at >= roomSession.joinedAt);
+  }, [currentRoomTable, lobbyState.tableChats, roomSession]);
 
   const canViewTableChat = useMemo(() => {
     if (!roomSession || !currentRoomTable) return false;
+    if (roomSession.role === "spectator") return true;
     const mySeat = roomSession.seat === "white" ? currentRoomTable.white : currentRoomTable.black;
     return Boolean(mySeat && mySeat.sessionId === appSessionId);
   }, [roomSession, currentRoomTable, appSessionId]);
 
   const canWriteLobbyChat = Boolean(member);
-  const canWriteTableChat = Boolean(member && roomSession && canViewTableChat && mode === "local");
+  const canWriteTableChat = Boolean(
+    member
+    && roomSession
+    && canViewTableChat
+    && mode === "local"
+    && (roomSession.role === "player" || currentRoomTable?.allowSpectatorChat !== false),
+  );
   const isAdmin = member?.role === "admin";
   const lobbyDraft = sanitizeChatText(lobbyChatInput);
   const adminSummary = useMemo(() => {
@@ -1525,6 +1568,7 @@ function App() {
     if (!message) return;
 
     let blocked = false;
+    let spectatorChatBlocked = false;
     let tableMissing = false;
     writeLobby((current) => {
       const cleanedTables = cleanupStaleAndPrune(current.tables).tables;
@@ -1534,9 +1578,14 @@ function App() {
         return current;
       }
       const table = cleanedTables[index];
-      const mySeat = roomSession.seat === "white" ? table.white : table.black;
-      if (!mySeat || mySeat.sessionId !== appSessionId) {
-        blocked = true;
+      if (roomSession.role === "player") {
+        const mySeat = roomSession.seat === "white" ? table.white : table.black;
+        if (!mySeat || mySeat.sessionId !== appSessionId) {
+          blocked = true;
+          return current;
+        }
+      } else if (table.allowSpectatorChat === false) {
+        spectatorChatBlocked = true;
         return current;
       }
       const key = tableChatKey(table);
@@ -1557,6 +1606,10 @@ function App() {
     }
     if (blocked) {
       setLobbyNotice("Masa sohbetini sadece masadaki oyuncular gonderebilir.");
+      return;
+    }
+    if (spectatorChatBlocked) {
+      setLobbyNotice("Masa sahibi izleyici sohbetini kapatmis.");
       return;
     }
   }
@@ -1641,6 +1694,8 @@ function App() {
       sessionId: appSessionId,
       roomName: lobbyState.lobbyName,
       tableNo: table.id,
+      role: "player",
+      joinedAt: Date.now(),
     });
     setJoinCodeInput(table.roomCode);
     setJoinSeat(seat === "white" ? "black" : "white");
@@ -1649,6 +1704,39 @@ function App() {
     setCopied(false);
     setInvitePickerTableId(null);
     setLobbyNotice("");
+    forceReloadBoard();
+  }
+
+  function watchTableAsSpectator(table: LobbyTable) {
+    if (!table.white && !table.black) {
+      setLobbyNotice("Bos masa izlenemez.");
+      return;
+    }
+    if (myCurrentSeat) {
+      setLobbyNotice("Masada otururken izleyici moduna gecemezsin.");
+      return;
+    }
+    setMatchLiveState({
+      matchToken: "",
+      matchActive: false,
+      winner: null,
+      localColor: null,
+    });
+    setRoomSession({
+      code: table.roomCode,
+      seat: "white",
+      sessionId: appSessionId,
+      roomName: lobbyState.lobbyName,
+      tableNo: table.id,
+      role: "spectator",
+      joinedAt: Date.now(),
+    });
+    setJoinCodeInput(table.roomCode);
+    setMode("local");
+    setViewMode("table");
+    setCopied(false);
+    setInvitePickerTableId(null);
+    setLobbyNotice(`Masa ${table.id} izleyici modunda acildi.`);
     forceReloadBoard();
   }
 
@@ -1672,6 +1760,7 @@ function App() {
           roomCode: code || createRoomCode(),
           white: null,
           black: null,
+          allowSpectatorChat: true,
           ownerUserId: sanitizeGuestId(currentProfile.userId),
           isPrivate: false,
           invitedUserId: null,
@@ -1813,6 +1902,8 @@ function App() {
         sessionId: appSessionId,
         roomName: lobbyState.lobbyName,
         tableNo: table.id,
+        role: "player",
+        joinedAt: Date.now(),
       });
       setJoinCodeInput(table.roomCode);
       setJoinSeat(seat === "white" ? "black" : "white");
@@ -1826,6 +1917,10 @@ function App() {
 
   function onRoomStartReady() {
     if (!roomSession) return;
+    if (roomSession.role !== "player") {
+      setLobbyNotice("Izleyiciler oyunu baslatamaz.");
+      return;
+    }
     let seatMissing = false;
     let alreadyStarted = false;
     let alreadyReady = false;
@@ -1976,7 +2071,7 @@ function App() {
   async function leaveRoomAndGoLobby() {
     let penalized = false;
     let penaltyWaivedBecauseOpponentLeft = false;
-    if (roomSession && matchLiveState.matchActive && !matchLiveState.winner) {
+    if (roomSession && roomSession.role === "player" && matchLiveState.matchActive && !matchLiveState.winner) {
       const activeTable = getActiveRoomTable();
       const opponentSeat = activeTable
         ? (roomSession.seat === "white" ? activeTable.black : activeTable.white)
@@ -2012,7 +2107,7 @@ function App() {
     let penalized = false;
     let penaltyWaivedBecauseOpponentLeft = false;
     if (roomSession) {
-      if (matchLiveState.matchActive && !matchLiveState.winner) {
+      if (roomSession.role === "player" && matchLiveState.matchActive && !matchLiveState.winner) {
         const activeTable = getActiveRoomTable();
         const opponentSeat = activeTable
           ? (roomSession.seat === "white" ? activeTable.black : activeTable.white)
@@ -2320,6 +2415,52 @@ function App() {
     setLobbyNotice(nowPrivate ? "Masa zaten ozel." : "Masa zaten herkese acik.");
   }
 
+  function setSpectatorChatEnabled(tableId: number, enabled: boolean) {
+    let tableMissing = false;
+    let notOwner = false;
+    let updated = false;
+
+    writeLobby((current) => {
+      const cleaned = cleanupStaleAndPrune(current.tables).tables;
+      const tables = [...cleaned];
+      const index = tables.findIndex((table) => table.id === tableId);
+      if (index < 0) {
+        tableMissing = true;
+        return current;
+      }
+      const table = tables[index];
+      if (!isTableOwnerForUser(table, currentProfile.userId)) {
+        notOwner = true;
+        return current;
+      }
+      if ((table.allowSpectatorChat !== false) === enabled) {
+        return current;
+      }
+      tables[index] = normalizeTableAccess({
+        ...table,
+        allowSpectatorChat: enabled,
+      });
+      updated = true;
+      return {
+        ...current,
+        tables: sortTables(tables),
+        updatedAt: Date.now(),
+      };
+    });
+
+    if (tableMissing) {
+      setLobbyNotice("Masa bulunamadi.");
+      return;
+    }
+    if (notOwner) {
+      setLobbyNotice("Izleyici sohbetini sadece masa sahibi ayarlayabilir.");
+      return;
+    }
+    if (updated) {
+      setLobbyNotice(enabled ? "Izleyici sohbeti acildi." : "Izleyici sohbeti kapatildi.");
+    }
+  }
+
   function invitePlayerToTable(tableId: number, targetUserId: string) {
     const safeTargetUserId = sanitizeGuestId(targetUserId);
     if (!safeTargetUserId) return;
@@ -2497,6 +2638,10 @@ function App() {
 
   async function onCopyInvite() {
     if (!roomSession || !currentRoomTable) return;
+    if (roomSession.role !== "player") {
+      setLobbyNotice("Izleyici modunda davet linki kopyalanamaz.");
+      return;
+    }
     if (!currentRoomIsOwner) {
       setLobbyNotice("Davet linkini sadece masa sahibi kopyalayabilir.");
       return;
@@ -2870,6 +3015,7 @@ function App() {
 
   function syncRoomSeatHeartbeat() {
     if (!roomSession) return;
+    if (roomSession.role !== "player") return;
     let blocked = false;
     let blockedReason: "occupied" | "private" | "already-seated" | null = null;
 
@@ -2890,6 +3036,7 @@ function App() {
           roomCode,
           white: null,
           black: null,
+          allowSpectatorChat: true,
           ownerUserId: sanitizeGuestId(currentProfile.userId),
           isPrivate: false,
           invitedUserId: null,
@@ -3402,12 +3549,18 @@ function App() {
       url.searchParams.set("name", safeGuestName);
       url.searchParams.set("room_name", roomSession.roomName);
       url.searchParams.set("table", String(roomSession.tableNo));
+      if (roomSession.role === "spectator") {
+        url.searchParams.set("observer", "1");
+      } else {
+        url.searchParams.delete("observer");
+      }
     } else {
       url.searchParams.delete("room");
       url.searchParams.delete("seat");
       url.searchParams.delete("name");
       url.searchParams.delete("room_name");
       url.searchParams.delete("table");
+      url.searchParams.delete("observer");
     }
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
   }, [roomSession, safeGuestName]);
@@ -3480,7 +3633,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!roomSession) return;
+    if (!roomSession || roomSession.role !== "player") return;
     syncRoomSeatHeartbeat();
     const timer = window.setInterval(() => syncRoomSeatHeartbeat(), HEARTBEAT_MS);
     return () => window.clearInterval(timer);
@@ -3537,6 +3690,21 @@ function App() {
     lobbyState.guestLabels,
     guestId,
   ]);
+
+  useEffect(() => {
+    if (!roomSession) return;
+    if (currentRoomTable) return;
+    setRoomSession(null);
+    setViewMode("lobby");
+    setMatchLiveState({
+      matchToken: "",
+      matchActive: false,
+      winner: null,
+      localColor: null,
+    });
+    setLobbyNotice("Masa kapandi.");
+    forceReloadBoard();
+  }, [roomSession, currentRoomTable]);
 
   useEffect(() => {
     const onBeforeUnload = () => {
@@ -3604,7 +3772,13 @@ function App() {
                 : "Canli Senkron Kapali"}
           </span>
           <span className={`my-chip ${roomSession ? "active" : ""}`}>
-            {roomSession ? `Masa ${roomSession.tableNo}` : mode === "bot" ? "Bot Modu" : "Yerel"}
+            {roomSession
+              ? roomSession.role === "spectator"
+                ? `Masa ${roomSession.tableNo} Izle`
+                : `Masa ${roomSession.tableNo}`
+              : mode === "bot"
+                ? "Bot Modu"
+                : "Yerel"}
           </span>
         </div>
       </header>
@@ -3694,9 +3868,19 @@ function App() {
                         : table.black?.sessionId === appSessionId
                           ? "black"
                           : null;
+                    const canWatchTable = !mySeatHere && !myCurrentSeat && Boolean(table.white || table.black);
 
                     return (
                       <article key={table.id} className={`my-table-card ${status}`}>
+                        <button
+                          className="my-watch-eye-btn"
+                          onClick={() => watchTableAsSpectator(table)}
+                          disabled={!canWatchTable}
+                          title={canWatchTable ? "Masayi izleyici olarak ac" : "Izlemek icin masada oturmamalisin"}
+                          aria-label="Masayi izle"
+                        >
+                          👁
+                        </button>
                         <div className="my-table-card-head">
                           <strong>Masa {table.id}</strong>
                           <span className="my-table-status">
@@ -4148,7 +4332,7 @@ function App() {
         <section className="my-game-layout">
           <div className="my-game-frame">
             <iframe ref={iframeRef} title="Tavla Oyunu" src={iframeUrl} onLoad={() => syncTableChatToIframe()} />
-            {roomSession && mode === "local" && roomStartState && !roomStartState.started ? (
+            {roomSession && roomSession.role === "player" && mode === "local" && roomStartState && !roomStartState.started ? (
               <section className="my-start-overlay">
                 <article className="my-start-card">
                   <h3>Oyuna Basla</h3>
@@ -4165,13 +4349,15 @@ function App() {
                           ? "Rakip hazir. Baslamak icin Oyuna Basla butonuna bas."
                           : "Iki oyuncu da Oyuna Basla butonuna basmali."}
                   </p>
-                  <button
-                    className="my-action-btn"
-                    onClick={onRoomStartReady}
-                    disabled={!roomStartState.mine || roomStartState.mineReady}
-                  >
-                    {roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
-                  </button>
+                  {roomStartState.bothSeated ? (
+                    <button
+                      className="my-action-btn"
+                      onClick={onRoomStartReady}
+                      disabled={!roomStartState.mine || roomStartState.mineReady}
+                    >
+                      {roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
+                    </button>
+                  ) : null}
                 </article>
               </section>
             ) : null}
@@ -4220,7 +4406,7 @@ function App() {
                     Kod: <code>{roomSession.code}</code>
                   </p>
                   <p className="line">
-                    Masa: <code>{roomSession.tableNo}</code> / Sen: <code>{seatText(roomSession.seat)}</code>
+                    Masa: <code>{roomSession.tableNo}</code> / Sen: <code>{roomSession.role === "spectator" ? roomRoleText(roomSession.role) : seatText(roomSession.seat)}</code>
                   </p>
                   <p className="line">
                     Beyaz: <code>{currentRoomTable?.white?.displayName ?? "-"}</code>
@@ -4238,7 +4424,7 @@ function App() {
                         Baslangic:{" "}
                         <code>{roomStartState.started ? "Basladi" : `${roomStartState.readyCount}/2 Hazir`}</code>
                       </p>
-                      {!roomStartState.started ? (
+                      {!roomStartState.started && roomStartState.bothSeated ? (
                         <button
                           className="my-action-btn"
                           onClick={onRoomStartReady}
@@ -4264,6 +4450,12 @@ function App() {
                         onClick={() => setTablePrivateMode(currentRoomTable.id, !currentRoomTable.isPrivate)}
                       >
                         {currentRoomTable.isPrivate ? "Ozeli Kapat" : "Masa Ozel Yap"}
+                      </button>
+                      <button
+                        className={`my-action-btn ${currentRoomTable.allowSpectatorChat === false ? "" : "soft"}`}
+                        onClick={() => setSpectatorChatEnabled(currentRoomTable.id, currentRoomTable.allowSpectatorChat === false)}
+                      >
+                        {currentRoomTable.allowSpectatorChat === false ? "Izleyici Yazisini Ac" : "Izleyici Yazisini Kapat"}
                       </button>
                       <button className="my-action-btn" onClick={onCopyInvite} disabled={!canCopyInviteLink}>
                         {copied ? "Kopyalandi" : "Davet Linki Kopyala"}

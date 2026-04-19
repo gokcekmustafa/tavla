@@ -192,6 +192,7 @@ function parseRoomParamsLegacy() {
     || "")
     .replace(/[^0-9]/g, "");
   const seatParam = params.get("seat");
+  const observer = params.get("observer") === "1";
   const seat = seatParam === WHITE || seatParam === BLACK ? seatParam : WHITE;
   const sessionRaw = (params.get("session") || "")
     .replace(/[^a-zA-Z0-9_-]/g, "")
@@ -214,11 +215,12 @@ function parseRoomParamsLegacy() {
   const roomName = roomNameRaw || (roomCode ? `Oda ${roomCode}` : "Yerel Oyun");
 
   return {
-    enabled: Boolean(roomCode && (seatParam === WHITE || seatParam === BLACK)),
+    enabled: Boolean(roomCode && (seatParam === WHITE || seatParam === BLACK || observer)),
     code: roomCode,
     roomName,
     tableNo,
     seat,
+    observer,
     session: sessionRaw || createRoomSessionId(),
     guest: guestRaw || "Misafir",
     syncWs: normalizeRoomSyncWsBase(syncWsRaw),
@@ -248,6 +250,7 @@ function parseRoomParamsSafe() {
     || "")
     .replace(/[^0-9]/g, "");
   const seatParam = params.get("seat");
+  const observer = params.get("observer") === "1";
   const seat = seatParam === WHITE || seatParam === BLACK ? seatParam : WHITE;
   const sessionRaw = (params.get("session") || "")
     .replace(/[^a-zA-Z0-9_-]/g, "")
@@ -271,11 +274,12 @@ function parseRoomParamsSafe() {
   const roomName = roomNameRaw || (roomCode ? `Oda ${roomCode}` : "Yerel Oyun");
 
   return {
-    enabled: Boolean(roomCode && (seatParam === WHITE || seatParam === BLACK)),
+    enabled: Boolean(roomCode && (seatParam === WHITE || seatParam === BLACK || observer)),
     code: roomCode,
     roomName,
     tableNo,
     seat,
+    observer,
     session: sessionRaw || createRoomSessionId(),
     guest: guestRaw || "Misafir",
     syncWs: normalizeRoomSyncWsBase(syncWsRaw),
@@ -337,11 +341,15 @@ function toLogicalPoint(viewPoint) {
 
 function isLocalSeatTurn() {
   if (!isRoomMode()) return true;
+  if (roomParams.observer) return false;
   return currentPlayer === roomParams.seat;
 }
 
 function getBootLogMessage() {
   if (isRoomMode()) {
+    if (roomParams.observer) {
+      return `${roomParams.roomName} / Masa ${roomParams.tableNo} izleyici modunda acildi.`;
+    }
     return `${roomParams.roomName} / Masa ${roomParams.tableNo} acildi. Sen ${playerText(roomParams.seat)} oyuncususun.`;
   }
   return gameMode === "bot" ? "Bilgisayara karşı modda yeni oyun hazır." : "Yeni oyun hazır.";
@@ -369,7 +377,9 @@ function initRoomMode() {
     dom.roomMetaCode.textContent = `Oda: ${roomParams.roomName} (Kod: ${roomParams.code})`;
   }
   if (dom.roomMetaSeat) {
-    dom.roomMetaSeat.textContent = `Masa: ${roomParams.tableNo} / Sen: ${playerText(roomParams.seat)}`;
+    dom.roomMetaSeat.textContent = roomParams.observer
+      ? `Masa: ${roomParams.tableNo} / Sen: Izleyici`
+      : `Masa: ${roomParams.tableNo} / Sen: ${playerText(roomParams.seat)}`;
   }
 
   setStatus(`${roomParams.roomName} - Masa ${roomParams.tableNo} aktif. Sıra ${playerText(currentPlayer)} oyuncusunda.`);
@@ -739,6 +749,11 @@ function applyRoomSnapshot(snapshot) {
 
 function canControlRoomAction() {
   if (!isRoomMode()) return true;
+  if (roomParams.observer) {
+    setStatus("Izleyici modunda hamle yapamazsin.");
+    render();
+    return false;
+  }
   if (winner) return false;
   if (isLocalSeatTurn()) return true;
   setStatus(`Sıra ${playerText(currentPlayer)} oyuncusunda. Sen ${playerText(roomParams.seat)} bekliyorsun.`);
@@ -886,7 +901,7 @@ function attachEvents() {
 }
 
 function getLocalHumanColor() {
-  if (isRoomMode()) return roomParams.seat;
+  if (isRoomMode()) return roomParams.observer ? null : roomParams.seat;
   if (gameMode === "bot") return preferredPlayerColor;
   return null;
 }
@@ -972,6 +987,11 @@ function onHostMessage(event) {
 
 function onNewGame() {
   ensureBoardPerspective();
+  if (isRoomMode() && roomParams.observer) {
+    setStatus("Izleyici modunda yeni oyun baslatamazsin.");
+    render();
+    return;
+  }
   if (isRoomMode() && roomParams.seat !== WHITE) {
     setStatus("Yeni oyunu Beyaz oyuncu baslatabilir.");
     render();
@@ -1658,7 +1678,7 @@ function renderTurnInfo() {
     dom.botDifficultySelect.value = normalizeBotDifficulty(botDifficulty);
     dom.botDifficultySelect.disabled = isRoomMode() || gameMode !== "bot";
   }
-  dom.newGameBtn.disabled = isRoomMode() && roomParams.seat !== WHITE;
+  dom.newGameBtn.disabled = (isRoomMode() && roomParams.seat !== WHITE) || (isRoomMode() && roomParams.observer);
   if (dom.autoRollToggle) {
     dom.autoRollToggle.checked = autoRollEnabled;
     dom.autoRollToggle.disabled = waitingForOpponent;
@@ -1680,7 +1700,9 @@ function renderTurnInfo() {
     dom.roomMetaCode.textContent = `Oda: ${roomParams.roomName} (Kod: ${roomParams.code})`;
   }
   if (dom.roomMetaSeat && isRoomMode()) {
-    dom.roomMetaSeat.textContent = `Masa: ${roomParams.tableNo} / Sen: ${playerText(roomParams.seat)} / Sira: ${playerText(currentPlayer)}`;
+    dom.roomMetaSeat.textContent = roomParams.observer
+      ? `Masa: ${roomParams.tableNo} / Sen: Izleyici / Sira: ${playerText(currentPlayer)}`
+      : `Masa: ${roomParams.tableNo} / Sen: ${playerText(roomParams.seat)} / Sira: ${playerText(currentPlayer)}`;
   }
   renderRoomHeader();
 }
@@ -1709,7 +1731,9 @@ function renderRoomHeader() {
     : (gameMode === "bot" ? "Yerel Oyun - Bot Modu" : "Yerel Oyun");
 
   const titleSub = isRoomMode()
-    ? `Masa ${roomParams.tableNo} - Sen: ${playerText(roomParams.seat)}`
+    ? roomParams.observer
+      ? `Masa ${roomParams.tableNo} - Sen: Izleyici`
+      : `Masa ${roomParams.tableNo} - Sen: ${playerText(roomParams.seat)}`
     : `Masa ${roomParams.tableNo} - Secili: ${playerText(preferredPlayerColor)}`;
 
   dom.roomTitleMain.textContent = titleMain;
