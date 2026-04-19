@@ -193,6 +193,12 @@
   padding: 7px 10px;
 }
 
+.my-notice.my-notice-soft {
+  border-color: rgba(148, 224, 244, 0.65);
+  background: rgba(16, 88, 111, 0.34);
+  color: #dbf4ff;
+}
+
 .my-empty-state {
   border-radius: 8px;
   border: 1px dashed rgba(198, 231, 243, 0.58);
@@ -548,6 +554,39 @@
 .my-auth-form {
   display: grid;
   gap: 7px;
+}
+
+.my-admin-rules-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.my-admin-user-list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: grid;
+  gap: 7px;
+  padding-right: 2px;
+}
+
+.my-admin-user-row {
+  border-radius: 7px;
+  border: 1px solid rgba(107, 190, 215, 0.3);
+  background: rgba(5, 52, 68, 0.72);
+  padding: 8px;
+  display: grid;
+  gap: 5px;
+}
+
+.my-admin-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.my-admin-actions .my-action-btn {
+  min-height: 32px;
+  font-size: 0.78rem;
 }
 
 .my-auth-toggle {

@@ -6,6 +6,7 @@ type Seat = "white" | "black";
 type ViewMode = "lobby" | "table";
 type AuthMode = "login" | "register";
 type MatchOutcome = "win" | "loss" | "resign";
+type MemberRole = "user" | "admin";
 
 type PlayerStats = {
   gamesPlayed: number;
@@ -29,6 +30,14 @@ type MemberUser = {
   points: number;
   createdAt: number;
   stats: PlayerStats;
+  role: MemberRole;
+};
+
+type GameRules = {
+  winPoints: number;
+  lossPoints: number;
+  resignPenaltyPoints: number;
+  updatedAt: number;
 };
 
 type GuestProfile = {
@@ -174,8 +183,9 @@ const DEFAULT_LOBBY_NAME = "Lobi 1";
 const SEAT_STALE_MS = 25_000;
 const PRESENCE_STALE_MS = 35_000;
 const HEARTBEAT_MS = 5_000;
-const WIN_POINTS = 100;
-const RESIGN_PENALTY_POINTS = 50;
+const DEFAULT_WIN_POINTS = 100;
+const DEFAULT_LOSS_POINTS = 0;
+const DEFAULT_RESIGN_PENALTY_POINTS = 50;
 const CHAT_TEXT_MAX = 180;
 const LOBBY_CHAT_LIMIT = 120;
 const TABLE_CHAT_LIMIT = 80;
@@ -245,6 +255,41 @@ function sanitizeLobbyName(value: string) {
 
 function sanitizeEmail(value: string) {
   return value.trim().toLowerCase().slice(0, 80);
+}
+
+function sanitizeMemberRole(raw: unknown): MemberRole {
+  if (raw === "admin") return "admin";
+  return "user";
+}
+
+function normalizeRuleNumber(value: unknown, fallback: number, min: number, max: number) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  const next = Math.trunc(num);
+  if (next < min) return min;
+  if (next > max) return max;
+  return next;
+}
+
+function createDefaultGameRules(): GameRules {
+  return {
+    winPoints: DEFAULT_WIN_POINTS,
+    lossPoints: DEFAULT_LOSS_POINTS,
+    resignPenaltyPoints: DEFAULT_RESIGN_PENALTY_POINTS,
+    updatedAt: Date.now(),
+  };
+}
+
+function normalizeGameRules(raw: unknown, fallback?: GameRules): GameRules {
+  const base = fallback ?? createDefaultGameRules();
+  if (!raw || typeof raw !== "object") return base;
+  const candidate = raw as Partial<GameRules>;
+  return {
+    winPoints: normalizeRuleNumber(candidate.winPoints, base.winPoints, -10_000, 10_000),
+    lossPoints: normalizeRuleNumber(candidate.lossPoints, base.lossPoints, -10_000, 10_000),
+    resignPenaltyPoints: normalizeRuleNumber(candidate.resignPenaltyPoints, base.resignPenaltyPoints, 0, 10_000),
+    updatedAt: Number.isFinite(candidate.updatedAt) ? Number(candidate.updatedAt) : base.updatedAt,
+  };
 }
 
 function sanitizeChatId(value: string) {
@@ -333,10 +378,11 @@ function applyStatsOutcome(base: PlayerStats, outcome: MatchOutcome): PlayerStat
   return next;
 }
 
-function pointsDeltaForOutcome(outcome: MatchOutcome) {
-  if (outcome === "win") return WIN_POINTS;
-  if (outcome === "resign") return -RESIGN_PENALTY_POINTS;
-  return 0;
+function pointsDeltaForOutcome(outcome: MatchOutcome, rules: GameRules) {
+  const activeRules = normalizeGameRules(rules, createDefaultGameRules());
+  if (outcome === "win") return activeRules.winPoints;
+  if (outcome === "resign") return -activeRules.resignPenaltyPoints;
+  return activeRules.lossPoints;
 }
 
 function normalizeNonNegativeInt(value: unknown, fallback = 0) {
@@ -362,7 +408,19 @@ function normalizeMemberUser(raw: unknown): MemberUser | null {
     points: normalizeNonNegativeInt(candidate.points, 1500),
     createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
     stats: normalizeStats(candidate.stats),
+    role: sanitizeMemberRole(candidate.role),
   };
+}
+
+function normalizeMemberUsers(raw: unknown): MemberUser[] {
+  if (!Array.isArray(raw)) return [];
+  const byId = new Map<string, MemberUser>();
+  raw.forEach((item) => {
+    const user = normalizeMemberUser(item);
+    if (!user) return;
+    byId.set(user.id, user);
+  });
+  return [...byId.values()].sort((a, b) => a.displayName.localeCompare(b.displayName, "tr"));
 }
 
 function createSessionId() {
@@ -936,6 +994,12 @@ function App() {
   });
 
   const [member, setMember] = useState<MemberUser | null>(null);
+  const [gameRules, setGameRules] = useState<GameRules>(() => createDefaultGameRules());
+  const [adminUsers, setAdminUsers] = useState<MemberUser[]>([]);
+  const [adminBusy, setAdminBusy] = useState(false);
+  const [adminError, setAdminError] = useState("");
+  const [adminNotice, setAdminNotice] = useState("");
+  const [ruleDraft, setRuleDraft] = useState<GameRules>(() => createDefaultGameRules());
   const [authMode, setAuthMode] = useState<AuthMode>("register");
   const [authDisplayName, setAuthDisplayName] = useState("");
   const [authEmail, setAuthEmail] = useState("");
@@ -1111,6 +1175,7 @@ function App() {
 
   const canWriteLobbyChat = Boolean(member);
   const canWriteTableChat = Boolean(member && roomSession && canViewTableChat && mode === "local");
+  const isAdmin = member?.role === "admin";
   const lobbyDraft = sanitizeChatText(lobbyChatInput);
 
   function broadcastLobbySync() {
@@ -1609,7 +1674,7 @@ function App() {
         : null;
       if (opponentSeat) {
         const confirmed = window.confirm(
-          "Oyun basladi. Masadan kalkarsan 50 puan kaybedersin. Rakibin galip sayilip 100 puan kazanir. Devam etmek istiyor musun?",
+          `Oyun basladi. Masadan kalkarsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Rakibin galip sayilip ${gameRules.winPoints} puan kazanir. Devam etmek istiyor musun?`,
         );
         if (!confirmed) return;
         const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
@@ -1624,7 +1689,7 @@ function App() {
 
     closeRoomAndReturnLobby();
     if (penalized) {
-      setLobbyNotice("Masadan ayrildin: -50 puan. Rakibin +100 puan kazandi.");
+      setLobbyNotice(`Masadan ayrildin: -${gameRules.resignPenaltyPoints} puan. Rakibin +${gameRules.winPoints} puan kazandi.`);
       return;
     }
     if (penaltyWaivedBecauseOpponentLeft) {
@@ -1645,7 +1710,7 @@ function App() {
           : null;
         if (opponentSeat) {
           const confirmed = window.confirm(
-            "Devam eden masadan ayrilirsan 50 puan kaybedersin. Bot moduna gecmek istiyor musun?",
+            `Devam eden masadan ayrilirsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Bot moduna gecmek istiyor musun?`,
           );
           if (!confirmed) return;
           const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
@@ -1663,7 +1728,7 @@ function App() {
     setMode("bot");
     setCopied(false);
     if (penalized) {
-      setLobbyNotice("Bot modu aktif. Masadan ayrildigin icin -50 puan uygulandi.");
+      setLobbyNotice(`Bot modu aktif. Masadan ayrildigin icin -${gameRules.resignPenaltyPoints} puan uygulandi.`);
     } else if (penaltyWaivedBecauseOpponentLeft) {
       setLobbyNotice("Bot modu aktif. Rakip masadan ayrildigi icin ceza uygulanmadi.");
     } else {
@@ -1687,6 +1752,131 @@ function App() {
     setMode("local");
     setViewMode("table");
     if (!roomSession) refreshBoard();
+  }
+
+  async function refreshGameRules() {
+    try {
+      const response = await fetch("/api/auth/rules", { method: "GET" });
+      const data = (await response.json().catch(() => null)) as { rules?: unknown } | null;
+      if (!response.ok) return;
+      const nextRules = normalizeGameRules(data?.rules, gameRules);
+      setGameRules(nextRules);
+      setRuleDraft(nextRules);
+    } catch {
+      // keep local defaults if service is unavailable
+    }
+  }
+
+  async function loadAdminState(adminUserId?: string) {
+    const userId = sanitizeGuestId(adminUserId ?? member?.id ?? "");
+    if (!userId) return;
+    setAdminBusy(true);
+    setAdminError("");
+    try {
+      const url = new URL("/api/auth/admin/state", window.location.origin);
+      url.searchParams.set("userId", userId);
+      const response = await fetch(url.toString(), { method: "GET" });
+      const data = (await response.json().catch(() => null)) as { users?: unknown; rules?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const errorText = typeof data?.error === "string" ? data.error : "Admin verisi alinamadi.";
+        setAdminError(errorText);
+        return;
+      }
+      const users = normalizeMemberUsers(data?.users);
+      setAdminUsers(users);
+      const nextRules = normalizeGameRules(data?.rules, gameRules);
+      setGameRules(nextRules);
+      setRuleDraft(nextRules);
+    } catch {
+      setAdminError("Admin servisine baglanilamadi.");
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function runAdminUserAction(
+    targetUserId: string,
+    action: "addPoints" | "setRole" | "resetStats" | "deleteUser",
+    payload: Record<string, unknown> = {},
+  ) {
+    if (!member || member.role !== "admin") return;
+    const safeTargetUserId = sanitizeGuestId(targetUserId);
+    if (!safeTargetUserId) return;
+    setAdminBusy(true);
+    setAdminError("");
+    setAdminNotice("");
+    try {
+      const response = await fetch("/api/auth/admin/user", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          adminUserId: member.id,
+          targetUserId: safeTargetUserId,
+          action,
+          ...payload,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { user?: unknown; deleted?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const errorText = typeof data?.error === "string" ? data.error : "Admin islemi basarisiz.";
+        setAdminError(errorText);
+        return;
+      }
+
+      const updated = normalizeMemberUser(data?.user);
+      if (updated) {
+        setAdminUsers((prev) => {
+          const map = new Map(prev.map((item) => [item.id, item] as const));
+          map.set(updated.id, updated);
+          return [...map.values()].sort((a, b) => a.displayName.localeCompare(b.displayName, "tr"));
+        });
+        patchSeatByUserId(updated.id, updated.points, updated.stats, updated.displayName);
+        if (member.id === updated.id) {
+          setMember(updated);
+          setGuestName(updated.displayName);
+        }
+      } else if (data?.deleted) {
+        setAdminUsers((prev) => prev.filter((item) => item.id !== safeTargetUserId));
+      }
+
+      setAdminNotice("Admin islemi tamamlandi.");
+    } catch {
+      setAdminError("Admin servisine baglanilamadi.");
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function saveAdminRules() {
+    if (!member || member.role !== "admin") return;
+    setAdminBusy(true);
+    setAdminError("");
+    setAdminNotice("");
+    try {
+      const normalizedDraft = normalizeGameRules(ruleDraft, gameRules);
+      const response = await fetch("/api/auth/admin/rules", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          adminUserId: member.id,
+          rules: normalizedDraft,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { rules?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const errorText = typeof data?.error === "string" ? data.error : "Kural kaydi basarisiz.";
+        setAdminError(errorText);
+        return;
+      }
+      const nextRules = normalizeGameRules(data?.rules, normalizedDraft);
+      setGameRules(nextRules);
+      setRuleDraft(nextRules);
+      setAdminNotice("Oyun kurallari kaydedildi.");
+    } catch {
+      setAdminError("Kural servisine baglanilamadi.");
+    } finally {
+      setAdminBusy(false);
+    }
   }
 
   function onOpenMemberPanel() {
@@ -1794,10 +1984,10 @@ function App() {
 
   async function onLoginMember() {
     if (authBusy) return;
-    const email = sanitizeEmail(authEmail);
+    const identifier = authEmail.trim().slice(0, 80);
     const password = authPassword.trim().slice(0, 64);
-    if (!email.includes("@")) {
-      setAuthError("Gecerli e-posta girin.");
+    if (!identifier) {
+      setAuthError("E-posta veya kullanici adi girin.");
       return;
     }
     if (!password) {
@@ -1811,11 +2001,11 @@ function App() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ identifier, password }),
       });
       const data = (await response.json().catch(() => null)) as { user?: unknown; error?: unknown } | null;
       if (!response.ok) {
-        const serverError = typeof data?.error === "string" ? data.error : "E-posta veya sifre yanlis.";
+        const serverError = typeof data?.error === "string" ? data.error : "Kullanici adi/e-posta veya sifre yanlis.";
         setAuthError(serverError);
         return;
       }
@@ -1902,7 +2092,7 @@ function App() {
         body: JSON.stringify({
           userId,
           outcome,
-          pointsDelta: pointsDeltaForOutcome(outcome),
+          pointsDelta: pointsDeltaForOutcome(outcome, gameRules),
           matchToken,
         }),
       });
@@ -1925,7 +2115,7 @@ function App() {
       const next: GuestProfile = {
         ...prev,
         displayName: safeGuestName,
-        points: Math.max(0, prev.points + pointsDeltaForOutcome(outcome)),
+        points: Math.max(0, prev.points + pointsDeltaForOutcome(outcome, gameRules)),
         stats: nextStats,
       };
       saveGuestProfile(next);
@@ -1951,13 +2141,13 @@ function App() {
       return {
         ...guestProfile,
         displayName: safeGuestName,
-        points: Math.max(0, guestProfile.points + pointsDeltaForOutcome(outcome)),
+        points: Math.max(0, guestProfile.points + pointsDeltaForOutcome(outcome, gameRules)),
         stats: applyStatsOutcome(guestProfile.stats, outcome),
       } satisfies GuestProfile;
     }
 
     const syntheticStats = applyStatsOutcome(createEmptyStats(), outcome);
-    const syntheticPoints = Math.max(0, 1500 + pointsDeltaForOutcome(outcome));
+    const syntheticPoints = Math.max(0, 1500 + pointsDeltaForOutcome(outcome, gameRules));
     patchSeatByUserId(userId, syntheticPoints, syntheticStats, fallbackName);
     return {
       userId,
@@ -2231,9 +2421,9 @@ function App() {
 
     await applyOutcomeForUserId(currentProfile.userId, localOutcome, currentProfile.displayName, token);
     if (localOutcome === "win") {
-      setLobbyNotice("Oyunu kazandin. +100 puan eklendi.");
+      setLobbyNotice(`Oyunu kazandin. +${gameRules.winPoints} puan eklendi.`);
     } else if (localOutcome === "resign") {
-      setLobbyNotice("Masadan kalktin. 50 puan dusuldu.");
+      setLobbyNotice(`Masadan kalktin. ${gameRules.resignPenaltyPoints} puan dusuldu.`);
     }
   }
 
@@ -2416,6 +2606,20 @@ function App() {
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [currentProfile.userId, currentProfile.displayName, handleLegacyMatchFinished, sendTableChat, syncTableChatToIframe]);
+
+  useEffect(() => {
+    void refreshGameRules();
+  }, []);
+
+  useEffect(() => {
+    if (!member || member.role !== "admin") {
+      setAdminUsers([]);
+      setAdminError("");
+      setAdminNotice("");
+      return;
+    }
+    void loadAdminState(member.id);
+  }, [member?.id, member?.role]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2877,6 +3081,7 @@ function App() {
                     <strong>{member.displayName}</strong>
                   </p>
                   <p className="line">{member.email}</p>
+                  <p className="line">Rol: {member.role === "admin" ? "Admin" : "Uye"}</p>
                   <p className="line">Puan: {member.points}</p>
                   <p className="line">Oyun: {member.stats.gamesPlayed} / K: {member.stats.wins} / M: {member.stats.losses}</p>
                   <p className="line">Masadan Kacis: {member.stats.resigns}</p>
@@ -2931,7 +3136,7 @@ function App() {
                     <>
                       <input
                         className="my-input"
-                        placeholder="E-posta"
+                        placeholder="E-posta veya Kullanici adi"
                         value={authEmail}
                         onChange={(e) => setAuthEmail(e.target.value)}
                         disabled={authBusy}
@@ -2953,6 +3158,117 @@ function App() {
                 </div>
               )}
             </section>
+
+            {isAdmin ? (
+              <section className="my-side-card">
+                <h3>Admin Paneli</h3>
+                <p className="line">Oyun Kurallari</p>
+                <div className="my-admin-rules-grid">
+                  <label className="my-field">
+                    <span>Kazanma Puanı</span>
+                    <input
+                      className="my-input"
+                      type="number"
+                      value={ruleDraft.winPoints}
+                      onChange={(e) => {
+                        const next = normalizeRuleNumber(e.target.value, ruleDraft.winPoints, -10_000, 10_000);
+                        setRuleDraft((prev) => ({ ...prev, winPoints: next }));
+                      }}
+                      disabled={adminBusy}
+                    />
+                  </label>
+                  <label className="my-field">
+                    <span>Kaybetme Puanı</span>
+                    <input
+                      className="my-input"
+                      type="number"
+                      value={ruleDraft.lossPoints}
+                      onChange={(e) => {
+                        const next = normalizeRuleNumber(e.target.value, ruleDraft.lossPoints, -10_000, 10_000);
+                        setRuleDraft((prev) => ({ ...prev, lossPoints: next }));
+                      }}
+                      disabled={adminBusy}
+                    />
+                  </label>
+                  <label className="my-field">
+                    <span>Masadan Kalkma Cezası</span>
+                    <input
+                      className="my-input"
+                      type="number"
+                      min={0}
+                      value={ruleDraft.resignPenaltyPoints}
+                      onChange={(e) => {
+                        const next = normalizeRuleNumber(e.target.value, ruleDraft.resignPenaltyPoints, 0, 10_000);
+                        setRuleDraft((prev) => ({ ...prev, resignPenaltyPoints: next }));
+                      }}
+                      disabled={adminBusy}
+                    />
+                  </label>
+                </div>
+                <div className="my-inline-actions">
+                  <button className="my-action-btn" onClick={saveAdminRules} disabled={adminBusy}>
+                    Kurallari Kaydet
+                  </button>
+                  <button className="my-action-btn soft" onClick={() => loadAdminState(member?.id)} disabled={adminBusy}>
+                    Listeyi Yenile
+                  </button>
+                </div>
+                {adminError ? <p className="my-error">{adminError}</p> : null}
+                {adminNotice ? <p className="my-notice my-notice-soft">{adminNotice}</p> : null}
+                <div className="my-admin-user-list">
+                  {adminUsers.map((user) => (
+                    <article key={user.id} className="my-admin-user-row">
+                      <p className="line">
+                        <strong>{user.displayName}</strong> · {user.role === "admin" ? "Admin" : "Uye"}
+                      </p>
+                      <p className="line">
+                        {user.email} · Puan: {user.points}
+                      </p>
+                      <p className="line">
+                        Oyun: {user.stats.gamesPlayed} / K: {user.stats.wins} / M: {user.stats.losses} / Kacis: {user.stats.resigns}
+                      </p>
+                      <div className="my-admin-actions">
+                        <button
+                          className="my-action-btn soft"
+                          onClick={() => runAdminUserAction(user.id, "addPoints", { delta: 100 })}
+                          disabled={adminBusy}
+                        >
+                          +100
+                        </button>
+                        <button
+                          className="my-action-btn soft"
+                          onClick={() => runAdminUserAction(user.id, "addPoints", { delta: -100 })}
+                          disabled={adminBusy}
+                        >
+                          -100
+                        </button>
+                        <button
+                          className="my-action-btn"
+                          onClick={() => runAdminUserAction(user.id, "setRole", { role: user.role === "admin" ? "user" : "admin" })}
+                          disabled={adminBusy}
+                        >
+                          {user.role === "admin" ? "Uye Yap" : "Admin Yap"}
+                        </button>
+                        <button
+                          className="my-action-btn"
+                          onClick={() => runAdminUserAction(user.id, "resetStats")}
+                          disabled={adminBusy}
+                        >
+                          Istatistik Sifirla
+                        </button>
+                        <button
+                          className="my-action-btn danger"
+                          onClick={() => runAdminUserAction(user.id, "deleteUser")}
+                          disabled={adminBusy || user.id === member?.id}
+                        >
+                          Sil
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             <section className="my-side-card">
               <h3>Odadakiler</h3>
