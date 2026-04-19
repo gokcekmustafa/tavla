@@ -41,6 +41,7 @@ const dom = {
   newGameBtn:      document.getElementById("new-game-btn"),
   undoBtn:         document.getElementById("undo-btn"),
   modeSelect:      document.getElementById("game-mode-select"),
+  botDifficultyControl: document.getElementById("bot-difficulty-control"),
   botDifficultySelect: document.getElementById("bot-difficulty-select"),
   colorWhiteInput: document.getElementById("player-color-white"),
   colorBlackInput: document.getElementById("player-color-black"),
@@ -1650,9 +1651,12 @@ function renderTurnInfo() {
   dom.undoBtn.disabled  = !canUndoCurrentTurn();
   dom.modeSelect.value  = gameMode;
   dom.modeSelect.disabled = isRoomMode();
+  if (dom.botDifficultyControl) {
+    dom.botDifficultyControl.hidden = isRoomMode() || gameMode !== "bot";
+  }
   if (dom.botDifficultySelect) {
     dom.botDifficultySelect.value = normalizeBotDifficulty(botDifficulty);
-    dom.botDifficultySelect.disabled = isRoomMode();
+    dom.botDifficultySelect.disabled = isRoomMode() || gameMode !== "bot";
   }
   dom.newGameBtn.disabled = isRoomMode() && roomParams.seat !== WHITE;
   if (dom.autoRollToggle) {

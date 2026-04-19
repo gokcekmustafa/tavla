@@ -80,6 +80,9 @@ type LobbyTable = {
   isPrivate: boolean;
   invitedUserId: string | null;
   invitedByUserId: string | null;
+  inviteNoticeId: string | null;
+  inviteNoticeForUserId: string | null;
+  inviteNoticeText: string | null;
   whiteReadyAt: number | null;
   blackReadyAt: number | null;
   startedAt: number | null;
@@ -538,12 +541,18 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
   let isPrivate = Boolean(table.isPrivate && ownerUserId);
   let invitedUserId = sanitizeGuestId(table.invitedUserId ?? "");
   let invitedByUserId = sanitizeGuestId(table.invitedByUserId ?? "");
+  let inviteNoticeId = sanitizeChatId(table.inviteNoticeId ?? "");
+  let inviteNoticeForUserId = sanitizeGuestId(table.inviteNoticeForUserId ?? "");
+  let inviteNoticeText = sanitizeChatText(table.inviteNoticeText ?? "");
 
   if (ownerChanged) {
     // Masa sahibi devrolunca eski davet ve ozel kilitleri temizle.
     isPrivate = false;
     invitedUserId = "";
     invitedByUserId = "";
+    inviteNoticeId = "";
+    inviteNoticeForUserId = "";
+    inviteNoticeText = "";
   }
 
   if (invitedUserId && seatUsers.includes(invitedUserId)) {
@@ -560,6 +569,9 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
     isPrivate = false;
     invitedUserId = "";
     invitedByUserId = "";
+    inviteNoticeId = "";
+    inviteNoticeForUserId = "";
+    inviteNoticeText = "";
   }
 
   if (invitedUserId) {
@@ -568,14 +580,26 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
     invitedByUserId = "";
   }
 
+  if (!inviteNoticeId || !inviteNoticeForUserId || !inviteNoticeText) {
+    inviteNoticeId = "";
+    inviteNoticeForUserId = "";
+    inviteNoticeText = "";
+  }
+
   const normalizedInvitedUserId = invitedUserId || null;
   const normalizedInvitedByUserId = invitedByUserId || null;
+  const normalizedInviteNoticeId = inviteNoticeId || null;
+  const normalizedInviteNoticeForUserId = inviteNoticeForUserId || null;
+  const normalizedInviteNoticeText = inviteNoticeText || null;
 
   if (
     table.ownerUserId === ownerUserId
     && table.isPrivate === isPrivate
     && table.invitedUserId === normalizedInvitedUserId
     && table.invitedByUserId === normalizedInvitedByUserId
+    && table.inviteNoticeId === normalizedInviteNoticeId
+    && table.inviteNoticeForUserId === normalizedInviteNoticeForUserId
+    && table.inviteNoticeText === normalizedInviteNoticeText
   ) {
     return table;
   }
@@ -586,6 +610,9 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
     isPrivate,
     invitedUserId: normalizedInvitedUserId,
     invitedByUserId: normalizedInvitedByUserId,
+    inviteNoticeId: normalizedInviteNoticeId,
+    inviteNoticeForUserId: normalizedInviteNoticeForUserId,
+    inviteNoticeText: normalizedInviteNoticeText,
   };
 }
 
@@ -784,6 +811,9 @@ function normalizeTable(raw: unknown, index: number): LobbyTable | null {
     isPrivate: Boolean(candidate.isPrivate),
     invitedUserId: sanitizeGuestId(candidate.invitedUserId ?? "") || null,
     invitedByUserId: sanitizeGuestId(candidate.invitedByUserId ?? "") || null,
+    inviteNoticeId: sanitizeChatId(candidate.inviteNoticeId ?? "") || null,
+    inviteNoticeForUserId: sanitizeGuestId(candidate.inviteNoticeForUserId ?? "") || null,
+    inviteNoticeText: sanitizeChatText(candidate.inviteNoticeText ?? "") || null,
     whiteReadyAt: parseReadyStamp(candidate.whiteReadyAt),
     blackReadyAt: parseReadyStamp(candidate.blackReadyAt),
     startedAt: parseReadyStamp(candidate.startedAt),
@@ -1050,6 +1080,9 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
       isPrivate: Boolean(preferred.isPrivate),
       invitedUserId: sanitizeGuestId(preferred.invitedUserId ?? "") || sanitizeGuestId(fallback.invitedUserId ?? "") || null,
       invitedByUserId: sanitizeGuestId(preferred.invitedByUserId ?? "") || sanitizeGuestId(fallback.invitedByUserId ?? "") || null,
+      inviteNoticeId: sanitizeChatId(preferred.inviteNoticeId ?? "") || sanitizeChatId(fallback.inviteNoticeId ?? "") || null,
+      inviteNoticeForUserId: sanitizeGuestId(preferred.inviteNoticeForUserId ?? "") || sanitizeGuestId(fallback.inviteNoticeForUserId ?? "") || null,
+      inviteNoticeText: sanitizeChatText(preferred.inviteNoticeText ?? "") || sanitizeChatText(fallback.inviteNoticeText ?? "") || null,
       whiteReadyAt: mergeReadyStamp(existing.whiteReadyAt, table.whiteReadyAt),
       blackReadyAt: mergeReadyStamp(existing.blackReadyAt, table.blackReadyAt),
       startedAt: mergeReadyStamp(existing.startedAt, table.startedAt),
@@ -1338,6 +1371,8 @@ function App() {
     if (matchLiveState.matchActive) return false;
     return true;
   }, [roomSession, currentRoomTable, currentRoomIsOwner, roomStartState?.started, matchLiveState.matchActive]);
+
+  const currentRoomHasOpenSeat = useMemo(() => Boolean(currentRoomTable && getOpenSeat(currentRoomTable)), [currentRoomTable]);
 
   const lobbyChatRows = useMemo(() => {
     return normalizeChatLog(lobbyState.lobbyChat, LOBBY_CHAT_LIMIT).filter((row) => row.at >= lobbyChatJoinedAt);
@@ -1641,6 +1676,9 @@ function App() {
           isPrivate: false,
           invitedUserId: null,
           invitedByUserId: null,
+          inviteNoticeId: null,
+          inviteNoticeForUserId: null,
+          inviteNoticeText: null,
           whiteReadyAt: null,
           blackReadyAt: null,
           startedAt: null,
@@ -2222,6 +2260,10 @@ function App() {
       setLobbyNotice("Davet listesini sadece masa sahibi acabilir.");
       return;
     }
+    if (!getOpenSeat(table)) {
+      setLobbyNotice("Masada iki oyuncu oldugu icin davet gonderilemez.");
+      return;
+    }
     setInvitePickerTableId(table.id);
     setLobbyNotice("");
   }
@@ -2326,6 +2368,9 @@ function App() {
         ...table,
         invitedUserId: safeTargetUserId,
         invitedByUserId: sanitizeGuestId(currentProfile.userId) || table.ownerUserId || null,
+        inviteNoticeId: null,
+        inviteNoticeForUserId: null,
+        inviteNoticeText: null,
       });
       tables[tableIndex] = patched;
       invited = true;
@@ -2374,7 +2419,14 @@ function App() {
         const tables = current.tables.map((row) => {
           if (row.id !== tableId) return row;
           if (row.invitedUserId !== currentProfile.userId) return row;
-          return normalizeTableAccess({ ...row, invitedUserId: null, invitedByUserId: null });
+          return normalizeTableAccess({
+            ...row,
+            invitedUserId: null,
+            invitedByUserId: null,
+            inviteNoticeId: null,
+            inviteNoticeForUserId: null,
+            inviteNoticeText: null,
+          });
         });
         return { ...current, tables, updatedAt: Date.now() };
       });
@@ -2387,7 +2439,14 @@ function App() {
       const tables = current.tables.map((row) => {
         if (row.id !== table.id) return row;
         if (row.invitedUserId !== currentProfile.userId) return row;
-        return normalizeTableAccess({ ...row, invitedUserId: null, invitedByUserId: null });
+        return normalizeTableAccess({
+          ...row,
+          invitedUserId: null,
+          invitedByUserId: null,
+          inviteNoticeId: null,
+          inviteNoticeForUserId: null,
+          inviteNoticeText: null,
+        });
       });
       return { ...current, tables, updatedAt: Date.now() };
     });
@@ -2401,11 +2460,22 @@ function App() {
       setLobbyNotice("Davet artik gecerli degil.");
       return;
     }
+    const inviterUserId = sanitizeGuestId(table.invitedByUserId ?? table.ownerUserId ?? "");
+    const rejecterName = sanitizeGuestName(currentProfile.displayName) || "Oyuncu";
     writeLobby((current) => {
       const tables = current.tables.map((row) => {
         if (row.id !== tableId) return row;
         if (row.invitedUserId !== currentProfile.userId) return row;
-        return normalizeTableAccess({ ...row, invitedUserId: null, invitedByUserId: null });
+        return normalizeTableAccess({
+          ...row,
+          invitedUserId: null,
+          invitedByUserId: null,
+          inviteNoticeId: inviterUserId ? createChatMessageId(`invite-reject-${tableId}-${inviterUserId}`) : null,
+          inviteNoticeForUserId: inviterUserId || null,
+          inviteNoticeText: inviterUserId
+            ? `${rejecterName} oyuncusu Masa ${tableId} davetinizi reddetti.`
+            : null,
+        });
       });
       return { ...current, tables, updatedAt: Date.now() };
     });
@@ -2824,6 +2894,9 @@ function App() {
           isPrivate: false,
           invitedUserId: null,
           invitedByUserId: null,
+          inviteNoticeId: null,
+          inviteNoticeForUserId: null,
+          inviteNoticeText: null,
           whiteReadyAt: null,
           blackReadyAt: null,
           startedAt: null,
@@ -3414,6 +3487,38 @@ function App() {
   }, [roomSession, currentProfile.userId, currentProfile.displayName, currentProfile.points, currentProfile.stats, appSessionId]);
 
   useEffect(() => {
+    const safeUserId = sanitizeGuestId(currentProfile.userId);
+    if (!safeUserId) return;
+    const notices = sortTables(lobbyState.tables).filter(
+      (table) => table.inviteNoticeForUserId === safeUserId && table.inviteNoticeText && table.inviteNoticeId,
+    );
+    if (notices.length === 0) return;
+    const latest = notices[notices.length - 1];
+    if (latest.inviteNoticeText) {
+      setLobbyNotice(latest.inviteNoticeText);
+    }
+    writeLobby((current) => {
+      let changed = false;
+      const tables = current.tables.map((table) => {
+        if (table.inviteNoticeForUserId !== safeUserId || !table.inviteNoticeId) return table;
+        changed = true;
+        return normalizeTableAccess({
+          ...table,
+          inviteNoticeId: null,
+          inviteNoticeForUserId: null,
+          inviteNoticeText: null,
+        });
+      });
+      if (!changed) return current;
+      return {
+        ...current,
+        tables,
+        updatedAt: Date.now(),
+      };
+    });
+  }, [lobbyState.tables, currentProfile.userId]);
+
+  useEffect(() => {
     if (!member && realtimeStatus === "online") {
       const myNo = lobbyState.guestLabels[guestId];
       if (!Number.isInteger(myNo) || myNo <= 0) return;
@@ -3577,6 +3682,7 @@ function App() {
                 <div className="my-table-grid">
                   {openedTables.map((table) => {
                     const status = tableStatus(table);
+                    const tableHasOpenSeat = Boolean(getOpenSeat(table));
                     const tableOwnerName =
                       (table.white?.userId === table.ownerUserId ? table.white.displayName : null)
                       ?? (table.black?.userId === table.ownerUserId ? table.black.displayName : null)
@@ -3607,6 +3713,10 @@ function App() {
                           <div className="my-board-mid">{table.id}</div>
                           <div className="my-seat-slot black">{seatCell(table, "black")}</div>
                         </div>
+                        <div className="my-table-seat-names">
+                          <span>Beyaz: {table.white?.displayName ?? "-"}</span>
+                          <span>Siyah: {table.black?.displayName ?? "-"}</span>
+                        </div>
 
                         <div className="my-table-footer">
                           <span className="my-table-code">Kod: {table.roomCode}</span>
@@ -3616,7 +3726,12 @@ function App() {
                                 Masaya Git
                               </button>
                               {isOwnerHere ? (
-                                <button className="my-action-btn soft" onClick={() => openInvitePicker(table)}>
+                                <button
+                                  className="my-action-btn soft"
+                                  onClick={() => openInvitePicker(table)}
+                                  disabled={!tableHasOpenSeat}
+                                  title={tableHasOpenSeat ? "Oyuncu davet et" : "Masa dolu oldugu icin davet kapali"}
+                                >
                                   Davet Et
                                 </button>
                               ) : null}
@@ -4065,6 +4180,7 @@ function App() {
           <aside className="my-game-controls">
             <section className="my-side-card">
               <h3>Oyun Secenekleri</h3>
+              {lobbyNotice ? <p className="my-notice my-notice-soft">{lobbyNotice}</p> : null}
               <label className="my-field">
                 <span>Oyuncu</span>
                 <input
@@ -4107,6 +4223,12 @@ function App() {
                     Masa: <code>{roomSession.tableNo}</code> / Sen: <code>{seatText(roomSession.seat)}</code>
                   </p>
                   <p className="line">
+                    Beyaz: <code>{currentRoomTable?.white?.displayName ?? "-"}</code>
+                  </p>
+                  <p className="line">
+                    Siyah: <code>{currentRoomTable?.black?.displayName ?? "-"}</code>
+                  </p>
+                  <p className="line">
                     Sahip: <code>{currentRoomIsOwner ? "Sen" : "Diger Oyuncu"}</code>
                     {currentRoomTable?.isPrivate ? " / Ozel Masa" : ""}
                   </p>
@@ -4129,7 +4251,12 @@ function App() {
                   ) : null}
                   {currentRoomTable && currentRoomIsOwner ? (
                     <>
-                      <button className="my-action-btn soft" onClick={() => openInvitePicker(currentRoomTable)}>
+                      <button
+                        className="my-action-btn soft"
+                        onClick={() => openInvitePicker(currentRoomTable)}
+                        disabled={!currentRoomHasOpenSeat}
+                        title={currentRoomHasOpenSeat ? "Oyuncu davet et" : "Masada iki oyuncu var"}
+                      >
                         Davet Et
                       </button>
                       <button
