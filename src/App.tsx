@@ -3235,35 +3235,7 @@ function App() {
           </div>
 
           <aside className="my-lobby-side">
-            <section className="my-side-card my-side-card-online">
-              <h3>Oyuncu Listesi</h3>
-              <div className="my-online-head">
-                <span>ISIM</span>
-                <span>PUAN</span>
-                <span>MASA</span>
-                <span className="my-online-sr-only">Durum</span>
-              </div>
-              <div className="my-online-list">
-                {onlineRows.map((row) => (
-                  <div key={row.key} className="my-online-row">
-                    <span className="my-online-dot" aria-hidden="true" />
-                    <button
-                      type="button"
-                      className="my-name-link name"
-                      onClick={() => openPlayerProfile(row.userId, row.name, row.points, row.stats)}
-                      title={`${row.name} profilini goster`}
-                    >
-                      {row.name}
-                    </button>
-                    <span className="points">{row.points}</span>
-                    <span className="table">{row.tableNo ? String(row.tableNo) : "-"}</span>
-                    <span className={`my-online-wave ${row.tableNo ? "active" : ""}`} aria-hidden="true" />
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="my-side-card">
+            <section className="my-side-card my-side-card-member">
               <h3>Uyelik</h3>
               {member ? (
                 <div className="my-member-card">
@@ -3347,6 +3319,34 @@ function App() {
                   {authError ? <p className="my-error">{authError}</p> : null}
                 </div>
               )}
+            </section>
+
+            <section className="my-side-card my-side-card-online">
+              <h3>Oyuncu Listesi</h3>
+              <div className="my-online-head">
+                <span>ISIM</span>
+                <span>PUAN</span>
+                <span>MASA</span>
+                <span className="my-online-sr-only">Durum</span>
+              </div>
+              <div className="my-online-list">
+                {onlineRows.map((row) => (
+                  <div key={row.key} className="my-online-row">
+                    <span className="my-online-dot" aria-hidden="true" />
+                    <button
+                      type="button"
+                      className="my-name-link name"
+                      onClick={() => openPlayerProfile(row.userId, row.name, row.points, row.stats)}
+                      title={`${row.name} profilini goster`}
+                    >
+                      {row.name}
+                    </button>
+                    <span className="points">{row.points}</span>
+                    <span className="table">{row.tableNo ? String(row.tableNo) : "-"}</span>
+                    <span className={`my-online-wave ${row.tableNo ? "active" : ""}`} aria-hidden="true" />
+                  </div>
+                ))}
+              </div>
             </section>
 
             {isAdmin ? (
