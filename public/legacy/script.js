@@ -926,6 +926,21 @@ function onHostMessage(event) {
     applyHostTableChatSync(data);
     return;
   }
+  if (data.type === "request-soft-refresh") {
+    selectedSource = null;
+    dragSource = null;
+    pendingMoveChain = [];
+    availableMoves = hasRolled ? getOptimalMoves(gameState, currentPlayer, remainingDice) : [];
+    render();
+    maybeScheduleBotAction();
+    maybeScheduleAutoRoll();
+    if (isRoomMode()) {
+      sendRoomMessage("hello");
+    } else {
+      emitHostState(true);
+    }
+    return;
+  }
   if (data.type !== "request-resign") return;
 
   const incomingToken = typeof data.matchToken === "string" ? data.matchToken.slice(0, 96) : "";
