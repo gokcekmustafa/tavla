@@ -1519,7 +1519,7 @@ function App() {
     const mineReady = roomSession.seat === "white" ? Boolean(currentRoomTable.whiteReadyAt) : Boolean(currentRoomTable.blackReadyAt);
     const opponentReady = roomSession.seat === "white" ? Boolean(currentRoomTable.blackReadyAt) : Boolean(currentRoomTable.whiteReadyAt);
     const bothSeated = Boolean(currentRoomTable.white && currentRoomTable.black);
-    const started = Boolean(currentRoomTable.startedAt && bothSeated);
+    const started = Boolean(bothSeated && (currentRoomTable.startedAt || (currentRoomTable.whiteReadyAt && currentRoomTable.blackReadyAt)));
 
     return {
       mine,
@@ -2114,21 +2114,31 @@ function App() {
         return current;
       }
 
+      const now = Date.now();
+      const mineReadyAt = roomSession.seat === "white" ? table.whiteReadyAt : table.blackReadyAt;
+      const opponentReadyAt = roomSession.seat === "white" ? table.blackReadyAt : table.whiteReadyAt;
+
       if (table.startedAt) {
         alreadyStarted = true;
         return current;
       }
 
-      const mineReady = roomSession.seat === "white" ? table.whiteReadyAt : table.blackReadyAt;
-      if (mineReady) {
+      if (mineReadyAt && opponentReadyAt) {
+        table = {
+          ...table,
+          startedAt: Math.max(now, table.startedAt ?? 0, table.whiteReadyAt ?? 0, table.blackReadyAt ?? 0),
+        };
+      } else if (mineReadyAt) {
+        table = roomSession.seat === "white"
+          ? { ...table, whiteReadyAt: now }
+          : { ...table, blackReadyAt: now };
         alreadyReady = true;
-        return current;
+      } else {
+        table = roomSession.seat === "white"
+          ? { ...table, whiteReadyAt: now }
+          : { ...table, blackReadyAt: now };
       }
 
-      const now = Date.now();
-      table = roomSession.seat === "white"
-        ? { ...table, whiteReadyAt: now }
-        : { ...table, blackReadyAt: now };
       const nextTable = normalizeTableStartGate(table);
       startNow = Boolean(nextTable.startedAt);
       tables[index] = nextTable;
@@ -2138,6 +2148,8 @@ function App() {
         updatedAt: now,
       };
     });
+
+    syncRoomStartGateToIframe();
 
     if (seatMissing) {
       setLobbyNotice("Masadaki koltugun bulunamadi. Lutfen tekrar masaya otur.");
@@ -3961,6 +3973,14 @@ function App() {
   }, [syncRoomStartGateToIframe, roomSession, roomStartState?.bothSeated, roomStartState?.started, mode, iframeKey]);
 
   useEffect(() => {
+    if (!roomSession || roomSession.role !== "player") return;
+    const timer = window.setInterval(() => {
+      syncRoomStartGateToIframe();
+    }, 1200);
+    return () => window.clearInterval(timer);
+  }, [syncRoomStartGateToIframe, roomSession, roomStartState?.bothSeated, roomStartState?.started, mode, iframeKey]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
     if (roomSession) {
@@ -4911,7 +4931,7 @@ function App() {
                   <p className="line">
                     {roomStartState.mineReady
                       ? roomStartState.opponentReady
-                        ? "Iki oyuncu da hazirlandi, oyun aciliyor..."
+                        ? "Iki oyuncu da hazir. Baslatmak icin Oyuna Basla butonuna dokun."
                         : "Rakibin Oyuna Basla butonuna basmasi bekleniyor."
                       : roomStartState.opponentReady
                         ? "Rakip hazir. Baslamak icin Oyuna Basla butonuna bas."
@@ -4920,9 +4940,9 @@ function App() {
                   <button
                     className="my-action-btn"
                     onClick={onRoomStartReady}
-                    disabled={!roomStartState.mine || roomStartState.mineReady}
+                    disabled={!roomStartState.mine}
                   >
-                    {roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
+                    {roomStartState.mineReady && roomStartState.opponentReady ? "Oyunu Baslat" : roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
                   </button>
                 </article>
               </section>
@@ -5000,9 +5020,9 @@ function App() {
                         <button
                           className="my-action-btn"
                           onClick={onRoomStartReady}
-                          disabled={!roomStartState.mine || roomStartState.mineReady}
+                          disabled={!roomStartState.mine}
                         >
-                          {roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
+                          {roomStartState.mineReady && roomStartState.opponentReady ? "Oyunu Baslat" : roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
                         </button>
                       ) : null}
                     </>

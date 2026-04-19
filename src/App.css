@@ -1251,6 +1251,16 @@
   .my-admin-points-row {
     grid-template-columns: 1fr;
   }
+
+  .my-game-layout {
+    padding: 6px;
+    gap: 8px;
+  }
+
+  .my-game-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1309,7 +1319,8 @@
   }
 
   .my-lobby-table-zone {
-    height: 400px;
+    height: min(52svh, 400px);
+    min-height: 250px;
     padding: 6px;
   }
 
@@ -1329,15 +1340,15 @@
   }
 
   .my-online-row {
-    grid-template-columns: 7px minmax(0, 1fr) 72px 54px 24px;
+    grid-template-columns: 24px minmax(0, 1fr) 72px 54px 24px;
     gap: 6px;
     font-size: 0.8rem;
   }
 
   .my-side-card-online {
-    height: 340px;
-    min-height: 340px;
-    max-height: 340px;
+    height: min(40svh, 320px);
+    min-height: 210px;
+    max-height: 320px;
   }
 
   .my-table-grid {
@@ -1345,7 +1356,31 @@
   }
 
   .my-game-frame iframe {
-    height: calc(100svh - 220px);
-    min-height: 380px;
+    height: min(60svh, 420px);
+    min-height: 300px;
+  }
+
+  .my-game-layout {
+    padding: 4px;
+    gap: 6px;
+  }
+
+  .my-game-controls {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .my-side-card {
+    padding: 7px;
+    gap: 6px;
+  }
+
+  .my-side-card h3 {
+    font-size: 0.92rem;
+  }
+
+  .my-start-card {
+    width: min(300px, 100%);
+    padding: 8px 9px;
   }
 }
