@@ -2227,6 +2227,10 @@ function App() {
   }
 
   function onSelectMode(nextMode: GameMode) {
+    if (roomSession) {
+      setLobbyNotice("Online masada oyun modu degistirilemez.");
+      return;
+    }
     if (nextMode === "bot") {
       startBotGame();
       return;
@@ -3172,6 +3176,22 @@ function App() {
     );
   }
 
+  function syncRoomStartGateToIframe(targetWindow?: Window | null) {
+    const frameWindow = targetWindow ?? iframeRef.current?.contentWindow;
+    if (!frameWindow) return;
+    const gateActive = Boolean(roomSession && roomSession.role === "player" && mode === "local");
+    frameWindow.postMessage(
+      {
+        source: "tavla-host",
+        type: "room-start-gate",
+        active: gateActive,
+        bothSeated: gateActive ? Boolean(roomStartState?.bothSeated) : true,
+        started: gateActive ? Boolean(roomStartState?.started) : true,
+      },
+      window.location.origin,
+    );
+  }
+
   function closeProfileModal() {
     setProfileModal((prev) => ({ ...prev, open: false, loading: false }));
   }
@@ -3777,6 +3797,10 @@ function App() {
   }, [syncTableChatToIframe, tableChatRows, canViewTableChat, canWriteTableChat, roomSession, mode, iframeKey]);
 
   useEffect(() => {
+    syncRoomStartGateToIframe();
+  }, [syncRoomStartGateToIframe, roomSession, roomStartState?.bothSeated, roomStartState?.started, mode, iframeKey]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
     if (roomSession) {
@@ -3941,16 +3965,27 @@ function App() {
   useEffect(() => {
     if (!roomSession) return;
     if (currentRoomTable) return;
-    setRoomSession(null);
-    setViewMode("lobby");
-    setMatchLiveState({
-      matchToken: "",
-      matchActive: false,
-      winner: null,
-      localColor: null,
-    });
-    setLobbyNotice("Masa kapandi.");
-    forceReloadBoard();
+    const roomCode = roomSession.code;
+    const roomTableNo = roomSession.tableNo;
+    const timer = window.setTimeout(() => {
+      const latest = getCurrentLobbyState();
+      const stillExists = latest.tables.some((table) => table.id === roomTableNo || table.roomCode === roomCode);
+      if (stillExists) return;
+      setRoomSession((current) => {
+        if (!current) return current;
+        if (current.code !== roomCode || current.tableNo !== roomTableNo) return current;
+        return null;
+      });
+      setViewMode("lobby");
+      setMatchLiveState({
+        matchToken: "",
+        matchActive: false,
+        winner: null,
+        localColor: null,
+      });
+      setLobbyNotice("Masa kapandi.");
+    }, 2200);
+    return () => window.clearTimeout(timer);
   }, [roomSession, currentRoomTable]);
 
   useEffect(() => {
@@ -4639,7 +4674,16 @@ function App() {
       ) : (
         <section className="my-game-layout">
           <div className="my-game-frame">
-            <iframe ref={iframeRef} title="Tavla Oyunu" src={iframeUrl} onLoad={() => syncTableChatToIframe()} />
+            <iframe
+              ref={iframeRef}
+              title="Tavla Oyunu"
+              src={iframeUrl}
+              onLoad={() => {
+                const frameWindow = iframeRef.current?.contentWindow ?? null;
+                syncTableChatToIframe(frameWindow);
+                syncRoomStartGateToIframe(frameWindow);
+              }}
+            />
             {roomSession
               && roomSession.role === "player"
               && mode === "local"
@@ -4685,14 +4729,20 @@ function App() {
                 />
               </label>
 
-              <div className="my-seat-toggle">
-                <button className={`my-seat-btn ${mode === "local" ? "active" : ""}`} onClick={() => onSelectMode("local")}>
-                  Iki Oyuncu
-                </button>
-                <button className={`my-seat-btn ${mode === "bot" ? "active" : ""}`} onClick={() => onSelectMode("bot")}>
-                  Bot
-                </button>
-              </div>
+              {roomSession ? (
+                <p className="line">
+                  Oyun Modu: <code>Online Iki Oyuncu</code>
+                </p>
+              ) : (
+                <div className="my-seat-toggle">
+                  <button className={`my-seat-btn ${mode === "local" ? "active" : ""}`} onClick={() => onSelectMode("local")}>
+                    Iki Oyuncu
+                  </button>
+                  <button className={`my-seat-btn ${mode === "bot" ? "active" : ""}`} onClick={() => onSelectMode("bot")}>
+                    Bot
+                  </button>
+                </div>
+              )}
 
               <button className="my-action-btn" onClick={refreshBoard}>
                 Tahtayi Yenile

@@ -107,6 +107,9 @@ let diceSpriteSheet = null;
 let matchToken = createMatchToken();
 let lastHostStateSignature = "";
 let tableChatRows = [];
+let roomStartGateActive = false;
+let roomStartGateBothSeated = true;
+let roomStartGateStarted = true;
 
 const roomParams = parseRoomParamsSafe();
 const roomSenderCounters = new Map();
@@ -114,6 +117,9 @@ const roomQueryParams = new URLSearchParams(window.location.search);
 const memberChatEnabledFromQuery = roomQueryParams.get("member") === "1";
 let tableChatCanView = isRoomMode();
 let tableChatCanWrite = memberChatEnabledFromQuery && isRoomMode();
+roomStartGateActive = isRoomMode() && !roomParams.observer;
+roomStartGateBothSeated = !roomStartGateActive;
+roomStartGateStarted = !roomStartGateActive;
 
 initPreferredPlayerColor();
 void preloadDiceSpriteSheet();
@@ -343,6 +349,17 @@ function isLocalSeatTurn() {
   if (!isRoomMode()) return true;
   if (roomParams.observer) return false;
   return currentPlayer === roomParams.seat;
+}
+
+function isRoomStartLocked() {
+  if (!roomStartGateActive) return false;
+  return !roomStartGateBothSeated || !roomStartGateStarted;
+}
+
+function getRoomStartLockedMessage() {
+  if (!roomStartGateActive) return "";
+  if (!roomStartGateBothSeated) return "Ikinci oyuncu bekleniyor.";
+  return "Iki oyuncu da Oyuna Basla butonuna basmali.";
 }
 
 function getBootLogMessage() {
@@ -754,6 +771,11 @@ function canControlRoomAction() {
     render();
     return false;
   }
+  if (isRoomStartLocked()) {
+    setStatus(getRoomStartLockedMessage());
+    render();
+    return false;
+  }
   if (winner) return false;
   if (isLocalSeatTurn()) return true;
   setStatus(`Sıra ${playerText(currentPlayer)} oyuncusunda. Sen ${playerText(roomParams.seat)} bekliyorsun.`);
@@ -938,6 +960,17 @@ function onHostMessage(event) {
   const data = event.data;
   if (!data || typeof data !== "object") return;
   if (data.source !== "tavla-host") return;
+  if (data.type === "room-start-gate") {
+    const active = Boolean(data.active) && isRoomMode() && !roomParams.observer;
+    roomStartGateActive = active;
+    roomStartGateBothSeated = !active || Boolean(data.bothSeated);
+    roomStartGateStarted = !active || Boolean(data.started);
+    if (isRoomStartLocked()) {
+      clearPendingAutoRollTimer();
+    }
+    render();
+    return;
+  }
   if (data.type === "table-chat-sync") {
     applyHostTableChatSync(data);
     return;
@@ -1096,6 +1129,13 @@ function onPreferredColorChange() {
 function onAutoRollChange() {
   autoRollEnabled = Boolean(dom.autoRollToggle?.checked);
   clearPendingAutoRollTimer();
+  if (isRoomStartLocked()) {
+    autoRollEnabled = false;
+    if (dom.autoRollToggle) dom.autoRollToggle.checked = false;
+    setStatus(getRoomStartLockedMessage());
+    render();
+    return;
+  }
   if (isRoomMode() && !isLocalSeatTurn()) {
     autoRollEnabled = false;
     if (dom.autoRollToggle) dom.autoRollToggle.checked = false;
@@ -1226,7 +1266,7 @@ function getDoubleClickMove(source) {
 // ── Drag & Drop ──────────────────────────────────────────────────
 
 function onDragStartFromChecker(e) {
-  if (isBotTurn() || !hasRolled || isAnimating || (isRoomMode() && !isLocalSeatTurn())) { e.preventDefault(); return; }
+  if (isBotTurn() || !hasRolled || isAnimating || isRoomStartLocked() || (isRoomMode() && !isLocalSeatTurn())) { e.preventDefault(); return; }
   const src = Number(e.currentTarget.dataset.source);
   dragSource = src;
   selectedSource = src;
@@ -1239,7 +1279,7 @@ function onDragStartFromChecker(e) {
 
 function onDragStartFromBar(e) {
   const player = e.currentTarget.dataset.player;
-  if (player !== currentPlayer || isBotTurn() || !hasRolled || isAnimating || (isRoomMode() && !isLocalSeatTurn())) {
+  if (player !== currentPlayer || isBotTurn() || !hasRolled || isAnimating || isRoomStartLocked() || (isRoomMode() && !isLocalSeatTurn())) {
     e.preventDefault(); return;
   }
   dragSource = "bar";
@@ -1259,7 +1299,7 @@ function onDragEnd(e) {
 }
 
 function onDragOverTarget(e) {
-  if (!hasRolled || winner || isBotTurn() || isAnimating || (isRoomMode() && !isLocalSeatTurn())) return;
+  if (!hasRolled || winner || isBotTurn() || isAnimating || isRoomStartLocked() || (isRoomMode() && !isLocalSeatTurn())) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = "move";
 }
@@ -1613,11 +1653,11 @@ function clearPendingBotTimer() {
 
 function maybeScheduleAutoRoll() {
   clearPendingAutoRollTimer();
-  if (!autoRollEnabled || winner || hasRolled || isBotTurn() || isAnimating || (isRoomMode() && !isLocalSeatTurn())) return;
+  if (!autoRollEnabled || winner || hasRolled || isBotTurn() || isAnimating || isRoomStartLocked() || (isRoomMode() && !isLocalSeatTurn())) return;
 
   pendingAutoRollTimer = window.setTimeout(() => {
     pendingAutoRollTimer = null;
-    if (!autoRollEnabled || winner || hasRolled || isBotTurn() || isAnimating || (isRoomMode() && !isLocalSeatTurn())) return;
+    if (!autoRollEnabled || winner || hasRolled || isBotTurn() || isAnimating || isRoomStartLocked() || (isRoomMode() && !isLocalSeatTurn())) return;
     onRollDice({ fromAuto: true });
   }, AUTO_ROLL_DELAY_MS);
 }
@@ -1665,9 +1705,10 @@ function render() {
 function renderTurnInfo() {
   const lbl = isBotTurn() ? `${playerText(currentPlayer)} (Bot)` : playerText(currentPlayer);
   const waitingForOpponent = isRoomMode() && !isLocalSeatTurn();
+  const roomStartBlocked = isRoomStartLocked();
   dom.currentPlayer.textContent = lbl;
   dom.currentPlayer.classList.toggle("winner", Boolean(winner));
-  dom.rollBtn.disabled  = hasRolled || Boolean(winner) || isBotTurn() || isAnimating || waitingForOpponent;
+  dom.rollBtn.disabled  = hasRolled || Boolean(winner) || isBotTurn() || isAnimating || waitingForOpponent || roomStartBlocked;
   dom.undoBtn.disabled  = !canUndoCurrentTurn();
   dom.modeSelect.value  = gameMode;
   dom.modeSelect.disabled = isRoomMode();
@@ -1681,7 +1722,7 @@ function renderTurnInfo() {
   dom.newGameBtn.disabled = (isRoomMode() && roomParams.seat !== WHITE) || (isRoomMode() && roomParams.observer);
   if (dom.autoRollToggle) {
     dom.autoRollToggle.checked = autoRollEnabled;
-    dom.autoRollToggle.disabled = waitingForOpponent;
+    dom.autoRollToggle.disabled = waitingForOpponent || roomStartBlocked;
   }
   const effectiveColor = isRoomMode() ? roomParams.seat : preferredPlayerColor;
   if (dom.colorWhiteInput) {
