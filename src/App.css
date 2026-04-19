@@ -244,6 +244,19 @@
   font-weight: 700;
 }
 
+.my-chat-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.my-chat-jump-btn {
+  min-height: 26px;
+  min-width: 84px;
+  font-size: 0.72rem;
+  padding: 0 8px;
+}
+
 .my-chat-list {
   max-height: 200px;
   overflow-y: auto;
@@ -561,6 +574,36 @@
   gap: 8px;
 }
 
+.my-admin-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.my-admin-summary-card {
+  border-radius: 7px;
+  border: 1px solid rgba(109, 193, 216, 0.35);
+  background: rgba(5, 52, 68, 0.74);
+  padding: 7px;
+  display: grid;
+  gap: 3px;
+}
+
+.my-admin-summary-card span {
+  color: #d4eef9;
+  font-size: 0.72rem;
+}
+
+.my-admin-summary-card strong {
+  color: #fff0cf;
+  font-size: 0.96rem;
+}
+
+.my-admin-toolbar {
+  display: grid;
+  gap: 6px;
+}
+
 .my-admin-user-list {
   max-height: 280px;
   overflow-y: auto;
@@ -576,6 +619,18 @@
   padding: 8px;
   display: grid;
   gap: 5px;
+}
+
+.my-admin-points-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: end;
+}
+
+.my-admin-points-row .my-action-btn {
+  min-height: 34px;
+  min-width: 98px;
 }
 
 .my-admin-actions {
@@ -788,6 +843,14 @@
   .my-topbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .my-admin-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .my-admin-points-row {
+    grid-template-columns: 1fr;
   }
 }
 

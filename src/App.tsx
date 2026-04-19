@@ -7,6 +7,8 @@ type ViewMode = "lobby" | "table";
 type AuthMode = "login" | "register";
 type MatchOutcome = "win" | "loss" | "resign";
 type MemberRole = "user" | "admin";
+type AdminRoleFilter = "all" | MemberRole;
+type AdminSortKey = "name" | "points" | "games" | "wins" | "losses" | "resigns" | "createdAt";
 
 type PlayerStats = {
   gamesPlayed: number;
@@ -189,6 +191,7 @@ const DEFAULT_RESIGN_PENALTY_POINTS = 50;
 const CHAT_TEXT_MAX = 180;
 const LOBBY_CHAT_LIMIT = 120;
 const TABLE_CHAT_LIMIT = 80;
+const LOBBY_CHAT_AUTO_SCROLL_THRESHOLD = 24;
 
 function getDefaultRealtimeWsBase() {
   if (typeof window === "undefined") return "ws://127.0.0.1:8787/realtime";
@@ -1037,6 +1040,14 @@ function App() {
     localColor: null as Seat | null,
   });
   const [lobbyChatInput, setLobbyChatInput] = useState("");
+  const [lobbyChatAutoScroll, setLobbyChatAutoScroll] = useState(true);
+  const [lobbyChatUnread, setLobbyChatUnread] = useState(0);
+  const [lobbyChatJoinedAt] = useState(() => Date.now());
+  const [adminQuery, setAdminQuery] = useState("");
+  const [adminRoleFilter, setAdminRoleFilter] = useState<AdminRoleFilter>("all");
+  const [adminSort, setAdminSort] = useState<AdminSortKey>("points");
+  const [adminPointDrafts, setAdminPointDrafts] = useState<Record<string, string>>({});
+  const [adminDeltaDrafts, setAdminDeltaDrafts] = useState<Record<string, string>>({});
 
   const lobbyChannelRef = useRef<BroadcastChannel | null>(null);
   const realtimeSocketRef = useRef<WebSocket | null>(null);
@@ -1051,6 +1062,7 @@ function App() {
   const processedMatchTokensRef = useRef<Set<string>>(new Set());
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const lobbyChatListRef = useRef<HTMLDivElement | null>(null);
+  const lobbyPrevChatCountRef = useRef(0);
 
   const safeGuestName = useMemo(() => {
     const memberName = member ? sanitizeGuestName(member.displayName) : "";
@@ -1174,8 +1186,8 @@ function App() {
   }, [roomSession, currentRoomTable]);
 
   const lobbyChatRows = useMemo(() => {
-    return normalizeChatLog(lobbyState.lobbyChat, LOBBY_CHAT_LIMIT);
-  }, [lobbyState.lobbyChat]);
+    return normalizeChatLog(lobbyState.lobbyChat, LOBBY_CHAT_LIMIT).filter((row) => row.at >= lobbyChatJoinedAt);
+  }, [lobbyState.lobbyChat, lobbyChatJoinedAt]);
 
   const tableChatRows = useMemo(() => {
     if (!currentRoomTable) return [];
@@ -1193,6 +1205,38 @@ function App() {
   const canWriteTableChat = Boolean(member && roomSession && canViewTableChat && mode === "local");
   const isAdmin = member?.role === "admin";
   const lobbyDraft = sanitizeChatText(lobbyChatInput);
+  const adminSummary = useMemo(() => {
+    const users = adminUsers;
+    const totalUsers = users.length;
+    const adminCount = users.filter((user) => user.role === "admin").length;
+    const totalGames = users.reduce((sum, user) => sum + normalizeStats(user.stats).gamesPlayed, 0);
+    const totalPoints = users.reduce((sum, user) => sum + Math.max(0, user.points), 0);
+    const averagePoints = totalUsers > 0 ? Math.round(totalPoints / totalUsers) : 0;
+    return { totalUsers, adminCount, totalGames, averagePoints };
+  }, [adminUsers]);
+  const visibleAdminUsers = useMemo(() => {
+    const query = adminQuery.trim().toLocaleLowerCase("tr");
+    const filtered = adminUsers.filter((user) => {
+      if (adminRoleFilter !== "all" && user.role !== adminRoleFilter) return false;
+      if (!query) return true;
+      const haystack = `${user.displayName} ${user.email} ${user.id}`.toLocaleLowerCase("tr");
+      return haystack.includes(query);
+    });
+
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      if (adminSort === "name") {
+        return a.displayName.localeCompare(b.displayName, "tr", { sensitivity: "base" });
+      }
+      if (adminSort === "points") return b.points - a.points;
+      if (adminSort === "games") return b.stats.gamesPlayed - a.stats.gamesPlayed;
+      if (adminSort === "wins") return b.stats.wins - a.stats.wins;
+      if (adminSort === "losses") return b.stats.losses - a.stats.losses;
+      if (adminSort === "resigns") return b.stats.resigns - a.stats.resigns;
+      return b.createdAt - a.createdAt;
+    });
+    return sorted;
+  }, [adminUsers, adminQuery, adminRoleFilter, adminSort]);
 
   function broadcastLobbySync() {
     lobbyChannelRef.current?.postMessage({ type: "lobby-sync", at: Date.now() });
@@ -1812,7 +1856,7 @@ function App() {
 
   async function runAdminUserAction(
     targetUserId: string,
-    action: "addPoints" | "setRole" | "resetStats" | "deleteUser",
+    action: "addPoints" | "setPoints" | "setRole" | "resetStats" | "deleteUser",
     payload: Record<string, unknown> = {},
   ) {
     if (!member || member.role !== "admin") return;
@@ -1846,6 +1890,8 @@ function App() {
           map.set(updated.id, updated);
           return [...map.values()].sort((a, b) => a.displayName.localeCompare(b.displayName, "tr"));
         });
+        setAdminPointDrafts((prev) => ({ ...prev, [updated.id]: String(updated.points) }));
+        setAdminDeltaDrafts((prev) => ({ ...prev, [updated.id]: "" }));
         patchSeatByUserId(updated.id, updated.points, updated.stats, updated.displayName);
         if (member.id === updated.id) {
           setMember(updated);
@@ -1853,6 +1899,16 @@ function App() {
         }
       } else if (data?.deleted) {
         setAdminUsers((prev) => prev.filter((item) => item.id !== safeTargetUserId));
+        setAdminPointDrafts((prev) => {
+          const next = { ...prev };
+          delete next[safeTargetUserId];
+          return next;
+        });
+        setAdminDeltaDrafts((prev) => {
+          const next = { ...prev };
+          delete next[safeTargetUserId];
+          return next;
+        });
       }
 
       setAdminNotice("Admin islemi tamamlandi.");
@@ -1860,6 +1916,50 @@ function App() {
       setAdminError("Admin servisine baglanilamadi.");
     } finally {
       setAdminBusy(false);
+    }
+  }
+
+  function updateAdminPointDraft(userId: string, value: string) {
+    const safeUserId = sanitizeGuestId(userId);
+    if (!safeUserId) return;
+    setAdminPointDrafts((prev) => ({ ...prev, [safeUserId]: value.slice(0, 8) }));
+  }
+
+  function updateAdminDeltaDraft(userId: string, value: string) {
+    const safeUserId = sanitizeGuestId(userId);
+    if (!safeUserId) return;
+    const normalized = value.replace(/[^\d+-]/g, "").slice(0, 7);
+    setAdminDeltaDrafts((prev) => ({ ...prev, [safeUserId]: normalized }));
+  }
+
+  function applyAdminPointSet(user: MemberUser) {
+    const draft = adminPointDrafts[user.id] ?? String(user.points);
+    const next = Math.max(0, normalizeNonNegativeInt(draft, user.points));
+    void runAdminUserAction(user.id, "setPoints", { points: next });
+  }
+
+  function applyAdminPointDelta(user: MemberUser) {
+    const draft = (adminDeltaDrafts[user.id] ?? "").trim();
+    const delta = normalizeRuleNumber(draft, 0, -10_000, 10_000);
+    if (!delta) return;
+    void runAdminUserAction(user.id, "addPoints", { delta });
+    setAdminDeltaDrafts((prev) => ({ ...prev, [user.id]: "" }));
+  }
+
+  function scrollLobbyChatToBottom() {
+    const list = lobbyChatListRef.current;
+    if (!list) return;
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function onLobbyChatScroll() {
+    const list = lobbyChatListRef.current;
+    if (!list) return;
+    const distance = list.scrollHeight - list.scrollTop - list.clientHeight;
+    const atBottom = distance <= LOBBY_CHAT_AUTO_SCROLL_THRESHOLD;
+    setLobbyChatAutoScroll(atBottom);
+    if (atBottom) {
+      setLobbyChatUnread(0);
     }
   }
 
@@ -2630,10 +2730,30 @@ function App() {
       setAdminUsers([]);
       setAdminError("");
       setAdminNotice("");
+      setAdminPointDrafts({});
+      setAdminDeltaDrafts({});
       return;
     }
     void loadAdminState(member.id);
   }, [member?.id, member?.role]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    setAdminPointDrafts((prev) => {
+      const next: Record<string, string> = {};
+      adminUsers.forEach((user) => {
+        next[user.id] = prev[user.id] ?? String(user.points);
+      });
+      return next;
+    });
+    setAdminDeltaDrafts((prev) => {
+      const next: Record<string, string> = {};
+      adminUsers.forEach((user) => {
+        next[user.id] = prev[user.id] ?? "";
+      });
+      return next;
+    });
+  }, [adminUsers, isAdmin]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2749,9 +2869,21 @@ function App() {
   }, [isRoomMode, mode]);
 
   useEffect(() => {
-    if (!lobbyChatListRef.current) return;
-    lobbyChatListRef.current.scrollTop = lobbyChatListRef.current.scrollHeight;
-  }, [lobbyChatRows]);
+    const prev = lobbyPrevChatCountRef.current;
+    const next = lobbyChatRows.length;
+    const added = Math.max(0, next - prev);
+    lobbyPrevChatCountRef.current = next;
+
+    if (lobbyChatAutoScroll) {
+      scrollLobbyChatToBottom();
+      setLobbyChatUnread(0);
+      return;
+    }
+
+    if (added > 0) {
+      setLobbyChatUnread((count) => count + added);
+    }
+  }, [lobbyChatRows, lobbyChatAutoScroll]);
 
   useEffect(() => {
     syncTableChatToIframe();
@@ -3041,12 +3173,26 @@ function App() {
             <section className="my-chat-card">
               <div className="my-chat-head">
                 <h3>Lobi Sohbeti</h3>
-                <span>{lobbyChatRows.length} mesaj</span>
+                <div className="my-chat-head-actions">
+                  <span>{lobbyChatRows.length} mesaj</span>
+                  {!lobbyChatAutoScroll || lobbyChatUnread > 0 ? (
+                    <button
+                      className="my-action-btn soft my-chat-jump-btn"
+                      onClick={() => {
+                        setLobbyChatAutoScroll(true);
+                        setLobbyChatUnread(0);
+                        scrollLobbyChatToBottom();
+                      }}
+                    >
+                      {lobbyChatUnread > 0 ? `Sona Git (${lobbyChatUnread})` : "Sona Git"}
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
-              <div ref={lobbyChatListRef} className="my-chat-list">
+              <div ref={lobbyChatListRef} className="my-chat-list" onScroll={onLobbyChatScroll}>
                 {lobbyChatRows.length === 0 ? (
-                  <p className="my-chat-empty">Henuz lobi mesaji yok.</p>
+                  <p className="my-chat-empty">Bu oturumda henuz lobi mesaji yok.</p>
                 ) : (
                   lobbyChatRows.map((message) => (
                     <article key={message.id} className="my-chat-row">
@@ -3059,6 +3205,9 @@ function App() {
                   ))
                 )}
               </div>
+              <p className="my-chat-hint">
+                Sohbet gecmisi bu oturuma girdigin andan itibaren gosterilir. Yukari kaydirarak onceki mesajlari okuyabilirsin.
+              </p>
 
               <div className="my-chat-compose">
                 <input
@@ -3176,10 +3325,29 @@ function App() {
             {isAdmin ? (
               <section className="my-side-card">
                 <h3>Admin Paneli</h3>
+                <div className="my-admin-summary-grid">
+                  <article className="my-admin-summary-card">
+                    <span>Toplam Uye</span>
+                    <strong>{adminSummary.totalUsers}</strong>
+                  </article>
+                  <article className="my-admin-summary-card">
+                    <span>Admin Sayisi</span>
+                    <strong>{adminSummary.adminCount}</strong>
+                  </article>
+                  <article className="my-admin-summary-card">
+                    <span>Toplam Oyun</span>
+                    <strong>{adminSummary.totalGames}</strong>
+                  </article>
+                  <article className="my-admin-summary-card">
+                    <span>Ort. Puan</span>
+                    <strong>{adminSummary.averagePoints}</strong>
+                  </article>
+                </div>
+
                 <p className="line">Oyun Kurallari</p>
                 <div className="my-admin-rules-grid">
                   <label className="my-field">
-                    <span>Kazanma Puanı</span>
+                    <span>Kazanma Puani</span>
                     <input
                       className="my-input"
                       type="number"
@@ -3192,7 +3360,7 @@ function App() {
                     />
                   </label>
                   <label className="my-field">
-                    <span>Kaybetme Puanı</span>
+                    <span>Kaybetme Puani</span>
                     <input
                       className="my-input"
                       type="number"
@@ -3205,7 +3373,7 @@ function App() {
                     />
                   </label>
                   <label className="my-field">
-                    <span>Masadan Kalkma Cezası</span>
+                    <span>Masadan Kalkma Cezasi</span>
                     <input
                       className="my-input"
                       type="number"
@@ -3219,6 +3387,7 @@ function App() {
                     />
                   </label>
                 </div>
+
                 <div className="my-inline-actions">
                   <button className="my-action-btn" onClick={saveAdminRules} disabled={adminBusy}>
                     Kurallari Kaydet
@@ -3227,20 +3396,100 @@ function App() {
                     Listeyi Yenile
                   </button>
                 </div>
+
+                <div className="my-admin-toolbar">
+                  <input
+                    className="my-input"
+                    placeholder="Kullanici ara (ad, e-posta, id)"
+                    value={adminQuery}
+                    onChange={(e) => setAdminQuery(e.target.value)}
+                    disabled={adminBusy}
+                  />
+                  <select
+                    className="my-input"
+                    value={adminRoleFilter}
+                    onChange={(e) => setAdminRoleFilter((e.target.value as AdminRoleFilter) || "all")}
+                    disabled={adminBusy}
+                  >
+                    <option value="all">Tum Roller</option>
+                    <option value="admin">Sadece Admin</option>
+                    <option value="user">Sadece Uye</option>
+                  </select>
+                  <select
+                    className="my-input"
+                    value={adminSort}
+                    onChange={(e) => setAdminSort((e.target.value as AdminSortKey) || "points")}
+                    disabled={adminBusy}
+                  >
+                    <option value="points">Puana Gore</option>
+                    <option value="games">Oyuna Gore</option>
+                    <option value="wins">Kazanmaya Gore</option>
+                    <option value="losses">Kaybetmeye Gore</option>
+                    <option value="resigns">Kacisa Gore</option>
+                    <option value="createdAt">Yeni Uyeler</option>
+                    <option value="name">Ada Gore</option>
+                  </select>
+                </div>
+
                 {adminError ? <p className="my-error">{adminError}</p> : null}
                 {adminNotice ? <p className="my-notice my-notice-soft">{adminNotice}</p> : null}
+
                 <div className="my-admin-user-list">
-                  {adminUsers.map((user) => (
+                  {visibleAdminUsers.map((user) => (
                     <article key={user.id} className="my-admin-user-row">
                       <p className="line">
-                        <strong>{user.displayName}</strong> · {user.role === "admin" ? "Admin" : "Uye"}
+                        <strong>{user.displayName}</strong> / {user.role === "admin" ? "Admin" : "Uye"}
                       </p>
                       <p className="line">
-                        {user.email} · Puan: {user.points}
+                        {user.email} / Puan: {user.points} / Kayit: {new Date(user.createdAt).toLocaleDateString("tr-TR")}
                       </p>
                       <p className="line">
                         Oyun: {user.stats.gamesPlayed} / K: {user.stats.wins} / M: {user.stats.losses} / Kacis: {user.stats.resigns}
                       </p>
+
+                      <div className="my-admin-points-row">
+                        <label className="my-field">
+                          <span>Kesin Puan</span>
+                          <input
+                            className="my-input"
+                            type="number"
+                            value={adminPointDrafts[user.id] ?? String(user.points)}
+                            onChange={(e) => updateAdminPointDraft(user.id, e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key !== "Enter") return;
+                              e.preventDefault();
+                              applyAdminPointSet(user);
+                            }}
+                            disabled={adminBusy}
+                          />
+                        </label>
+                        <button className="my-action-btn soft" onClick={() => applyAdminPointSet(user)} disabled={adminBusy}>
+                          Puan Kaydet
+                        </button>
+                      </div>
+
+                      <div className="my-admin-points-row">
+                        <label className="my-field">
+                          <span>Ozel Delta (+/-)</span>
+                          <input
+                            className="my-input"
+                            type="text"
+                            placeholder="+250 / -125"
+                            value={adminDeltaDrafts[user.id] ?? ""}
+                            onChange={(e) => updateAdminDeltaDraft(user.id, e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key !== "Enter") return;
+                              e.preventDefault();
+                              applyAdminPointDelta(user);
+                            }}
+                            disabled={adminBusy}
+                          />
+                        </label>
+                        <button className="my-action-btn soft" onClick={() => applyAdminPointDelta(user)} disabled={adminBusy}>
+                          Delta Uygula
+                        </button>
+                      </div>
+
                       <div className="my-admin-actions">
                         <button
                           className="my-action-btn soft"
@@ -3280,6 +3529,7 @@ function App() {
                       </div>
                     </article>
                   ))}
+                  {visibleAdminUsers.length === 0 ? <p className="my-chat-empty">Filtreye uyan kullanici bulunamadi.</p> : null}
                 </div>
               </section>
             ) : null}
@@ -3449,3 +3699,5 @@ function App() {
 }
 
 export default App;
+
+
