@@ -360,6 +360,43 @@ function createDefaultLobbyState(): LobbyState {
   };
 }
 
+function normalizeGuestLabels(rawLabels: Record<string, unknown>, preferredCounter: number) {
+  const parsed: Array<{ key: string; value: number }> = [];
+  Object.entries(rawLabels).forEach(([key, value]) => {
+    const safeKey = sanitizeGuestId(key);
+    const safeValue = Number(value);
+    if (!safeKey || !Number.isInteger(safeValue) || safeValue <= 0) return;
+    parsed.push({ key: safeKey, value: safeValue });
+  });
+
+  parsed.sort((a, b) => a.value - b.value || a.key.localeCompare(b.key));
+
+  const guestLabels: Record<string, number> = {};
+  const used = new Set<number>();
+  let highest = 0;
+  let nextCandidate = Math.max(1, Math.trunc(preferredCounter) + 1);
+
+  parsed.forEach((entry) => {
+    let assigned = entry.value;
+    if (used.has(assigned)) {
+      while (used.has(nextCandidate)) nextCandidate += 1;
+      assigned = nextCandidate;
+      nextCandidate += 1;
+    } else if (assigned >= nextCandidate) {
+      nextCandidate = assigned + 1;
+    }
+
+    used.add(assigned);
+    guestLabels[entry.key] = assigned;
+    highest = Math.max(highest, assigned);
+  });
+
+  return {
+    guestLabels,
+    guestCounter: Math.max(0, Math.trunc(preferredCounter), highest),
+  };
+}
+
 function normalizeSeat(raw: unknown): LobbySeatState | null {
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Partial<LobbySeatState>;
@@ -451,7 +488,17 @@ function cleanupPresenceRows(rows: LobbyPresenceState[]) {
     }
   });
 
-  const presence = Array.from(bySession.values());
+  const byUser = new Map<string, LobbyPresenceState>();
+  bySession.forEach((row) => {
+    const key = row.userId || `session:${row.sessionId}`;
+    const existing = byUser.get(key);
+    if (!existing || row.touchedAt >= existing.touchedAt) {
+      if (existing && existing !== row) changed = true;
+      byUser.set(key, row);
+    }
+  });
+
+  const presence = Array.from(byUser.values());
   if (presence.length !== rows.length) {
     changed = true;
   }
@@ -479,19 +526,13 @@ function normalizeLobbyState(raw: unknown): LobbyState {
     return rows;
   });
   const cleanedPresence = cleanupPresenceRows([...normalizedPresenceRows, ...seatPresenceRows]).presence;
-  const guestCounter = Number.isInteger(candidate.guestCounter) && Number(candidate.guestCounter) >= 0
+  const rawGuestCounter = Number.isInteger(candidate.guestCounter) && Number(candidate.guestCounter) >= 0
     ? Number(candidate.guestCounter)
     : 0;
   const rawLabels = candidate.guestLabels && typeof candidate.guestLabels === "object"
     ? candidate.guestLabels as Record<string, unknown>
     : {};
-  const guestLabels: Record<string, number> = {};
-  Object.entries(rawLabels).forEach(([key, value]) => {
-    const safeKey = sanitizeGuestId(key);
-    const safeValue = Number(value);
-    if (!safeKey || !Number.isInteger(safeValue) || safeValue <= 0) return;
-    guestLabels[safeKey] = safeValue;
-  });
+  const { guestLabels, guestCounter } = normalizeGuestLabels(rawLabels, rawGuestCounter);
   return {
     lobbyName,
     tables: cleaned,
@@ -648,12 +689,11 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
 
   const guestLabels: Record<string, number> = { ...remote.guestLabels };
   Object.entries(local.guestLabels).forEach(([guestKey, guestNo]) => {
-    if (!guestLabels[guestKey]) {
+    const existing = guestLabels[guestKey];
+    if (!existing || (Number.isInteger(guestNo) && guestNo > 0 && guestNo < existing)) {
       guestLabels[guestKey] = guestNo;
     }
   });
-
-  const highestGuestNo = Object.values(guestLabels).reduce((max, value) => Math.max(max, value), 0);
   const presenceBySession = new Map<string, LobbyPresenceState>();
   const upsertPresence = (row: LobbyPresenceState) => {
     const existing = presenceBySession.get(row.sessionId);
@@ -673,7 +713,7 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     lobbyName: sanitizeLobbyName(remote.lobbyName || local.lobbyName),
     tables: Array.from(mergedTables.values()),
     presence: Array.from(presenceBySession.values()),
-    guestCounter: Math.max(remote.guestCounter, local.guestCounter, highestGuestNo),
+    guestCounter: Math.max(remote.guestCounter, local.guestCounter),
     guestLabels,
     updatedAt: Math.max(remote.updatedAt, local.updatedAt),
   });
@@ -780,43 +820,55 @@ function App() {
 
   const onlineRows = useMemo<OnlineRow[]>(() => {
     const tableBySession = new Map<string, number>();
+    const tableByUser = new Map<string, number>();
     openedTables.forEach((table) => {
       [table.white, table.black].forEach((seatInfo) => {
         if (!seatInfo) return;
         tableBySession.set(seatInfo.sessionId, table.id);
+        if (seatInfo.userId) {
+          tableByUser.set(seatInfo.userId, table.id);
+        }
       });
     });
 
     const map = new Map<string, LobbyPresenceState>();
+    const upsertPresence = (row: LobbyPresenceState) => {
+      const key = row.userId || `session:${row.sessionId}`;
+      const existing = map.get(key);
+      if (!existing || row.touchedAt >= existing.touchedAt) {
+        map.set(key, row);
+      }
+    };
+
     lobbyState.presence.forEach((presence) => {
-      map.set(presence.sessionId, presence);
+      upsertPresence(presence);
     });
     openedTables.forEach((table) => {
       [table.white, table.black].forEach((seatInfo) => {
         if (!seatInfo) return;
-        map.set(seatInfo.sessionId, presenceFromSeat(seatInfo));
+        upsertPresence(presenceFromSeat(seatInfo));
       });
     });
-    if (!map.has(appSessionId)) {
-      map.set(appSessionId, {
-        sessionId: appSessionId,
-        userId: currentProfile.userId,
-        displayName: safeGuestName,
-        points: currentProfile.points,
-        stats: normalizeStats(currentProfile.stats),
-        touchedAt: Date.now(),
-      });
-    }
+
+    const myPresenceKey = currentProfile.userId || `session:${appSessionId}`;
+    map.set(myPresenceKey, {
+      sessionId: appSessionId,
+      userId: currentProfile.userId,
+      displayName: safeGuestName,
+      points: currentProfile.points,
+      stats: normalizeStats(currentProfile.stats),
+      touchedAt: Date.now(),
+    });
 
     return Array.from(map.values())
       .map((row) => ({
-        key: row.sessionId,
+        key: row.userId || row.sessionId,
         userId: row.userId,
         sessionId: row.sessionId,
         name: row.displayName,
         points: row.points,
         stats: normalizeStats(row.stats),
-        tableNo: tableBySession.get(row.sessionId) ?? null,
+        tableNo: tableByUser.get(row.userId) ?? tableBySession.get(row.sessionId) ?? null,
       }))
       .sort((a, b) => a.name.localeCompare(b.name, "tr", { sensitivity: "base" }));
   }, [openedTables, lobbyState.presence, appSessionId, safeGuestName, currentProfile.userId, currentProfile.points, currentProfile.stats]);
@@ -897,9 +949,8 @@ function App() {
         touchedAt: now,
       };
 
-      const existing = cleanedPresence.presence.find((entry) => entry.sessionId === appSessionId) ?? null;
+      const existing = cleanedPresence.presence.find((entry) => entry.userId === myPresence.userId) ?? null;
       const changedProfile = !existing
-        || existing.userId !== myPresence.userId
         || existing.displayName !== myPresence.displayName
         || existing.points !== myPresence.points
         || !sameStats(existing.stats, myPresence.stats);
@@ -909,7 +960,9 @@ function App() {
         return current;
       }
 
-      const withoutMine = cleanedPresence.presence.filter((entry) => entry.sessionId !== appSessionId);
+      const withoutMine = cleanedPresence.presence.filter(
+        (entry) => entry.sessionId !== appSessionId && entry.userId !== myPresence.userId,
+      );
       return {
         ...current,
         presence: [...withoutMine, myPresence],
