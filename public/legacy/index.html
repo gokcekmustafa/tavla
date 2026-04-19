@@ -33,6 +33,13 @@
             <option value="bot">Bilgisayara Karsi</option>
           </select>
 
+          <label for="bot-difficulty-select" class="control-label">Bot Zorlugu</label>
+          <select id="bot-difficulty-select" class="mode-select">
+            <option value="easy">Kolay</option>
+            <option value="medium" selected>Orta</option>
+            <option value="hard">Zor</option>
+          </select>
+
           <p class="label mini-gap">Pul Rengi</p>
           <div class="color-choice-row" role="radiogroup" aria-label="Pul rengi secimi">
             <label class="color-choice color-white" for="player-color-white">
@@ -129,7 +136,9 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const initialMode = params.get("mode");
+    const initialDifficulty = (params.get("bot_difficulty") || params.get("difficulty") || "medium").toLowerCase();
     window.__BOOT_MODE__ = initialMode === "bot" ? "bot" : "local";
+    window.__BOOT_BOT_DIFFICULTY__ = ["easy", "medium", "hard"].includes(initialDifficulty) ? initialDifficulty : "medium";
   </script>
   <script src="./script.js"></script>
 </body>

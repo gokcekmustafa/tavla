@@ -4,6 +4,14 @@ const POINT_COUNT = 24;
 const CHECKERS_PER_PLAYER = 15;
 const BOT_DELAY_MS = 800;
 const BOT_AFTER_DICE_REVEAL_MS = 260;
+const BOT_DIFFICULTY_EASY = "easy";
+const BOT_DIFFICULTY_MEDIUM = "medium";
+const BOT_DIFFICULTY_HARD = "hard";
+const BOT_THINK_DELAY_BY_LEVEL = {
+  [BOT_DIFFICULTY_EASY]: 980,
+  [BOT_DIFFICULTY_MEDIUM]: BOT_DELAY_MS,
+  [BOT_DIFFICULTY_HARD]: 640,
+};
 const LOG_LIMIT = 140;
 const ANIM_MS = 380;
 const AUTO_ROLL_DELAY_MS = 520;
@@ -33,6 +41,7 @@ const dom = {
   newGameBtn:      document.getElementById("new-game-btn"),
   undoBtn:         document.getElementById("undo-btn"),
   modeSelect:      document.getElementById("game-mode-select"),
+  botDifficultySelect: document.getElementById("bot-difficulty-select"),
   colorWhiteInput: document.getElementById("player-color-white"),
   colorBlackInput: document.getElementById("player-color-black"),
   autoRollToggle:  document.getElementById("auto-roll-toggle"),
@@ -71,6 +80,7 @@ let availableMoves    = [];
 let winner            = null;
 let statusMessage     = "Beyaz başlıyor. Zar atarak oyunu başlat.";
 let gameMode          = window.__BOOT_MODE__ === "bot" ? "bot" : "local";
+let botDifficulty     = normalizeBotDifficulty(window.__BOOT_BOT_DIFFICULTY__);
 let moveLog           = [];
 let pendingBotTimer   = null;
 let pendingAutoRollTimer = null;
@@ -275,6 +285,18 @@ function normalizePlayerColor(value) {
   return value === BLACK ? BLACK : WHITE;
 }
 
+function normalizeBotDifficulty(value) {
+  if (value === BOT_DIFFICULTY_EASY || value === BOT_DIFFICULTY_HARD) return value;
+  return BOT_DIFFICULTY_MEDIUM;
+}
+
+function getBotDifficultyLabel(level) {
+  const normalized = normalizeBotDifficulty(level);
+  if (normalized === BOT_DIFFICULTY_EASY) return "Kolay";
+  if (normalized === BOT_DIFFICULTY_HARD) return "Zor";
+  return "Orta";
+}
+
 function initPreferredPlayerColor() {
   if (isRoomMode()) {
     preferredPlayerColor = roomParams.seat;
@@ -328,10 +350,15 @@ function initRoomMode() {
   if (!isRoomMode()) return;
 
   gameMode = "local";
+  botDifficulty = BOT_DIFFICULTY_MEDIUM;
   preferredPlayerColor = roomParams.seat;
   if (dom.modeSelect) {
     dom.modeSelect.value = "local";
     dom.modeSelect.disabled = true;
+  }
+  if (dom.botDifficultySelect) {
+    dom.botDifficultySelect.value = BOT_DIFFICULTY_MEDIUM;
+    dom.botDifficultySelect.disabled = true;
   }
 
   if (dom.roomMeta) {
@@ -825,6 +852,7 @@ function attachEvents() {
   dom.newGameBtn.addEventListener("click", onNewGame);
   dom.undoBtn.addEventListener("click",  onUndoMove);
   dom.modeSelect.addEventListener("change", onModeChange);
+  dom.botDifficultySelect?.addEventListener("change", onBotDifficultyChange);
   dom.colorWhiteInput?.addEventListener("change", onPreferredColorChange);
   dom.colorBlackInput?.addEventListener("change", onPreferredColorChange);
   dom.autoRollToggle?.addEventListener("change", onAutoRollChange);
@@ -980,17 +1008,38 @@ function onModeChange() {
   dragSource        = null;
   pendingMoveChain  = [];
   if (gameMode === "bot") {
-    setStatus("Bilgisayara karşı mod aktif.");
-    addLog("Mod: Bilgisayara karşı.");
+    setStatus(`Bilgisayara karsi mod aktif (${getBotDifficultyLabel(botDifficulty)}).`);
+    addLog(`Mod: Bilgisayara karsi (${getBotDifficultyLabel(botDifficulty)}).`);
   } else {
-    setStatus("İki oyunculu mod aktif.");
-    addLog("Mod: İki oyuncu.");
+    setStatus("Iki oyunculu mod aktif.");
+    addLog("Mod: Iki oyuncu.");
   }
   render();
   maybeScheduleBotAction();
   maybeScheduleAutoRoll();
 }
 
+function onBotDifficultyChange() {
+  if (isRoomMode()) {
+    if (dom.botDifficultySelect) {
+      dom.botDifficultySelect.value = BOT_DIFFICULTY_MEDIUM;
+      dom.botDifficultySelect.disabled = true;
+    }
+    botDifficulty = BOT_DIFFICULTY_MEDIUM;
+    render();
+    return;
+  }
+
+  const next = normalizeBotDifficulty(dom.botDifficultySelect?.value);
+  if (next === botDifficulty) return;
+  botDifficulty = next;
+  addLog(`Bot zorluk: ${getBotDifficultyLabel(botDifficulty)}.`);
+  if (gameMode === "bot") {
+    setStatus(`Bot zorlugu ${getBotDifficultyLabel(botDifficulty)} olarak ayarlandi.`);
+    maybeScheduleBotAction(120);
+  }
+  render();
+}
 function onPreferredColorChange() {
   if (isRoomMode()) {
     preferredPlayerColor = roomParams.seat;
@@ -1491,7 +1540,8 @@ function maybeScheduleBotAction(delayOverrideMs) {
   const now = Date.now();
   const diceWaitMs = hasRolled ? Math.max(0, diceRollSettledAt - now + BOT_AFTER_DICE_REVEAL_MS) : 0;
   const overrideMs = Number.isFinite(delayOverrideMs) ? Math.max(0, Number(delayOverrideMs)) : 0;
-  const delayMs = Math.max(BOT_DELAY_MS, diceWaitMs, overrideMs);
+  const baseDelay = BOT_THINK_DELAY_BY_LEVEL[normalizeBotDifficulty(botDifficulty)] ?? BOT_DELAY_MS;
+  const delayMs = Math.max(baseDelay, diceWaitMs, overrideMs);
   pendingBotTimer = window.setTimeout(() => { pendingBotTimer = null; runBotAction(); }, delayMs);
 }
 
@@ -1510,7 +1560,7 @@ function runBotAction() {
   }
 
   const botColor = getBotColor();
-  const mv = chooseBotMove(gameState, botColor, availableMoves);
+  const mv = chooseBotMove(gameState, botColor, availableMoves, remainingDice, botDifficulty);
   isAnimating = true;
   render();
   animateMove(mv, botColor, () => {
@@ -1585,6 +1635,10 @@ function renderTurnInfo() {
   dom.undoBtn.disabled  = !canUndoCurrentTurn();
   dom.modeSelect.value  = gameMode;
   dom.modeSelect.disabled = isRoomMode();
+  if (dom.botDifficultySelect) {
+    dom.botDifficultySelect.value = normalizeBotDifficulty(botDifficulty);
+    dom.botDifficultySelect.disabled = isRoomMode();
+  }
   dom.newGameBtn.disabled = isRoomMode() && roomParams.seat !== WHITE;
   if (dom.autoRollToggle) {
     dom.autoRollToggle.checked = autoRollEnabled;
@@ -2254,16 +2308,170 @@ function isHitMove(state, player, move) {
 
 // ── Smarter Bot ──────────────────────────────────────────────────
 
-function chooseBotMove(state, player, moves) {
+function chooseBotMove(state, player, moves, dice, difficulty) {
+  if (!Array.isArray(moves) || moves.length === 0) return null;
+  const level = normalizeBotDifficulty(difficulty);
+  if (level === BOT_DIFFICULTY_EASY) {
+    return chooseBotMoveEasy(state, player, moves);
+  }
+  if (level === BOT_DIFFICULTY_HARD) {
+    return chooseBotMoveHard(state, player, moves, dice);
+  }
+  return chooseBotMoveMedium(state, player, moves);
+}
+
+function chooseBotMoveEasy(state, player, moves) {
+  const ranked = moves
+    .map((move) => ({ move, score: scoreBotMove(state, player, move) }))
+    .sort((a, b) => b.score - a.score);
+
+  const bucketSize = Math.max(2, Math.ceil(ranked.length * 0.65));
+  const bucket = ranked.slice(0, bucketSize);
+  const choice = bucket[Math.floor(Math.random() * bucket.length)] || ranked[0];
+  return choice?.move || moves[0];
+}
+
+function chooseBotMoveMedium(state, player, moves) {
   let best = moves[0];
   let bestScore = -Infinity;
-  for (const m of moves) {
-    const s = scoreBotMove(state, player, m);
-    if (s > bestScore || (s === bestScore && Math.random() > 0.55)) {
-      bestScore = s; best = m;
+  for (const move of moves) {
+    const score = scoreBotMove(state, player, move);
+    if (score > bestScore || (score === bestScore && Math.random() > 0.55)) {
+      best = move;
+      bestScore = score;
     }
   }
   return best;
+}
+
+function chooseBotMoveHard(state, player, moves, dice) {
+  const turnDice = Array.isArray(dice) ? [...dice] : [];
+  const searchDepth = Math.min(4, Math.max(1, turnDice.length));
+  const memo = new Map();
+
+  let best = moves[0];
+  let bestScore = -Infinity;
+
+  for (const move of moves) {
+    const nextState = applyMove(state, player, move);
+    const nextDice = removeOneDie(turnDice, move.die);
+    const immediate = scoreBotMove(state, player, move) * 0.6;
+    const continuation = getHardTurnPlanScore(nextState, player, nextDice, searchDepth - 1, memo);
+    const boardEval = evaluateBoardStateForBot(nextState, player);
+    const total = immediate + continuation + boardEval;
+
+    if (total > bestScore || (total === bestScore && move.die > best.die)) {
+      bestScore = total;
+      best = move;
+    }
+  }
+  return best;
+}
+
+function getHardTurnPlanScore(state, player, dice, depth, memo) {
+  const usableDice = Array.isArray(dice) ? dice : [];
+  if (!usableDice.length || depth <= 0) {
+    return evaluateBoardStateForBot(state, player);
+  }
+
+  const key = `${depth}|${serialize(state, player, usableDice)}`;
+  if (memo.has(key)) return memo.get(key);
+
+  const options = getOptimalMoves(state, player, usableDice);
+  if (!options.length) {
+    const score = evaluateBoardStateForBot(state, player) - 8;
+    memo.set(key, score);
+    return score;
+  }
+
+  let best = -Infinity;
+  for (const move of options) {
+    const nextState = applyMove(state, player, move);
+    const nextDice = removeOneDie(usableDice, move.die);
+    const immediate = scoreBotMove(state, player, move) * 0.32;
+    const score = immediate + getHardTurnPlanScore(nextState, player, nextDice, depth - 1, memo);
+    if (score > best) best = score;
+  }
+
+  memo.set(key, best);
+  return best;
+}
+
+function evaluateBoardStateForBot(state, player) {
+  const opp = opponentOf(player);
+  const pipAdvantage = getPipCount(state, opp) - getPipCount(state, player);
+  const offAdvantage = state.borneOff[player] - state.borneOff[opp];
+  const barAdvantage = state.bar[opp] - state.bar[player];
+  const madePointAdvantage = countMadePoints(state, player) - countMadePoints(state, opp);
+  const homeMadeAdvantage = countHomeMadePoints(state, player) - countHomeMadePoints(state, opp);
+  const blotPenalty = countBlots(state, player) - countBlots(state, opp);
+  const primeAdvantage = longestPrime(state, player) - longestPrime(state, opp);
+
+  return (
+    pipAdvantage * 0.65
+    + offAdvantage * 34
+    + barAdvantage * 22
+    + madePointAdvantage * 3.5
+    + homeMadeAdvantage * 5.2
+    - blotPenalty * 7.5
+    + primeAdvantage * 4.8
+  );
+}
+
+function getPipCount(state, player) {
+  let total = state.bar[player] * 25;
+  for (let pt = 1; pt <= POINT_COUNT; pt++) {
+    const ps = state.points[pt - 1];
+    if (ps.owner !== player || ps.count <= 0) continue;
+    const distance = player === WHITE ? pt : 25 - pt;
+    total += ps.count * distance;
+  }
+  return total;
+}
+
+function countBlots(state, player) {
+  let blots = 0;
+  for (let pt = 1; pt <= POINT_COUNT; pt++) {
+    const ps = state.points[pt - 1];
+    if (ps.owner === player && ps.count === 1) {
+      blots += 1 + getHitThreat(state, player, pt) * 0.35;
+    }
+  }
+  return blots;
+}
+
+function countMadePoints(state, player) {
+  let total = 0;
+  for (let pt = 1; pt <= POINT_COUNT; pt++) {
+    const ps = state.points[pt - 1];
+    if (ps.owner === player && ps.count >= 2) total++;
+  }
+  return total;
+}
+
+function countHomeMadePoints(state, player) {
+  let total = 0;
+  for (let pt = 1; pt <= POINT_COUNT; pt++) {
+    if (!isHomePoint(player, pt)) continue;
+    const ps = state.points[pt - 1];
+    if (ps.owner === player && ps.count >= 2) total++;
+  }
+  return total;
+}
+
+function longestPrime(state, player) {
+  let longest = 0;
+  let streak = 0;
+  for (let pt = 1; pt <= POINT_COUNT; pt++) {
+    const ps = state.points[pt - 1];
+    if (ps.owner === player && ps.count >= 2) {
+      streak += 1;
+      if (streak > longest) longest = streak;
+    } else {
+      streak = 0;
+    }
+  }
+  return longest;
 }
 
 function scoreBotMove(state, player, move) {
@@ -2529,3 +2737,4 @@ function getBotColor()             { return opponentOf(preferredPlayerColor); }
 function playerText(player)        { return player === WHITE ? "Beyaz" : "Siyah"; }
 function isBotTurn()               { return gameMode === "bot" && currentPlayer === getBotColor() && !winner; }
 function randomDie()               { return Math.floor(Math.random() * 6) + 1; }
+
