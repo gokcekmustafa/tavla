@@ -2191,6 +2191,15 @@ function App() {
       }
       return;
     }
+    const existingNo = lobbyState.guestLabels[guestId];
+    if (Number.isInteger(existingNo) && existingNo > 0) {
+      const desiredName = `Misafir ${existingNo}`;
+      if (guestName !== desiredName) {
+        setGuestName(desiredName);
+      }
+      return;
+    }
+
     let resolvedGuestNo = 0;
 
     const next = writeLobby((current) => {
@@ -2200,8 +2209,14 @@ function App() {
       let changed = false;
 
       if (!myNo) {
-        guestCounter += 1;
-        myNo = guestCounter;
+        const usedNos = new Set<number>(Object.values(guestLabels).filter((value) => Number.isInteger(value) && value > 0));
+        let nextNo = Math.max(
+          guestCounter + 1,
+          (usedNos.size ? Math.max(...Array.from(usedNos)) + 1 : 1),
+        );
+        while (usedNos.has(nextNo)) nextNo += 1;
+        myNo = nextNo;
+        guestCounter = Math.max(guestCounter, nextNo);
         guestLabels[guestId] = myNo;
         changed = true;
       }
@@ -2222,7 +2237,7 @@ function App() {
     if (guestName !== desiredName) {
       setGuestName(desiredName);
     }
-  }, [member, guestId, guestName, realtimeStatus]);
+  }, [member, guestId, guestName, realtimeStatus, lobbyState.guestCounter, lobbyState.guestLabels]);
 
   useEffect(() => {
     window.localStorage.setItem(GUEST_STORAGE_KEY, safeGuestName);
@@ -2350,10 +2365,24 @@ function App() {
   }, [roomSession, currentProfile.userId, currentProfile.displayName, currentProfile.points, currentProfile.stats, appSessionId]);
 
   useEffect(() => {
+    if (!member && realtimeStatus === "online") {
+      const myNo = lobbyState.guestLabels[guestId];
+      if (!Number.isInteger(myNo) || myNo <= 0) return;
+    }
     syncLobbyPresence(true);
     const timer = window.setInterval(() => syncLobbyPresence(false), HEARTBEAT_MS);
     return () => window.clearInterval(timer);
-  }, [appSessionId, currentProfile.userId, currentProfile.displayName, currentProfile.points, currentProfile.stats]);
+  }, [
+    appSessionId,
+    currentProfile.userId,
+    currentProfile.displayName,
+    currentProfile.points,
+    currentProfile.stats,
+    member,
+    realtimeStatus,
+    lobbyState.guestLabels,
+    guestId,
+  ]);
 
   useEffect(() => {
     const onBeforeUnload = () => {
