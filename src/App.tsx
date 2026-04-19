@@ -1130,40 +1130,74 @@ function App() {
 
   async function leaveRoomAndGoLobby() {
     let penalized = false;
+    let penaltyWaivedBecauseOpponentLeft = false;
     if (roomSession && matchLiveState.matchActive && !matchLiveState.winner) {
-      const confirmed = window.confirm(
-        "Oyun basladi. Masadan kalkarsan 50 puan kaybedersin. Rakibin galip sayilip 100 puan kazanir. Devam etmek istiyor musun?",
-      );
-      if (!confirmed) return;
-      const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
-      processedMatchTokensRef.current.add(`${token}:${currentProfile.userId}`);
-      await awardResignResult(token);
-      sendResignCommandToIframe(token);
-      penalized = true;
-    }
-
-    closeRoomAndReturnLobby();
-    setLobbyNotice(penalized ? "Masadan ayrildin: -50 puan. Rakibin +100 puan kazandi." : "Masadan ayrildin.");
-  }
-
-  async function startBotGame() {
-    if (roomSession) {
-      if (matchLiveState.matchActive && !matchLiveState.winner) {
+      const activeTable = getActiveRoomTable();
+      const opponentSeat = activeTable
+        ? (roomSession.seat === "white" ? activeTable.black : activeTable.white)
+        : null;
+      if (opponentSeat) {
         const confirmed = window.confirm(
-          "Devam eden masadan ayrilirsan 50 puan kaybedersin. Bot moduna gecmek istiyor musun?",
+          "Oyun basladi. Masadan kalkarsan 50 puan kaybedersin. Rakibin galip sayilip 100 puan kazanir. Devam etmek istiyor musun?",
         );
         if (!confirmed) return;
         const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
         processedMatchTokensRef.current.add(`${token}:${currentProfile.userId}`);
         await awardResignResult(token);
         sendResignCommandToIframe(token);
+        penalized = true;
+      } else {
+        penaltyWaivedBecauseOpponentLeft = true;
+      }
+    }
+
+    closeRoomAndReturnLobby();
+    if (penalized) {
+      setLobbyNotice("Masadan ayrildin: -50 puan. Rakibin +100 puan kazandi.");
+      return;
+    }
+    if (penaltyWaivedBecauseOpponentLeft) {
+      setLobbyNotice("Rakip masadan ayrildigi icin ceza uygulanmadi.");
+      return;
+    }
+    setLobbyNotice("Masadan ayrildin.");
+  }
+
+  async function startBotGame() {
+    let penalized = false;
+    let penaltyWaivedBecauseOpponentLeft = false;
+    if (roomSession) {
+      if (matchLiveState.matchActive && !matchLiveState.winner) {
+        const activeTable = getActiveRoomTable();
+        const opponentSeat = activeTable
+          ? (roomSession.seat === "white" ? activeTable.black : activeTable.white)
+          : null;
+        if (opponentSeat) {
+          const confirmed = window.confirm(
+            "Devam eden masadan ayrilirsan 50 puan kaybedersin. Bot moduna gecmek istiyor musun?",
+          );
+          if (!confirmed) return;
+          const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
+          processedMatchTokensRef.current.add(`${token}:${currentProfile.userId}`);
+          await awardResignResult(token);
+          sendResignCommandToIframe(token);
+          penalized = true;
+        } else {
+          penaltyWaivedBecauseOpponentLeft = true;
+        }
       }
       releaseSeatOnly();
     }
     setRoomSession(null);
     setMode("bot");
     setCopied(false);
-    setLobbyNotice("Bot modu aktif.");
+    if (penalized) {
+      setLobbyNotice("Bot modu aktif. Masadan ayrildigin icin -50 puan uygulandi.");
+    } else if (penaltyWaivedBecauseOpponentLeft) {
+      setLobbyNotice("Bot modu aktif. Rakip masadan ayrildigi icin ceza uygulanmadi.");
+    } else {
+      setLobbyNotice("Bot modu aktif.");
+    }
     setMatchLiveState({
       matchToken: "",
       matchActive: false,
