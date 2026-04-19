@@ -207,7 +207,7 @@
   border: 2px solid rgba(18, 128, 160, 0.72);
   background: linear-gradient(180deg, rgba(9, 102, 129, 0.92), rgba(7, 86, 109, 0.96));
   padding: 8px;
-  max-height: 560px;
+  height: 520px;
   overflow-y: auto;
 }
 
@@ -246,6 +246,14 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 10px;
+  min-height: 100%;
+  align-content: start;
+}
+
+.my-lobby-table-zone .my-empty-state {
+  min-height: calc(100% - 2px);
+  display: grid;
+  place-items: center;
 }
 
 .my-chat-card {
@@ -984,7 +992,7 @@
   }
 
   .my-lobby-table-zone {
-    max-height: 520px;
+    height: 500px;
   }
 
   .my-game-layout {
@@ -1012,7 +1020,7 @@
   }
 
   .my-lobby-table-zone {
-    max-height: 470px;
+    height: 450px;
   }
 
   .my-topbar {
@@ -1085,7 +1093,7 @@
   }
 
   .my-lobby-table-zone {
-    max-height: 420px;
+    height: 400px;
     padding: 6px;
   }
 
