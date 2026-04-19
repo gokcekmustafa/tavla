@@ -293,7 +293,7 @@ export default {
       try {
         const authId = env.AUTH.idFromName(AUTH_DO_NAME);
         const auth = env.AUTH.get(authId);
-        return auth.fetch(request);
+        return await auth.fetch(request);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Bilinmeyen hata";
         return jsonResponse({
@@ -312,7 +312,7 @@ export default {
       }
       const roomId = env.ROOMS.idFromName(channel);
       const room = env.ROOMS.get(roomId);
-      return room.fetch(request);
+      return await room.fetch(request);
     }
 
     return serveAssetWithSpaFallback(request, env);
