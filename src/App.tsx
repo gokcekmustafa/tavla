@@ -1096,6 +1096,10 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     const key = keyOf(table);
     const existing = mergedTables.get(key);
     if (!existing) {
+      const latestSeatTouch = Math.max(table.white?.touchedAt ?? 0, table.black?.touchedAt ?? 0);
+      if (preferRemote && latestSeatTouch <= remote.updatedAt) {
+        return;
+      }
       mergedTables.set(key, table);
       return;
     }
@@ -1997,12 +2001,15 @@ function App() {
     const latest = getCurrentLobbyState();
     const existing = findSessionSeat(latest.tables, appSessionId);
     if (existing) {
-      setViewMode("lobby");
-      setLobbyNotice(`Masa ${existing.table.id} zaten acik. Diger oyuncu bekleniyor.`);
+      goToTable(existing.table, existing.seat);
+      setLobbyNotice(`Masa ${existing.table.id} zaten acik. Masaya yonlendirildin.`);
       return;
     }
     const tableId = getNextTableId(latest.tables);
-    sitToTable(tableId, "white", createRoomCode(), false);
+    const opened = sitToTable(tableId, "white", createRoomCode(), true);
+    if (opened) {
+      setLobbyNotice(`Masa ${opened.id} acildi. Diger oyuncu bekleniyor.`);
+    }
   }
 
   function onQuickPlay() {
@@ -2603,10 +2610,12 @@ function App() {
     }
     const inviterUserId = sanitizeGuestId(table.invitedByUserId ?? table.ownerUserId ?? "");
     const rejecterName = sanitizeGuestName(currentProfile.displayName) || "Oyuncu";
+    let rejected = false;
     writeLobby((current) => {
       const tables = current.tables.map((row) => {
         if (row.id !== tableId) return row;
         if (row.invitedUserId !== currentProfile.userId) return row;
+        rejected = true;
         return normalizeTableAccess({
           ...row,
           invitedUserId: null,
@@ -2620,6 +2629,11 @@ function App() {
       });
       return { ...current, tables, updatedAt: Date.now() };
     });
+    if (!rejected) {
+      setLobbyNotice("Davet artik gecerli degil.");
+      return;
+    }
+    setInvitePickerTableId(null);
     setLobbyNotice(`Masa ${tableId} daveti reddedildi.`);
   }
 
@@ -4332,32 +4346,31 @@ function App() {
         <section className="my-game-layout">
           <div className="my-game-frame">
             <iframe ref={iframeRef} title="Tavla Oyunu" src={iframeUrl} onLoad={() => syncTableChatToIframe()} />
-            {roomSession && roomSession.role === "player" && mode === "local" && roomStartState && !roomStartState.started ? (
+            {roomSession
+              && roomSession.role === "player"
+              && mode === "local"
+              && roomStartState
+              && !roomStartState.started
+              && roomStartState.bothSeated ? (
               <section className="my-start-overlay">
                 <article className="my-start-card">
                   <h3>Oyuna Basla</h3>
                   <p className="line">
-                    {!roomStartState.bothSeated
-                      ? roomStartState.mineReady
-                        ? "Hazirsin. Rakip masaya oturunca oyun baslayacak."
-                        : "Rakip bekleniyor. Hazirsan Oyuna Basla butonuna bas."
-                      : roomStartState.mineReady
-                        ? roomStartState.opponentReady
-                          ? "Iki oyuncu da hazirlandi, oyun aciliyor..."
-                          : "Rakibin Oyuna Basla butonuna basmasi bekleniyor."
-                        : roomStartState.opponentReady
-                          ? "Rakip hazir. Baslamak icin Oyuna Basla butonuna bas."
-                          : "Iki oyuncu da Oyuna Basla butonuna basmali."}
+                    {roomStartState.mineReady
+                      ? roomStartState.opponentReady
+                        ? "Iki oyuncu da hazirlandi, oyun aciliyor..."
+                        : "Rakibin Oyuna Basla butonuna basmasi bekleniyor."
+                      : roomStartState.opponentReady
+                        ? "Rakip hazir. Baslamak icin Oyuna Basla butonuna bas."
+                        : "Iki oyuncu da Oyuna Basla butonuna basmali."}
                   </p>
-                  {roomStartState.bothSeated ? (
-                    <button
-                      className="my-action-btn"
-                      onClick={onRoomStartReady}
-                      disabled={!roomStartState.mine || roomStartState.mineReady}
-                    >
-                      {roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
-                    </button>
-                  ) : null}
+                  <button
+                    className="my-action-btn"
+                    onClick={onRoomStartReady}
+                    disabled={!roomStartState.mine || roomStartState.mineReady}
+                  >
+                    {roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
+                  </button>
                 </article>
               </section>
             ) : null}
