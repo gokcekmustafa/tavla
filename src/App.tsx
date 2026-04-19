@@ -8,6 +8,7 @@ type ViewMode = "lobby" | "table";
 type AuthMode = "login" | "register";
 type MatchOutcome = "win" | "loss" | "resign";
 type MemberRole = "user" | "admin";
+type MemberGender = "male" | "female" | "unknown";
 type AdminRoleFilter = "all" | MemberRole;
 type AdminSortKey = "name" | "points" | "games" | "wins" | "losses" | "resigns" | "createdAt";
 
@@ -30,8 +31,10 @@ type RoomSession = {
 
 type MemberUser = {
   id: string;
+  username: string;
   displayName: string;
   email: string;
+  gender: MemberGender;
   points: number;
   createdAt: number;
   stats: PlayerStats;
@@ -48,6 +51,7 @@ type GameRules = {
 type GuestProfile = {
   userId: string;
   displayName: string;
+  gender: MemberGender;
   points: number;
   stats: PlayerStats;
 };
@@ -59,7 +63,9 @@ type MemberSession = {
 type LobbySeatState = {
   sessionId: string;
   userId: string;
+  username: string;
   displayName: string;
+  gender: MemberGender;
   points: number;
   stats: PlayerStats;
   touchedAt: number;
@@ -68,7 +74,9 @@ type LobbySeatState = {
 type LobbyPresenceState = {
   sessionId: string;
   userId: string;
+  username: string;
   displayName: string;
+  gender: MemberGender;
   points: number;
   stats: PlayerStats;
   touchedAt: number;
@@ -107,6 +115,8 @@ type OnlineRow = {
   key: string;
   userId: string;
   sessionId: string;
+  username: string;
+  gender: MemberGender;
   name: string;
   points: number;
   stats: PlayerStats;
@@ -162,6 +172,8 @@ type PlayerProfileModalState = {
   loading: boolean;
   isMember: boolean;
   name: string;
+  username?: string;
+  gender: MemberGender;
   points: number;
   stats: PlayerStats;
   email?: string;
@@ -290,6 +302,27 @@ function sanitizeLobbyName(value: string) {
 
 function sanitizeEmail(value: string) {
   return value.trim().toLowerCase().slice(0, 80);
+}
+
+function sanitizeMemberUsername(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20);
+}
+
+function fallbackUsernameFromName(name: string) {
+  const base = sanitizeMemberUsername(name.replace(/\s+/g, "_"));
+  if (base) return base;
+  return "misafir";
+}
+
+function sanitizeMemberGender(raw: unknown): MemberGender {
+  if (raw === "male" || raw === "female") return raw;
+  return "unknown";
+}
+
+function genderLabel(gender: MemberGender) {
+  if (gender === "male") return "Erkek";
+  if (gender === "female") return "Kadin";
+  return "Belirtilmedi";
 }
 
 function sanitizeMemberRole(raw: unknown): MemberRole {
@@ -435,11 +468,17 @@ function normalizeMemberUser(raw: unknown): MemberUser | null {
   const candidate = raw as Partial<MemberUser>;
   const id = typeof candidate.id === "string" ? candidate.id : "";
   const email = sanitizeEmail(typeof candidate.email === "string" ? candidate.email : "");
+  const displayName = sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Uye") || "Uye";
+  const username =
+    sanitizeMemberUsername(typeof candidate.username === "string" ? candidate.username : "")
+    || fallbackUsernameFromName(displayName);
   if (!id || !email) return null;
   return {
     id,
-    displayName: sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Uye") || "Uye",
+    username,
+    displayName,
     email,
+    gender: sanitizeMemberGender(candidate.gender),
     points: normalizeNonNegativeInt(candidate.points, 1500),
     createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
     stats: normalizeStats(candidate.stats),
@@ -493,14 +532,6 @@ function seatText(seat: Seat) {
 
 function roomRoleText(role: RoomRole) {
   return role === "spectator" ? "Izleyici" : "Oyuncu";
-}
-
-function initialsOf(name: string) {
-  const clean = sanitizeGuestName(name);
-  if (!clean) return "M";
-  const parts = clean.split(" ").filter(Boolean);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
 function sortTables(tables: LobbyTable[]) {
@@ -723,10 +754,15 @@ function normalizeSeat(raw: unknown): LobbySeatState | null {
   const candidate = raw as Partial<LobbySeatState>;
   const sessionId = typeof candidate.sessionId === "string" ? candidate.sessionId : "";
   if (!sessionId) return null;
+  const displayName = sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Misafir") || "Misafir";
   return {
     sessionId,
     userId: typeof candidate.userId === "string" ? candidate.userId : `guest-${sessionId}`,
-    displayName: sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Misafir") || "Misafir",
+    username:
+      sanitizeMemberUsername(typeof candidate.username === "string" ? candidate.username : "")
+      || fallbackUsernameFromName(displayName),
+    displayName,
+    gender: sanitizeMemberGender(candidate.gender),
     points: normalizeNonNegativeInt(candidate.points, 1500),
     stats: normalizeStats(candidate.stats),
     touchedAt: Number.isFinite(candidate.touchedAt) ? Number(candidate.touchedAt) : Date.now(),
@@ -738,10 +774,15 @@ function normalizePresence(raw: unknown): LobbyPresenceState | null {
   const candidate = raw as Partial<LobbyPresenceState>;
   const sessionId = typeof candidate.sessionId === "string" ? candidate.sessionId : "";
   if (!sessionId) return null;
+  const displayName = sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Misafir") || "Misafir";
   return {
     sessionId,
     userId: typeof candidate.userId === "string" ? candidate.userId : `guest-${sessionId}`,
-    displayName: sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Misafir") || "Misafir",
+    username:
+      sanitizeMemberUsername(typeof candidate.username === "string" ? candidate.username : "")
+      || fallbackUsernameFromName(displayName),
+    displayName,
+    gender: sanitizeMemberGender(candidate.gender),
     points: normalizeNonNegativeInt(candidate.points, 1500),
     stats: normalizeStats(candidate.stats),
     touchedAt: Number.isFinite(candidate.touchedAt) ? Number(candidate.touchedAt) : Date.now(),
@@ -752,7 +793,9 @@ function presenceFromSeat(seat: LobbySeatState): LobbyPresenceState {
   return {
     sessionId: seat.sessionId,
     userId: seat.userId,
+    username: seat.username,
     displayName: seat.displayName,
+    gender: sanitizeMemberGender(seat.gender),
     points: seat.points,
     stats: normalizeStats(seat.stats),
     touchedAt: seat.touchedAt,
@@ -961,6 +1004,7 @@ function loadGuestProfile(guestId: string, fallbackName: string): GuestProfile {
     return {
       userId: `guest-${guestId}`,
       displayName: sanitizeGuestName(fallbackName) || "Misafir",
+      gender: "unknown",
       points: 1500,
       stats: createEmptyStats(),
     };
@@ -973,6 +1017,7 @@ function loadGuestProfile(guestId: string, fallbackName: string): GuestProfile {
     return {
       userId,
       displayName: sanitizeGuestName(fallbackName) || "Misafir",
+      gender: "unknown",
       points: 1500,
       stats: createEmptyStats(),
     };
@@ -980,6 +1025,7 @@ function loadGuestProfile(guestId: string, fallbackName: string): GuestProfile {
   return {
     userId,
     displayName: sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : fallbackName) || "Misafir",
+    gender: sanitizeMemberGender(candidate.gender),
     points: normalizeNonNegativeInt(candidate.points, 1500),
     stats: normalizeStats(candidate.stats),
   };
@@ -990,6 +1036,7 @@ function saveGuestProfile(profile: GuestProfile) {
   saveJson(GUEST_PROFILE_SESSION_KEY, {
     userId: profile.userId,
     displayName: sanitizeGuestName(profile.displayName) || "Misafir",
+    gender: sanitizeMemberGender(profile.gender),
     points: normalizeNonNegativeInt(profile.points, 1500),
     stats: normalizeStats(profile.stats),
   } satisfies GuestProfile);
@@ -1206,9 +1253,18 @@ function App() {
   const [adminNotice, setAdminNotice] = useState("");
   const [ruleDraft, setRuleDraft] = useState<GameRules>(() => createDefaultGameRules());
   const [authMode, setAuthMode] = useState<AuthMode>("register");
+  const [authUsername, setAuthUsername] = useState("");
   const [authDisplayName, setAuthDisplayName] = useState("");
   const [authEmail, setAuthEmail] = useState("");
+  const [authGender, setAuthGender] = useState<MemberGender>("unknown");
   const [authPassword, setAuthPassword] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const [memberPasswordCurrent, setMemberPasswordCurrent] = useState("");
+  const [memberPasswordNext, setMemberPasswordNext] = useState("");
+  const [memberActionBusy, setMemberActionBusy] = useState(false);
+  const [memberNotice, setMemberNotice] = useState("");
   const [authError, setAuthError] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [profileModal, setProfileModal] = useState<PlayerProfileModalState>({
@@ -1216,6 +1272,7 @@ function App() {
     loading: false,
     isMember: false,
     name: "",
+    gender: "unknown",
     points: 0,
     stats: createEmptyStats(),
   });
@@ -1257,14 +1314,17 @@ function App() {
   }, [guestName, member]);
 
   const currentProfile = useMemo(() => {
+    const fallbackUsername = fallbackUsernameFromName(safeGuestName);
     return {
       userId: member ? member.id : guestProfile.userId,
+      username: member?.username ?? fallbackUsername,
       displayName: safeGuestName,
+      gender: member?.gender ?? guestProfile.gender,
       points: member?.points ?? guestProfile.points,
       stats: member?.stats ?? guestProfile.stats,
       isMember: Boolean(member),
     };
-  }, [member, safeGuestName, guestProfile.userId, guestProfile.points, guestProfile.stats]);
+  }, [member, safeGuestName, guestProfile.userId, guestProfile.gender, guestProfile.points, guestProfile.stats]);
 
   const isRoomMode = Boolean(roomSession);
 
@@ -1328,7 +1388,9 @@ function App() {
     map.set(myPresenceKey, {
       sessionId: appSessionId,
       userId: currentProfile.userId,
+      username: currentProfile.username,
       displayName: safeGuestName,
+      gender: currentProfile.gender,
       points: currentProfile.points,
       stats: normalizeStats(currentProfile.stats),
       touchedAt: Date.now(),
@@ -1339,13 +1401,15 @@ function App() {
         key: row.userId || row.sessionId,
         userId: row.userId,
         sessionId: row.sessionId,
+        username: row.username,
+        gender: row.gender,
         name: row.displayName,
         points: row.points,
         stats: normalizeStats(row.stats),
         tableNo: tableByUser.get(row.userId) ?? tableBySession.get(row.sessionId) ?? null,
       }))
       .sort((a, b) => a.name.localeCompare(b.name, "tr", { sensitivity: "base" }));
-  }, [openedTables, lobbyState.presence, appSessionId, safeGuestName, currentProfile.userId, currentProfile.points, currentProfile.stats]);
+  }, [openedTables, lobbyState.presence, appSessionId, safeGuestName, currentProfile.userId, currentProfile.username, currentProfile.gender, currentProfile.points, currentProfile.stats]);
 
   const currentRoomTable = useMemo(() => {
     if (!roomSession) return null;
@@ -1647,7 +1711,9 @@ function App() {
       const myPresence: LobbyPresenceState = {
         sessionId: appSessionId,
         userId: currentProfile.userId,
+        username: currentProfile.username,
         displayName: currentProfile.displayName,
+        gender: currentProfile.gender,
         points: currentProfile.points,
         stats: normalizeStats(currentProfile.stats),
         touchedAt: now,
@@ -1655,7 +1721,9 @@ function App() {
 
       const existing = cleanedPresence.presence.find((entry) => entry.userId === myPresence.userId) ?? null;
       const changedProfile = !existing
+        || existing.username !== myPresence.username
         || existing.displayName !== myPresence.displayName
+        || existing.gender !== myPresence.gender
         || existing.points !== myPresence.points
         || !sameStats(existing.stats, myPresence.stats);
 
@@ -1831,7 +1899,9 @@ function App() {
       const seatState: LobbySeatState = {
         sessionId: appSessionId,
         userId: currentProfile.userId,
+        username: currentProfile.username,
         displayName: currentProfile.displayName,
+        gender: currentProfile.gender,
         points: currentProfile.points,
         stats: normalizeStats(currentProfile.stats),
         touchedAt: Date.now(),
@@ -2350,6 +2420,8 @@ function App() {
   function onOpenMemberPanel() {
     setViewMode("lobby");
     setAuthMode("register");
+    setAuthError("");
+    setMemberNotice("");
     setLobbyNotice("Uyelik paneli sag tarafta.");
   }
 
@@ -2683,9 +2755,16 @@ function App() {
 
   async function onRegisterMember() {
     if (authBusy) return;
+    const username = sanitizeMemberUsername(authUsername);
     const displayName = sanitizeGuestName(authDisplayName);
     const email = sanitizeEmail(authEmail);
     const password = authPassword.trim().slice(0, 64);
+    const gender = sanitizeMemberGender(authGender);
+
+    if (!username || username.length < 3) {
+      setAuthError("Kullanici adi en az 3 karakter olmali (harf, rakam, alt cizgi).");
+      return;
+    }
 
     if (!displayName || displayName.length < 3) {
       setAuthError("Uye adi en az 3 karakter olmali.");
@@ -2706,7 +2785,7 @@ function App() {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ displayName, email, password }),
+        body: JSON.stringify({ username, displayName, email, gender, password }),
       });
       if (!response.ok) {
         setAuthError(await readApiError(response, "Uyelik acilamadi."));
@@ -2722,11 +2801,15 @@ function App() {
       saveJson(MEMBER_SESSION_KEY, { userId: user.id } satisfies MemberSession);
       setMember(user);
       setGuestName(user.displayName);
+      setAuthUsername("");
       setAuthDisplayName("");
       setAuthEmail("");
+      setAuthGender("unknown");
       setAuthPassword("");
       setAuthError("");
+      setMemberNotice("");
       setLobbyNotice("Uyelik acildi.");
+      patchSeatByUserId(user.id, user.points, user.stats, user.displayName, user.username, user.gender);
     } catch {
       setAuthError("Sunucuya baglanilamadi. Tekrar deneyin.");
     } finally {
@@ -2771,7 +2854,9 @@ function App() {
       setGuestName(user.displayName);
       setAuthPassword("");
       setAuthError("");
+      setMemberNotice("");
       setLobbyNotice("Giris yapildi.");
+      patchSeatByUserId(user.id, user.points, user.stats, user.displayName, user.username, user.gender);
     } catch {
       setAuthError("Sunucuya baglanilamadi. Tekrar deneyin.");
     } finally {
@@ -2779,15 +2864,106 @@ function App() {
     }
   }
 
+  async function onForgotPassword() {
+    if (forgotBusy) return;
+    const email = sanitizeEmail(forgotEmail);
+    const newPassword = forgotNewPassword.trim().slice(0, 64);
+    if (!email.includes("@")) {
+      setAuthError("Sifre sifirlama icin gecerli e-posta girin.");
+      return;
+    }
+    if (newPassword.length < 4) {
+      setAuthError("Yeni sifre en az 4 karakter olmali.");
+      return;
+    }
+
+    setForgotBusy(true);
+    setAuthError("");
+    try {
+      const response = await fetch("/api/auth/password/forgot", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, newPassword }),
+      });
+      if (!response.ok) {
+        setAuthError(await readApiError(response, "Sifre sifirlanamadi."));
+        return;
+      }
+      setForgotNewPassword("");
+      setMemberNotice("Sifre sifirlandi. Yeni sifre ile giris yapabilirsin.");
+    } catch {
+      setAuthError("Sifre sifirlama servisine baglanilamadi.");
+    } finally {
+      setForgotBusy(false);
+    }
+  }
+
+  async function onChangeMyPassword() {
+    if (!member || memberActionBusy) return;
+    const currentPassword = memberPasswordCurrent.trim().slice(0, 64);
+    const newPassword = memberPasswordNext.trim().slice(0, 64);
+    if (!currentPassword) {
+      setMemberNotice("Mevcut sifreyi gir.");
+      return;
+    }
+    if (newPassword.length < 4) {
+      setMemberNotice("Yeni sifre en az 4 karakter olmali.");
+      return;
+    }
+
+    setMemberActionBusy(true);
+    setMemberNotice("");
+    try {
+      const response = await fetch("/api/auth/password/change", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          userId: member.id,
+          currentPassword,
+          newPassword,
+        }),
+      });
+      if (!response.ok) {
+        setMemberNotice(await readApiError(response, "Sifre degistirilemedi."));
+        return;
+      }
+      const data = (await response.json().catch(() => null)) as { user?: unknown } | null;
+      const user = normalizeMemberUser(data?.user);
+      if (user) {
+        setMember(user);
+        setGuestName(user.displayName);
+      }
+      setMemberPasswordCurrent("");
+      setMemberPasswordNext("");
+      setMemberNotice("Sifre basariyla degisti.");
+    } catch {
+      setMemberNotice("Sifre degistirme servisinde baglanti hatasi.");
+    } finally {
+      setMemberActionBusy(false);
+    }
+  }
+
   function onLogoutMember() {
     window.localStorage.removeItem(MEMBER_SESSION_KEY);
     setMember(null);
+    setMemberPasswordCurrent("");
+    setMemberPasswordNext("");
+    setMemberNotice("");
+    setForgotEmail("");
+    setForgotNewPassword("");
     setAuthPassword("");
     setAuthError("");
     setLobbyNotice("Uyelik oturumu kapatildi.");
   }
 
-  function patchSeatByUserId(userId: string, points: number, stats: PlayerStats, displayName?: string) {
+  function patchSeatByUserId(
+    userId: string,
+    points: number,
+    stats: PlayerStats,
+    displayName?: string,
+    username?: string,
+    gender?: MemberGender,
+  ) {
     writeLobby((current) => {
       let anyChanged = false;
       const now = Date.now();
@@ -2796,11 +2972,16 @@ function App() {
         const patchSeat = (seat: LobbySeatState | null) => {
           if (!seat || seat.userId !== userId) return seat;
           changed = true;
+          const nextName = displayName ? sanitizeGuestName(displayName) || seat.displayName : seat.displayName;
+          const nextUsername = username ? sanitizeMemberUsername(username) || seat.username : seat.username;
+          const nextGender = gender ? sanitizeMemberGender(gender) : seat.gender;
           return {
             ...seat,
             points: normalizeNonNegativeInt(points, seat.points),
             stats: normalizeStats(stats),
-            displayName: displayName ? sanitizeGuestName(displayName) || seat.displayName : seat.displayName,
+            displayName: nextName,
+            username: nextUsername,
+            gender: nextGender,
             touchedAt: now,
           };
         };
@@ -2815,15 +2996,25 @@ function App() {
       const presence = current.presence.map((entry) => {
         if (entry.userId !== userId) return entry;
         const nextName = displayName ? sanitizeGuestName(displayName) || entry.displayName : entry.displayName;
+        const nextUsername = username ? sanitizeMemberUsername(username) || entry.username : entry.username;
+        const nextGender = gender ? sanitizeMemberGender(gender) : entry.gender;
         const nextPoints = normalizeNonNegativeInt(points, entry.points);
         const nextStats = normalizeStats(stats);
-        if (entry.displayName === nextName && entry.points === nextPoints && sameStats(entry.stats, nextStats)) {
+        if (
+          entry.displayName === nextName
+          && entry.username === nextUsername
+          && entry.gender === nextGender
+          && entry.points === nextPoints
+          && sameStats(entry.stats, nextStats)
+        ) {
           return entry;
         }
         presenceChanged = true;
         return {
           ...entry,
           displayName: nextName,
+          username: nextUsername,
+          gender: nextGender,
           points: nextPoints,
           stats: nextStats,
           touchedAt: now,
@@ -2870,7 +3061,7 @@ function App() {
         stats: nextStats,
       };
       saveGuestProfile(next);
-      patchSeatByUserId(next.userId, next.points, next.stats, next.displayName);
+      patchSeatByUserId(next.userId, next.points, next.stats, next.displayName, fallbackUsernameFromName(next.displayName), next.gender);
       return next;
     });
   }
@@ -2879,7 +3070,14 @@ function App() {
     if (isMemberUserId(userId)) {
       const updatedMember = await submitMemberMatchOutcome(userId, outcome, matchToken);
       if (!updatedMember) return null;
-      patchSeatByUserId(updatedMember.id, updatedMember.points, updatedMember.stats, updatedMember.displayName);
+      patchSeatByUserId(
+        updatedMember.id,
+        updatedMember.points,
+        updatedMember.stats,
+        updatedMember.displayName,
+        updatedMember.username,
+        updatedMember.gender,
+      );
       if (member?.id === updatedMember.id) {
         setMember(updatedMember);
         setGuestName(updatedMember.displayName);
@@ -2903,6 +3101,7 @@ function App() {
     return {
       userId,
       displayName: sanitizeGuestName(fallbackName ?? "Misafir") || "Misafir",
+      gender: "unknown",
       points: syntheticPoints,
       stats: syntheticStats,
     } satisfies GuestProfile;
@@ -2977,12 +3176,21 @@ function App() {
     setProfileModal((prev) => ({ ...prev, open: false, loading: false }));
   }
 
-  async function openPlayerProfile(userId: string, displayName: string, points: number, stats: PlayerStats) {
+  async function openPlayerProfile(
+    userId: string,
+    displayName: string,
+    points: number,
+    stats: PlayerStats,
+    username?: string,
+    gender?: MemberGender,
+  ) {
     const baseState: PlayerProfileModalState = {
       open: true,
       loading: false,
       isMember: isMemberUserId(userId),
       name: sanitizeGuestName(displayName) || "Oyuncu",
+      username: sanitizeMemberUsername(username ?? "") || fallbackUsernameFromName(displayName),
+      gender: sanitizeMemberGender(gender),
       points: normalizeNonNegativeInt(points, 0),
       stats: normalizeStats(stats),
       userId,
@@ -3017,6 +3225,8 @@ function App() {
         loading: false,
         isMember: true,
         name: user.displayName,
+        username: user.username,
+        gender: user.gender,
         points: user.points,
         stats: normalizeStats(user.stats),
         email: user.email,
@@ -3107,7 +3317,9 @@ function App() {
       const seatState: LobbySeatState = {
         sessionId: appSessionId,
         userId: currentProfile.userId,
+        username: currentProfile.username,
         displayName: currentProfile.displayName,
+        gender: currentProfile.gender,
         points: currentProfile.points,
         stats: normalizeStats(currentProfile.stats),
         touchedAt: now,
@@ -3163,15 +3375,25 @@ function App() {
     }
     return (
       <div className={`my-seat-occupant ${mine ? "mine" : ""}`}>
-        <span className="my-avatar">{initialsOf(occupant.displayName)}</span>
-        <button
-          type="button"
-          className="my-name-link my-occupant-name"
-          onClick={() => openPlayerProfile(occupant.userId, occupant.displayName, occupant.points, occupant.stats)}
-          title={`${occupant.displayName} profilini goster`}
-        >
-          {occupant.displayName}
-        </button>
+        <span className={`my-avatar my-avatar-${sanitizeMemberGender(occupant.gender)}`} aria-hidden="true" />
+        <div className="my-occupant-lines">
+          <button
+            type="button"
+            className="my-name-link my-occupant-name"
+            onClick={() => openPlayerProfile(
+              occupant.userId,
+              occupant.displayName,
+              occupant.points,
+              occupant.stats,
+              occupant.username,
+              occupant.gender,
+            )}
+            title={`${occupant.displayName} profilini goster`}
+          >
+            {occupant.displayName}
+          </button>
+          <span className="my-occupant-user">@{occupant.username || fallbackUsernameFromName(occupant.displayName)}</span>
+        </div>
       </div>
     );
   }
@@ -3651,7 +3873,16 @@ function App() {
     syncRoomSeatHeartbeat();
     const timer = window.setInterval(() => syncRoomSeatHeartbeat(), HEARTBEAT_MS);
     return () => window.clearInterval(timer);
-  }, [roomSession, currentProfile.userId, currentProfile.displayName, currentProfile.points, currentProfile.stats, appSessionId]);
+  }, [
+    roomSession,
+    currentProfile.userId,
+    currentProfile.username,
+    currentProfile.displayName,
+    currentProfile.gender,
+    currentProfile.points,
+    currentProfile.stats,
+    appSessionId,
+  ]);
 
   useEffect(() => {
     const safeUserId = sanitizeGuestId(currentProfile.userId);
@@ -3696,7 +3927,9 @@ function App() {
   }, [
     appSessionId,
     currentProfile.userId,
+    currentProfile.username,
     currentProfile.displayName,
+    currentProfile.gender,
     currentProfile.points,
     currentProfile.stats,
     member,
@@ -4021,11 +4254,35 @@ function App() {
                   <p className="line">
                     <strong>{member.displayName}</strong>
                   </p>
+                  <p className="line">Kullanici: @{member.username}</p>
                   <p className="line">{member.email}</p>
+                  <p className="line">Cinsiyet: {genderLabel(member.gender)}</p>
                   <p className="line">Rol: {member.role === "admin" ? "Admin" : "Uye"}</p>
                   <p className="line">Puan: {member.points}</p>
                   <p className="line">Oyun: {member.stats.gamesPlayed} / K: {member.stats.wins} / M: {member.stats.losses}</p>
                   <p className="line">Masadan Kacis: {member.stats.resigns}</p>
+                  <div className="my-auth-form">
+                    <input
+                      className="my-input"
+                      type="password"
+                      placeholder="Mevcut sifre"
+                      value={memberPasswordCurrent}
+                      onChange={(e) => setMemberPasswordCurrent(e.target.value)}
+                      disabled={memberActionBusy}
+                    />
+                    <input
+                      className="my-input"
+                      type="password"
+                      placeholder="Yeni sifre"
+                      value={memberPasswordNext}
+                      onChange={(e) => setMemberPasswordNext(e.target.value)}
+                      disabled={memberActionBusy}
+                    />
+                    <button className="my-action-btn" onClick={onChangeMyPassword} disabled={memberActionBusy}>
+                      {memberActionBusy ? "Isleniyor..." : "Sifre Degistir"}
+                    </button>
+                  </div>
+                  {memberNotice ? <p className="my-notice my-notice-soft">{memberNotice}</p> : null}
                   <button className="my-action-btn soft" onClick={onLogoutMember}>
                     Cikis
                   </button>
@@ -4049,11 +4306,28 @@ function App() {
                     <>
                       <input
                         className="my-input"
+                        placeholder="Kullanici adi (or: gokcek34)"
+                        value={authUsername}
+                        onChange={(e) => setAuthUsername(e.target.value)}
+                        disabled={authBusy}
+                      />
+                      <input
+                        className="my-input"
                         placeholder="Gorunen ad"
                         value={authDisplayName}
                         onChange={(e) => setAuthDisplayName(e.target.value)}
                         disabled={authBusy}
                       />
+                      <select
+                        className="my-input"
+                        value={authGender}
+                        onChange={(e) => setAuthGender(sanitizeMemberGender(e.target.value))}
+                        disabled={authBusy}
+                      >
+                        <option value="unknown">Cinsiyet secin</option>
+                        <option value="female">Kadin</option>
+                        <option value="male">Erkek</option>
+                      </select>
                       <input
                         className="my-input"
                         placeholder="E-posta"
@@ -4077,7 +4351,7 @@ function App() {
                     <>
                       <input
                         className="my-input"
-                        placeholder="E-posta veya Kullanici adi"
+                        placeholder="Kullanici adi veya E-posta"
                         value={authEmail}
                         onChange={(e) => setAuthEmail(e.target.value)}
                         disabled={authBusy}
@@ -4093,8 +4367,28 @@ function App() {
                       <button className="my-action-btn" onClick={onLoginMember} disabled={authBusy}>
                         {authBusy ? "Isleniyor..." : "Giris Yap"}
                       </button>
+                      <p className="line">Sifremi unuttum</p>
+                      <input
+                        className="my-input"
+                        placeholder="Kayitli e-posta"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        disabled={forgotBusy}
+                      />
+                      <input
+                        className="my-input"
+                        type="password"
+                        placeholder="Yeni sifre"
+                        value={forgotNewPassword}
+                        onChange={(e) => setForgotNewPassword(e.target.value)}
+                        disabled={forgotBusy}
+                      />
+                      <button className="my-action-btn soft" onClick={onForgotPassword} disabled={forgotBusy}>
+                        {forgotBusy ? "Isleniyor..." : "E-posta ile Sifre Sifirla"}
+                      </button>
                     </>
                   )}
+                  {memberNotice ? <p className="my-notice my-notice-soft">{memberNotice}</p> : null}
                   {authError ? <p className="my-error">{authError}</p> : null}
                 </div>
               )}
@@ -4115,7 +4409,7 @@ function App() {
                     <button
                       type="button"
                       className="my-name-link name"
-                      onClick={() => openPlayerProfile(row.userId, row.name, row.points, row.stats)}
+                      onClick={() => openPlayerProfile(row.userId, row.name, row.points, row.stats, row.username, row.gender)}
                       title={`${row.name} profilini goster`}
                     >
                       {row.name}
@@ -4529,6 +4823,8 @@ function App() {
             ) : (
               <>
                 <p className="line">{profileModal.isMember ? "Uye Oyuncu" : "Misafir Oyuncu"}</p>
+                {profileModal.username ? <p className="line">Kullanici: @{profileModal.username}</p> : null}
+                <p className="line">Cinsiyet: {genderLabel(profileModal.gender)}</p>
                 {profileModal.email ? <p className="line">{profileModal.email}</p> : null}
                 <p className="line">Puan: {profileModal.points}</p>
                 <p className="line">Toplam Oyun: {profileModal.stats.gamesPlayed}</p>

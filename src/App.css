@@ -489,22 +489,23 @@
 
 .my-watch-eye-btn {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 30px;
-  height: 28px;
-  border-radius: 7px;
-  border: 1px solid rgba(107, 72, 12, 0.62);
-  background: linear-gradient(180deg, #f6cb61, #d8981c);
+  top: 5px;
+  right: 5px;
+  width: 36px;
+  height: 32px;
+  border-radius: 8px;
+  border: 2px solid rgba(96, 61, 8, 0.78);
+  background: linear-gradient(180deg, #ffd773, #e8a924);
   color: transparent;
   font-size: 0;
   cursor: pointer;
+  box-shadow: 0 2px 5px rgba(53, 30, 4, 0.34);
 }
 
 .my-watch-eye-btn::before {
   content: "\01F441";
-  font-size: 0.95rem;
-  color: #4d2f07;
+  font-size: 1.08rem;
+  color: #3f2505;
   line-height: 1;
 }
 
@@ -525,9 +526,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-right: 36px;
+  padding-right: 64px;
   color: #2d1f05;
   font-weight: 900;
+}
+
+.my-table-card-head strong {
+  min-width: 0;
 }
 
 .my-table-meta-row {
@@ -556,6 +561,12 @@
   border-radius: 999px;
   border: 1px solid rgba(108, 74, 12, 0.35);
   padding: 2px 8px;
+  margin-right: 2px;
+  max-width: 84px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
 }
 
 .my-table-board {
@@ -625,7 +636,7 @@
 .my-seat-occupant {
   width: 100%;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 38px minmax(0, 1fr);
   gap: 8px;
   align-items: center;
 }
@@ -637,21 +648,84 @@
 }
 
 .my-avatar {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid rgba(90, 62, 20, 0.55);
+  background: linear-gradient(180deg, #e5d5b7, #c9aa73);
+  position: relative;
+  overflow: hidden;
+}
+
+.my-avatar::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  width: 17px;
+  height: 17px;
   border-radius: 999px;
-  border: 1px solid rgba(84, 59, 20, 0.55);
-  background: linear-gradient(180deg, #fdf2d8, #ddb97f);
-  color: #55340a;
+  background: #f2d2b0;
+  transform: translateX(-50%);
+  border: 1px solid rgba(97, 65, 26, 0.35);
+}
+
+.my-avatar::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 24px;
+  height: 14px;
+  border-radius: 12px 12px 4px 4px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #5a8dbb, #2d5c84);
+}
+
+.my-avatar-male::before {
+  box-shadow: 0 -8px 0 0 #3c2d1f inset;
+}
+
+.my-avatar-male::after {
+  background: linear-gradient(180deg, #5d89b4, #2d5880);
+}
+
+.my-avatar-female::before {
+  box-shadow: 0 -8px 0 0 #7b4a2c inset;
+}
+
+.my-avatar-female::after {
+  width: 26px;
+  border-radius: 12px 12px 6px 6px;
+  background: linear-gradient(180deg, #d16b7f, #a64f63);
+}
+
+.my-avatar-unknown::before {
+  box-shadow: 0 -7px 0 0 #5a4d3f inset;
+}
+
+.my-avatar-unknown::after {
+  background: linear-gradient(180deg, #7e8797, #5a6475);
+}
+
+.my-occupant-lines {
+  min-width: 0;
   display: grid;
-  place-items: center;
-  font-size: 0.75rem;
-  font-weight: 900;
+  gap: 1px;
 }
 
 .my-occupant-name {
   font-size: 0.84rem;
   font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-occupant-user {
+  font-size: 0.68rem;
+  color: #6a4711;
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

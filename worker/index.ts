@@ -23,6 +23,7 @@ type MemberStats = {
 
 type MatchOutcome = "win" | "loss" | "resign";
 type MemberRole = "user" | "admin";
+type MemberGender = "male" | "female" | "unknown";
 
 type GameRules = {
   winPoints: number;
@@ -33,8 +34,10 @@ type GameRules = {
 
 type PublicMemberUser = {
   id: string;
+  username: string;
   displayName: string;
   email: string;
+  gender: MemberGender;
   points: number;
   createdAt: number;
   stats: MemberStats;
@@ -75,6 +78,11 @@ function sanitizeMemberDisplayName(raw: unknown) {
   return raw.replace(/\s+/g, " ").trim().slice(0, 24);
 }
 
+function sanitizeMemberUsername(raw: unknown) {
+  if (typeof raw !== "string") return "";
+  return raw.trim().toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20);
+}
+
 function sanitizeMemberEmail(raw: unknown) {
   if (typeof raw !== "string") return "";
   return raw.trim().toLowerCase().slice(0, 80);
@@ -95,9 +103,18 @@ function sanitizeMemberRole(raw: unknown): MemberRole {
   return "user";
 }
 
+function sanitizeMemberGender(raw: unknown): MemberGender {
+  if (raw === "male" || raw === "female") return raw;
+  return "unknown";
+}
+
 function normalizeDisplayLookupKey(raw: unknown) {
   if (typeof raw !== "string") return "";
   return raw.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 24);
+}
+
+function normalizeUsernameLookupKey(raw: unknown) {
+  return sanitizeMemberUsername(raw);
 }
 
 function isPrimaryAdminEmail(email: string) {
@@ -198,8 +215,10 @@ function isDoFreeTierWriteLimitError(error: unknown) {
 function toPublicUser(user: StoredMemberUser): PublicMemberUser {
   return {
     id: user.id,
+    username: user.username,
     displayName: user.displayName,
     email: user.email,
+    gender: sanitizeMemberGender(user.gender),
     points: user.points,
     createdAt: user.createdAt,
     stats: normalizeMemberStats(user.stats),
@@ -214,10 +233,18 @@ function normalizeStoredMemberUser(raw: unknown): StoredMemberUser | null {
   const email = sanitizeMemberEmail(candidate.email);
   const password = sanitizeMemberPassword(candidate.password);
   if (!id || !email || !password) return null;
+  const displayName = sanitizeMemberDisplayName(candidate.displayName) || "Uye";
+  const username =
+    sanitizeMemberUsername(candidate.username)
+    || sanitizeMemberUsername(displayName.replace(/\s+/g, "_"))
+    || sanitizeMemberUsername(`u${id.slice(-10)}`)
+    || `u${Date.now().toString(36).slice(-6)}`;
   return {
     id,
-    displayName: sanitizeMemberDisplayName(candidate.displayName) || "Uye",
+    username,
+    displayName,
     email,
+    gender: sanitizeMemberGender(candidate.gender),
     password,
     points: Math.max(0, sanitizeFinitePoints(candidate.points, 1500)),
     createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
@@ -439,6 +466,15 @@ export class AuthStore {
     return null;
   }
 
+  private findTransientByUsername(username: string): StoredMemberUser | null {
+    const lookup = normalizeUsernameLookupKey(username);
+    if (!lookup) return null;
+    for (const user of this.transientUsersById.values()) {
+      if (normalizeUsernameLookupKey(user.username) === lookup) return user;
+    }
+    return null;
+  }
+
   private mergeUsers(durableUsers: StoredMemberUser[]): StoredMemberUser[] {
     const byId = new Map<string, StoredMemberUser>();
     for (const user of durableUsers) {
@@ -485,6 +521,18 @@ export class AuthStore {
     return null;
   }
 
+  private async getByUsername(username: string): Promise<StoredMemberUser | null> {
+    const transient = this.findTransientByUsername(username);
+    if (transient) return transient;
+    const lookup = normalizeUsernameLookupKey(username);
+    if (!lookup) return null;
+    const users = await this.listDurableUsers();
+    for (const user of users) {
+      if (normalizeUsernameLookupKey(user.username) === lookup) return user;
+    }
+    return null;
+  }
+
   private async getById(id: string): Promise<StoredMemberUser | null> {
     const transient = this.transientUsersById.get(id);
     if (transient) return transient;
@@ -503,6 +551,12 @@ export class AuthStore {
       const email = sanitizeMemberEmail(identifier);
       if (!email) return null;
       return this.getByEmail(email);
+    }
+
+    const username = sanitizeMemberUsername(identifier);
+    if (username) {
+      const byUsername = await this.getByUsername(username);
+      if (byUsername) return byUsername;
     }
 
     const displayName = sanitizeMemberDisplayName(identifier);
@@ -607,6 +661,12 @@ export class AuthStore {
     if (request.method === "POST" && pathname === "/api/auth/login") {
       return this.handleLogin(request);
     }
+    if (request.method === "POST" && pathname === "/api/auth/password/forgot") {
+      return this.handleForgotPassword(request);
+    }
+    if (request.method === "POST" && pathname === "/api/auth/password/change") {
+      return this.handleChangePassword(request);
+    }
     if (request.method === "GET" && pathname === "/api/auth/rules") {
       return this.handleRules();
     }
@@ -639,9 +699,15 @@ export class AuthStore {
     }
 
     const body = payload as Record<string, unknown>;
-    const displayName = sanitizeMemberDisplayName(body.displayName);
+    const username = sanitizeMemberUsername(body.username);
+    const displayName = sanitizeMemberDisplayName(body.displayName) || sanitizeMemberDisplayName(body.username) || "Uye";
     const email = sanitizeMemberEmail(body.email);
     const password = sanitizeMemberPassword(body.password);
+    const gender = sanitizeMemberGender(body.gender);
+
+    if (!username || username.length < 3) {
+      return jsonResponse({ error: "Kullanici adi en az 3 karakter olmali (harf, rakam, alt cizgi)." }, 400);
+    }
 
     if (!displayName || displayName.length < 3) {
       return jsonResponse({ error: "Uye adi en az 3 karakter olmali." }, 400);
@@ -658,16 +724,23 @@ export class AuthStore {
       return jsonResponse({ error: "Bu e-posta ile hesap zaten var." }, 409);
     }
 
+    const existingUsername = await this.getByUsername(username);
+    if (existingUsername) {
+      return jsonResponse({ error: "Bu kullanici adi zaten alinmis." }, 409);
+    }
+
     const existingName = await this.getByDisplayName(displayName);
     if (existingName) {
-      return jsonResponse({ error: "Bu kullanici adi zaten alinmis." }, 409);
+      return jsonResponse({ error: "Bu gorunen ad zaten kullaniliyor." }, 409);
     }
 
     const role: MemberRole = isPrimaryAdminEmail(email) || (await this.countAdmins()) === 0 ? "admin" : "user";
     const user: StoredMemberUser = {
       id: createMemberId(),
+      username,
       displayName,
       email,
+      gender,
       password,
       points: 1500,
       createdAt: Date.now(),
@@ -701,6 +774,68 @@ export class AuthStore {
 
     const normalized = await this.ensureBootstrapAdmin(user);
     return jsonResponse({ ok: true, user: toPublicUser(normalized) }, 200);
+  }
+
+  private async handleForgotPassword(request: Request): Promise<Response> {
+    const payload = await parseJsonBody(request);
+    if (!payload || typeof payload !== "object") {
+      return jsonResponse({ error: "Gecersiz istek." }, 400);
+    }
+
+    const body = payload as Record<string, unknown>;
+    const email = sanitizeMemberEmail(body.email);
+    const newPassword = sanitizeMemberPassword(body.newPassword);
+    if (!email.includes("@")) {
+      return jsonResponse({ error: "Gecerli e-posta girin." }, 400);
+    }
+    if (newPassword.length < 4) {
+      return jsonResponse({ error: "Yeni sifre en az 4 karakter olmali." }, 400);
+    }
+
+    const user = await this.getByEmail(email);
+    if (!user) {
+      return jsonResponse({ error: "Bu e-posta ile kayitli kullanici bulunamadi." }, 404);
+    }
+
+    const updated: StoredMemberUser = {
+      ...user,
+      password: newPassword,
+    };
+    await this.putUser(updated, user);
+    return jsonResponse({ ok: true, message: "Sifre sifirlandi." }, 200);
+  }
+
+  private async handleChangePassword(request: Request): Promise<Response> {
+    const payload = await parseJsonBody(request);
+    if (!payload || typeof payload !== "object") {
+      return jsonResponse({ error: "Gecersiz istek." }, 400);
+    }
+
+    const body = payload as Record<string, unknown>;
+    const userId = sanitizeMemberId(body.userId);
+    const currentPassword = sanitizeMemberPassword(body.currentPassword);
+    const newPassword = sanitizeMemberPassword(body.newPassword);
+    if (!userId || !currentPassword || !newPassword) {
+      return jsonResponse({ error: "Kullanici veya sifre bilgisi eksik." }, 400);
+    }
+    if (newPassword.length < 4) {
+      return jsonResponse({ error: "Yeni sifre en az 4 karakter olmali." }, 400);
+    }
+
+    const user = await this.getById(userId);
+    if (!user) {
+      return jsonResponse({ error: "Kullanici bulunamadi." }, 404);
+    }
+    if (user.password !== currentPassword) {
+      return jsonResponse({ error: "Mevcut sifre hatali." }, 401);
+    }
+
+    const updated: StoredMemberUser = {
+      ...user,
+      password: newPassword,
+    };
+    await this.putUser(updated, user);
+    return jsonResponse({ ok: true, user: toPublicUser(updated) }, 200);
   }
 
   private async handleRules(): Promise<Response> {
