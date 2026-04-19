@@ -300,13 +300,6 @@ function normalizeMemberUser(raw: unknown): MemberUser | null {
   };
 }
 
-function sanitizeTableNo(value: string) {
-  const digits = value.replace(/[^0-9]/g, "").slice(0, 3);
-  const parsed = Number.parseInt(digits || "1", 10);
-  if (!Number.isInteger(parsed) || parsed <= 0) return 1;
-  return Math.min(parsed, 999);
-}
-
 function createSessionId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -669,22 +662,7 @@ function getInitialGuestName() {
 }
 
 function getInitialRoomSession(): RoomSession | null {
-  if (typeof window === "undefined") return null;
-  const params = new URLSearchParams(window.location.search);
-  const room = sanitizeRoomCode(params.get("room") ?? "");
-  const seatParam = params.get("seat");
-  const seat: Seat | null = seatParam === "white" || seatParam === "black" ? seatParam : null;
-  if (!room || !seat) return null;
-  const roomName = DEFAULT_LOBBY_NAME;
-  const tableNo = sanitizeTableNo(params.get("table") ?? params.get("tableNo") ?? params.get("masa") ?? "1");
-  const externalSession = sanitizeGuestName(params.get("session") ?? "");
-  return {
-    code: room,
-    seat,
-    sessionId: externalSession || createSessionId(),
-    roomName,
-    tableNo,
-  };
+  return null;
 }
 
 function clearSessionFromTables(tables: LobbyTable[], sessionId: string): { tables: LobbyTable[]; changed: boolean } {
@@ -1334,7 +1312,23 @@ function App() {
       goToTable(existing.table, existing.seat);
       return;
     }
-    const tableId = getNextTableId(latest.tables);
+    const cleanedTables = cleanupStaleAndPrune(latest.tables).tables;
+    const waitingTable = sortTables(cleanedTables).find((table) => {
+      const whiteTaken = Boolean(table.white);
+      const blackTaken = Boolean(table.black);
+      return whiteTaken !== blackTaken;
+    });
+
+    if (waitingTable) {
+      const targetSeat: Seat = waitingTable.white ? "black" : "white";
+      const joined = sitToTable(waitingTable.id, targetSeat, waitingTable.roomCode, true);
+      if (joined) {
+        setLobbyNotice(`Masa ${waitingTable.id} bulundu. Oyuna katildin.`);
+        return;
+      }
+    }
+
+    const tableId = getNextTableId(cleanedTables);
     sitToTable(tableId, "white", createRoomCode(), true);
   }
 
