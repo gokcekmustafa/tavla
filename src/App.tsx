@@ -1579,6 +1579,12 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
   });
 }
 
+function sameLobbySnapshot(a: LobbyState | null | undefined, b: LobbyState | null | undefined) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 function AvatarBadge(props: {
   avatarId: AvatarId;
   gender: MemberGender;
@@ -2104,8 +2110,10 @@ function App() {
   async function syncRealtimeViaHttp(reason: string) {
     if (realtimeHttpSyncInFlightRef.current) return;
     realtimeHttpSyncInFlightRef.current = true;
+    let shouldDrainQueue = false;
     try {
-      const payload = realtimePendingSnapshotRef.current ?? getCurrentLobbyState();
+      const pendingAtStart = realtimePendingSnapshotRef.current;
+      const payload = pendingAtStart ?? getCurrentLobbyState();
       realtimeSyncCounterRef.current += 1;
       const outgoing: RealtimeMessage = {
         kind: "snapshot",
@@ -2136,13 +2144,23 @@ function App() {
         setRealtimeStatus("offline");
         return;
       }
-      realtimePendingSnapshotRef.current = null;
+      const latestPending = realtimePendingSnapshotRef.current;
+      if (!latestPending || sameLobbySnapshot(latestPending, payload)) {
+        realtimePendingSnapshotRef.current = null;
+      } else {
+        shouldDrainQueue = true;
+      }
       applyIncomingRealtimeSnapshot(incoming);
       setRealtimeStatus("online");
     } catch {
       setRealtimeStatus("offline");
     } finally {
       realtimeHttpSyncInFlightRef.current = false;
+      if (shouldDrainQueue && realtimePendingSnapshotRef.current) {
+        window.setTimeout(() => {
+          void syncRealtimeViaHttp("lobby-update-drain");
+        }, 0);
+      }
     }
   }
 
