@@ -5990,225 +5990,259 @@ function App() {
           </aside>
         </section>
       ) : (
-        <section className="my-game-layout">
-          <div className="my-game-frame">
-            <iframe
-              ref={iframeRef}
-              title="Tavla Oyunu"
-              src={iframeUrl}
-              onLoad={() => {
-                const frameWindow = iframeRef.current?.contentWindow ?? null;
-                syncTableChatToIframe(frameWindow);
-                syncRoomStartGateToIframe(frameWindow);
-              }}
-            />
-            {roomSession
-              && roomSession.role === "player"
-              && mode === "local"
-              && roomStartState
-              && !roomStartState.started
-              && roomStartState.bothSeated ? (
-              <section className="my-start-overlay">
-                <article className="my-start-card">
-                  <h3>Oyuna Basla</h3>
-                  <p className="line">
-                    {roomStartState.mineReady
-                      ? roomStartState.opponentReady
-                        ? "Iki oyuncu da hazir. Baslatmak icin Oyuna Basla butonuna dokun."
-                        : "Rakibin Oyuna Basla butonuna basmasi bekleniyor."
-                      : roomStartState.opponentReady
-                        ? "Rakip hazir. Baslamak icin Oyuna Basla butonuna bas."
-                        : "Iki oyuncu da Oyuna Basla butonuna basmali."}
-                  </p>
-                  <button
-                    className="my-action-btn"
-                    onClick={onRoomStartReady}
-                    disabled={!roomStartState.mine}
-                  >
-                    {roomStartState.mineReady && roomStartState.opponentReady ? "Oyunu Baslat" : roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
-                  </button>
-                </article>
-              </section>
-            ) : null}
-          </div>
+        <section className={`my-room-view ${roomSession ? "in-room" : "local-mode"}`}>
+          <header className="my-room-header-strip">
+            {roomSession ? (
+              <>
+                <strong>{roomSession.roomName}</strong>
+                <span>/ Masa {roomSession.tableNo}</span>
+              </>
+            ) : (
+              <strong>{mode === "bot" ? "Bot Modu" : "Yerel Oyun"}</strong>
+            )}
+          </header>
 
-          <aside className="my-game-controls">
-            <section className="my-side-card">
-              <h3>Oyun Secenekleri</h3>
-              {lobbyNotice ? <p className="my-notice my-notice-soft">{lobbyNotice}</p> : null}
-              <label className="my-field">
-                <span>Oyuncu</span>
-                <input
-                  className="my-input"
-                  value={guestName}
-                  maxLength={24}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  disabled
-                />
-              </label>
-
-              {roomSession ? (
-                <p className="line">
-                  Oyun Modu: <code>Online Iki Oyuncu</code>
-                </p>
-              ) : (
-                <div className="my-seat-toggle">
-                  <button className={`my-seat-btn ${mode === "local" ? "active" : ""}`} onClick={() => onSelectMode("local")}>
-                    Iki Oyuncu
-                  </button>
-                  <button className={`my-seat-btn ${mode === "bot" ? "active" : ""}`} onClick={() => onSelectMode("bot")}>
-                    Bot
-                  </button>
-                </div>
-              )}
-
-              <button className="my-action-btn" onClick={refreshBoard}>
-                Tahtayi Yenile
-              </button>
-              <button className="my-action-btn soft" onClick={() => setViewMode("lobby")}>
-                Lobiye Don
-              </button>
-            </section>
-
-            <section className="my-side-card">
-              <h3>Masa Bilgisi</h3>
-              {roomSession ? (
-                <>
-                  <p className="line">
-                    Oda: <code>{roomSession.roomName}</code>
-                  </p>
-                  <p className="line">
-                    Kod: <code>{roomSession.code}</code>
-                  </p>
-                  <p className="line">
-                    Masa: <code>{roomSession.tableNo}</code> / Sen: <code>{roomSession.role === "spectator" ? roomRoleText(roomSession.role) : seatText(roomSession.seat)}</code>
-                  </p>
-                  <p className="line">
-                    Beyaz: <code>{currentRoomTable?.white?.displayName ?? "-"}</code>
-                  </p>
-                  <p className="line">
-                    Siyah: <code>{currentRoomTable?.black?.displayName ?? "-"}</code>
-                  </p>
-                  <p className="line">
-                    Sahip: <code>{currentRoomIsOwner ? "Sen" : "Diger Oyuncu"}</code>
-                    {currentRoomTable?.isPrivate ? " / Ozel Masa" : ""}
-                  </p>
-                  {currentRoomTable ? (
-                    <>
-                      <p className="line">
-                        Set Sayisi: <code>{currentRoomTable.setCount}</code>
-                      </p>
-                      <p className="line">
-                        Seri Skoru: <code>{currentRoomTable.setWhiteWins} - {currentRoomTable.setBlackWins}</code>
-                        {" "}(<code>{currentRoomTable.setPlayed}/{currentRoomTable.setCount}</code>)
-                      </p>
-                    </>
-                  ) : null}
-                  {currentRoomTable && currentRoomIsOwner ? (
-                    <>
-                      <p className="line">Masa Set Secimi (1-5)</p>
-                      <div className="my-seat-toggle">
-                        {[1, 2, 3, 4, 5].map((setNo) => (
-                          <button
-                            key={setNo}
-                            className={`my-seat-btn ${currentRoomTable.setCount === setNo ? "active" : ""}`}
-                            onClick={() => setTableSetCount(currentRoomTable.id, setNo)}
-                            disabled={!canEditCurrentRoomSetCount}
-                          >
-                            {setNo}
-                          </button>
-                        ))}
-                      </div>
-                      {!canEditCurrentRoomSetCount ? (
-                        <p className="line">Set sayisi seri baslamadan once ayarlanabilir.</p>
-                      ) : null}
-                    </>
-                  ) : null}
-                  {roomStartState ? (
-                    <>
-                      <p className="line">
-                        Baslangic:{" "}
-                        <code>{roomStartState.started ? "Basladi" : `${roomStartState.readyCount}/2 Hazir`}</code>
-                      </p>
-                      {!roomStartState.started && roomStartState.bothSeated ? (
-                        <button
-                          className="my-action-btn"
-                          onClick={onRoomStartReady}
-                          disabled={!roomStartState.mine}
-                        >
-                          {roomStartState.mineReady && roomStartState.opponentReady ? "Oyunu Baslat" : roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
-                        </button>
-                      ) : null}
-                    </>
-                  ) : null}
-                  {currentRoomTable && currentRoomIsOwner ? (
-                    <>
-                      <button
-                        className="my-action-btn soft"
-                        onClick={() => openInvitePicker(currentRoomTable)}
-                        disabled={!currentRoomHasOpenSeat}
-                        title={currentRoomHasOpenSeat ? "Oyuncu davet et" : "Masada iki oyuncu var"}
-                      >
-                        Davet Et
-                      </button>
-                      <button
-                        className={`my-action-btn ${currentRoomTable.isPrivate ? "" : "soft"}`}
-                        onClick={() => setTablePrivateMode(currentRoomTable.id, !currentRoomTable.isPrivate)}
-                      >
-                        {currentRoomTable.isPrivate ? "Ozeli Kapat" : "Masa Ozel Yap"}
-                      </button>
-                      <button
-                        className={`my-action-btn ${currentRoomTable.allowSpectatorChat === false ? "" : "soft"}`}
-                        onClick={() => setSpectatorChatEnabled(currentRoomTable.id, currentRoomTable.allowSpectatorChat === false)}
-                      >
-                        {currentRoomTable.allowSpectatorChat === false ? "Izleyici Yazisini Ac" : "Izleyici Yazisini Kapat"}
-                      </button>
-                      <button className="my-action-btn" onClick={onCopyInvite} disabled={!canCopyInviteLink}>
-                        {copied ? "Kopyalandi" : "Davet Linki Kopyala"}
-                      </button>
-                    </>
-                  ) : null}
-                  {roomSession.role === "player" && leavePermissionState.flowActive ? (
-                    <>
-                      <button
-                        className="my-action-btn soft"
-                        onClick={requestLeaveWithoutPenalty}
-                        disabled={!leavePermissionState.canRequest}
-                      >
-                        {leavePermissionState.grantedToMe
-                          ? "Izin Verildi"
-                          : leavePermissionState.myRequestPending
-                            ? "Izin Talebin Gonderildi"
-                            : "Puansiz Ayrilma Izin Iste"}
-                      </button>
-                      {leavePermissionState.canApprove ? (
-                        <button className="my-action-btn soft" onClick={approveLeaveWithoutPenalty}>
-                          Izin Veriyorum
-                        </button>
-                      ) : null}
-                      {leavePermissionState.grantedToMe ? (
-                        <p className="line">Rakibin puansiz ayrilmana izin verdi.</p>
-                      ) : null}
-                      {leavePermissionState.grantedToOpponent ? (
-                        <p className="line">Rakibine puansiz ayrilma izni verdin.</p>
-                      ) : null}
-                    </>
-                  ) : null}
-                  <button className="my-action-btn danger" onClick={leaveRoomAndGoLobby}>
+          <section className="my-game-layout my-room-table-layout">
+            <aside className="my-game-controls my-room-left-controls">
+              <section className="my-side-card my-room-card">
+                <h3>Masa Menusu</h3>
+                {roomSession ? (
+                  <button className="my-action-btn danger my-room-main-leave" onClick={leaveRoomAndGoLobby}>
                     Masadan Kalk
                   </button>
-                </>
-              ) : (
-                <>
-                  <p className="line">Masa baglantisi yok. Yerel veya bot oyunu aktif.</p>
-                  <button className="my-action-btn" onClick={() => setViewMode("lobby")}>
-                    Masa Sec
-                  </button>
-                </>
-              )}
-            </section>
+                ) : null}
+                {lobbyNotice ? <p className="my-notice my-notice-soft">{lobbyNotice}</p> : null}
+                <label className="my-field">
+                  <span>Oyuncu</span>
+                  <input
+                    className="my-input"
+                    value={guestName}
+                    maxLength={24}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    disabled
+                  />
+                </label>
 
-          </aside>
+                {roomSession ? (
+                  <p className="line">
+                    Oyun Modu: <code>Online Iki Oyuncu</code>
+                  </p>
+                ) : (
+                  <div className="my-seat-toggle">
+                    <button className={`my-seat-btn ${mode === "local" ? "active" : ""}`} onClick={() => onSelectMode("local")}>
+                      Iki Oyuncu
+                    </button>
+                    <button className={`my-seat-btn ${mode === "bot" ? "active" : ""}`} onClick={() => onSelectMode("bot")}>
+                      Bot
+                    </button>
+                  </div>
+                )}
+
+                <button className="my-action-btn" onClick={refreshBoard}>
+                  Tahtayi Yenile
+                </button>
+                <button className="my-action-btn soft" onClick={() => setViewMode("lobby")}>
+                  Lobiye Don
+                </button>
+              </section>
+
+              {roomSession ? (
+                <section className="my-side-card my-room-player-card">
+                  <h3>Oyuncular</h3>
+                  <div className="my-room-player-list">
+                    <div className={`my-room-player-row ${roomSession.role === "player" && roomSession.seat === "white" ? "mine" : ""}`}>
+                      <AvatarBadge avatarId={currentRoomTable?.white?.avatarId ?? DEFAULT_AVATAR_BY_GENDER.unknown} gender={currentRoomTable?.white?.gender ?? "unknown"} size="sm" />
+                      <span className="seat">Beyaz</span>
+                      <strong>{currentRoomTable?.white?.displayName ?? "Bekleniyor"}</strong>
+                    </div>
+                    <div className={`my-room-player-row ${roomSession.role === "player" && roomSession.seat === "black" ? "mine" : ""}`}>
+                      <AvatarBadge avatarId={currentRoomTable?.black?.avatarId ?? DEFAULT_AVATAR_BY_GENDER.unknown} gender={currentRoomTable?.black?.gender ?? "unknown"} size="sm" />
+                      <span className="seat">Siyah</span>
+                      <strong>{currentRoomTable?.black?.displayName ?? "Bekleniyor"}</strong>
+                    </div>
+                  </div>
+                </section>
+              ) : null}
+            </aside>
+
+            <div className="my-game-frame my-room-board-frame">
+              <iframe
+                ref={iframeRef}
+                title="Tavla Oyunu"
+                src={iframeUrl}
+                onLoad={() => {
+                  const frameWindow = iframeRef.current?.contentWindow ?? null;
+                  syncTableChatToIframe(frameWindow);
+                  syncRoomStartGateToIframe(frameWindow);
+                }}
+              />
+              {roomSession
+                && roomSession.role === "player"
+                && mode === "local"
+                && roomStartState
+                && !roomStartState.started
+                && roomStartState.bothSeated ? (
+                <section className="my-start-overlay">
+                  <article className="my-start-card">
+                    <h3>Oyuna Basla</h3>
+                    <p className="line">
+                      {roomStartState.mineReady
+                        ? roomStartState.opponentReady
+                          ? "Iki oyuncu da hazir. Baslatmak icin Oyuna Basla butonuna dokun."
+                          : "Rakibin Oyuna Basla butonuna basmasi bekleniyor."
+                        : roomStartState.opponentReady
+                          ? "Rakip hazir. Baslamak icin Oyuna Basla butonuna bas."
+                          : "Iki oyuncu da Oyuna Basla butonuna basmali."}
+                    </p>
+                    <button
+                      className="my-action-btn"
+                      onClick={onRoomStartReady}
+                      disabled={!roomStartState.mine}
+                    >
+                      {roomStartState.mineReady && roomStartState.opponentReady ? "Oyunu Baslat" : roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
+                    </button>
+                  </article>
+                </section>
+              ) : null}
+            </div>
+
+            <aside className="my-game-controls my-room-right-controls">
+              <section className="my-side-card my-room-card">
+                <h3>Masa Bilgisi</h3>
+                {roomSession ? (
+                  <>
+                    <p className="line">
+                      Oda: <code>{roomSession.roomName}</code>
+                    </p>
+                    <p className="line">
+                      Kod: <code>{roomSession.code}</code>
+                    </p>
+                    <p className="line">
+                      Masa: <code>{roomSession.tableNo}</code> / Sen: <code>{roomSession.role === "spectator" ? roomRoleText(roomSession.role) : seatText(roomSession.seat)}</code>
+                    </p>
+                    <p className="line">
+                      Beyaz: <code>{currentRoomTable?.white?.displayName ?? "-"}</code>
+                    </p>
+                    <p className="line">
+                      Siyah: <code>{currentRoomTable?.black?.displayName ?? "-"}</code>
+                    </p>
+                    <p className="line">
+                      Sahip: <code>{currentRoomIsOwner ? "Sen" : "Diger Oyuncu"}</code>
+                      {currentRoomTable?.isPrivate ? " / Ozel Masa" : ""}
+                    </p>
+                    {currentRoomTable ? (
+                      <>
+                        <p className="line">
+                          Set Sayisi: <code>{currentRoomTable.setCount}</code>
+                        </p>
+                        <p className="line">
+                          Seri Skoru: <code>{currentRoomTable.setWhiteWins} - {currentRoomTable.setBlackWins}</code>
+                          {" "}(<code>{currentRoomTable.setPlayed}/{currentRoomTable.setCount}</code>)
+                        </p>
+                      </>
+                    ) : null}
+                    {currentRoomTable && currentRoomIsOwner ? (
+                      <>
+                        <p className="line">Masa Set Secimi (1-5)</p>
+                        <div className="my-seat-toggle">
+                          {[1, 2, 3, 4, 5].map((setNo) => (
+                            <button
+                              key={setNo}
+                              className={`my-seat-btn ${currentRoomTable.setCount === setNo ? "active" : ""}`}
+                              onClick={() => setTableSetCount(currentRoomTable.id, setNo)}
+                              disabled={!canEditCurrentRoomSetCount}
+                            >
+                              {setNo}
+                            </button>
+                          ))}
+                        </div>
+                        {!canEditCurrentRoomSetCount ? (
+                          <p className="line">Set sayisi seri baslamadan once ayarlanabilir.</p>
+                        ) : null}
+                      </>
+                    ) : null}
+                    {roomStartState ? (
+                      <>
+                        <p className="line">
+                          Baslangic:{" "}
+                          <code>{roomStartState.started ? "Basladi" : `${roomStartState.readyCount}/2 Hazir`}</code>
+                        </p>
+                        {!roomStartState.started && roomStartState.bothSeated ? (
+                          <button
+                            className="my-action-btn"
+                            onClick={onRoomStartReady}
+                            disabled={!roomStartState.mine}
+                          >
+                            {roomStartState.mineReady && roomStartState.opponentReady ? "Oyunu Baslat" : roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
+                    {currentRoomTable && currentRoomIsOwner ? (
+                      <>
+                        <button
+                          className="my-action-btn soft"
+                          onClick={() => openInvitePicker(currentRoomTable)}
+                          disabled={!currentRoomHasOpenSeat}
+                          title={currentRoomHasOpenSeat ? "Oyuncu davet et" : "Masada iki oyuncu var"}
+                        >
+                          Davet Et
+                        </button>
+                        <button
+                          className={`my-action-btn ${currentRoomTable.isPrivate ? "" : "soft"}`}
+                          onClick={() => setTablePrivateMode(currentRoomTable.id, !currentRoomTable.isPrivate)}
+                        >
+                          {currentRoomTable.isPrivate ? "Ozeli Kapat" : "Masa Ozel Yap"}
+                        </button>
+                        <button
+                          className={`my-action-btn ${currentRoomTable.allowSpectatorChat === false ? "" : "soft"}`}
+                          onClick={() => setSpectatorChatEnabled(currentRoomTable.id, currentRoomTable.allowSpectatorChat === false)}
+                        >
+                          {currentRoomTable.allowSpectatorChat === false ? "Izleyici Yazisini Ac" : "Izleyici Yazisini Kapat"}
+                        </button>
+                        <button className="my-action-btn" onClick={onCopyInvite} disabled={!canCopyInviteLink}>
+                          {copied ? "Kopyalandi" : "Davet Linki Kopyala"}
+                        </button>
+                      </>
+                    ) : null}
+                    {roomSession.role === "player" && leavePermissionState.flowActive ? (
+                      <>
+                        <button
+                          className="my-action-btn soft"
+                          onClick={requestLeaveWithoutPenalty}
+                          disabled={!leavePermissionState.canRequest}
+                        >
+                          {leavePermissionState.grantedToMe
+                            ? "Izin Verildi"
+                            : leavePermissionState.myRequestPending
+                              ? "Izin Talebin Gonderildi"
+                              : "Puansiz Ayrilma Izin Iste"}
+                        </button>
+                        {leavePermissionState.canApprove ? (
+                          <button className="my-action-btn soft" onClick={approveLeaveWithoutPenalty}>
+                            Izin Veriyorum
+                          </button>
+                        ) : null}
+                        {leavePermissionState.grantedToMe ? (
+                          <p className="line">Rakibin puansiz ayrilmana izin verdi.</p>
+                        ) : null}
+                        {leavePermissionState.grantedToOpponent ? (
+                          <p className="line">Rakibine puansiz ayrilma izni verdin.</p>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <p className="line">Masa baglantisi yok. Yerel veya bot oyunu aktif.</p>
+                    <button className="my-action-btn" onClick={() => setViewMode("lobby")}>
+                      Masa Sec
+                    </button>
+                  </>
+                )}
+              </section>
+            </aside>
+          </section>
         </section>
       )}
 

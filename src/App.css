@@ -1104,6 +1104,121 @@
   align-content: start;
 }
 
+.my-room-view {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px 10px;
+}
+
+.my-room-header-strip {
+  min-height: 34px;
+  border-radius: 7px;
+  border: 1px solid rgba(92, 58, 15, 0.72);
+  background: linear-gradient(180deg, rgba(95, 56, 14, 0.92), rgba(66, 39, 10, 0.95));
+  color: #f8ebc8;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  font-size: 0.96rem;
+  font-weight: 800;
+}
+
+.my-room-header-strip span {
+  color: #e8d2a0;
+  font-size: 0.88rem;
+}
+
+.my-room-table-layout {
+  grid-template-columns: 190px minmax(0, 1fr) 236px;
+  gap: 10px;
+  padding: 0;
+  align-items: stretch;
+}
+
+.my-room-left-controls,
+.my-room-right-controls {
+  gap: 8px;
+}
+
+.my-room-card {
+  border-color: rgba(110, 72, 20, 0.72);
+  background:
+    linear-gradient(180deg, rgba(34, 84, 53, 0.84), rgba(25, 62, 40, 0.9)),
+    linear-gradient(180deg, rgba(123, 89, 32, 0.22), rgba(78, 54, 14, 0.18));
+}
+
+.my-room-card h3 {
+  font-size: 0.94rem;
+  color: #f4ebcf;
+}
+
+.my-room-main-leave {
+  min-height: 42px;
+  font-size: 0.95rem;
+}
+
+.my-room-card .my-action-btn {
+  min-height: 34px;
+}
+
+.my-room-player-card {
+  gap: 8px;
+}
+
+.my-room-player-list {
+  display: grid;
+  gap: 7px;
+}
+
+.my-room-player-row {
+  border-radius: 8px;
+  border: 1px solid rgba(164, 132, 76, 0.45);
+  background: rgba(16, 39, 27, 0.62);
+  padding: 6px;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.my-room-player-row .seat {
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #dac7a1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.my-room-player-row strong {
+  min-width: 0;
+  font-size: 0.8rem;
+  color: #f6f1df;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-room-player-row.mine {
+  border-color: rgba(134, 214, 163, 0.84);
+  background: rgba(25, 89, 56, 0.62);
+}
+
+.my-room-board-frame {
+  border-color: rgba(95, 57, 14, 0.82);
+  background:
+    linear-gradient(180deg, rgba(176, 128, 41, 0.32), rgba(118, 78, 19, 0.34)),
+    linear-gradient(180deg, rgba(26, 19, 9, 0.54), rgba(15, 10, 4, 0.54));
+  box-shadow:
+    inset 0 0 0 1px rgba(241, 206, 129, 0.24),
+    0 10px 24px rgba(33, 21, 5, 0.34);
+}
+
+.my-room-board-frame iframe {
+  height: calc(100svh - 170px);
+  min-height: 540px;
+}
+
 .my-start-overlay {
   position: absolute;
   inset: 0;
@@ -1224,6 +1339,20 @@
     height: calc(100svh - 220px);
     min-height: 430px;
   }
+
+  .my-room-table-layout {
+    grid-template-columns: 176px minmax(0, 1fr);
+  }
+
+  .my-room-right-controls {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .my-room-board-frame iframe {
+    height: calc(100svh - 246px);
+    min-height: 470px;
+  }
 }
 
 @media (max-width: 920px) {
@@ -1267,6 +1396,41 @@
   .my-game-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  .my-room-view {
+    padding: 6px;
+    gap: 6px;
+  }
+
+  .my-room-table-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .my-room-board-frame {
+    order: 1;
+  }
+
+  .my-room-left-controls {
+    order: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .my-room-left-controls .my-room-player-card {
+    grid-column: 1 / -1;
+  }
+
+  .my-room-right-controls {
+    order: 3;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .my-room-board-frame iframe {
+    height: min(64svh, 520px);
+    min-height: 360px;
   }
 }
 
@@ -1395,5 +1559,30 @@
   .my-start-card {
     width: min(300px, 100%);
     padding: 8px 9px;
+  }
+
+  .my-room-header-strip {
+    min-height: 30px;
+    padding: 0 8px;
+    font-size: 0.82rem;
+  }
+
+  .my-room-header-strip span {
+    font-size: 0.76rem;
+  }
+
+  .my-room-left-controls,
+  .my-room-right-controls {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .my-room-board-frame iframe {
+    height: min(56svh, 430px);
+    min-height: 300px;
+  }
+
+  .my-room-main-leave {
+    min-height: 38px;
   }
 }
