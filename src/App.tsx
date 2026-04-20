@@ -1077,10 +1077,11 @@ function normalizeTableStartGate(table: LobbyTable): LobbyTable {
     blackReadyAt = null;
     startedAt = null;
   } else {
-    const autoStartAt = startedAt ?? whiteReadyAt ?? blackReadyAt ?? Date.now();
-    whiteReadyAt = whiteReadyAt ?? autoStartAt;
-    blackReadyAt = blackReadyAt ?? autoStartAt;
-    startedAt = Math.max(autoStartAt, whiteReadyAt, blackReadyAt);
+    if (whiteReadyAt && blackReadyAt) {
+      startedAt = Math.max(startedAt ?? 0, whiteReadyAt, blackReadyAt);
+    } else {
+      startedAt = null;
+    }
   }
 
   if (
@@ -1786,13 +1787,28 @@ function App() {
       && (currentRoomTable.black.sessionId === appSessionId || currentRoomTable.black.userId === currentProfile.userId),
     );
     const resolvedSeat: Seat = ownsWhite ? "white" : ownsBlack ? "black" : roomSession.seat;
-    const bothSeated = Boolean(currentRoomTable.white && currentRoomTable.black);
-    const started = Boolean(bothSeated && currentRoomTable.startedAt);
+    const mine = resolvedSeat === "white" ? currentRoomTable.white : currentRoomTable.black;
+    const opponent = resolvedSeat === "white" ? currentRoomTable.black : currentRoomTable.white;
+    const mineOwnedByMe = Boolean(
+      mine
+      && (mine.sessionId === appSessionId || mine.userId === currentProfile.userId),
+    );
+    const canRecoverMineSeat = !mine;
+    const mineReady = resolvedSeat === "white" ? Boolean(currentRoomTable.whiteReadyAt) : Boolean(currentRoomTable.blackReadyAt);
+    const opponentReady = resolvedSeat === "white" ? Boolean(currentRoomTable.blackReadyAt) : Boolean(currentRoomTable.whiteReadyAt);
+    const bothSeated = Boolean(opponent && (mineOwnedByMe || canRecoverMineSeat));
+    const started = Boolean(bothSeated && (currentRoomTable.startedAt || (currentRoomTable.whiteReadyAt && currentRoomTable.blackReadyAt)));
 
     return {
+      mine,
+      opponent,
       resolvedSeat,
+      canReady: mineOwnedByMe || canRecoverMineSeat,
+      mineReady,
+      opponentReady,
       bothSeated,
       started,
+      readyCount: Number(Boolean(currentRoomTable.whiteReadyAt)) + Number(Boolean(currentRoomTable.blackReadyAt)),
     };
   }, [roomSession, currentRoomTable, appSessionId, currentProfile.userId]);
 
@@ -2450,6 +2466,138 @@ function App() {
       setLobbyNotice(`Masa ${table.id} acildi. Diger oyuncu bekleniyor.`);
     }
     return table;
+  }
+
+  function onRoomStartReady() {
+    if (!roomSession) return;
+    if (roomSession.role !== "player") {
+      setLobbyNotice("Izleyiciler oyunu baslatamaz.");
+      return;
+    }
+    let seatMissing = false;
+    let alreadyStarted = false;
+    let alreadyReady = false;
+    let startNow = false;
+
+    writeLobby((current) => {
+      const cleaned = cleanupStaleAndPrune(current.tables).tables;
+      const tables = [...cleaned];
+      const index = tables.findIndex((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code);
+      if (index < 0) {
+        seatMissing = true;
+        return current;
+      }
+
+      let table = tables[index];
+      const ownsWhite = Boolean(
+        table.white
+        && (table.white.sessionId === appSessionId || table.white.userId === currentProfile.userId),
+      );
+      const ownsBlack = Boolean(
+        table.black
+        && (table.black.sessionId === appSessionId || table.black.userId === currentProfile.userId),
+      );
+      const seatToUse: Seat = ownsWhite ? "white" : ownsBlack ? "black" : roomSession.seat;
+      let mySeat = seatToUse === "white" ? table.white : table.black;
+      const seatOwnedByMe = Boolean(mySeat && (mySeat.sessionId === appSessionId || mySeat.userId === currentProfile.userId));
+      if (mySeat && !seatOwnedByMe) {
+        seatMissing = true;
+        return current;
+      }
+
+      const now = Date.now();
+      if (!mySeat) {
+        const recoveredSeat: LobbySeatState = {
+          sessionId: appSessionId,
+          userId: currentProfile.userId,
+          username: currentProfile.username,
+          displayName: currentProfile.displayName,
+          gender: currentProfile.gender,
+          avatarId: currentProfile.avatarId,
+          points: currentProfile.points,
+          stats: normalizeStats(currentProfile.stats),
+          touchedAt: now,
+        };
+        table = seatToUse === "white"
+          ? { ...table, white: recoveredSeat }
+          : { ...table, black: recoveredSeat };
+        mySeat = recoveredSeat;
+      }
+      if (mySeat.sessionId !== appSessionId) {
+        const refreshedSeat: LobbySeatState = {
+          ...mySeat,
+          sessionId: appSessionId,
+          userId: currentProfile.userId,
+          username: currentProfile.username,
+          displayName: currentProfile.displayName,
+          gender: currentProfile.gender,
+          avatarId: currentProfile.avatarId,
+          points: currentProfile.points,
+          stats: normalizeStats(currentProfile.stats),
+          touchedAt: now,
+        };
+        table = seatToUse === "white"
+          ? { ...table, white: refreshedSeat }
+          : { ...table, black: refreshedSeat };
+      }
+
+      if (!table.startedAt) {
+        table = resetTableSeriesProgress(table);
+      }
+
+      const mineReadyAt = seatToUse === "white" ? table.whiteReadyAt : table.blackReadyAt;
+      const opponentReadyAt = seatToUse === "white" ? table.blackReadyAt : table.whiteReadyAt;
+
+      if (table.startedAt) {
+        alreadyStarted = true;
+        return current;
+      }
+
+      if (mineReadyAt && opponentReadyAt) {
+        table = {
+          ...table,
+          startedAt: Math.max(now, table.startedAt ?? 0, table.whiteReadyAt ?? 0, table.blackReadyAt ?? 0),
+        };
+      } else if (mineReadyAt) {
+        table = seatToUse === "white"
+          ? { ...table, whiteReadyAt: now }
+          : { ...table, blackReadyAt: now };
+        alreadyReady = true;
+      } else {
+        table = seatToUse === "white"
+          ? { ...table, whiteReadyAt: now }
+          : { ...table, blackReadyAt: now };
+      }
+
+      const nextTable = normalizeTableStartGate(table);
+      startNow = Boolean(nextTable.startedAt);
+      tables[index] = nextTable;
+      return {
+        ...current,
+        tables: sortTables(tables),
+        updatedAt: now,
+      };
+    });
+
+    syncRoomStartGateToIframe();
+
+    if (seatMissing) {
+      setLobbyNotice("Masadaki koltugun bulunamadi. Lutfen tekrar masaya otur.");
+      return;
+    }
+    if (alreadyStarted) {
+      setLobbyNotice("Oyun zaten basladi.");
+      return;
+    }
+    if (alreadyReady) {
+      setLobbyNotice("Hazir durumdasin. Rakibin Oyuna Basla butonuna basmasi bekleniyor.");
+      return;
+    }
+    if (startNow) {
+      setLobbyNotice("Iki oyuncu da hazirlandi. Oyun basladi.");
+      return;
+    }
+    setLobbyNotice("Hazir oldun. Rakibin de Oyuna Basla butonuna basmasi bekleniyor.");
   }
 
   function onOpenTable() {
@@ -5898,6 +6046,34 @@ function App() {
                 syncRoomStartGateToIframe(frameWindow);
               }}
             />
+            {roomSession
+              && roomSession.role === "player"
+              && mode === "local"
+              && roomStartState
+              && !roomStartState.started
+              && roomStartState.bothSeated ? (
+              <section className="my-start-overlay">
+                <article className="my-start-card">
+                  <h3>Oyuna Basla</h3>
+                  <p className="line">
+                    {roomStartState.mineReady
+                      ? roomStartState.opponentReady
+                        ? "Iki oyuncu da hazir. Baslatmak icin Oyuna Basla butonuna dokun."
+                        : "Rakibin Oyuna Basla butonuna basmasi bekleniyor."
+                      : roomStartState.opponentReady
+                        ? "Rakip hazir. Baslamak icin Oyuna Basla butonuna bas."
+                        : "Iki oyuncu da Oyuna Basla butonuna basmali."}
+                  </p>
+                  <button
+                    className="my-action-btn"
+                    onClick={onRoomStartReady}
+                    disabled={!roomStartState.canReady}
+                  >
+                    {roomStartState.mineReady && roomStartState.opponentReady ? "Oyunu Baslat" : roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
+                  </button>
+                </article>
+              </section>
+            ) : null}
           </div>
 
           <aside className="my-game-controls">
@@ -5996,8 +6172,17 @@ function App() {
                     <>
                       <p className="line">
                         Baslangic:{" "}
-                        <code>{roomStartState.started ? "Basladi" : roomStartState.bothSeated ? "Baslatiliyor" : "2. oyuncu bekleniyor"}</code>
+                        <code>{roomStartState.started ? "Basladi" : `${roomStartState.readyCount}/2 Hazir`}</code>
                       </p>
+                      {!roomStartState.started && roomStartState.bothSeated ? (
+                        <button
+                          className="my-action-btn"
+                          onClick={onRoomStartReady}
+                          disabled={!roomStartState.canReady}
+                        >
+                          {roomStartState.mineReady && roomStartState.opponentReady ? "Oyunu Baslat" : roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
+                        </button>
+                      ) : null}
                     </>
                   ) : null}
                   {currentRoomTable && currentRoomIsOwner ? (
