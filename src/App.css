@@ -1198,6 +1198,26 @@
   gap: 6px;
 }
 
+.my-room-inline-set-control {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.my-room-inline-set-control span {
+  color: #e4f6ff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.my-room-set-select {
+  min-height: 32px;
+  padding-inline: 8px;
+  font-size: 0.84rem;
+}
+
 .my-room-center-stack {
   display: grid;
   gap: 6px;
