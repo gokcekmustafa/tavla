@@ -377,6 +377,8 @@ function getBootLogMessage() {
 function initRoomMode() {
   if (!isRoomMode()) return;
 
+  document.body.classList.add("room-mode");
+
   gameMode = "local";
   botDifficulty = BOT_DIFFICULTY_MEDIUM;
   preferredPlayerColor = roomParams.seat;

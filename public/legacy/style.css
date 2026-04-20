@@ -1539,6 +1539,14 @@ body:has(.ref-shell) {
   align-items: stretch;
 }
 
+body.room-mode .arena-layout {
+  grid-template-columns: minmax(0, 1fr) 148px;
+}
+
+body.room-mode .left-control-panel {
+  display: none;
+}
+
 .left-control-panel,
 .right-action-panel {
   background:
@@ -1708,7 +1716,11 @@ body:has(.ref-shell) {
 }
 
 .action-roll {
-  background: linear-gradient(180deg, #4a6f62, #34554a);
+  background: linear-gradient(180deg, #34bf5d, #1d8f43);
+  border-color: rgba(19, 71, 31, 0.8);
+  box-shadow:
+    inset 0 1px 0 rgba(214, 255, 222, 0.4),
+    0 6px 12px rgba(11, 61, 22, 0.34);
 }
 
 .action-newgame {
@@ -1718,6 +1730,26 @@ body:has(.ref-shell) {
 #roll-btn:disabled,
 .action-btn:disabled {
   opacity: 0.46;
+}
+
+#roll-btn:not(:disabled) {
+  background: linear-gradient(180deg, #43d96e, #239a49);
+  border-color: rgba(19, 79, 35, 0.88);
+  color: #f3fff5;
+  text-shadow: 0 1px 0 rgba(8, 48, 19, 0.62);
+}
+
+#roll-btn:disabled {
+  opacity: 1;
+  background: linear-gradient(180deg, #873131, #5f1f1f);
+  border-color: rgba(84, 25, 25, 0.95);
+  color: #ffd5d5;
+  text-shadow: 0 1px 0 rgba(51, 14, 14, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 224, 224, 0.16),
+    0 3px 7px rgba(52, 16, 16, 0.36);
+  filter: saturate(0.7) brightness(0.92);
+  cursor: not-allowed;
 }
 
 .mini-profile-card {
