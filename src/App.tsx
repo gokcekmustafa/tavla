@@ -1780,21 +1780,27 @@ function App() {
     if (roomSession.role !== "player") return null;
     const mine = roomSession.seat === "white" ? currentRoomTable.white : currentRoomTable.black;
     const opponent = roomSession.seat === "white" ? currentRoomTable.black : currentRoomTable.white;
+    const mineOwnedByMe = Boolean(
+      mine
+      && (mine.sessionId === appSessionId || mine.userId === currentProfile.userId),
+    );
+    const canRecoverMineSeat = !mine;
     const mineReady = roomSession.seat === "white" ? Boolean(currentRoomTable.whiteReadyAt) : Boolean(currentRoomTable.blackReadyAt);
     const opponentReady = roomSession.seat === "white" ? Boolean(currentRoomTable.blackReadyAt) : Boolean(currentRoomTable.whiteReadyAt);
-    const bothSeated = Boolean(currentRoomTable.white && currentRoomTable.black);
+    const bothSeated = Boolean(opponent && (mineOwnedByMe || canRecoverMineSeat));
     const started = Boolean(bothSeated && (currentRoomTable.startedAt || (currentRoomTable.whiteReadyAt && currentRoomTable.blackReadyAt)));
 
     return {
       mine,
       opponent,
+      canReady: mineOwnedByMe || canRecoverMineSeat,
       mineReady,
       opponentReady,
       bothSeated,
       started,
       readyCount: Number(Boolean(currentRoomTable.whiteReadyAt)) + Number(Boolean(currentRoomTable.blackReadyAt)),
     };
-  }, [roomSession, currentRoomTable]);
+  }, [roomSession, currentRoomTable, appSessionId, currentProfile.userId]);
 
   const currentRoomIsOwner = useMemo(
     () => isTableOwnerForUser(currentRoomTable, currentProfile.userId),
@@ -2458,14 +2464,31 @@ function App() {
       }
 
       let table = tables[index];
-      const mySeat = roomSession.seat === "white" ? table.white : table.black;
+      let mySeat = roomSession.seat === "white" ? table.white : table.black;
       const seatOwnedByMe = Boolean(mySeat && (mySeat.sessionId === appSessionId || mySeat.userId === currentProfile.userId));
-      if (!seatOwnedByMe || !mySeat) {
+      if (mySeat && !seatOwnedByMe) {
         seatMissing = true;
         return current;
       }
 
       const now = Date.now();
+      if (!mySeat) {
+        const recoveredSeat: LobbySeatState = {
+          sessionId: appSessionId,
+          userId: currentProfile.userId,
+          username: currentProfile.username,
+          displayName: currentProfile.displayName,
+          gender: currentProfile.gender,
+          avatarId: currentProfile.avatarId,
+          points: currentProfile.points,
+          stats: normalizeStats(currentProfile.stats),
+          touchedAt: now,
+        };
+        table = roomSession.seat === "white"
+          ? { ...table, white: recoveredSeat }
+          : { ...table, black: recoveredSeat };
+        mySeat = recoveredSeat;
+      }
       if (mySeat.sessionId !== appSessionId) {
         const refreshedSeat: LobbySeatState = {
           ...mySeat,
@@ -6010,7 +6033,7 @@ function App() {
                   <button
                     className="my-action-btn"
                     onClick={onRoomStartReady}
-                    disabled={!roomStartState.mine}
+                    disabled={!roomStartState.canReady}
                   >
                     {roomStartState.mineReady && roomStartState.opponentReady ? "Oyunu Baslat" : roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
                   </button>
@@ -6121,7 +6144,7 @@ function App() {
                         <button
                           className="my-action-btn"
                           onClick={onRoomStartReady}
-                          disabled={!roomStartState.mine}
+                          disabled={!roomStartState.canReady}
                         >
                           {roomStartState.mineReady && roomStartState.opponentReady ? "Oyunu Baslat" : roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
                         </button>
