@@ -1797,6 +1797,18 @@ function App() {
     [currentRoomTable, currentProfile.userId],
   );
 
+  const currentMatchupLabel = useMemo(() => {
+    if (!roomSession || !currentRoomTable) return "";
+    const whiteName = currentRoomTable.white?.displayName ?? "Beyaz bekleniyor";
+    const blackName = currentRoomTable.black?.displayName ?? "Siyah bekleniyor";
+    if (roomSession.role === "spectator") {
+      return `Beyaz: ${whiteName} | Siyah: ${blackName}`;
+    }
+    const myName = roomSession.seat === "white" ? whiteName : blackName;
+    const opponentName = roomSession.seat === "white" ? blackName : whiteName;
+    return `Sen: ${myName} | Rakip: ${opponentName}`;
+  }, [roomSession, currentRoomTable]);
+
   const invitePickerTable = useMemo(() => {
     if (!invitePickerTableId) return null;
     return lobbyState.tables.find((table) => table.id === invitePickerTableId) ?? null;
@@ -5305,6 +5317,11 @@ function App() {
                 ? "Bot Modu"
                 : "Yerel"}
           </span>
+          {currentMatchupLabel ? (
+            <span className="my-chip my-chip-matchup" title={currentMatchupLabel}>
+              {currentMatchupLabel}
+            </span>
+          ) : null}
         </div>
       </header>
 

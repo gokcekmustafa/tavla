@@ -85,6 +85,13 @@
   color: #edffe6;
 }
 
+.my-chip-matchup {
+  max-width: min(56vw, 520px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .my-lobby-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
@@ -1294,6 +1301,12 @@
   .my-chip {
     min-height: 24px;
     font-size: 0.7rem;
+  }
+
+  .my-chip-matchup {
+    max-width: 100%;
+    width: 100%;
+    justify-content: center;
   }
 
   .my-lobby-layout {
