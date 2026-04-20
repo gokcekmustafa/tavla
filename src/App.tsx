@@ -503,6 +503,26 @@ function formatChatTime(timestamp: number) {
   }
 }
 
+function formatSince(timestamp: number, now = Date.now()) {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return "hic";
+  const delta = Math.max(0, now - timestamp);
+  if (delta < 1500) return "simdi";
+  const sec = Math.floor(delta / 1000);
+  if (sec < 60) return `${sec} sn once`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} dk once`;
+  const hour = Math.floor(min / 60);
+  return `${hour} sa once`;
+}
+
+function websocketStateText(readyState: number) {
+  if (typeof WebSocket === "undefined") return "destek yok";
+  if (readyState === WebSocket.OPEN) return "acik";
+  if (readyState === WebSocket.CONNECTING) return "baglaniyor";
+  if (readyState === WebSocket.CLOSING) return "kapanis";
+  return "kapali";
+}
+
 function createEmptyStats(): PlayerStats {
   return {
     gamesPlayed: 0,
@@ -1716,6 +1736,25 @@ function App() {
   const [adminSort, setAdminSort] = useState<AdminSortKey>("points");
   const [adminPointDrafts, setAdminPointDrafts] = useState<Record<string, string>>({});
   const [adminDeltaDrafts, setAdminDeltaDrafts] = useState<Record<string, string>>({});
+  const [syncHealthNow, setSyncHealthNow] = useState(() => Date.now());
+  const [realtimeSocketReadyState, setRealtimeSocketReadyState] = useState<number>(
+    typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED,
+  );
+  const [syncHealth, setSyncHealth] = useState({
+    lastIncomingAt: 0,
+    lastIncomingServerAt: 0,
+    lastIncomingSender: "",
+    lastIncomingCounter: 0,
+    lastHttpPushAt: 0,
+    lastHttpPushReason: "",
+    lastHttpPullAt: 0,
+    lastHttpPullReason: "",
+    lastWsOpenAt: 0,
+    lastWsMessageAt: 0,
+    lastWsSendAt: 0,
+    lastWsSendReason: "",
+    lastError: "",
+  });
 
   const lobbyChannelRef = useRef<BroadcastChannel | null>(null);
   const realtimeSocketRef = useRef<WebSocket | null>(null);
@@ -2118,10 +2157,19 @@ function App() {
       normalizeLobbyState(message.payload),
       Number.isFinite(message.at) ? Number(message.at) : Date.now(),
     );
+    const now = Date.now();
     realtimeRemoteStateRef.current = incoming;
     realtimeReceivedSnapshotRef.current = true;
     saveJson(LOBBY_STATE_KEY, incoming);
     setLobbyState(incoming);
+    setSyncHealth((prev) => ({
+      ...prev,
+      lastIncomingAt: now,
+      lastIncomingServerAt: Number.isFinite(message.at) ? Number(message.at) : 0,
+      lastIncomingSender: message.sender,
+      lastIncomingCounter: counter,
+      lastError: "",
+    }));
     return true;
   }
 
@@ -2140,8 +2188,18 @@ function App() {
     };
     try {
       socket.send(JSON.stringify(message));
+      const now = Date.now();
+      setSyncHealth((prev) => ({
+        ...prev,
+        lastWsSendAt: now,
+        lastWsSendReason: reason,
+      }));
       return true;
     } catch {
+      setSyncHealth((prev) => ({
+        ...prev,
+        lastError: "ws gönderimi basarisiz",
+      }));
       return false;
     }
   }
@@ -2169,21 +2227,31 @@ function App() {
         body: JSON.stringify(outgoing),
       });
       if (!response.ok) {
+        setSyncHealth((prev) => ({ ...prev, lastError: `http push hata (${response.status})` }));
         setRealtimeStatus("offline");
         return;
       }
       const contentType = (response.headers.get("content-type") || "").toLowerCase();
       if (!contentType.includes("application/json")) {
+        setSyncHealth((prev) => ({ ...prev, lastError: "http push json degil" }));
         setRealtimeStatus("offline");
         return;
       }
       const data = (await response.json().catch(() => null)) as { snapshot?: unknown } | null;
       const incoming = normalizeRealtimeMessage(data?.snapshot);
       if (!incoming || incoming.kind !== "snapshot" || incoming.channel !== REALTIME_LOBBY_CHANNEL) {
+        setSyncHealth((prev) => ({ ...prev, lastError: "http push snapshot gecersiz" }));
         setRealtimeStatus("offline");
         return;
       }
-      realtimeLastPushAtRef.current = Date.now();
+      const now = Date.now();
+      realtimeLastPushAtRef.current = now;
+      setSyncHealth((prev) => ({
+        ...prev,
+        lastHttpPushAt: now,
+        lastHttpPushReason: reason,
+        lastError: "",
+      }));
       const latestPending = realtimePendingSnapshotRef.current;
       if (!latestPending || sameLobbySnapshot(latestPending, payload)) {
         realtimePendingSnapshotRef.current = null;
@@ -2214,11 +2282,13 @@ function App() {
         headers: { "cache-control": "no-store" },
       });
       if (!response.ok) {
+        setSyncHealth((prev) => ({ ...prev, lastError: `http pull hata (${response.status})` }));
         setRealtimeStatus("offline");
         return;
       }
       const contentType = (response.headers.get("content-type") || "").toLowerCase();
       if (!contentType.includes("application/json")) {
+        setSyncHealth((prev) => ({ ...prev, lastError: "http pull json degil" }));
         setRealtimeStatus("offline");
         return;
       }
@@ -2227,7 +2297,14 @@ function App() {
       if (incoming && incoming.kind === "snapshot" && incoming.channel === REALTIME_LOBBY_CHANNEL) {
         applyIncomingRealtimeSnapshot(incoming);
       }
-      realtimeLastPullAtRef.current = Date.now();
+      const now = Date.now();
+      realtimeLastPullAtRef.current = now;
+      setSyncHealth((prev) => ({
+        ...prev,
+        lastHttpPullAt: now,
+        lastHttpPullReason: reason,
+        lastError: "",
+      }));
       if (realtimeStatus !== "online") {
         setRealtimeStatus("online");
       }
@@ -4790,6 +4867,7 @@ function App() {
       const socket = realtimeSocketRef.current;
       if (!socket) return;
       realtimeSocketRef.current = null;
+      setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
       try {
         socket.close(1000, "cleanup");
       } catch {
@@ -4805,12 +4883,14 @@ function App() {
       try {
         socket = new WebSocket(buildRealtimeChannelUrl(REALTIME_WS_BASE_URL, REALTIME_LOBBY_CHANNEL, appSessionId));
       } catch {
+        setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
         setRealtimeStatus("offline");
         scheduleReconnect();
         return;
       }
 
       realtimeSocketRef.current = socket;
+      setRealtimeSocketReadyState(socket.readyState);
       realtimeReceivedSnapshotRef.current = false;
 
       const seedTimer = window.setTimeout(() => {
@@ -4829,6 +4909,8 @@ function App() {
       socket.addEventListener("open", () => {
         if (cancelled || realtimeSocketRef.current !== socket) return;
         reconnectDelay = 1_000;
+        setRealtimeSocketReadyState(socket.readyState);
+        setSyncHealth((prev) => ({ ...prev, lastWsOpenAt: Date.now(), lastError: "" }));
         setRealtimeStatus("online");
         const helloMessage: RealtimeMessage = {
           kind: "hello",
@@ -4846,6 +4928,7 @@ function App() {
       socket.addEventListener("message", (event) => {
         if (cancelled || realtimeSocketRef.current !== socket) return;
         if (typeof event.data !== "string") return;
+        setSyncHealth((prev) => ({ ...prev, lastWsMessageAt: Date.now() }));
 
         let message: RealtimeMessage | null = null;
         try {
@@ -4861,6 +4944,7 @@ function App() {
 
       socket.addEventListener("error", () => {
         if (cancelled || realtimeSocketRef.current !== socket) return;
+        setSyncHealth((prev) => ({ ...prev, lastError: "ws baglanti hatasi" }));
         setRealtimeStatus("offline");
       });
 
@@ -4868,6 +4952,7 @@ function App() {
         window.clearTimeout(seedTimer);
         if (cancelled || realtimeSocketRef.current !== socket) return;
         realtimeSocketRef.current = null;
+        setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
         setRealtimeStatus("offline");
         scheduleReconnect();
       });
@@ -4882,6 +4967,19 @@ function App() {
       setRealtimeStatus("offline");
     };
   }, [appSessionId]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setSyncHealthNow(Date.now());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  async function runRealtimeHealthProbe() {
+    await syncRealtimeViaHttp("manual-health-push");
+    await pullRealtimeViaHttp("manual-health-pull");
+    setLobbyNotice("Canli senkron testi guncellendi.");
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -6126,6 +6224,60 @@ function App() {
                   </div>
                 ))}
               </div>
+            </section>
+
+            <section className="my-side-card my-side-card-sync">
+              <h3>Canli Senkron</h3>
+              <div className="my-sync-grid">
+                <div className="my-sync-row">
+                  <span>Durum</span>
+                  <strong className={`my-sync-status ${realtimeStatus}`}>{realtimeStatus}</strong>
+                </div>
+                <div className="my-sync-row">
+                  <span>WebSocket</span>
+                  <strong>{websocketStateText(realtimeSocketReadyState)}</strong>
+                </div>
+                <div className="my-sync-row">
+                  <span>Session</span>
+                  <strong>{appSessionId.slice(0, 12)}</strong>
+                </div>
+                <div className="my-sync-row">
+                  <span>Son Snapshot</span>
+                  <strong>{formatSince(syncHealth.lastIncomingAt, syncHealthNow)}</strong>
+                </div>
+                <div className="my-sync-row">
+                  <span>Snapshot Gonderen</span>
+                  <strong>{syncHealth.lastIncomingSender || "-"}</strong>
+                </div>
+                <div className="my-sync-row">
+                  <span>Counter</span>
+                  <strong>{syncHealth.lastIncomingCounter || 0}</strong>
+                </div>
+                <div className="my-sync-row">
+                  <span>WS Mesaj</span>
+                  <strong>{formatSince(syncHealth.lastWsMessageAt, syncHealthNow)}</strong>
+                </div>
+                <div className="my-sync-row">
+                  <span>HTTP Push</span>
+                  <strong>{formatSince(syncHealth.lastHttpPushAt, syncHealthNow)}</strong>
+                </div>
+                <div className="my-sync-row">
+                  <span>Push Sebebi</span>
+                  <strong>{syncHealth.lastHttpPushReason || "-"}</strong>
+                </div>
+                <div className="my-sync-row">
+                  <span>HTTP Pull</span>
+                  <strong>{formatSince(syncHealth.lastHttpPullAt, syncHealthNow)}</strong>
+                </div>
+                <div className="my-sync-row">
+                  <span>Pull Sebebi</span>
+                  <strong>{syncHealth.lastHttpPullReason || "-"}</strong>
+                </div>
+              </div>
+              <button className="my-action-btn soft" onClick={() => void runRealtimeHealthProbe()}>
+                Simdi Test Et
+              </button>
+              {syncHealth.lastError ? <p className="my-error my-sync-error">{syncHealth.lastError}</p> : null}
             </section>
 
             {isAdmin && showAdminPanelInLobby ? (

@@ -870,6 +870,54 @@
   line-height: 1;
 }
 
+.my-side-card-sync {
+  padding: 8px;
+  gap: 8px;
+}
+
+.my-sync-grid {
+  display: grid;
+  gap: 4px;
+}
+
+.my-sync-row {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 6px;
+  align-items: baseline;
+}
+
+.my-sync-row span {
+  color: #cde9f4;
+  font-size: 0.74rem;
+  line-height: 1.2;
+}
+
+.my-sync-row strong {
+  color: #fff4d3;
+  font-size: 0.76rem;
+  line-height: 1.2;
+  font-weight: 800;
+  word-break: break-word;
+}
+
+.my-sync-status.online {
+  color: #9cf38b;
+}
+
+.my-sync-status.connecting {
+  color: #ffdc7f;
+}
+
+.my-sync-status.offline {
+  color: #ff9d95;
+}
+
+.my-sync-error {
+  margin-top: 2px;
+  font-size: 0.76rem;
+}
+
 .my-member-card .line,
 .my-side-card .line {
   margin: 0;
@@ -1874,6 +1922,10 @@
     height: min(44svh, 360px);
     min-height: 230px;
     max-height: none;
+  }
+
+  .my-sync-row {
+    grid-template-columns: 96px minmax(0, 1fr);
   }
 
   .my-table-grid {
