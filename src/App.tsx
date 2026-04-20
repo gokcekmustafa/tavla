@@ -3929,15 +3929,23 @@ function App() {
       && timeoutWinWaiverRef.current.userId === myUserId
       && timeoutWinWaiverRef.current.tableCode === activeTable.roomCode,
     );
+    const opponentPresenceActive = Boolean(
+      opponentSeat
+      && lobbyState.presence.some((entry) => (
+        (entry.sessionId === opponentSeat.sessionId || entry.userId === opponentSeat.userId)
+        && Date.now() - entry.touchedAt <= HEARTBEAT_MS * 2
+      )),
+    );
+    const effectiveOpponentSeat = opponentPresenceActive ? opponentSeat : null;
     const opponentLooksDisconnected = Boolean(
-      opponentSeat && Date.now() - opponentSeat.touchedAt > HEARTBEAT_MS * 2,
+      effectiveOpponentSeat && Date.now() - effectiveOpponentSeat.touchedAt > HEARTBEAT_MS * 2,
     );
     const localWonCurrentGame = Boolean(matchLiveState.winner && matchLiveState.winner === roomSession.seat);
     const setComplete = isTableSeriesComplete(activeTable);
     const seriesStarted = Boolean(activeTable.startedAt || activeTable.setPlayed > 0 || matchLiveState.matchActive);
     const shouldPenalize = Boolean(
       mySeat
-      && opponentSeat
+      && effectiveOpponentSeat
       && seriesStarted
       && !setComplete
       && !permissionGranted
@@ -3946,7 +3954,7 @@ function App() {
       && !localWonCurrentGame
     );
     return {
-      opponentSeat,
+      opponentSeat: effectiveOpponentSeat,
       permissionGranted,
       shouldPenalize,
     };
@@ -5056,6 +5064,15 @@ function App() {
     currentProfile.stats,
     appSessionId,
   ]);
+
+  useEffect(() => {
+    if (roomSession) return;
+    releaseSeatOnly();
+    const timer = window.setInterval(() => {
+      releaseSeatOnly();
+    }, 1200);
+    return () => window.clearInterval(timer);
+  }, [roomSession, appSessionId, currentProfile.userId]);
 
   useEffect(() => {
     if (!roomSession || roomSession.role !== "player" || !currentRoomTable) {
