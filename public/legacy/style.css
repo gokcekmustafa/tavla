@@ -838,15 +838,16 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 }
 
 .bar-chip {
-  width: 21px;
-  height: 21px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: block;
   flex-shrink: 0;
   background-size: 300% 300%;
   background-repeat: no-repeat;
   background-position: 50% 0%;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.42);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.44);
+  transition: transform 0.14s ease, box-shadow 0.16s ease, filter 0.14s ease;
 }
 
 .bar-chip.white {
@@ -855,6 +856,27 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .bar-chip.black {
   background-image: var(--asset-stone-dark);
+}
+
+.bar-chip.selectable-bar-chip {
+  cursor: pointer;
+  box-shadow:
+    0 0 0 1px rgba(255, 224, 164, 0.34),
+    0 3px 7px rgba(0, 0, 0, 0.46);
+  animation: bar-chip-selectable-pulse 1.05s ease-in-out infinite;
+}
+
+.bar-chip.selected-bar-chip {
+  transform: scale(1.08);
+  box-shadow:
+    0 0 0 2px rgba(232, 184, 74, 0.52),
+    0 8px 14px rgba(0, 0, 0, 0.5);
+  filter: saturate(1.08) brightness(1.06);
+}
+
+@keyframes bar-chip-selectable-pulse {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(255, 214, 142, 0.34)); }
+  50% { filter: drop-shadow(0 0 9px rgba(255, 233, 184, 0.56)); }
 }
 
 /* ── Center dice stage ───────────────────────────── */
@@ -1281,7 +1303,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     --dice-stage-side-inset-y: 29%;
   }
 
-  .bar-chip { width: 12px; height: 12px; }
+  .bar-chip { width: 16px; height: 16px; }
 
   /* FIX: zar animasyonu mobilde taşmasın — padding azaltıldı */
   .center-dice-stage.white-turn { padding-right: var(--dice-stage-side-inset-x); padding-bottom: var(--dice-stage-side-inset-y); }
@@ -1369,7 +1391,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     grid-template-columns: repeat(13, minmax(0, 1fr));
   }
 
-  .bar-chip { width: 10px; height: 10px; }
+  .bar-chip { width: 14px; height: 14px; }
 
   .center-die { width: 30px; height: 30px; --die-depth: 14px; }
   .die-pips.large .pip { width: 5px; height: 5px; }

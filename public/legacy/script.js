@@ -1227,6 +1227,23 @@ function onBarSlotClick(e) {
   handleSourceOrDest("bar");
 }
 
+function onBarChipMouseDown(e) {
+  if (winner || isAnimating || isBotTurn() || !hasRolled) return;
+  if (!canControlRoomAction()) return;
+  if (Number.isFinite(e.button) && e.button !== 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+  handleSourceOrDest("bar");
+}
+
+function onBarChipTouchStart(e) {
+  if (winner || isAnimating || isBotTurn() || !hasRolled) return;
+  if (!canControlRoomAction()) return;
+  e.preventDefault();
+  e.stopPropagation();
+  handleSourceOrDest("bar");
+}
+
 function onOffAreaClick(e) {
   if (isAnimating || isBotTurn()) return;
   if (!canControlRoomAction()) return;
@@ -1921,26 +1938,37 @@ function renderBoardState() {
     barSlot.classList.toggle("draggable-source", canDragBar);
   }
 
-  renderBar(BLACK);
-  renderBar(WHITE);
+  renderBar(BLACK, sel);
+  renderBar(WHITE, sel);
   renderOffStack(BLACK);
   renderOffStack(WHITE);
   dom.offWhiteCount.textContent = `${gameState.borneOff[WHITE]} / ${CHECKERS_PER_PLAYER}`;
   dom.offBlackCount.textContent = `${gameState.borneOff[BLACK]} / ${CHECKERS_PER_PLAYER}`;
 }
 
-function renderBar(player) {
+function renderBar(player, selectableSources) {
   const count   = gameState.bar[player];
   const countEl = document.getElementById(`bar-${player}-count`);
   const stackEl = document.getElementById(`bar-${player}-stack`);
+  const barSelectable = Boolean(
+    selectableSources
+    && selectableSources.has("bar")
+    && player === currentPlayer
+    && count > 0
+  );
   countEl.textContent = `${count} taş`;
   stackEl.innerHTML   = "";
   const show = Math.min(count, 8);
   for (let i = 0; i < show; i++) {
     const chip = document.createElement("span");
     chip.className = `bar-chip ${player}`;
+    if (barSelectable) {
+      chip.classList.add("selectable-bar-chip");
+      chip.addEventListener("mousedown", onBarChipMouseDown);
+      chip.addEventListener("touchstart", onBarChipTouchStart, { passive: false });
+    }
     if (selectedSource === "bar" && player === currentPlayer) {
-      chip.classList.add("selected-checker");
+      chip.classList.add("selected-checker", "selected-bar-chip");
     }
     stackEl.appendChild(chip);
   }
