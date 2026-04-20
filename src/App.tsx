@@ -1382,20 +1382,22 @@ function getNextTableId(tables: LobbyTable[]) {
 function mergeSeatState(
   base: LobbySeatState | null,
   incoming: LobbySeatState | null,
-  baseStateUpdatedAt: number,
-  incomingStateUpdatedAt: number,
   preferBase: boolean,
 ) {
   if (base && !incoming) {
-    if (incomingStateUpdatedAt - base.touchedAt > SEAT_STALE_MS) return null;
-    return base;
+    return preferBase ? base : null;
   }
   if (!base && incoming) {
-    if (baseStateUpdatedAt - incoming.touchedAt > SEAT_STALE_MS) return null;
-    return incoming;
+    return preferBase ? null : incoming;
   }
   if (!base && !incoming) return null;
   if (!base || !incoming) return null;
+
+  const sameIdentity = base.sessionId === incoming.sessionId && base.userId === incoming.userId;
+  if (!sameIdentity) {
+    return preferBase ? base : incoming;
+  }
+
   if (incoming.touchedAt === base.touchedAt) {
     return preferBase ? base : incoming;
   }
@@ -1436,8 +1438,8 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     const mergedTable: LobbyTable = {
       id: Math.min(existing.id, table.id),
       roomCode: sanitizeRoomCode(existing.roomCode) || sanitizeRoomCode(table.roomCode) || createRoomCode(),
-      white: mergeSeatState(existing.white, table.white, remote.updatedAt, local.updatedAt, preferRemote),
-      black: mergeSeatState(existing.black, table.black, remote.updatedAt, local.updatedAt, preferRemote),
+      white: mergeSeatState(existing.white, table.white, preferRemote),
+      black: mergeSeatState(existing.black, table.black, preferRemote),
       allowSpectatorChat: preferred.allowSpectatorChat !== false,
       ownerUserId: sanitizeGuestId(preferred.ownerUserId) || sanitizeGuestId(fallback.ownerUserId) || "",
       isPrivate: Boolean(preferred.isPrivate),
