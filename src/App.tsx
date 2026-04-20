@@ -258,6 +258,8 @@ const LOBBY_CHAT_LIMIT = 120;
 const TABLE_CHAT_LIMIT = 80;
 const LOBBY_CHAT_AUTO_SCROLL_THRESHOLD = 24;
 const OPPONENT_MOVE_TIMEOUT_MS = 60_000;
+const ROOM_MISSING_CHECK_DELAY_MS = 2_200;
+const ROOM_MISSING_CLOSE_GRACE_MS = 9_000;
 const AVATAR_PRESETS: readonly AvatarPreset[] = [
   { id: "male_01", label: "Erkek Klasik", gender: "male" },
   { id: "male_02", label: "Erkek Sakalli", gender: "male" },
@@ -1470,11 +1472,6 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     const existing = mergedTables.get(key);
     if (!existing) {
       if (isTableSuppressedByCloseTombstone(table, closedTableRooms)) return;
-      const latestSeatTouch = Math.max(table.white?.touchedAt ?? 0, table.black?.touchedAt ?? 0);
-      const remoteAheadMs = remote.updatedAt - latestSeatTouch;
-      if (preferRemote && remoteAheadMs > HEARTBEAT_MS * 2) {
-        return;
-      }
       mergedTables.set(key, table);
       return;
     }
@@ -1707,6 +1704,7 @@ function App() {
   const opponentIdlePromptRef = useRef(false);
   const leavePermissionPromptKeyRef = useRef("");
   const leavePermissionAutoLeavingRef = useRef(false);
+  const roomMissingSinceRef = useRef<number | null>(null);
   const latestLegacyStateRef = useRef<{
     matchToken: string;
     matchActive: boolean;
@@ -2084,10 +2082,7 @@ function App() {
 
   function sendRealtimeSnapshot(payload: LobbyState, reason: string) {
     const socket = realtimeSocketRef.current;
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      realtimePendingSnapshotRef.current = payload;
-      return false;
-    }
+    if (!socket || socket.readyState !== WebSocket.OPEN) return false;
     realtimeSyncCounterRef.current += 1;
     const message: RealtimeMessage = {
       kind: "snapshot",
@@ -2100,10 +2095,8 @@ function App() {
     };
     try {
       socket.send(JSON.stringify(message));
-      realtimePendingSnapshotRef.current = null;
       return true;
     } catch {
-      realtimePendingSnapshotRef.current = payload;
       return false;
     }
   }
@@ -2161,12 +2154,11 @@ function App() {
     const normalized = normalizeLobbyState(next);
     realtimeRemoteStateRef.current = normalized;
     realtimeReceivedSnapshotRef.current = true;
+    realtimePendingSnapshotRef.current = normalized;
     saveJson(LOBBY_STATE_KEY, normalized);
     setLobbyState(normalized);
     const sent = sendRealtimeSnapshot(normalized, "lobby-update");
-    if (!sent) {
-      void syncRealtimeViaHttp("lobby-update-fallback");
-    }
+    void syncRealtimeViaHttp(sent ? "lobby-update-mirror" : "lobby-update-fallback");
     broadcastLobbySync();
   }
 
@@ -4804,7 +4796,8 @@ function App() {
     const run = async () => {
       if (cancelled) return;
       const socket = realtimeSocketRef.current;
-      if (socket && socket.readyState === WebSocket.OPEN) return;
+      const pending = realtimePendingSnapshotRef.current;
+      if (socket && socket.readyState === WebSocket.OPEN && !pending) return;
       await syncRealtimeViaHttp("http-fallback");
     };
 
@@ -5442,40 +5435,55 @@ function App() {
   ]);
 
   useEffect(() => {
-    if (!roomSession) return;
-    if (currentRoomTable) return;
-    if (realtimePendingSnapshotRef.current) {
-      void syncRealtimeViaHttp("room-missing-sync");
+    if (!roomSession) {
+      roomMissingSinceRef.current = null;
+      return;
+    }
+    if (currentRoomTable) {
+      roomMissingSinceRef.current = null;
+      return;
+    }
+    if (!roomMissingSinceRef.current) {
+      roomMissingSinceRef.current = Date.now();
     }
     const roomCode = roomSession.code;
     const roomTableNo = roomSession.tableNo;
-    const closeDelayMs = realtimeStatus === "online" ? 1200 : 2800;
     const timer = window.setTimeout(() => {
-      if (realtimePendingSnapshotRef.current) {
-        void syncRealtimeViaHttp("room-missing-retry");
-        return;
-      }
-      const latest = getCurrentLobbyState();
-      const stillExists = latest.tables.some((table) => table.id === roomTableNo || table.roomCode === roomCode);
-      if (stillExists) return;
-      setRoomSession((current) => {
-        if (!current) return current;
-        if (current.code !== roomCode || current.tableNo !== roomTableNo) return current;
-        return null;
-      });
-      clearOpponentIdleWatch();
-      timeoutWinWaiverRef.current = null;
-      leavePermissionPromptKeyRef.current = "";
-      leavePermissionAutoLeavingRef.current = false;
-      setViewMode("lobby");
-      setMatchLiveState({
-        matchToken: "",
-        matchActive: false,
-        winner: null,
-        localColor: null,
-      });
-      setLobbyNotice("Masa kapandi.");
-    }, closeDelayMs);
+      void (async () => {
+        await syncRealtimeViaHttp("room-missing-check");
+        const localSnapshot = loadLobbyState();
+        const remoteSnapshot = readRealtimeLobbyState();
+        const latest = remoteSnapshot ? mergeLobbyStates(localSnapshot, remoteSnapshot) : localSnapshot;
+        const stillExists = latest.tables.some((table) => table.id === roomTableNo || table.roomCode === roomCode);
+        if (stillExists) {
+          roomMissingSinceRef.current = null;
+          setLobbyState(latest);
+          return;
+        }
+        const missingSince = roomMissingSinceRef.current ?? Date.now();
+        if (Date.now() - missingSince < ROOM_MISSING_CLOSE_GRACE_MS) {
+          return;
+        }
+        roomMissingSinceRef.current = null;
+        setRoomSession((current) => {
+          if (!current) return current;
+          if (current.code !== roomCode || current.tableNo !== roomTableNo) return current;
+          return null;
+        });
+        clearOpponentIdleWatch();
+        timeoutWinWaiverRef.current = null;
+        leavePermissionPromptKeyRef.current = "";
+        leavePermissionAutoLeavingRef.current = false;
+        setViewMode("lobby");
+        setMatchLiveState({
+          matchToken: "",
+          matchActive: false,
+          winner: null,
+          localColor: null,
+        });
+        setLobbyNotice("Masa kapandi.");
+      })();
+    }, ROOM_MISSING_CHECK_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [roomSession, currentRoomTable, realtimeStatus]);
 
