@@ -2118,11 +2118,10 @@ function App() {
       normalizeLobbyState(message.payload),
       Number.isFinite(message.at) ? Number(message.at) : Date.now(),
     );
-    const merged = mergeLobbyStates(loadLobbyState(), incoming);
-    realtimeRemoteStateRef.current = merged;
+    realtimeRemoteStateRef.current = incoming;
     realtimeReceivedSnapshotRef.current = true;
-    saveJson(LOBBY_STATE_KEY, merged);
-    setLobbyState(merged);
+    saveJson(LOBBY_STATE_KEY, incoming);
+    setLobbyState(incoming);
     return true;
   }
 
