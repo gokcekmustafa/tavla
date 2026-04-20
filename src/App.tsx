@@ -1728,6 +1728,7 @@ function App() {
   const realtimeHttpSyncInFlightRef = useRef(false);
   const realtimeHttpPullInFlightRef = useRef(false);
   const realtimeLastPullAtRef = useRef(0);
+  const realtimeLastPushAtRef = useRef(0);
   const appSessionId = useMemo(() => createSessionId(), []);
   const guestId = useMemo(() => getOrCreateGuestId(), []);
   const [realtimeStatus, setRealtimeStatus] = useState<"offline" | "connecting" | "online">("offline");
@@ -2183,6 +2184,7 @@ function App() {
         setRealtimeStatus("offline");
         return;
       }
+      realtimeLastPushAtRef.current = Date.now();
       const latestPending = realtimePendingSnapshotRef.current;
       if (!latestPending || sameLobbySnapshot(latestPending, payload)) {
         realtimePendingSnapshotRef.current = null;
@@ -4890,6 +4892,10 @@ function App() {
       const pending = realtimePendingSnapshotRef.current;
       if (socket && socket.readyState === WebSocket.OPEN && !pending) {
         const now = Date.now();
+        if (now - realtimeLastPushAtRef.current >= 6000) {
+          await syncRealtimeViaHttp("http-write-heartbeat");
+          return;
+        }
         if (now - realtimeLastPullAtRef.current >= 4000) {
           await pullRealtimeViaHttp("http-read-backup");
         }
