@@ -1692,6 +1692,8 @@ function App() {
   const realtimeReceivedSnapshotRef = useRef(false);
   const realtimePendingSnapshotRef = useRef<LobbyState | null>(null);
   const realtimeHttpSyncInFlightRef = useRef(false);
+  const realtimeHttpPullInFlightRef = useRef(false);
+  const realtimeLastPullAtRef = useRef(0);
   const appSessionId = useMemo(() => createSessionId(), []);
   const guestId = useMemo(() => getOrCreateGuestId(), []);
   const [realtimeStatus, setRealtimeStatus] = useState<"offline" | "connecting" | "online">("offline");
@@ -2161,6 +2163,40 @@ function App() {
           void syncRealtimeViaHttp("lobby-update-drain");
         }, 0);
       }
+    }
+  }
+
+  async function pullRealtimeViaHttp(reason: string) {
+    void reason;
+    if (realtimeHttpPullInFlightRef.current) return;
+    realtimeHttpPullInFlightRef.current = true;
+    try {
+      const response = await fetch(buildRealtimeHttpSyncUrl(REALTIME_LOBBY_CHANNEL, appSessionId), {
+        method: "GET",
+        headers: { "cache-control": "no-store" },
+      });
+      if (!response.ok) {
+        setRealtimeStatus("offline");
+        return;
+      }
+      const contentType = (response.headers.get("content-type") || "").toLowerCase();
+      if (!contentType.includes("application/json")) {
+        setRealtimeStatus("offline");
+        return;
+      }
+      const data = (await response.json().catch(() => null)) as { snapshot?: unknown } | null;
+      const incoming = normalizeRealtimeMessage(data?.snapshot);
+      if (incoming && incoming.kind === "snapshot" && incoming.channel === REALTIME_LOBBY_CHANNEL) {
+        applyIncomingRealtimeSnapshot(incoming);
+      }
+      realtimeLastPullAtRef.current = Date.now();
+      if (realtimeStatus !== "online") {
+        setRealtimeStatus("online");
+      }
+    } catch {
+      setRealtimeStatus("offline");
+    } finally {
+      realtimeHttpPullInFlightRef.current = false;
     }
   }
 
@@ -4815,7 +4851,13 @@ function App() {
       if (cancelled) return;
       const socket = realtimeSocketRef.current;
       const pending = realtimePendingSnapshotRef.current;
-      if (socket && socket.readyState === WebSocket.OPEN && !pending) return;
+      if (socket && socket.readyState === WebSocket.OPEN && !pending) {
+        const now = Date.now();
+        if (now - realtimeLastPullAtRef.current >= 4000) {
+          await pullRealtimeViaHttp("http-read-backup");
+        }
+        return;
+      }
       await syncRealtimeViaHttp("http-fallback");
     };
 
