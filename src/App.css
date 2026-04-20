@@ -1215,8 +1215,8 @@
 }
 
 .my-room-board-frame iframe {
-  height: clamp(380px, calc(100svh - 330px), 540px);
-  min-height: 380px;
+  height: calc(100svh - 268px);
+  min-height: 500px;
 }
 
 .my-room-board-status {
@@ -1585,8 +1585,8 @@
   }
 
   .my-room-board-frame iframe {
-    height: clamp(340px, calc(100svh - 320px), 500px);
-    min-height: 340px;
+    height: calc(100svh - 270px);
+    min-height: 450px;
   }
 }
 
@@ -1668,8 +1668,8 @@
   }
 
   .my-room-board-frame iframe {
-    height: clamp(300px, 54svh, 460px);
-    min-height: 300px;
+    height: min(62svh, 500px);
+    min-height: 330px;
   }
 }
 
@@ -1689,17 +1689,9 @@
 
   .my-topbar-right {
     display: flex;
-    justify-content: flex-start;
+    justify-content: center;
     gap: 4px;
     width: 100%;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding-bottom: 2px;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .my-topbar-right .my-chip {
-    flex: 0 0 auto;
   }
 
   .my-top-btn {
@@ -1743,7 +1735,7 @@
   }
 
   .my-lobby-table-zone {
-    height: min(48svh, 360px);
+    height: min(52svh, 400px);
     min-height: 250px;
     padding: 6px;
   }
@@ -1838,26 +1830,8 @@
   }
 
   .my-room-board-frame iframe {
-    height: clamp(250px, 48svh, 340px);
-    min-height: 250px;
-  }
-
-  .my-room-view {
-    padding: 4px 6px 6px;
-    gap: 4px;
-  }
-
-  .my-room-center-stack {
-    gap: 4px;
-  }
-
-  .my-room-chat-card {
-    padding: 6px;
-    gap: 6px;
-  }
-
-  .my-room-chat-list {
-    max-height: 140px;
+    height: min(52svh, 390px);
+    min-height: 280px;
   }
 
   .my-room-main-leave {
