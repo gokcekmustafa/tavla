@@ -2129,3 +2129,46 @@ body.bot-mode .activity-wrap {
     padding: 6px 8px;
   }
 }
+
+/* Mobilde room/bot modunda tahta alanini daraltan sabit iki kolon duzenini iptal et */
+@media (max-width: 900px) {
+  body.room-mode .arena-layout,
+  body.bot-mode .arena-layout {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  body.room-mode .right-action-panel,
+  body.bot-mode .right-action-panel {
+    justify-self: stretch;
+    align-self: stretch;
+    width: 100%;
+    height: auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  body.room-mode .right-action-panel .side-auto-roll,
+  body.bot-mode .right-action-panel .side-auto-roll {
+    min-height: 38px;
+  }
+}
+
+@media (max-width: 640px) {
+  body.room-mode .right-action-panel,
+  body.bot-mode .right-action-panel {
+    padding: 6px;
+  }
+
+  body.room-mode .action-btn,
+  body.bot-mode .action-btn {
+    min-height: 36px;
+    font-size: 0.8rem;
+  }
+
+  body.room-mode .table-wrap,
+  body.bot-mode .table-wrap {
+    padding: 5px;
+  }
+}

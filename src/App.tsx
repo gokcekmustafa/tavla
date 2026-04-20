@@ -2155,7 +2155,10 @@ function App() {
     realtimeReceivedSnapshotRef.current = true;
     saveJson(LOBBY_STATE_KEY, normalized);
     setLobbyState(normalized);
-    sendRealtimeSnapshot(normalized, "lobby-update");
+    const sent = sendRealtimeSnapshot(normalized, "lobby-update");
+    if (!sent) {
+      void syncRealtimeViaHttp("lobby-update-fallback");
+    }
     broadcastLobbySync();
   }
 

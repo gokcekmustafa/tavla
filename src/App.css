@@ -1881,8 +1881,8 @@
   }
 
   .my-game-frame iframe {
-    height: min(60svh, 420px);
-    min-height: 300px;
+    height: min(74svh, 620px);
+    min-height: 380px;
   }
 
   .my-game-layout {
@@ -1939,13 +1939,13 @@
   }
 
   .my-room-board-frame iframe {
-    height: min(52svh, 390px);
-    min-height: 280px;
+    height: min(68svh, 560px);
+    min-height: 360px;
   }
 
   .my-room-view-topless .my-room-board-frame iframe {
-    height: min(58svh, 430px);
-    min-height: 300px;
+    height: min(72svh, 620px);
+    min-height: 380px;
   }
 
   .my-room-main-leave {
