@@ -737,9 +737,6 @@ function isTablePrivateBlockedForUser(table: LobbyTable, userId: string, session
   if (!table.isPrivate) return false;
   const safeUserId = sanitizeGuestId(userId);
   if (!safeUserId) return true;
-  const ownerUserId = sanitizeGuestId(table.ownerUserId);
-  if (ownerUserId && ownerUserId === safeUserId) return false;
-  if (table.invitedUserId && sanitizeGuestId(table.invitedUserId) === safeUserId) return false;
   if (table.white?.sessionId === sessionId || table.black?.sessionId === sessionId) return false;
   return true;
 }
@@ -1936,13 +1933,13 @@ function App() {
   }, [roomSession, currentRoomTable, appSessionId]);
 
   const canWriteLobbyChat = Boolean(member);
-  const canWriteTableChat = Boolean(
-    member
-    && roomSession
-    && canViewTableChat
-    && mode === "local"
-    && (roomSession.role === "player" || currentRoomTable?.allowSpectatorChat !== false),
-  );
+  const canWriteTableChat = useMemo(() => {
+    if (!roomSession || !canViewTableChat || mode !== "local") return false;
+    if (roomSession.role === "spectator") {
+      return currentRoomTable?.allowSpectatorChat !== false;
+    }
+    return Boolean(member);
+  }, [roomSession, canViewTableChat, mode, currentRoomTable, member]);
   const roomChatRows = useMemo(() => (roomChatTab === "table" ? tableChatRows : lobbyChatRows), [roomChatTab, tableChatRows, lobbyChatRows]);
   const canWriteRoomChat = roomChatTab === "table" ? canWriteTableChat : canWriteLobbyChat;
   const roomChatInput = roomChatTab === "table" ? roomTableChatInput : roomLobbyChatInput;
@@ -2107,11 +2104,11 @@ function App() {
   }
 
   function sendTableChat(rawText: string) {
-    if (!member) {
+    if (!roomSession) return;
+    if (roomSession.role === "player" && !member) {
       setLobbyNotice("Masa sohbeti sadece uye oyuncular icin acik.");
       return;
     }
-    if (!roomSession) return;
     const message = createOutgoingChatMessage(rawText);
     if (!message) return;
 
@@ -5522,6 +5519,7 @@ function App() {
                           ? "black"
                           : null;
                     const canWatchTable = !table.isPrivate && !mySeatHere && !myCurrentSeat && Boolean(table.white || table.black);
+                    const showWatchEye = !table.isPrivate;
                     const canAdminClose = isAdmin;
 
                     return (
@@ -5531,6 +5529,7 @@ function App() {
                           onClick={() => watchTableAsSpectator(table)}
                           disabled={!canWatchTable}
                           title={canWatchTable ? "Masayi izleyici olarak ac" : table.isPrivate ? "Ozel masalar izleyiciye kapali" : "Izlemek icin masada oturmamalisin"}
+                          style={showWatchEye ? undefined : { display: "none" }}
                           aria-label="Masayi izle"
                         >
                           👁
@@ -6319,7 +6318,6 @@ function App() {
                 </div>
 
                 <div className="my-chat-head my-room-chat-head">
-                  <h3>{roomChatTab === "table" ? "Masa Sohbeti" : "Lobi Sohbeti"}</h3>
                   <div className="my-chat-head-actions">
                     <span>{roomChatRows.length} mesaj</span>
                     {!roomChatAutoScroll || roomChatUnread > 0 ? (

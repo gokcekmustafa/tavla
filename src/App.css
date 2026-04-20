@@ -1309,8 +1309,13 @@
   font-size: 0.92rem;
 }
 
+.my-room-chat-head {
+  justify-content: flex-end;
+  gap: 4px;
+}
+
 .my-room-chat-list {
-  max-height: 205px;
+  max-height: 234px;
   border-radius: 7px;
   border: 2px solid rgba(26, 131, 161, 0.72);
   background: linear-gradient(180deg, rgba(239, 246, 249, 0.98), rgba(225, 238, 244, 0.99));
