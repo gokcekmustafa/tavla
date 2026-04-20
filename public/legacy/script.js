@@ -46,6 +46,7 @@ const dom = {
   colorWhiteInput: document.getElementById("player-color-white"),
   colorBlackInput: document.getElementById("player-color-black"),
   autoRollToggle:  document.getElementById("auto-roll-toggle"),
+  autoRollToggleSide: document.getElementById("auto-roll-toggle-side"),
   moveLog:         document.getElementById("move-log"),
   tableChatLog:    document.getElementById("table-chat-log"),
   tableChatInput:  document.getElementById("table-chat-input"),
@@ -88,6 +89,7 @@ let pendingAutoRollTimer = null;
 let pendingCheckerSelectTimer = null;
 let turnUndoSnapshot  = null;
 let movesMadeThisTurn = 0;
+let turnRollMoveCount = 0;
 let dragSource        = null;
 let lastRolledDice    = [];
 let lastDicePlayer    = WHITE;
@@ -710,6 +712,7 @@ function buildRoomSnapshot() {
     gameState: cloneState(gameState),
     currentPlayer,
     remainingDice: [...remainingDice],
+    turnRollMoveCount,
     matchToken,
     hasRolled,
     winner,
@@ -736,6 +739,9 @@ function applyRoomSnapshot(snapshot) {
   remainingDice = Array.isArray(snapshot.remainingDice)
     ? snapshot.remainingDice.filter((d) => Number.isInteger(d) && d >= 1 && d <= 6)
     : [];
+  turnRollMoveCount = Number.isInteger(snapshot.turnRollMoveCount)
+    ? Math.max(0, Number(snapshot.turnRollMoveCount))
+    : remainingDice.length;
   hasRolled = Boolean(snapshot.hasRolled);
   winner = snapshot.winner === WHITE || snapshot.winner === BLACK ? snapshot.winner : null;
   statusMessage = typeof snapshot.statusMessage === "string" && snapshot.statusMessage
@@ -758,6 +764,7 @@ function applyRoomSnapshot(snapshot) {
   pendingMoveChain = [];
   turnUndoSnapshot = null;
   movesMadeThisTurn = 0;
+  turnRollMoveCount = 0;
   isAnimating = false;
   availableMoves = hasRolled ? getOptimalMoves(gameState, currentPlayer, remainingDice) : [];
 
@@ -900,6 +907,7 @@ function attachEvents() {
   dom.colorWhiteInput?.addEventListener("change", onPreferredColorChange);
   dom.colorBlackInput?.addEventListener("change", onPreferredColorChange);
   dom.autoRollToggle?.addEventListener("change", onAutoRollChange);
+  dom.autoRollToggleSide?.addEventListener("change", onAutoRollChange);
 
   dom.offWhite.addEventListener("click",    onOffAreaClick);
   dom.offBlack.addEventListener("click",    onOffAreaClick);
@@ -1024,6 +1032,7 @@ function onHostMessage(event) {
   dragSource = null;
   pendingMoveChain = [];
   movesMadeThisTurn = 0;
+  turnRollMoveCount = 0;
   turnUndoSnapshot = null;
   if (forceLocalWin) {
     const opponent = opponentOf(localColor);
@@ -1066,6 +1075,7 @@ function onNewGame() {
   moveLog           = [];
   turnUndoSnapshot  = null;
   movesMadeThisTurn = 0;
+  turnRollMoveCount = 0;
   dragSource        = null;
   pendingMoveChain  = [];
   lastRolledDice    = [];
@@ -1095,6 +1105,7 @@ function onModeChange() {
   clearPendingAutoRollTimer();
   turnUndoSnapshot  = null;
   movesMadeThisTurn = 0;
+  turnRollMoveCount = 0;
   dragSource        = null;
   pendingMoveChain  = [];
   if (gameMode === "bot") {
@@ -1147,23 +1158,48 @@ function onPreferredColorChange() {
   onNewGame();
 }
 
-function onAutoRollChange() {
-  autoRollEnabled = Boolean(dom.autoRollToggle?.checked);
+function setAutoRollToggleState(checked, disabled) {
+  if (dom.autoRollToggle) {
+    dom.autoRollToggle.checked = checked;
+    if (typeof disabled === "boolean") {
+      dom.autoRollToggle.disabled = disabled;
+    }
+  }
+  if (dom.autoRollToggleSide) {
+    dom.autoRollToggleSide.checked = checked;
+    if (typeof disabled === "boolean") {
+      dom.autoRollToggleSide.disabled = disabled;
+    }
+  }
+}
+
+function resolveRequestedAutoRollState(event) {
+  const target = event?.currentTarget;
+  if (target && typeof target === "object" && "checked" in target) {
+    return Boolean(target.checked);
+  }
+  if (dom.autoRollToggleSide) return Boolean(dom.autoRollToggleSide.checked);
+  return Boolean(dom.autoRollToggle?.checked);
+}
+
+function onAutoRollChange(event) {
+  autoRollEnabled = resolveRequestedAutoRollState(event);
   clearPendingAutoRollTimer();
   if (isRoomStartLocked()) {
     autoRollEnabled = false;
-    if (dom.autoRollToggle) dom.autoRollToggle.checked = false;
+    setAutoRollToggleState(false);
     setStatus(getRoomStartLockedMessage());
     render();
     return;
   }
   if (isRoomMode() && !isLocalSeatTurn()) {
     autoRollEnabled = false;
-    if (dom.autoRollToggle) dom.autoRollToggle.checked = false;
+    setAutoRollToggleState(false);
     setStatus("Otomatik zar sadece kendi siranizda acilabilir.");
     render();
     return;
   }
+  setAutoRollToggleState(autoRollEnabled);
   addLog(autoRollEnabled ? "Otomatik zar acildi." : "Otomatik zar kapatildi.");
   if (autoRollEnabled && !winner && !hasRolled && !isBotTurn() && !isAnimating) {
     setStatus("Otomatik zar aktif. Zar birazdan atilacak.");
@@ -1176,7 +1212,7 @@ function onAutoRollChange() {
 function onUndoMove() {
   if (!canControlRoomAction()) return;
   if (!canUndoCurrentTurn()) {
-    setStatus("Geri alma sadece ilk hamleden sonra kullanılabilir.");
+    setStatus("Bu aşamada geri alma kullanılamaz.");
     render();
     return;
   }
@@ -1186,7 +1222,7 @@ function onUndoMove() {
   movesMadeThisTurn = 0;
   dragSource        = null;
   pendingMoveChain  = [];
-  setStatus("İlk hamle geri alındı. Devam edebilirsin.");
+  setStatus("Tur başına geri alındı. Devam edebilirsin.");
   render();
   maybeScheduleBotAction();
   maybeScheduleAutoRoll();
@@ -1209,6 +1245,7 @@ function onRollDice(arg) {
   remainingDice     = d1 === d2 ? [d1,d1,d1,d1] : [d1,d2];
   hasRolled         = true;
   movesMadeThisTurn = 0;
+  turnRollMoveCount = remainingDice.length;
   selectedSource    = null;
   pendingMoveChain  = [];
   availableMoves    = getOptimalMoves(gameState, currentPlayer, remainingDice);
@@ -1221,6 +1258,7 @@ function onRollDice(arg) {
     setStatus(`${playerText(currentPlayer)} hamle yapamadı. Sıra geçti.`);
     addLog(`${playerText(currentPlayer)} pas geçti.`);
     turnUndoSnapshot = null;
+    turnRollMoveCount = 0;
     render();
     publishRoomSnapshot("roll-no-move");
     window.setTimeout(finishTurn, 1300);
@@ -1643,6 +1681,7 @@ function executeMove(move) {
     remainingDice = [];
     availableMoves= [];
     turnUndoSnapshot = null;
+    turnRollMoveCount = 0;
     setStatus(`${playerText(currentPlayer)} kazandi!`);
     addLog(`${playerText(currentPlayer)} kazandi.`);
     showWinnerPopup(currentPlayer);
@@ -1702,6 +1741,7 @@ function finishTurn() {
   selectedSource    = null;
   dragSource        = null;
   movesMadeThisTurn = 0;
+  turnRollMoveCount = 0;
   turnUndoSnapshot  = null;
   lastRolledDice    = [];
   diceRollSettledAt = 0;
@@ -1825,10 +1865,7 @@ function renderTurnInfo() {
     dom.botDifficultySelect.disabled = isRoomMode() || gameMode !== "bot";
   }
   dom.newGameBtn.disabled = (isRoomMode() && roomParams.seat !== WHITE) || (isRoomMode() && roomParams.observer);
-  if (dom.autoRollToggle) {
-    dom.autoRollToggle.checked = autoRollEnabled;
-    dom.autoRollToggle.disabled = waitingForOpponent || roomStartBlocked;
-  }
+  setAutoRollToggleState(autoRollEnabled, waitingForOpponent || roomStartBlocked);
   const effectiveColor = isRoomMode() ? roomParams.seat : preferredPlayerColor;
   if (dom.colorWhiteInput) {
     dom.colorWhiteInput.checked = effectiveColor === WHITE;
@@ -2042,7 +2079,10 @@ function renderHighlights() {
 
   if (!hasRolled || winner || isBotTurn() || isAnimating || (isRoomMode() && !isLocalSeatTurn())) return;
 
-  const sel = getSelectableSources();
+  const highlightMoves = remainingDice.length >= 3
+    ? getOptimalMoves(gameState, currentPlayer, remainingDice)
+    : availableMoves;
+  const sel = new Set(highlightMoves.map((m) => m.from));
   for (const src of sel) {
     if (src === "bar") barSlotElements.get(currentPlayer)?.classList.add("selectable-source");
     else               pointElements.get(src)?.classList.add("selectable-source");
@@ -2053,7 +2093,7 @@ function renderHighlights() {
   if (selectedSource === "bar") barSlotElements.get(currentPlayer)?.classList.add("selected-source");
   else                          pointElements.get(selectedSource)?.classList.add("selected-source");
 
-  const targets = new Set(availableMoves.filter(m => m.from === selectedSource).map(m => m.to));
+  const targets = new Set(highlightMoves.filter(m => m.from === selectedSource).map(m => m.to));
   for (const t of targets) {
     if (t === "off") {
       (currentPlayer === WHITE ? dom.offWhite : dom.offBlack).classList.add("highlight-target");
@@ -2463,6 +2503,7 @@ function captureSnapshot() {
     gameState: cloneState(gameState),
     currentPlayer,
     remainingDice:  [...remainingDice],
+    turnRollMoveCount,
     matchToken,
     hasRolled,
     selectedSource,
@@ -2477,7 +2518,16 @@ function captureSnapshot() {
 }
 
 function canUndoCurrentTurn() {
-  return Boolean(turnUndoSnapshot && hasRolled && !winner && !isBotTurn() && movesMadeThisTurn === 1 && !isAnimating);
+  return Boolean(
+    turnUndoSnapshot
+    && hasRolled
+    && !winner
+    && !isBotTurn()
+    && !isAnimating
+    && movesMadeThisTurn > 0
+    && turnRollMoveCount > 0
+    && movesMadeThisTurn < turnRollMoveCount,
+  );
 }
 
 function restoreSnapshot(snap) {
@@ -2485,6 +2535,9 @@ function restoreSnapshot(snap) {
   currentPlayer  = snap.currentPlayer;
   matchToken     = typeof snap.matchToken === "string" && snap.matchToken ? snap.matchToken.slice(0, 96) : matchToken;
   remainingDice  = [...snap.remainingDice];
+  turnRollMoveCount = Number.isInteger(snap.turnRollMoveCount)
+    ? Math.max(0, Number(snap.turnRollMoveCount))
+    : 0;
   hasRolled      = snap.hasRolled;
   selectedSource = snap.selectedSource;
   availableMoves = cloneMoves(snap.availableMoves);

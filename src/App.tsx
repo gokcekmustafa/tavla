@@ -1608,6 +1608,11 @@ function App() {
   const [lobbyChatAutoScroll, setLobbyChatAutoScroll] = useState(true);
   const [lobbyChatUnread, setLobbyChatUnread] = useState(0);
   const [lobbyChatJoinedAt] = useState(() => Date.now());
+  const [roomChatTab, setRoomChatTab] = useState<"table" | "lobby">("table");
+  const [roomTableChatInput, setRoomTableChatInput] = useState("");
+  const [roomLobbyChatInput, setRoomLobbyChatInput] = useState("");
+  const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
+  const [roomChatUnread, setRoomChatUnread] = useState(0);
   const [adminQuery, setAdminQuery] = useState("");
   const [adminRoleFilter, setAdminRoleFilter] = useState<AdminRoleFilter>("all");
   const [adminSort, setAdminSort] = useState<AdminSortKey>("points");
@@ -1628,6 +1633,8 @@ function App() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const lobbyChatListRef = useRef<HTMLDivElement | null>(null);
   const lobbyPrevChatCountRef = useRef(0);
+  const roomChatListRef = useRef<HTMLDivElement | null>(null);
+  const roomPrevChatCountRef = useRef(0);
   const opponentIdleWatchRef = useRef<{
     matchToken: string;
     activityTick: number;
@@ -1923,6 +1930,10 @@ function App() {
     && mode === "local"
     && (roomSession.role === "player" || currentRoomTable?.allowSpectatorChat !== false),
   );
+  const roomChatRows = useMemo(() => (roomChatTab === "table" ? tableChatRows : lobbyChatRows), [roomChatTab, tableChatRows, lobbyChatRows]);
+  const canWriteRoomChat = roomChatTab === "table" ? canWriteTableChat : canWriteLobbyChat;
+  const roomChatInput = roomChatTab === "table" ? roomTableChatInput : roomLobbyChatInput;
+  const roomChatDraft = sanitizeChatText(roomChatInput);
   const roomScoreRows = useMemo(() => {
     if (!currentRoomTable) return [];
     return ([
@@ -2915,6 +2926,37 @@ function App() {
     if (atBottom) {
       setLobbyChatUnread(0);
     }
+  }
+
+  function scrollRoomChatToBottom() {
+    const list = roomChatListRef.current;
+    if (!list) return;
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function onRoomChatScroll() {
+    const list = roomChatListRef.current;
+    if (!list) return;
+    const distance = list.scrollHeight - list.scrollTop - list.clientHeight;
+    const atBottom = distance <= LOBBY_CHAT_AUTO_SCROLL_THRESHOLD;
+    setRoomChatAutoScroll(atBottom);
+    if (atBottom) {
+      setRoomChatUnread(0);
+    }
+  }
+
+  function sendActiveRoomChat() {
+    if (roomChatTab === "table") {
+      const draft = sanitizeChatText(roomTableChatInput);
+      if (!draft) return;
+      sendTableChat(draft);
+      setRoomTableChatInput("");
+      return;
+    }
+    const draft = sanitizeChatText(roomLobbyChatInput);
+    if (!draft) return;
+    sendLobbyChat(draft);
+    setRoomLobbyChatInput("");
   }
 
   async function saveAdminRules() {
@@ -4972,6 +5014,32 @@ function App() {
   }, [lobbyChatRows, lobbyChatAutoScroll]);
 
   useEffect(() => {
+    const prev = roomPrevChatCountRef.current;
+    const next = roomChatRows.length;
+    const added = Math.max(0, next - prev);
+    roomPrevChatCountRef.current = next;
+
+    if (roomChatAutoScroll) {
+      scrollRoomChatToBottom();
+      setRoomChatUnread(0);
+      return;
+    }
+
+    if (added > 0) {
+      setRoomChatUnread((count) => count + added);
+    }
+  }, [roomChatRows, roomChatAutoScroll]);
+
+  useEffect(() => {
+    roomPrevChatCountRef.current = roomChatRows.length;
+    setRoomChatAutoScroll(true);
+    setRoomChatUnread(0);
+    window.requestAnimationFrame(() => {
+      scrollRoomChatToBottom();
+    });
+  }, [roomChatTab, roomChatRows.length]);
+
+  useEffect(() => {
     syncTableChatToIframe();
   }, [syncTableChatToIframe, tableChatRows, canViewTableChat, canWriteTableChat, roomSession, mode, iframeKey]);
 
@@ -6140,6 +6208,98 @@ function App() {
                   </section>
                 ) : null}
               </div>
+
+              <section className="my-chat-card my-room-chat-card">
+                <div className="my-room-chat-tabs">
+                  <button
+                    className={`my-room-chat-tab ${roomChatTab === "table" ? "active" : ""}`}
+                    onClick={() => setRoomChatTab("table")}
+                  >
+                    Masa Chat
+                  </button>
+                  <button
+                    className={`my-room-chat-tab ${roomChatTab === "lobby" ? "active" : ""}`}
+                    onClick={() => setRoomChatTab("lobby")}
+                  >
+                    Lobi Chat
+                  </button>
+                </div>
+
+                <div className="my-chat-compose my-room-chat-compose">
+                  <input
+                    className="my-input"
+                    placeholder={
+                      roomChatTab === "table"
+                        ? canWriteRoomChat ? "Masa sohbetine mesaj yaz..." : "Masa sohbeti icin uye girisi gerekli"
+                        : canWriteRoomChat ? "Lobiye mesaj yaz..." : "Lobiye yazmak icin uye girisi yap"
+                    }
+                    value={roomChatTab === "table" ? roomTableChatInput : roomLobbyChatInput}
+                    maxLength={CHAT_TEXT_MAX}
+                    onChange={(e) => {
+                      if (roomChatTab === "table") {
+                        setRoomTableChatInput(e.target.value);
+                      } else {
+                        setRoomLobbyChatInput(e.target.value);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      e.preventDefault();
+                      sendActiveRoomChat();
+                    }}
+                    disabled={!canWriteRoomChat}
+                  />
+                  <button
+                    className="my-action-btn"
+                    onClick={sendActiveRoomChat}
+                    disabled={!canWriteRoomChat || !roomChatDraft}
+                  >
+                    Gonder
+                  </button>
+                </div>
+
+                <div className="my-chat-head my-room-chat-head">
+                  <h3>{roomChatTab === "table" ? "Masa Sohbeti" : "Lobi Sohbeti"}</h3>
+                  <div className="my-chat-head-actions">
+                    <span>{roomChatRows.length} mesaj</span>
+                    {!roomChatAutoScroll || roomChatUnread > 0 ? (
+                      <button
+                        className="my-action-btn soft my-chat-jump-btn"
+                        onClick={() => {
+                          setRoomChatAutoScroll(true);
+                          setRoomChatUnread(0);
+                          scrollRoomChatToBottom();
+                        }}
+                      >
+                        {roomChatUnread > 0 ? `Sona Git (${roomChatUnread})` : "Sona Git"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div ref={roomChatListRef} className="my-chat-list my-room-chat-list" onScroll={onRoomChatScroll}>
+                  {roomChatRows.length === 0 ? (
+                    <p className="my-chat-empty">
+                      {roomChatTab === "table" ? "Bu masada henuz sohbet mesaji yok." : "Lobide henuz mesaj yok."}
+                    </p>
+                  ) : (
+                    roomChatRows.map((message) => (
+                      <article key={message.id} className="my-chat-row">
+                        <div className="my-chat-meta">
+                          <strong>{message.displayName}</strong>
+                          <time>{formatChatTime(message.at)}</time>
+                        </div>
+                        <p>{message.text}</p>
+                      </article>
+                    ))
+                  )}
+                </div>
+                {!canWriteRoomChat ? (
+                  <p className="my-chat-hint">
+                    {roomChatTab === "table" ? "Masa sohbetine sadece uye oyuncular yazabilir." : "Lobiye sadece uye oyuncular yazabilir."}
+                  </p>
+                ) : null}
+              </section>
             </section>
 
             <aside className="my-game-controls my-room-right-controls">

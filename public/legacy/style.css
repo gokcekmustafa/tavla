@@ -1696,6 +1696,25 @@ body.room-mode .left-control-panel {
   align-content: start;
 }
 
+.side-auto-roll {
+  margin: 0;
+  min-height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(107,178,198,0.42);
+  background: rgba(6, 44, 57, 0.72);
+  color: #eaf8ff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 6px 8px;
+  justify-content: flex-start;
+}
+
+.side-auto-roll input {
+  width: 14px;
+  height: 14px;
+  accent-color: #31b45c;
+}
+
 .action-btn {
   width: 100%;
   border-radius: 8px;
@@ -1778,6 +1797,10 @@ body.room-mode .left-control-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 4px;
+}
+
+body.room-mode .activity-wrap {
+  display: none !important;
 }
 
 .ref-shell .history-card,
