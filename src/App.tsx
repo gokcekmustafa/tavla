@@ -1250,17 +1250,7 @@ function cleanupPresenceRows(rows: LobbyPresenceState[]) {
     }
   });
 
-  const byUser = new Map<string, LobbyPresenceState>();
-  bySession.forEach((row) => {
-    const key = row.userId || `session:${row.sessionId}`;
-    const existing = byUser.get(key);
-    if (!existing || row.touchedAt >= existing.touchedAt) {
-      if (existing && existing !== row) changed = true;
-      byUser.set(key, row);
-    }
-  });
-
-  const presence = Array.from(byUser.values());
+  const presence = Array.from(bySession.values());
   if (presence.length !== rows.length) {
     changed = true;
   }
@@ -1401,19 +1391,11 @@ function getInitialRoomSession(): RoomSession | null {
 function clearSessionFromTables(
   tables: LobbyTable[],
   sessionId: string,
-  userId?: string,
 ): { tables: LobbyTable[]; changed: boolean } {
   let changed = false;
-  const safeUserId = sanitizeGuestId(userId ?? "");
   const next = tables.map((table) => {
-    const whiteOwned = Boolean(
-      (table.white?.sessionId === sessionId)
-      || (safeUserId && table.white?.userId === safeUserId),
-    );
-    const blackOwned = Boolean(
-      (table.black?.sessionId === sessionId)
-      || (safeUserId && table.black?.userId === safeUserId),
-    );
+    const whiteOwned = Boolean(table.white?.sessionId === sessionId);
+    const blackOwned = Boolean(table.black?.sessionId === sessionId);
     if (!whiteOwned && !blackOwned) return table;
     changed = true;
     return normalizeTableAccess(
@@ -1887,8 +1869,7 @@ function App() {
       });
     });
 
-    const myPresenceKey = currentProfile.userId || `session:${appSessionId}`;
-    map.set(myPresenceKey, {
+    map.set(`session:${appSessionId}`, {
       sessionId: appSessionId,
       userId: currentProfile.userId,
       username: currentProfile.username,
@@ -2456,7 +2437,7 @@ function App() {
         touchedAt: now,
       };
 
-      const existing = cleanedPresence.presence.find((entry) => entry.userId === myPresence.userId) ?? null;
+      const existing = cleanedPresence.presence.find((entry) => entry.sessionId === appSessionId) ?? null;
       const changedProfile = !existing
         || existing.username !== myPresence.username
         || existing.displayName !== myPresence.displayName
@@ -2470,9 +2451,7 @@ function App() {
         return current;
       }
 
-      const withoutMine = cleanedPresence.presence.filter(
-        (entry) => entry.sessionId !== appSessionId && entry.userId !== myPresence.userId,
-      );
+      const withoutMine = cleanedPresence.presence.filter((entry) => entry.sessionId !== appSessionId);
       return {
         ...current,
         presence: [...withoutMine, myPresence],
@@ -2484,7 +2463,7 @@ function App() {
   function releaseSeatOnly() {
     writeLobby((current) => {
       const cleaned = cleanupStaleAndPrune(current.tables).tables;
-      const cleared = clearSessionFromTables(cleaned, appSessionId, currentProfile.userId);
+      const cleared = clearSessionFromTables(cleaned, appSessionId);
       const pruned = cleanupStaleAndPrune(cleared.tables).tables;
       const closedRoomCodes = cleared.tables
         .filter((table) => !table.white && !table.black)
@@ -2653,14 +2632,10 @@ function App() {
 
       const occupied = seat === "white" ? table.white : table.black;
       const occupiedByDifferentSession = Boolean(occupied && occupied.sessionId !== appSessionId);
-      const occupiedByDifferentUser = Boolean(occupied && occupied.userId !== currentProfile.userId);
-      if (occupiedByDifferentSession && occupiedByDifferentUser) {
+      if (occupiedByDifferentSession) {
         seatBlocked = true;
         blockReason = "occupied";
         return current;
-      }
-      if (occupiedByDifferentUser) {
-        gateShouldReset = true;
       }
 
       if (gateShouldReset) {
@@ -4678,14 +4653,10 @@ function App() {
 
       const occupied = roomSession.seat === "white" ? table.white : table.black;
       const occupiedByDifferentSession = Boolean(occupied && occupied.sessionId !== appSessionId);
-      const occupiedByDifferentUser = Boolean(occupied && occupied.userId !== currentProfile.userId);
-      if (occupiedByDifferentSession && occupiedByDifferentUser) {
+      if (occupiedByDifferentSession) {
         blocked = true;
         blockedReason = "occupied";
         return current;
-      }
-      if (occupiedByDifferentUser) {
-        gateShouldReset = true;
       }
       if (gateShouldReset) {
         table = resetTableStartGate(table);
@@ -5696,7 +5667,7 @@ function App() {
     const onBeforeUnload = () => {
       const latest = getCurrentLobbyState();
       const cleanedTables = cleanupStaleAndPrune(latest.tables).tables;
-      const cleared = clearSessionFromTables(cleanedTables, appSessionId, currentProfile.userId);
+      const cleared = clearSessionFromTables(cleanedTables, appSessionId);
       const prunedTables = cleanupStaleAndPrune(cleared.tables).tables;
       const closedRoomCodes = cleared.tables
         .filter((table) => !table.white && !table.black)
