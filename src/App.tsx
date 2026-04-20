@@ -1587,40 +1587,6 @@ function sameLobbySnapshot(a: LobbyState | null | undefined, b: LobbyState | nul
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-function alignActivityTimestamp(value: number, serverAt: number, windowMs: number) {
-  const safeServerAt = Number.isFinite(serverAt) ? Number(serverAt) : Date.now();
-  if (!Number.isFinite(value)) return safeServerAt;
-  const raw = Number(value);
-  const min = safeServerAt - windowMs;
-  const max = safeServerAt + HEARTBEAT_MS;
-  if (raw < min) return safeServerAt;
-  if (raw > max) return max;
-  return raw;
-}
-
-function alignSnapshotActivityToServerTime(snapshot: LobbyState, serverAt: number): LobbyState {
-  const tables = snapshot.tables.map((table) => {
-    const white = table.white
-      ? { ...table.white, touchedAt: alignActivityTimestamp(table.white.touchedAt, serverAt, SEAT_STALE_MS) }
-      : null;
-    const black = table.black
-      ? { ...table.black, touchedAt: alignActivityTimestamp(table.black.touchedAt, serverAt, SEAT_STALE_MS) }
-      : null;
-    if (white === table.white && black === table.black) return table;
-    return { ...table, white, black };
-  });
-  const presence = snapshot.presence.map((row) => ({
-    ...row,
-    touchedAt: alignActivityTimestamp(row.touchedAt, serverAt, PRESENCE_STALE_MS),
-  }));
-  return {
-    ...snapshot,
-    tables,
-    presence,
-    updatedAt: Math.max(snapshot.updatedAt, serverAt),
-  };
-}
-
 function AvatarBadge(props: {
   avatarId: AvatarId;
   gender: MemberGender;
@@ -2134,10 +2100,7 @@ function App() {
     if (counter <= previousCounter) return false;
     realtimeSenderCountersRef.current.set(message.sender, counter);
 
-    const incoming = alignSnapshotActivityToServerTime(
-      normalizeLobbyState(message.payload),
-      Number.isFinite(message.at) ? Number(message.at) : Date.now(),
-    );
+    const incoming = normalizeLobbyState(message.payload);
     const now = Date.now();
     realtimeRemoteStateRef.current = incoming;
     realtimeReceivedSnapshotRef.current = true;
