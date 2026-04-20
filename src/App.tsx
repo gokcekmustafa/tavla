@@ -1278,11 +1278,22 @@ function getInitialRoomSession(): RoomSession | null {
   return null;
 }
 
-function clearSessionFromTables(tables: LobbyTable[], sessionId: string): { tables: LobbyTable[]; changed: boolean } {
+function clearSessionFromTables(
+  tables: LobbyTable[],
+  sessionId: string,
+  userId?: string,
+): { tables: LobbyTable[]; changed: boolean } {
   let changed = false;
+  const safeUserId = sanitizeGuestId(userId ?? "");
   const next = tables.map((table) => {
-    const whiteOwned = table.white?.sessionId === sessionId;
-    const blackOwned = table.black?.sessionId === sessionId;
+    const whiteOwned = Boolean(
+      (table.white?.sessionId === sessionId)
+      || (safeUserId && table.white?.userId === safeUserId),
+    );
+    const blackOwned = Boolean(
+      (table.black?.sessionId === sessionId)
+      || (safeUserId && table.black?.userId === safeUserId),
+    );
     if (!whiteOwned && !blackOwned) return table;
     changed = true;
     return normalizeTableAccess(
@@ -1563,6 +1574,8 @@ function App() {
     deadlineAt: number;
   } | null>(null);
   const opponentIdlePromptRef = useRef(false);
+  const leavePermissionPromptKeyRef = useRef("");
+  const leavePermissionAutoLeavingRef = useRef(false);
   const latestLegacyStateRef = useRef<{
     matchToken: string;
     matchActive: boolean;
@@ -2087,7 +2100,7 @@ function App() {
   function releaseSeatOnly() {
     writeLobby((current) => {
       const cleaned = cleanupStaleAndPrune(current.tables).tables;
-      const cleared = clearSessionFromTables(cleaned, appSessionId);
+      const cleared = clearSessionFromTables(cleaned, appSessionId, currentProfile.userId);
       const pruned = cleanupStaleAndPrune(cleared.tables).tables;
       if (!cleared.changed && JSON.stringify(pruned) === JSON.stringify(cleaned)) return current;
       return { ...current, tables: pruned, updatedAt: Date.now() };
@@ -2097,6 +2110,8 @@ function App() {
   function goToTable(table: LobbyTable, seat: Seat) {
     clearOpponentIdleWatch();
     timeoutWinWaiverRef.current = null;
+    leavePermissionPromptKeyRef.current = "";
+    leavePermissionAutoLeavingRef.current = false;
     setMatchLiveState({
       matchToken: "",
       matchActive: false,
@@ -2133,6 +2148,8 @@ function App() {
     }
     clearOpponentIdleWatch();
     timeoutWinWaiverRef.current = null;
+    leavePermissionPromptKeyRef.current = "";
+    leavePermissionAutoLeavingRef.current = false;
     setMatchLiveState({
       matchToken: "",
       matchActive: false,
@@ -2542,8 +2559,8 @@ function App() {
         if (!confirmed) return;
         const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
         processedMatchTokensRef.current.add(`${token}:${currentProfile.userId}`);
-        await awardResignResult(token);
         sendResignCommandToIframe(token);
+        void awardResignResult(token);
         penalized = true;
       } else if (leaveContext.permissionGranted) {
         leftWithPermission = true;
@@ -2583,8 +2600,8 @@ function App() {
           if (!confirmed) return;
           const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
           processedMatchTokensRef.current.add(`${token}:${currentProfile.userId}`);
-          await awardResignResult(token);
           sendResignCommandToIframe(token);
+          void awardResignResult(token);
           penalized = true;
         } else if (leaveContext.permissionGranted) {
           leftWithPermission = true;
@@ -2597,6 +2614,8 @@ function App() {
     setRoomSession(null);
     clearOpponentIdleWatch();
     timeoutWinWaiverRef.current = null;
+    leavePermissionPromptKeyRef.current = "";
+    leavePermissionAutoLeavingRef.current = false;
     setMode("bot");
     setCopied(false);
     setInvitePickerTableId(null);
@@ -3934,6 +3953,8 @@ function App() {
     setViewMode("lobby");
     clearOpponentIdleWatch();
     timeoutWinWaiverRef.current = null;
+    leavePermissionPromptKeyRef.current = "";
+    leavePermissionAutoLeavingRef.current = false;
     setMatchLiveState({
       matchToken: "",
       matchActive: false,
@@ -4899,6 +4920,72 @@ function App() {
   ]);
 
   useEffect(() => {
+    if (!roomSession || roomSession.role !== "player" || !currentRoomTable) {
+      leavePermissionPromptKeyRef.current = "";
+      return;
+    }
+    const myUserId = sanitizeGuestId(currentProfile.userId);
+    if (!myUserId) {
+      leavePermissionPromptKeyRef.current = "";
+      return;
+    }
+    const mySeat = roomSession.seat === "white" ? currentRoomTable.white : currentRoomTable.black;
+    const opponentSeat = roomSession.seat === "white" ? currentRoomTable.black : currentRoomTable.white;
+    const requestUserId = sanitizeGuestId(currentRoomTable.leavePermissionRequestByUserId ?? "");
+    const grantedUserId = sanitizeGuestId(currentRoomTable.leavePermissionGrantedToUserId ?? "");
+    const opponentUserId = sanitizeGuestId(opponentSeat?.userId ?? "");
+
+    if (
+      !mySeat
+      || !opponentSeat
+      || !requestUserId
+      || requestUserId !== opponentUserId
+      || grantedUserId === requestUserId
+    ) {
+      leavePermissionPromptKeyRef.current = "";
+      return;
+    }
+
+    const promptKey = `${currentRoomTable.roomCode}:${requestUserId}:${currentRoomTable.setPlayed}:${currentRoomTable.setResultTokens.length}`;
+    if (leavePermissionPromptKeyRef.current === promptKey) return;
+    leavePermissionPromptKeyRef.current = promptKey;
+
+    const requesterName = opponentSeat.displayName || "Rakip";
+    const accepted = window.confirm(
+      `${requesterName} puan kaybetmeden masadan ayrilmak icin izin istiyor. Izin veriyor musun?`,
+    );
+    if (accepted) {
+      approveLeaveWithoutPenalty();
+    } else {
+      setLobbyNotice(`${requesterName} icin ayrilma iznini su an reddettin.`);
+    }
+  }, [roomSession, currentRoomTable, currentProfile.userId, approveLeaveWithoutPenalty]);
+
+  useEffect(() => {
+    if (!roomSession || roomSession.role !== "player" || !currentRoomTable) {
+      leavePermissionAutoLeavingRef.current = false;
+      return;
+    }
+    const myUserId = sanitizeGuestId(currentProfile.userId);
+    const requestUserId = sanitizeGuestId(currentRoomTable.leavePermissionRequestByUserId ?? "");
+    const grantedUserId = sanitizeGuestId(currentRoomTable.leavePermissionGrantedToUserId ?? "");
+    const shouldAutoLeave = Boolean(
+      myUserId
+      && requestUserId
+      && grantedUserId
+      && requestUserId === myUserId
+      && grantedUserId === myUserId,
+    );
+    if (!shouldAutoLeave) {
+      leavePermissionAutoLeavingRef.current = false;
+      return;
+    }
+    if (leavePermissionAutoLeavingRef.current) return;
+    leavePermissionAutoLeavingRef.current = true;
+    void leaveRoomAndGoLobby();
+  }, [roomSession, currentRoomTable, currentProfile.userId, leaveRoomAndGoLobby]);
+
+  useEffect(() => {
     const safeUserId = sanitizeGuestId(currentProfile.userId);
     if (!safeUserId) return;
     const notices = sortTables(lobbyState.tables).filter(
@@ -4969,6 +5056,8 @@ function App() {
       });
       clearOpponentIdleWatch();
       timeoutWinWaiverRef.current = null;
+      leavePermissionPromptKeyRef.current = "";
+      leavePermissionAutoLeavingRef.current = false;
       setViewMode("lobby");
       setMatchLiveState({
         matchToken: "",
@@ -4985,7 +5074,7 @@ function App() {
     const onBeforeUnload = () => {
       const latest = getCurrentLobbyState();
       const cleanedTables = cleanupStaleAndPrune(latest.tables).tables;
-      const cleared = clearSessionFromTables(cleanedTables, appSessionId);
+      const cleared = clearSessionFromTables(cleanedTables, appSessionId, currentProfile.userId);
       const prunedTables = cleanupStaleAndPrune(cleared.tables).tables;
       const cleanedPresence = cleanupPresenceRows(latest.presence).presence;
       const nextPresence = cleanedPresence.filter((entry) => entry.sessionId !== appSessionId);
@@ -5002,7 +5091,7 @@ function App() {
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [appSessionId]);
+  }, [appSessionId, currentProfile.userId]);
 
   return (
     <main className="my-shell">
