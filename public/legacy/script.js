@@ -1256,6 +1256,16 @@ function onCheckerDoubleClick(e) {
   playMove(move);
 }
 
+function onCheckerClick(e) {
+  if (winner || isAnimating || isBotTurn() || !hasRolled) return;
+  if (!canControlRoomAction()) return;
+  const source = Number(e.currentTarget.dataset.source);
+  if (!Number.isInteger(source)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  handleSourceOrDest(source);
+}
+
 function getDoubleClickMove(source) {
   const options = availableMoves.filter((m) => m.from === source);
   if (!options.length) return null;
@@ -1845,6 +1855,7 @@ function renderBoardState() {
       if (canDragThis) {
         ch.classList.add("draggable-checker");
         ch.dataset.source = String(pt);
+        ch.addEventListener("click",     onCheckerClick);
         ch.addEventListener("dragstart", onDragStartFromChecker);
         ch.addEventListener("dragend",   onDragEnd);
         ch.addEventListener("dblclick",  onCheckerDoubleClick);
