@@ -85,6 +85,7 @@ let botDifficulty     = normalizeBotDifficulty(window.__BOOT_BOT_DIFFICULTY__);
 let moveLog           = [];
 let pendingBotTimer   = null;
 let pendingAutoRollTimer = null;
+let pendingCheckerSelectTimer = null;
 let turnUndoSnapshot  = null;
 let movesMadeThisTurn = 0;
 let dragSource        = null;
@@ -1256,14 +1257,51 @@ function onCheckerDoubleClick(e) {
   playMove(move);
 }
 
-function onCheckerClick(e) {
+function clearPendingCheckerSelectTimer() {
+  if (pendingCheckerSelectTimer === null) return;
+  window.clearTimeout(pendingCheckerSelectTimer);
+  pendingCheckerSelectTimer = null;
+}
+
+function queueCheckerSelectionRender(source) {
+  clearPendingCheckerSelectTimer();
+  pendingCheckerSelectTimer = window.setTimeout(() => {
+    pendingCheckerSelectTimer = null;
+    if (dragSource !== null) return;
+    if (isAnimating || winner || !hasRolled) return;
+    if (selectedSource !== source) return;
+    render();
+  }, 0);
+}
+
+function onCheckerMouseDown(e) {
   if (winner || isAnimating || isBotTurn() || !hasRolled) return;
   if (!canControlRoomAction()) return;
+  if (Number.isFinite(e.button) && e.button !== 0) return;
   const source = Number(e.currentTarget.dataset.source);
   if (!Number.isInteger(source)) return;
-  e.preventDefault();
-  e.stopPropagation();
-  handleSourceOrDest(source);
+  const selectable = getSelectableSources();
+  if (!selectable.has(source)) return;
+
+  if (e.detail >= 2) {
+    const move = getDoubleClickMove(source);
+    if (!move) {
+      setStatus("Bu pul icin hamle yok.");
+      render();
+      return;
+    }
+    pendingMoveChain = [];
+    playMove(move);
+    return;
+  }
+
+  if (selectedSource === source) {
+    selectedSource = null;
+    queueCheckerSelectionRender(source);
+    return;
+  }
+  selectedSource = source;
+  queueCheckerSelectionRender(source);
 }
 
 function getDoubleClickMove(source) {
@@ -1278,6 +1316,7 @@ function getDoubleClickMove(source) {
 
 function onDragStartFromChecker(e) {
   if (isBotTurn() || !hasRolled || isAnimating || isRoomStartLocked() || (isRoomMode() && !isLocalSeatTurn())) { e.preventDefault(); return; }
+  clearPendingCheckerSelectTimer();
   const src = Number(e.currentTarget.dataset.source);
   dragSource = src;
   selectedSource = src;
@@ -1293,6 +1332,7 @@ function onDragStartFromBar(e) {
   if (player !== currentPlayer || isBotTurn() || !hasRolled || isAnimating || isRoomStartLocked() || (isRoomMode() && !isLocalSeatTurn())) {
     e.preventDefault(); return;
   }
+  clearPendingCheckerSelectTimer();
   dragSource = "bar";
   selectedSource = "bar";
   e.dataTransfer.effectAllowed = "move";
@@ -1302,6 +1342,7 @@ function onDragStartFromBar(e) {
 }
 
 function onDragEnd(e) {
+  clearPendingCheckerSelectTimer();
   e?.currentTarget?.classList.remove("dragging-checker");
   window.setTimeout(() => {
     dragSource = null;
@@ -1855,7 +1896,7 @@ function renderBoardState() {
       if (canDragThis) {
         ch.classList.add("draggable-checker");
         ch.dataset.source = String(pt);
-        ch.addEventListener("click",     onCheckerClick);
+        ch.addEventListener("mousedown", onCheckerMouseDown);
         ch.addEventListener("dragstart", onDragStartFromChecker);
         ch.addEventListener("dragend",   onDragEnd);
         ch.addEventListener("dblclick",  onCheckerDoubleClick);
