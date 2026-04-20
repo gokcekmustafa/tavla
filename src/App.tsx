@@ -1778,31 +1778,21 @@ function App() {
   const roomStartState = useMemo(() => {
     if (!roomSession || !currentRoomTable) return null;
     if (roomSession.role !== "player") return null;
-    const ownsWhite = Boolean(
-      currentRoomTable.white
-      && (currentRoomTable.white.sessionId === appSessionId || currentRoomTable.white.userId === currentProfile.userId),
-    );
-    const ownsBlack = Boolean(
-      currentRoomTable.black
-      && (currentRoomTable.black.sessionId === appSessionId || currentRoomTable.black.userId === currentProfile.userId),
-    );
-    const resolvedSeat: Seat = ownsWhite ? "white" : ownsBlack ? "black" : roomSession.seat;
-    const mine = resolvedSeat === "white" ? currentRoomTable.white : currentRoomTable.black;
-    const opponent = resolvedSeat === "white" ? currentRoomTable.black : currentRoomTable.white;
+    const mine = roomSession.seat === "white" ? currentRoomTable.white : currentRoomTable.black;
+    const opponent = roomSession.seat === "white" ? currentRoomTable.black : currentRoomTable.white;
     const mineOwnedByMe = Boolean(
       mine
       && (mine.sessionId === appSessionId || mine.userId === currentProfile.userId),
     );
     const canRecoverMineSeat = !mine;
-    const mineReady = resolvedSeat === "white" ? Boolean(currentRoomTable.whiteReadyAt) : Boolean(currentRoomTable.blackReadyAt);
-    const opponentReady = resolvedSeat === "white" ? Boolean(currentRoomTable.blackReadyAt) : Boolean(currentRoomTable.whiteReadyAt);
+    const mineReady = roomSession.seat === "white" ? Boolean(currentRoomTable.whiteReadyAt) : Boolean(currentRoomTable.blackReadyAt);
+    const opponentReady = roomSession.seat === "white" ? Boolean(currentRoomTable.blackReadyAt) : Boolean(currentRoomTable.whiteReadyAt);
     const bothSeated = Boolean(opponent && (mineOwnedByMe || canRecoverMineSeat));
     const started = Boolean(bothSeated && (currentRoomTable.startedAt || (currentRoomTable.whiteReadyAt && currentRoomTable.blackReadyAt)));
 
     return {
       mine,
       opponent,
-      resolvedSeat,
       canReady: mineOwnedByMe || canRecoverMineSeat,
       mineReady,
       opponentReady,
@@ -1811,21 +1801,6 @@ function App() {
       readyCount: Number(Boolean(currentRoomTable.whiteReadyAt)) + Number(Boolean(currentRoomTable.blackReadyAt)),
     };
   }, [roomSession, currentRoomTable, appSessionId, currentProfile.userId]);
-
-  useEffect(() => {
-    if (!roomSession || roomSession.role !== "player" || !roomStartState) return;
-    if (roomStartState.resolvedSeat === roomSession.seat) return;
-    const roomCode = roomSession.code;
-    const roomTableNo = roomSession.tableNo;
-    const resolvedSeat = roomStartState.resolvedSeat;
-    setRoomSession((current) => {
-      if (!current || current.role !== "player") return current;
-      if (current.code !== roomCode || current.tableNo !== roomTableNo) return current;
-      if (current.seat === resolvedSeat) return current;
-      return { ...current, seat: resolvedSeat };
-    });
-    setJoinSeat(resolvedSeat === "white" ? "black" : "white");
-  }, [roomSession, roomStartState]);
 
   const currentRoomIsOwner = useMemo(
     () => isTableOwnerForUser(currentRoomTable, currentProfile.userId),
@@ -2489,16 +2464,7 @@ function App() {
       }
 
       let table = tables[index];
-      const ownsWhite = Boolean(
-        table.white
-        && (table.white.sessionId === appSessionId || table.white.userId === currentProfile.userId),
-      );
-      const ownsBlack = Boolean(
-        table.black
-        && (table.black.sessionId === appSessionId || table.black.userId === currentProfile.userId),
-      );
-      const seatToUse: Seat = ownsWhite ? "white" : ownsBlack ? "black" : roomSession.seat;
-      let mySeat = seatToUse === "white" ? table.white : table.black;
+      let mySeat = roomSession.seat === "white" ? table.white : table.black;
       const seatOwnedByMe = Boolean(mySeat && (mySeat.sessionId === appSessionId || mySeat.userId === currentProfile.userId));
       if (mySeat && !seatOwnedByMe) {
         seatMissing = true;
@@ -2518,7 +2484,7 @@ function App() {
           stats: normalizeStats(currentProfile.stats),
           touchedAt: now,
         };
-        table = seatToUse === "white"
+        table = roomSession.seat === "white"
           ? { ...table, white: recoveredSeat }
           : { ...table, black: recoveredSeat };
         mySeat = recoveredSeat;
@@ -2536,7 +2502,7 @@ function App() {
           stats: normalizeStats(currentProfile.stats),
           touchedAt: now,
         };
-        table = seatToUse === "white"
+        table = roomSession.seat === "white"
           ? { ...table, white: refreshedSeat }
           : { ...table, black: refreshedSeat };
       }
@@ -2545,8 +2511,8 @@ function App() {
         table = resetTableSeriesProgress(table);
       }
 
-      const mineReadyAt = seatToUse === "white" ? table.whiteReadyAt : table.blackReadyAt;
-      const opponentReadyAt = seatToUse === "white" ? table.blackReadyAt : table.whiteReadyAt;
+      const mineReadyAt = roomSession.seat === "white" ? table.whiteReadyAt : table.blackReadyAt;
+      const opponentReadyAt = roomSession.seat === "white" ? table.blackReadyAt : table.whiteReadyAt;
 
       if (table.startedAt) {
         alreadyStarted = true;
@@ -2559,12 +2525,12 @@ function App() {
           startedAt: Math.max(now, table.startedAt ?? 0, table.whiteReadyAt ?? 0, table.blackReadyAt ?? 0),
         };
       } else if (mineReadyAt) {
-        table = seatToUse === "white"
+        table = roomSession.seat === "white"
           ? { ...table, whiteReadyAt: now }
           : { ...table, blackReadyAt: now };
         alreadyReady = true;
       } else {
-        table = seatToUse === "white"
+        table = roomSession.seat === "white"
           ? { ...table, whiteReadyAt: now }
           : { ...table, blackReadyAt: now };
       }
