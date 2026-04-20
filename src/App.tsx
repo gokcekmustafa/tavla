@@ -131,6 +131,7 @@ type LobbyState = {
   presence: LobbyPresenceState[];
   lobbyChat: ChatMessage[];
   tableChats: Record<string, ChatMessage[]>;
+  closedTableRooms: Record<string, number>;
   guestCounter: number;
   guestLabels: Record<string, number>;
   updatedAt: number;
@@ -249,6 +250,7 @@ const DEFAULT_TABLE_SET_COUNT = 1;
 const MIN_TABLE_SET_COUNT = 1;
 const MAX_TABLE_SET_COUNT = 5;
 const TABLE_RESULT_TOKEN_LIMIT = 32;
+const TABLE_CLOSE_TOMBSTONE_TTL_MS = 10 * 60 * 1000;
 const CHAT_TEXT_MAX = 180;
 const LOBBY_CHAT_LIMIT = 120;
 const TABLE_CHAT_LIMIT = 80;
@@ -553,6 +555,51 @@ function normalizeSeriesTokenList(raw: unknown) {
   });
   if (out.length <= TABLE_RESULT_TOKEN_LIMIT) return out;
   return out.slice(out.length - TABLE_RESULT_TOKEN_LIMIT);
+}
+
+function normalizeClosedTableRooms(raw: unknown, now = Date.now()) {
+  const result: Record<string, number> = {};
+  if (!raw || typeof raw !== "object") return result;
+  Object.entries(raw as Record<string, unknown>).forEach(([roomCodeRaw, closedAtRaw]) => {
+    const roomCode = sanitizeRoomCode(roomCodeRaw);
+    if (!roomCode) return;
+    const closedAt = Number(closedAtRaw);
+    if (!Number.isFinite(closedAt) || closedAt <= 0) return;
+    if (now - closedAt > TABLE_CLOSE_TOMBSTONE_TTL_MS) return;
+    result[roomCode] = Math.max(result[roomCode] ?? 0, Math.trunc(closedAt));
+  });
+  return result;
+}
+
+function mergeClosedTableRooms(base: Record<string, number>, incoming: Record<string, number>) {
+  const now = Date.now();
+  const merged = normalizeClosedTableRooms(base, now);
+  Object.entries(normalizeClosedTableRooms(incoming, now)).forEach(([roomCode, closedAt]) => {
+    merged[roomCode] = Math.max(merged[roomCode] ?? 0, closedAt);
+  });
+  return merged;
+}
+
+function markClosedTableRooms(base: Record<string, number>, roomCodes: string[], closedAt = Date.now()) {
+  const merged = normalizeClosedTableRooms(base, closedAt);
+  roomCodes.forEach((rawCode) => {
+    const roomCode = sanitizeRoomCode(rawCode);
+    if (!roomCode) return;
+    merged[roomCode] = Math.max(merged[roomCode] ?? 0, closedAt);
+  });
+  return merged;
+}
+
+function tableLatestSeatTouch(table: LobbyTable) {
+  return Math.max(table.white?.touchedAt ?? 0, table.black?.touchedAt ?? 0);
+}
+
+function isTableSuppressedByCloseTombstone(table: LobbyTable, closedTableRooms: Record<string, number>) {
+  const roomCode = sanitizeRoomCode(table.roomCode);
+  if (!roomCode) return false;
+  const closedAt = closedTableRooms[roomCode];
+  if (!closedAt) return false;
+  return closedAt >= tableLatestSeatTouch(table);
 }
 
 function resetTableSeriesProgress(table: LobbyTable): LobbyTable {
@@ -862,6 +909,7 @@ function createDefaultLobbyState(): LobbyState {
     presence: [],
     lobbyChat: [],
     tableChats: {},
+    closedTableRooms: {},
     guestCounter: 0,
     guestLabels: {},
     updatedAt: Date.now(),
@@ -1155,12 +1203,15 @@ function normalizeLobbyState(raw: unknown): LobbyState {
   const fallback = createDefaultLobbyState();
   if (!raw || typeof raw !== "object") return fallback;
   const candidate = raw as Partial<LobbyState>;
+  const now = Date.now();
+  const closedTableRooms = normalizeClosedTableRooms(candidate.closedTableRooms, now);
   const lobbyName = sanitizeLobbyName(typeof candidate.lobbyName === "string" ? candidate.lobbyName : DEFAULT_LOBBY_NAME);
   const tableRows = Array.isArray(candidate.tables) ? candidate.tables : [];
   const normalizedTables = tableRows
     .map((row, index) => normalizeTable(row, index))
     .filter((row): row is LobbyTable => Boolean(row));
-  const cleaned = cleanupStaleAndPrune(normalizedTables).tables;
+  const cleaned = cleanupStaleAndPrune(normalizedTables).tables
+    .filter((table) => !isTableSuppressedByCloseTombstone(table, closedTableRooms));
   const rawPresenceRows = Array.isArray(candidate.presence) ? candidate.presence : [];
   const normalizedPresenceRows = rawPresenceRows
     .map((row) => normalizePresence(row))
@@ -1199,6 +1250,7 @@ function normalizeLobbyState(raw: unknown): LobbyState {
     presence: cleanedPresence,
     lobbyChat,
     tableChats,
+    closedTableRooms,
     guestCounter,
     guestLabels,
     updatedAt: Number.isFinite(candidate.updatedAt) ? Number(candidate.updatedAt) : Date.now(),
@@ -1358,10 +1410,12 @@ function mergeReadyStamp(base: number | null, incoming: number | null) {
 
 function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
   const preferRemote = remote.updatedAt >= local.updatedAt;
+  const closedTableRooms = mergeClosedTableRooms(local.closedTableRooms, remote.closedTableRooms);
   const keyOf = (table: LobbyTable) => sanitizeRoomCode(table.roomCode) || `id-${table.id}`;
   const mergedTables = new Map<string, LobbyTable>();
 
   remote.tables.forEach((table) => {
+    if (isTableSuppressedByCloseTombstone(table, closedTableRooms)) return;
     mergedTables.set(keyOf(table), table);
   });
 
@@ -1369,6 +1423,7 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     const key = keyOf(table);
     const existing = mergedTables.get(key);
     if (!existing) {
+      if (isTableSuppressedByCloseTombstone(table, closedTableRooms)) return;
       const latestSeatTouch = Math.max(table.white?.touchedAt ?? 0, table.black?.touchedAt ?? 0);
       if (preferRemote && latestSeatTouch <= remote.updatedAt) {
         return;
@@ -1411,7 +1466,12 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
         || sanitizeGuestId(fallback.leavePermissionGrantedToUserId ?? "")
         || null,
     };
-    mergedTables.set(key, normalizeTableAccess(normalizeTableStartGate(mergedTable)));
+    const normalizedMerged = normalizeTableAccess(normalizeTableStartGate(mergedTable));
+    if (isTableSuppressedByCloseTombstone(normalizedMerged, closedTableRooms)) {
+      mergedTables.delete(key);
+      return;
+    }
+    mergedTables.set(key, normalizedMerged);
   });
 
   const guestLabels: Record<string, number> = { ...remote.guestLabels };
@@ -1456,6 +1516,7 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     presence: Array.from(presenceBySession.values()),
     lobbyChat: mergedLobbyChat,
     tableChats: mergedTableChats,
+    closedTableRooms,
     guestCounter: Math.max(remote.guestCounter, local.guestCounter),
     guestLabels,
     updatedAt: Math.max(remote.updatedAt, local.updatedAt),
@@ -2102,8 +2163,19 @@ function App() {
       const cleaned = cleanupStaleAndPrune(current.tables).tables;
       const cleared = clearSessionFromTables(cleaned, appSessionId, currentProfile.userId);
       const pruned = cleanupStaleAndPrune(cleared.tables).tables;
-      if (!cleared.changed && JSON.stringify(pruned) === JSON.stringify(cleaned)) return current;
-      return { ...current, tables: pruned, updatedAt: Date.now() };
+      const closedRoomCodes = cleared.tables
+        .filter((table) => !table.white && !table.black)
+        .map((table) => table.roomCode);
+      const nextClosedTableRooms = markClosedTableRooms(current.closedTableRooms, closedRoomCodes);
+      const tablesSame = JSON.stringify(pruned) === JSON.stringify(cleaned);
+      const closedSame = JSON.stringify(nextClosedTableRooms) === JSON.stringify(current.closedTableRooms);
+      if (!cleared.changed && tablesSame && closedSame) return current;
+      return {
+        ...current,
+        tables: pruned,
+        closedTableRooms: nextClosedTableRooms,
+        updatedAt: Date.now(),
+      };
     });
   }
 
@@ -3823,6 +3895,7 @@ function App() {
         ...current,
         tables: sortTables(tables),
         tableChats,
+        closedTableRooms: markClosedTableRooms(current.closedTableRooms, removedTable ? [removedTable.roomCode] : []),
         updatedAt: Date.now(),
       };
     });
@@ -4942,15 +5015,24 @@ function App() {
       const latest = getCurrentLobbyState();
       const cleanedTables = cleanupStaleAndPrune(latest.tables);
       const cleanedPresence = cleanupPresenceRows(latest.presence);
+      const removedRoomCodes = latest.tables
+        .filter((table) => !cleanedTables.tables.some((nextTable) => nextTable.id === table.id || nextTable.roomCode === table.roomCode))
+        .map((table) => table.roomCode);
+      const nextClosedTableRooms = markClosedTableRooms(latest.closedTableRooms, removedRoomCodes);
       const hasChange = cleanedTables.changed || cleanedPresence.changed;
       const normalized = {
         ...latest,
         tables: cleanedTables.tables,
         presence: cleanedPresence.presence,
+        closedTableRooms: nextClosedTableRooms,
         updatedAt: hasChange ? Date.now() : latest.updatedAt,
       };
       if (hasChange) {
         persistLobbyState(normalized);
+        return;
+      }
+      if (JSON.stringify(nextClosedTableRooms) !== JSON.stringify(latest.closedTableRooms)) {
+        persistLobbyState({ ...normalized, updatedAt: Date.now() });
         return;
       }
       setLobbyState(normalized);
@@ -5132,15 +5214,21 @@ function App() {
       const cleanedTables = cleanupStaleAndPrune(latest.tables).tables;
       const cleared = clearSessionFromTables(cleanedTables, appSessionId, currentProfile.userId);
       const prunedTables = cleanupStaleAndPrune(cleared.tables).tables;
+      const closedRoomCodes = cleared.tables
+        .filter((table) => !table.white && !table.black)
+        .map((table) => table.roomCode);
+      const nextClosedTableRooms = markClosedTableRooms(latest.closedTableRooms, closedRoomCodes);
       const cleanedPresence = cleanupPresenceRows(latest.presence).presence;
       const nextPresence = cleanedPresence.filter((entry) => entry.sessionId !== appSessionId);
       const tableChanged = cleared.changed || JSON.stringify(cleanedTables) !== JSON.stringify(prunedTables);
+      const closedChanged = JSON.stringify(nextClosedTableRooms) !== JSON.stringify(latest.closedTableRooms);
       const presenceChanged = nextPresence.length !== latest.presence.length || cleanedPresence.length !== latest.presence.length;
-      if (!tableChanged && !presenceChanged) return;
+      if (!tableChanged && !presenceChanged && !closedChanged) return;
       const next = {
         ...latest,
         tables: prunedTables,
         presence: nextPresence,
+        closedTableRooms: nextClosedTableRooms,
         updatedAt: Date.now(),
       };
       saveJson(LOBBY_STATE_KEY, next);
@@ -5352,7 +5440,7 @@ function App() {
                               ) : null}
                               {canAdminClose ? (
                                 <button className="my-action-btn danger" onClick={() => adminCloseTable(table.id)}>
-                                  Admin Kapat
+                                  Masayi Kapat
                                 </button>
                               ) : null}
                             </div>

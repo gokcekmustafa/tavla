@@ -1262,6 +1262,22 @@ function onBarChipTouchStart(e) {
   handleSourceOrDest("bar");
 }
 
+function onBarChipDoubleClick(e) {
+  if (winner || isAnimating || isBotTurn() || !hasRolled) return;
+  if (!canControlRoomAction()) return;
+  e.preventDefault();
+  e.stopPropagation();
+
+  const options = availableMoves.filter((m) => m.from === "bar");
+  if (options.length !== 1) {
+    handleSourceOrDest("bar");
+    return;
+  }
+
+  pendingMoveChain = [];
+  playMove(options[0]);
+}
+
 function onOffAreaClick(e) {
   if (isAnimating || isBotTurn()) return;
   if (!canControlRoomAction()) return;
@@ -1984,6 +2000,7 @@ function renderBar(player, selectableSources) {
       chip.classList.add("selectable-bar-chip");
       chip.addEventListener("mousedown", onBarChipMouseDown);
       chip.addEventListener("touchstart", onBarChipTouchStart, { passive: false });
+      chip.addEventListener("dblclick", onBarChipDoubleClick);
     }
     if (selectedSource === "bar" && player === currentPlayer) {
       chip.classList.add("selected-checker", "selected-bar-chip");
