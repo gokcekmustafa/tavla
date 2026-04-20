@@ -112,6 +112,7 @@ let tableChatRows = [];
 let roomStartGateActive = false;
 let roomStartGateBothSeated = true;
 let roomStartGateStarted = true;
+let roomPeerPlayerConnected = false;
 
 const roomParams = parseRoomParamsSafe();
 const roomSenderCounters = new Map();
@@ -355,13 +356,14 @@ function isLocalSeatTurn() {
 
 function isRoomStartLocked() {
   if (!roomStartGateActive) return false;
-  return !roomStartGateBothSeated || !roomStartGateStarted;
+  if (roomPeerPlayerConnected) return false;
+  return !roomStartGateBothSeated;
 }
 
 function getRoomStartLockedMessage() {
   if (!roomStartGateActive) return "";
   if (!roomStartGateBothSeated) return "Ikinci oyuncu bekleniyor.";
-  return "Iki oyuncu da Oyuna Basla butonuna basmali.";
+  return "Eslesme baslatiliyor.";
 }
 
 function getBootLogMessage() {
@@ -673,6 +675,9 @@ function onRoomChannelMessage(event) {
   const previousCounter = roomSenderCounters.get(msg.sender) || 0;
   if (typeof msg.counter !== "number" || msg.counter <= previousCounter) return;
   roomSenderCounters.set(msg.sender, msg.counter);
+  if (msg.payload && (msg.payload.senderSeat === WHITE || msg.payload.senderSeat === BLACK)) {
+    roomPeerPlayerConnected = true;
+  }
   applyRoomSnapshot(msg.payload);
 }
 
@@ -705,6 +710,7 @@ function publishRoomSnapshot(reason) {
 
 function buildRoomSnapshot() {
   return {
+    senderSeat: roomParams.observer ? null : roomParams.seat,
     gameState: cloneState(gameState),
     currentPlayer,
     remainingDice: [...remainingDice],
@@ -976,6 +982,9 @@ function onHostMessage(event) {
     roomStartGateActive = active;
     roomStartGateBothSeated = !active || Boolean(data.bothSeated);
     roomStartGateStarted = !active || Boolean(data.started);
+    if (roomStartGateBothSeated) {
+      roomPeerPlayerConnected = true;
+    }
     if (isRoomStartLocked()) {
       clearPendingAutoRollTimer();
     }
