@@ -1181,11 +1181,11 @@ function mergeSeatState(
   preferBase: boolean,
 ) {
   if (base && !incoming) {
-    if (base.touchedAt <= incomingStateUpdatedAt) return null;
+    if (incomingStateUpdatedAt - base.touchedAt > SEAT_STALE_MS) return null;
     return base;
   }
   if (!base && incoming) {
-    if (incoming.touchedAt <= baseStateUpdatedAt) return null;
+    if (baseStateUpdatedAt - incoming.touchedAt > SEAT_STALE_MS) return null;
     return incoming;
   }
   if (!base && !incoming) return null;
