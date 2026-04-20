@@ -87,6 +87,12 @@ function sanitizeCounter(raw: unknown) {
   return intValue;
 }
 
+function isWebSocketUpgrade(request: Request) {
+  const upgrade = request.headers.get("Upgrade");
+  if (!upgrade) return false;
+  return upgrade.toLowerCase().includes("websocket");
+}
+
 function sanitizeMemberDisplayName(raw: unknown) {
   if (typeof raw !== "string") return "";
   return raw.replace(/\s+/g, " ").trim().slice(0, 24);
@@ -372,12 +378,22 @@ export default {
     }
 
     if (url.pathname === "/realtime") {
-      if (request.headers.get("Upgrade") !== "websocket") {
+      if (!isWebSocketUpgrade(request)) {
         return new Response("Expected websocket upgrade", { status: 426 });
       }
       const channel = sanitizeChannel(url.searchParams.get("channel"));
       if (!channel) {
         return new Response("Missing or invalid channel", { status: 400 });
+      }
+      const roomId = env.ROOMS.idFromName(channel);
+      const room = env.ROOMS.get(roomId);
+      return await room.fetch(request);
+    }
+
+    if (url.pathname === "/api/lobby-sync") {
+      const channel = sanitizeChannel(url.searchParams.get("channel"));
+      if (!channel) {
+        return jsonResponse({ error: "Missing or invalid channel." }, 400);
       }
       const roomId = env.ROOMS.idFromName(channel);
       const room = env.ROOMS.get(roomId);
@@ -397,9 +413,57 @@ export class RealtimeRoom {
   }
 
   async fetch(request: Request): Promise<Response> {
-    if (request.headers.get("Upgrade") !== "websocket") {
-      return new Response("Expected websocket upgrade", { status: 426 });
+    if (!isWebSocketUpgrade(request)) {
+      if (request.method === "GET") {
+        return jsonResponse({
+          ok: true,
+          snapshot: this.latestSnapshot,
+        }, 200);
+      }
+
+      if (request.method !== "POST") {
+        return jsonResponse({ error: "Method not allowed." }, 405);
+      }
+
+      const body = await parseJsonBody(request);
+      if (!body) {
+        return jsonResponse({ error: "Invalid realtime payload." }, 400);
+      }
+
+      const incoming = parseRealtimeMessage(JSON.stringify(body));
+      if (!incoming) {
+        return jsonResponse({ error: "Invalid realtime message." }, 400);
+      }
+
+      if (incoming.kind === "hello") {
+        return jsonResponse({
+          ok: true,
+          snapshot: this.latestSnapshot,
+        }, 200);
+      }
+
+      const snapshot: RealtimeMessage = {
+        ...incoming,
+        kind: "snapshot",
+        at: Date.now(),
+      };
+
+      this.latestSnapshot = snapshot;
+      const encoded = JSON.stringify(snapshot);
+      for (const socket of this.ctx.getWebSockets()) {
+        try {
+          socket.send(encoded);
+        } catch {
+          // ignore dead sockets
+        }
+      }
+
+      return jsonResponse({
+        ok: true,
+        snapshot,
+      }, 200);
     }
+
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
