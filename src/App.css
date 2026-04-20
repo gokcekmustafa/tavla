@@ -1239,6 +1239,11 @@
   min-height: 500px;
 }
 
+.my-room-view-topless .my-room-board-frame iframe {
+  height: calc(100svh - 222px);
+  min-height: 540px;
+}
+
 .my-room-board-status {
   border-radius: 7px;
   border: 1px solid rgba(111, 77, 24, 0.66);
@@ -1608,6 +1613,11 @@
     height: calc(100svh - 270px);
     min-height: 450px;
   }
+
+  .my-room-view-topless .my-room-board-frame iframe {
+    height: calc(100svh - 224px);
+    min-height: 500px;
+  }
 }
 
 @media (max-width: 920px) {
@@ -1690,6 +1700,11 @@
   .my-room-board-frame iframe {
     height: min(62svh, 500px);
     min-height: 330px;
+  }
+
+  .my-room-view-topless .my-room-board-frame iframe {
+    height: min(68svh, 560px);
+    min-height: 380px;
   }
 }
 
@@ -1852,6 +1867,11 @@
   .my-room-board-frame iframe {
     height: min(52svh, 390px);
     min-height: 280px;
+  }
+
+  .my-room-view-topless .my-room-board-frame iframe {
+    height: min(58svh, 430px);
+    min-height: 300px;
   }
 
   .my-room-main-leave {

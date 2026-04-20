@@ -5383,37 +5383,38 @@ function App() {
 
   return (
     <main className="my-shell">
-      <header className="my-topbar">
-        <div className="my-topbar-left">
-          <button className="my-top-btn my-btn-open" onClick={onOpenTable}>
-            Masa Ac
-          </button>
-          <button className="my-top-btn my-btn-play" onClick={onQuickPlay}>
-            Hemen Oyna
-          </button>
-          <button className="my-top-btn my-btn-bot" onClick={startBotGame}>
-            Bota Karsi
-          </button>
-          {!member ? (
-            <button className="my-top-btn my-btn-member" onClick={onOpenMemberPanel}>
-              Uye Ol
-            </button>
-          ) : (
-            <button className="my-top-btn my-btn-member-alt" onClick={onLogoutMember}>
-              Cikis
-            </button>
-          )}
-          <button className="my-top-btn my-btn-neutral" onClick={() => setViewMode("lobby")}>
-            Lobiye Don
-          </button>
-          {roomSession ? (
-            <button className="my-top-btn my-btn-danger" onClick={leaveRoomAndGoLobby}>
-              Masadan Kalk
-            </button>
-          ) : null}
-        </div>
+      {viewMode === "lobby" ? (
+        <header className="my-topbar">
+          <div className="my-topbar-left">
+            {!roomSession ? (
+              <>
+                <button className="my-top-btn my-btn-open" onClick={onOpenTable}>
+                  Masa Ac
+                </button>
+                <button className="my-top-btn my-btn-play" onClick={onQuickPlay}>
+                  Hemen Oyna
+                </button>
+                <button className="my-top-btn my-btn-bot" onClick={startBotGame}>
+                  Bota Karsi
+                </button>
+              </>
+            ) : null}
+            {!member ? (
+              <button className="my-top-btn my-btn-member" onClick={onOpenMemberPanel}>
+                Uye Ol
+              </button>
+            ) : (
+              <button className="my-top-btn my-btn-member-alt" onClick={onLogoutMember}>
+                Cikis
+              </button>
+            )}
+            {roomSession ? (
+              <button className="my-top-btn my-btn-danger" onClick={leaveRoomAndGoLobby}>
+                Masadan Kalk
+              </button>
+            ) : null}
+          </div>
 
-        {viewMode === "lobby" ? (
           <div className="my-topbar-right">
             <span className="my-chip">{lobbyState.lobbyName}</span>
             <span className="my-chip">Acik Masa: {openedTables.length}</span>
@@ -5437,10 +5438,10 @@ function App() {
               <span className="my-chip my-chip-matchup" title={currentMatchupLabel}>
                 {currentMatchupLabel}
               </span>
-            ) : null}
+              ) : null}
           </div>
-        ) : null}
-      </header>
+        </header>
+      ) : null}
 
       {viewMode === "lobby" ? (
         <section className="my-lobby-layout">
@@ -6107,7 +6108,7 @@ function App() {
           </aside>
         </section>
       ) : (
-        <section className={`my-room-view ${roomSession ? "in-room" : "local-mode"}`}>
+        <section className={`my-room-view my-room-view-topless ${roomSession ? "in-room" : "local-mode"}`}>
           <header className="my-room-header-strip">
             {roomSession ? (
               <>
