@@ -1077,7 +1077,9 @@ function normalizeTableStartGate(table: LobbyTable): LobbyTable {
     blackReadyAt = null;
     startedAt = null;
   } else {
-    if (whiteReadyAt && blackReadyAt) {
+    if (startedAt) {
+      startedAt = Math.max(startedAt, whiteReadyAt ?? 0, blackReadyAt ?? 0);
+    } else if (whiteReadyAt && blackReadyAt) {
       startedAt = Math.max(startedAt ?? 0, whiteReadyAt, blackReadyAt);
     } else {
       startedAt = null;
@@ -1163,6 +1165,17 @@ function cleanupStaleAndPrune(tables: LobbyTable[]): CleanupResult {
   });
 
   return { tables: sortTables(next), changed };
+}
+
+function autoStartTableWhenBothSeated(table: LobbyTable, now = Date.now()): LobbyTable {
+  if (!table.white || !table.black) return table;
+  if (table.startedAt) return table;
+  return {
+    ...table,
+    whiteReadyAt: table.whiteReadyAt ?? now,
+    blackReadyAt: table.blackReadyAt ?? now,
+    startedAt: now,
+  };
 }
 
 function cleanupPresenceRows(rows: LobbyPresenceState[]) {
@@ -2393,6 +2406,7 @@ function App() {
         table = resetTableStartGate(table);
       }
 
+      const now = Date.now();
       const seatState: LobbySeatState = {
         sessionId: appSessionId,
         userId: currentProfile.userId,
@@ -2402,7 +2416,7 @@ function App() {
         avatarId: currentProfile.avatarId,
         points: currentProfile.points,
         stats: normalizeStats(currentProfile.stats),
-        touchedAt: Date.now(),
+        touchedAt: now,
       };
 
       const patched =
@@ -2410,14 +2424,15 @@ function App() {
           ? { ...table, white: seatState, ownerUserId: table.ownerUserId || sanitizeGuestId(currentProfile.userId) }
           : { ...table, black: seatState, ownerUserId: table.ownerUserId || sanitizeGuestId(currentProfile.userId) };
 
-      tables[index] = normalizeTableAccess(normalizeTableStartGate(patched));
+      const started = autoStartTableWhenBothSeated(patched, now);
+      tables[index] = normalizeTableAccess(normalizeTableStartGate(started));
       const nextTables = sortTables(tables);
-      resolvedTable = nextTables.find((row) => row.id === patched.id) ?? normalizeTableAccess(normalizeTableStartGate(patched));
+      resolvedTable = nextTables.find((row) => row.id === patched.id) ?? normalizeTableAccess(normalizeTableStartGate(started));
 
       return {
         ...current,
         tables: nextTables,
-        updatedAt: Date.now(),
+        updatedAt: now,
       };
     });
 
@@ -4426,7 +4441,8 @@ function App() {
           ? { ...table, white: seatState, ownerUserId: table.ownerUserId || sanitizeGuestId(currentProfile.userId) }
           : { ...table, black: seatState, ownerUserId: table.ownerUserId || sanitizeGuestId(currentProfile.userId) };
 
-      tables[index] = normalizeTableAccess(normalizeTableStartGate(patched));
+      const started = autoStartTableWhenBothSeated(patched, now);
+      tables[index] = normalizeTableAccess(normalizeTableStartGate(started));
       return {
         ...current,
         lobbyName: sanitizeLobbyName(roomSession.roomName || current.lobbyName),
