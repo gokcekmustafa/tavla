@@ -1608,6 +1608,11 @@ function App() {
   const [lobbyChatAutoScroll, setLobbyChatAutoScroll] = useState(true);
   const [lobbyChatUnread, setLobbyChatUnread] = useState(0);
   const [lobbyChatJoinedAt] = useState(() => Date.now());
+  const [roomChatTab, setRoomChatTab] = useState<"table" | "lobby">("table");
+  const [roomTableChatInput, setRoomTableChatInput] = useState("");
+  const [roomLobbyChatInput, setRoomLobbyChatInput] = useState("");
+  const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
+  const [roomChatUnread, setRoomChatUnread] = useState(0);
   const [adminQuery, setAdminQuery] = useState("");
   const [adminRoleFilter, setAdminRoleFilter] = useState<AdminRoleFilter>("all");
   const [adminSort, setAdminSort] = useState<AdminSortKey>("points");
@@ -1628,6 +1633,8 @@ function App() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const lobbyChatListRef = useRef<HTMLDivElement | null>(null);
   const lobbyPrevChatCountRef = useRef(0);
+  const roomChatListRef = useRef<HTMLDivElement | null>(null);
+  const roomPrevChatCountRef = useRef(0);
   const opponentIdleWatchRef = useRef<{
     matchToken: string;
     activityTick: number;
@@ -1923,6 +1930,41 @@ function App() {
     && mode === "local"
     && (roomSession.role === "player" || currentRoomTable?.allowSpectatorChat !== false),
   );
+  const roomChatRows = useMemo(() => (roomChatTab === "table" ? tableChatRows : lobbyChatRows), [roomChatTab, tableChatRows, lobbyChatRows]);
+  const canWriteRoomChat = roomChatTab === "table" ? canWriteTableChat : canWriteLobbyChat;
+  const roomChatInput = roomChatTab === "table" ? roomTableChatInput : roomLobbyChatInput;
+  const roomChatDraft = sanitizeChatText(roomChatInput);
+  const roomScoreRows = useMemo(() => {
+    if (!currentRoomTable) return [];
+    return ([
+      { seat: "white" as Seat, seatLabel: "Beyaz", info: currentRoomTable.white },
+      { seat: "black" as Seat, seatLabel: "Siyah", info: currentRoomTable.black },
+    ])
+      .filter((row): row is { seat: Seat; seatLabel: string; info: LobbySeatState } => Boolean(row.info))
+      .map((row) => ({
+        seat: row.seat,
+        seatLabel: row.seatLabel,
+        userId: row.info.userId,
+        username: row.info.username,
+        name: row.info.displayName,
+        points: row.info.points,
+        stats: row.info.stats,
+        gender: row.info.gender,
+        avatarId: row.info.avatarId,
+        mine: roomSession?.role === "player" && roomSession.seat === row.seat,
+      }));
+  }, [currentRoomTable, roomSession]);
+  const roomStartHint = useMemo(() => {
+    if (!roomStartState) return "";
+    if (roomStartState.started) return "Oyun basladi.";
+    if (!roomStartState.bothSeated) return "Ikinci oyuncu bekleniyor.";
+    if (roomStartState.mineReady && roomStartState.opponentReady) return "Iki oyuncu da hazir. Oyunu baslatabilirsin.";
+    if (roomStartState.mineReady) return "Rakibin Oyuna Basla butonuna basmasi bekleniyor.";
+    if (roomStartState.opponentReady) return "Rakip hazir. Oyuna Basla butonuna bas.";
+    return "Oyuncularin 'Baslat' dugmesine basmalari bekleniyor...";
+  }, [roomStartState]);
+  const roomWhiteSeat = currentRoomTable?.white ?? null;
+  const roomBlackSeat = currentRoomTable?.black ?? null;
   const isAdmin = member?.role === "admin";
   const lobbyDraft = sanitizeChatText(lobbyChatInput);
   const adminSummary = useMemo(() => {
@@ -2884,6 +2926,37 @@ function App() {
     if (atBottom) {
       setLobbyChatUnread(0);
     }
+  }
+
+  function scrollRoomChatToBottom() {
+    const list = roomChatListRef.current;
+    if (!list) return;
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function onRoomChatScroll() {
+    const list = roomChatListRef.current;
+    if (!list) return;
+    const distance = list.scrollHeight - list.scrollTop - list.clientHeight;
+    const atBottom = distance <= LOBBY_CHAT_AUTO_SCROLL_THRESHOLD;
+    setRoomChatAutoScroll(atBottom);
+    if (atBottom) {
+      setRoomChatUnread(0);
+    }
+  }
+
+  function sendActiveRoomChat() {
+    if (roomChatTab === "table") {
+      const draft = sanitizeChatText(roomTableChatInput);
+      if (!draft) return;
+      sendTableChat(draft);
+      setRoomTableChatInput("");
+      return;
+    }
+    const draft = sanitizeChatText(roomLobbyChatInput);
+    if (!draft) return;
+    sendLobbyChat(draft);
+    setRoomLobbyChatInput("");
   }
 
   async function saveAdminRules() {
@@ -4941,6 +5014,32 @@ function App() {
   }, [lobbyChatRows, lobbyChatAutoScroll]);
 
   useEffect(() => {
+    const prev = roomPrevChatCountRef.current;
+    const next = roomChatRows.length;
+    const added = Math.max(0, next - prev);
+    roomPrevChatCountRef.current = next;
+
+    if (roomChatAutoScroll) {
+      scrollRoomChatToBottom();
+      setRoomChatUnread(0);
+      return;
+    }
+
+    if (added > 0) {
+      setRoomChatUnread((count) => count + added);
+    }
+  }, [roomChatRows, roomChatAutoScroll]);
+
+  useEffect(() => {
+    roomPrevChatCountRef.current = roomChatRows.length;
+    setRoomChatAutoScroll(true);
+    setRoomChatUnread(0);
+    window.requestAnimationFrame(() => {
+      scrollRoomChatToBottom();
+    });
+  }, [roomChatTab, roomChatRows.length]);
+
+  useEffect(() => {
     syncTableChatToIframe();
   }, [syncTableChatToIframe, tableChatRows, canViewTableChat, canWriteTableChat, roomSession, mode, iframeKey]);
 
@@ -6002,16 +6101,15 @@ function App() {
             )}
           </header>
 
-          <section className="my-game-layout my-room-table-layout">
+          <section className="my-room-main-layout">
             <aside className="my-game-controls my-room-left-controls">
-              <section className="my-side-card my-room-card">
+              <section className="my-side-card my-room-card my-room-menu-card">
                 <h3>Masa Menusu</h3>
                 {roomSession ? (
                   <button className="my-action-btn danger my-room-main-leave" onClick={leaveRoomAndGoLobby}>
                     Masadan Kalk
                   </button>
                 ) : null}
-                {lobbyNotice ? <p className="my-notice my-notice-soft">{lobbyNotice}</p> : null}
                 <label className="my-field">
                   <span>Oyuncu</span>
                   <input
@@ -6022,7 +6120,6 @@ function App() {
                     disabled
                   />
                 </label>
-
                 {roomSession ? (
                   <p className="line">
                     Oyun Modu: <code>Online Iki Oyuncu</code>
@@ -6037,77 +6134,216 @@ function App() {
                     </button>
                   </div>
                 )}
-
+                {currentRoomTable && currentRoomIsOwner ? (
+                  <div className="my-room-owner-inline">
+                    <button
+                      className="my-action-btn soft"
+                      onClick={() => openInvitePicker(currentRoomTable)}
+                      disabled={!currentRoomHasOpenSeat}
+                    >
+                      Davet Et
+                    </button>
+                    <button
+                      className={`my-action-btn ${currentRoomTable.isPrivate ? "" : "soft"}`}
+                      onClick={() => setTablePrivateMode(currentRoomTable.id, !currentRoomTable.isPrivate)}
+                    >
+                      {currentRoomTable.isPrivate ? "Ozeli Kapat" : "Masa Ozel Yap"}
+                    </button>
+                  </div>
+                ) : null}
                 <button className="my-action-btn" onClick={refreshBoard}>
                   Tahtayi Yenile
                 </button>
                 <button className="my-action-btn soft" onClick={() => setViewMode("lobby")}>
                   Lobiye Don
                 </button>
+                {lobbyNotice ? <p className="my-notice my-notice-soft">{lobbyNotice}</p> : null}
               </section>
-
-              {roomSession ? (
-                <section className="my-side-card my-room-player-card">
-                  <h3>Oyuncular</h3>
-                  <div className="my-room-player-list">
-                    <div className={`my-room-player-row ${roomSession.role === "player" && roomSession.seat === "white" ? "mine" : ""}`}>
-                      <AvatarBadge avatarId={currentRoomTable?.white?.avatarId ?? DEFAULT_AVATAR_BY_GENDER.unknown} gender={currentRoomTable?.white?.gender ?? "unknown"} size="sm" />
-                      <span className="seat">Beyaz</span>
-                      <strong>{currentRoomTable?.white?.displayName ?? "Bekleniyor"}</strong>
-                    </div>
-                    <div className={`my-room-player-row ${roomSession.role === "player" && roomSession.seat === "black" ? "mine" : ""}`}>
-                      <AvatarBadge avatarId={currentRoomTable?.black?.avatarId ?? DEFAULT_AVATAR_BY_GENDER.unknown} gender={currentRoomTable?.black?.gender ?? "unknown"} size="sm" />
-                      <span className="seat">Siyah</span>
-                      <strong>{currentRoomTable?.black?.displayName ?? "Bekleniyor"}</strong>
-                    </div>
-                  </div>
-                </section>
-              ) : null}
             </aside>
 
-            <div className="my-game-frame my-room-board-frame">
-              <iframe
-                ref={iframeRef}
-                title="Tavla Oyunu"
-                src={iframeUrl}
-                onLoad={() => {
-                  const frameWindow = iframeRef.current?.contentWindow ?? null;
-                  syncTableChatToIframe(frameWindow);
-                  syncRoomStartGateToIframe(frameWindow);
-                }}
-              />
-              {roomSession
-                && roomSession.role === "player"
-                && mode === "local"
-                && roomStartState
-                && !roomStartState.started
-                && roomStartState.bothSeated ? (
-                <section className="my-start-overlay">
-                  <article className="my-start-card">
-                    <h3>Oyuna Basla</h3>
-                    <p className="line">
-                      {roomStartState.mineReady
-                        ? roomStartState.opponentReady
-                          ? "Iki oyuncu da hazir. Baslatmak icin Oyuna Basla butonuna dokun."
-                          : "Rakibin Oyuna Basla butonuna basmasi bekleniyor."
-                        : roomStartState.opponentReady
-                          ? "Rakip hazir. Baslamak icin Oyuna Basla butonuna bas."
-                          : "Iki oyuncu da Oyuna Basla butonuna basmali."}
+            <section className="my-room-center-stack">
+              <div className="my-game-frame my-room-board-frame">
+                <iframe
+                  ref={iframeRef}
+                  title="Tavla Oyunu"
+                  src={iframeUrl}
+                  onLoad={() => {
+                    const frameWindow = iframeRef.current?.contentWindow ?? null;
+                    syncTableChatToIframe(frameWindow);
+                    syncRoomStartGateToIframe(frameWindow);
+                  }}
+                />
+                {roomSession
+                  && roomSession.role === "player"
+                  && mode === "local"
+                  && roomStartState
+                  && !roomStartState.started
+                  && roomStartState.bothSeated ? (
+                  <section className="my-start-overlay my-room-start-overlay">
+                    <article className="my-start-card my-room-start-card">
+                      <button
+                        className="my-room-start-main-btn"
+                        onClick={onRoomStartReady}
+                        disabled={!roomStartState.mine}
+                      >
+                        OYUNA BASLA
+                      </button>
+                      <p className="my-room-start-subtext">{roomStartHint}</p>
+                    </article>
+                  </section>
+                ) : null}
+              </div>
+              <div className="my-room-board-status">{roomStartHint || currentMatchupLabel || "Masa hazir."}</div>
+
+              <section className="my-chat-card my-room-chat-card">
+                <div className="my-room-chat-tabs">
+                  <button
+                    className={`my-room-chat-tab ${roomChatTab === "table" ? "active" : ""}`}
+                    onClick={() => setRoomChatTab("table")}
+                  >
+                    Masa Chat
+                  </button>
+                  <button
+                    className={`my-room-chat-tab ${roomChatTab === "lobby" ? "active" : ""}`}
+                    onClick={() => setRoomChatTab("lobby")}
+                  >
+                    Lobi Chat
+                  </button>
+                </div>
+
+                <div className="my-chat-compose my-room-chat-compose">
+                  <input
+                    className="my-input"
+                    placeholder={
+                      roomChatTab === "table"
+                        ? canWriteRoomChat ? "Masa sohbetine mesaj yaz..." : "Masa sohbeti icin uye girisi gerekli"
+                        : canWriteRoomChat ? "Lobiye mesaj yaz..." : "Lobiye yazmak icin uye girisi yap"
+                    }
+                    value={roomChatTab === "table" ? roomTableChatInput : roomLobbyChatInput}
+                    maxLength={CHAT_TEXT_MAX}
+                    onChange={(e) => {
+                      if (roomChatTab === "table") {
+                        setRoomTableChatInput(e.target.value);
+                      } else {
+                        setRoomLobbyChatInput(e.target.value);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      e.preventDefault();
+                      sendActiveRoomChat();
+                    }}
+                    disabled={!canWriteRoomChat}
+                  />
+                  <button
+                    className="my-action-btn"
+                    onClick={sendActiveRoomChat}
+                    disabled={!canWriteRoomChat || !roomChatDraft}
+                  >
+                    Gonder
+                  </button>
+                </div>
+
+                <div className="my-chat-head my-room-chat-head">
+                  <h3>{roomChatTab === "table" ? "Masa Sohbeti" : "Lobi Sohbeti"}</h3>
+                  <div className="my-chat-head-actions">
+                    <span>{roomChatRows.length} mesaj</span>
+                    {!roomChatAutoScroll || roomChatUnread > 0 ? (
+                      <button
+                        className="my-action-btn soft my-chat-jump-btn"
+                        onClick={() => {
+                          setRoomChatAutoScroll(true);
+                          setRoomChatUnread(0);
+                          scrollRoomChatToBottom();
+                        }}
+                      >
+                        {roomChatUnread > 0 ? `Sona Git (${roomChatUnread})` : "Sona Git"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div ref={roomChatListRef} className="my-chat-list my-room-chat-list" onScroll={onRoomChatScroll}>
+                  {roomChatRows.length === 0 ? (
+                    <p className="my-chat-empty">
+                      {roomChatTab === "table" ? "Bu masada henuz sohbet mesaji yok." : "Lobide henuz mesaj yok."}
                     </p>
-                    <button
-                      className="my-action-btn"
-                      onClick={onRoomStartReady}
-                      disabled={!roomStartState.mine}
-                    >
-                      {roomStartState.mineReady && roomStartState.opponentReady ? "Oyunu Baslat" : roomStartState.mineReady ? "Hazirsin" : "Oyuna Basla"}
-                    </button>
-                  </article>
-                </section>
-              ) : null}
-            </div>
+                  ) : (
+                    roomChatRows.map((message) => (
+                      <article key={message.id} className="my-chat-row">
+                        <div className="my-chat-meta">
+                          <strong>{message.displayName}</strong>
+                          <time>{formatChatTime(message.at)}</time>
+                        </div>
+                        <p>{message.text}</p>
+                      </article>
+                    ))
+                  )}
+                </div>
+                {!canWriteRoomChat ? (
+                  <p className="my-chat-hint">
+                    {roomChatTab === "table" ? "Masa sohbetine sadece uye oyuncular yazabilir." : "Lobiye sadece uye oyuncular yazabilir."}
+                  </p>
+                ) : null}
+              </section>
+            </section>
 
             <aside className="my-game-controls my-room-right-controls">
-              <section className="my-side-card my-room-card">
+              <section className="my-side-card my-room-card my-room-player-card">
+                <h3>Oyuncular</h3>
+                <div className={`my-room-player-row ${roomSession?.role === "player" && roomSession.seat === "white" ? "mine" : ""}`}>
+                  <AvatarBadge avatarId={roomWhiteSeat?.avatarId ?? DEFAULT_AVATAR_BY_GENDER.unknown} gender={roomWhiteSeat?.gender ?? "unknown"} size="md" />
+                  <span className="seat">Beyaz</span>
+                  {roomWhiteSeat ? (
+                    <button
+                      type="button"
+                      className="my-name-link"
+                      onClick={() => openPlayerProfile(
+                        roomWhiteSeat.userId,
+                        roomWhiteSeat.displayName,
+                        roomWhiteSeat.points,
+                        roomWhiteSeat.stats,
+                        roomWhiteSeat.username,
+                        roomWhiteSeat.gender,
+                        roomWhiteSeat.avatarId,
+                      )}
+                      title={`${roomWhiteSeat.displayName} profilini goster`}
+                    >
+                      {roomWhiteSeat.displayName}
+                    </button>
+                  ) : (
+                    <strong>Bekleniyor</strong>
+                  )}
+                  <span className="my-room-player-points">{roomWhiteSeat?.points ?? 0}</span>
+                </div>
+                <div className={`my-room-player-row ${roomSession?.role === "player" && roomSession.seat === "black" ? "mine" : ""}`}>
+                  <AvatarBadge avatarId={roomBlackSeat?.avatarId ?? DEFAULT_AVATAR_BY_GENDER.unknown} gender={roomBlackSeat?.gender ?? "unknown"} size="md" />
+                  <span className="seat">Siyah</span>
+                  {roomBlackSeat ? (
+                    <button
+                      type="button"
+                      className="my-name-link"
+                      onClick={() => openPlayerProfile(
+                        roomBlackSeat.userId,
+                        roomBlackSeat.displayName,
+                        roomBlackSeat.points,
+                        roomBlackSeat.stats,
+                        roomBlackSeat.username,
+                        roomBlackSeat.gender,
+                        roomBlackSeat.avatarId,
+                      )}
+                      title={`${roomBlackSeat.displayName} profilini goster`}
+                    >
+                      {roomBlackSeat.displayName}
+                    </button>
+                  ) : (
+                    <strong>Bekleniyor</strong>
+                  )}
+                  <span className="my-room-player-points">{roomBlackSeat?.points ?? 0}</span>
+                </div>
+              </section>
+
+              <section className="my-side-card my-room-card my-room-action-card">
                 <h3>Masa Bilgisi</h3>
                 {roomSession ? (
                   <>
@@ -6239,6 +6475,38 @@ function App() {
                       Masa Sec
                     </button>
                   </>
+                )}
+              </section>
+
+              <section className="my-side-card my-room-card my-room-score-card">
+                <h3>Puan Durumu</h3>
+                {roomScoreRows.length === 0 ? (
+                  <p className="my-chat-empty">Masadaki oyuncular bekleniyor.</p>
+                ) : (
+                  <div className="my-room-score-list">
+                    {roomScoreRows.map((row) => (
+                      <article key={row.seat} className={`my-room-score-row ${row.mine ? "mine" : ""}`}>
+                        <span className={`my-online-dot ${row.seat === "black" ? "my-room-dot-black" : ""}`} />
+                        <button
+                          type="button"
+                          className="my-name-link"
+                          onClick={() => openPlayerProfile(
+                            row.userId,
+                            row.name,
+                            row.points,
+                            row.stats,
+                            row.username,
+                            row.gender,
+                            row.avatarId,
+                          )}
+                          title={`${row.name} profilini goster`}
+                        >
+                          {row.name}
+                        </button>
+                        <strong>{row.points}</strong>
+                      </article>
+                    ))}
+                  </div>
                 )}
               </section>
             </aside>

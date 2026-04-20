@@ -1106,68 +1106,241 @@
 
 .my-room-view {
   display: grid;
-  gap: 8px;
-  padding: 8px 10px 10px;
+  gap: 7px;
+  padding: 8px 10px 8px;
 }
 
 .my-room-header-strip {
-  min-height: 34px;
+  min-height: 36px;
   border-radius: 7px;
-  border: 1px solid rgba(92, 58, 15, 0.72);
-  background: linear-gradient(180deg, rgba(95, 56, 14, 0.92), rgba(66, 39, 10, 0.95));
-  color: #f8ebc8;
-  display: inline-flex;
+  border: 1px solid rgba(109, 74, 20, 0.72);
+  background: linear-gradient(180deg, rgba(106, 63, 17, 0.96), rgba(71, 41, 10, 0.98));
+  color: #f8efdc;
+  display: flex;
   align-items: center;
   gap: 7px;
-  padding: 0 12px;
+  padding: 0 11px;
   font-size: 0.96rem;
   font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 235, 188, 0.18);
 }
 
 .my-room-header-strip span {
-  color: #e8d2a0;
-  font-size: 0.88rem;
+  color: #edd7ac;
+  font-size: 0.89rem;
 }
 
-.my-room-table-layout {
-  grid-template-columns: 190px minmax(0, 1fr) 236px;
+.my-room-main-layout {
+  display: grid;
+  grid-template-columns: 186px minmax(0, 1fr) 244px;
   gap: 10px;
-  padding: 0;
-  align-items: stretch;
+  align-items: start;
 }
 
 .my-room-left-controls,
 .my-room-right-controls {
-  gap: 8px;
+  gap: 7px;
 }
 
 .my-room-card {
-  border-color: rgba(110, 72, 20, 0.72);
+  border-color: rgba(112, 76, 19, 0.78);
   background:
-    linear-gradient(180deg, rgba(34, 84, 53, 0.84), rgba(25, 62, 40, 0.9)),
-    linear-gradient(180deg, rgba(123, 89, 32, 0.22), rgba(78, 54, 14, 0.18));
+    linear-gradient(180deg, rgba(44, 88, 59, 0.87), rgba(26, 61, 39, 0.92)),
+    linear-gradient(180deg, rgba(130, 96, 36, 0.24), rgba(84, 56, 15, 0.2));
 }
 
 .my-room-card h3 {
-  font-size: 0.94rem;
+  font-size: 0.9rem;
   color: #f4ebcf;
+  letter-spacing: 0.01em;
 }
 
 .my-room-main-leave {
-  min-height: 42px;
+  min-height: 40px;
   font-size: 0.95rem;
 }
 
 .my-room-card .my-action-btn {
+  min-height: 33px;
+}
+
+.my-room-menu-card .my-field span {
+  font-size: 0.66rem;
+}
+
+.my-room-owner-inline {
+  display: grid;
+  gap: 6px;
+}
+
+.my-room-center-stack {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.my-room-board-frame {
+  border-color: rgba(97, 58, 13, 0.85);
+  background:
+    linear-gradient(180deg, rgba(173, 123, 39, 0.35), rgba(116, 75, 17, 0.36)),
+    linear-gradient(180deg, rgba(26, 18, 7, 0.46), rgba(18, 12, 4, 0.52));
+  box-shadow:
+    inset 0 0 0 1px rgba(248, 214, 137, 0.27),
+    0 10px 24px rgba(33, 21, 5, 0.36);
+}
+
+.my-room-board-frame iframe {
+  height: calc(100svh - 360px);
+  min-height: 470px;
+}
+
+.my-room-board-status {
+  border-radius: 7px;
+  border: 1px solid rgba(111, 77, 24, 0.66);
+  background: linear-gradient(180deg, rgba(90, 54, 15, 0.95), rgba(61, 35, 9, 0.96));
+  color: #f3e7ca;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-align: center;
+  min-height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 2px 10px;
+  text-shadow: 0 1px 0 rgba(38, 22, 3, 0.75);
+}
+
+.my-room-chat-card {
+  padding: 7px;
+  gap: 7px;
+  border-color: rgba(16, 116, 142, 0.68);
+  background: linear-gradient(180deg, rgba(8, 106, 133, 0.95), rgba(6, 74, 94, 0.97));
+}
+
+.my-room-chat-tabs {
+  display: inline-grid;
+  grid-auto-flow: column;
+  justify-content: start;
+  gap: 4px;
+}
+
+.my-room-chat-tab {
+  min-height: 32px;
+  min-width: 110px;
+  border-radius: 7px 7px 0 0;
+  border: 1px solid rgba(36, 134, 165, 0.8);
+  border-bottom-color: rgba(14, 88, 112, 0.92);
+  background: linear-gradient(180deg, rgba(13, 92, 116, 0.92), rgba(8, 67, 86, 0.94));
+  color: #dff5ff;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.my-room-chat-tab.active {
+  border-color: rgba(244, 218, 151, 0.95);
+  background: linear-gradient(180deg, #ca9c36, #9f6f1d);
+  color: #fff8e9;
+}
+
+.my-room-chat-compose .my-input {
   min-height: 34px;
+  background: #f4f8fa;
+  color: #143342;
+}
+
+.my-room-chat-compose .my-action-btn {
+  min-height: 34px;
+  min-width: 100px;
+}
+
+.my-room-chat-head h3 {
+  font-size: 0.92rem;
+}
+
+.my-room-chat-list {
+  max-height: 170px;
+  border-radius: 7px;
+  border: 2px solid rgba(26, 131, 161, 0.72);
+  background: linear-gradient(180deg, rgba(239, 246, 249, 0.98), rgba(225, 238, 244, 0.99));
+  padding: 7px;
+}
+
+.my-room-chat-list .my-chat-empty {
+  border-color: rgba(53, 120, 144, 0.34);
+  background: rgba(21, 103, 131, 0.1);
+  color: #194a61;
+}
+
+.my-room-chat-list .my-chat-row {
+  border-color: rgba(38, 112, 138, 0.24);
+  background: rgba(32, 114, 143, 0.12);
+}
+
+.my-room-chat-list .my-chat-meta {
+  color: #164e65;
+}
+
+.my-room-chat-list .my-chat-meta time {
+  color: #256786;
+}
+
+.my-room-chat-list .my-chat-row p {
+  color: #1b4d63;
+}
+
+.my-room-start-overlay {
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: none;
+}
+
+.my-room-start-card {
+  width: min(370px, 96%);
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  place-items: center;
+  pointer-events: auto;
+}
+
+.my-room-start-main-btn {
+  min-height: 92px;
+  min-width: min(320px, 94vw);
+  border-radius: 22px;
+  border: 2px solid rgba(34, 120, 35, 0.95);
+  background:
+    radial-gradient(130% 110% at 50% 12%, rgba(167, 255, 154, 0.55), transparent 52%),
+    linear-gradient(180deg, #46c62f 0%, #26a31f 54%, #178714 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(239, 255, 217, 0.68),
+    0 10px 24px rgba(14, 42, 11, 0.52);
+  color: #f8ffee;
+  font-size: clamp(1.66rem, 2.6vw, 2.25rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 0 rgba(18, 69, 15, 0.75);
+  cursor: pointer;
+}
+
+.my-room-start-main-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.my-room-start-subtext {
+  margin: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(244, 221, 167, 0.66);
+  background: rgba(69, 42, 14, 0.8);
+  color: #f7e8c8;
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 3px 12px;
+  text-align: center;
 }
 
 .my-room-player-card {
-  gap: 8px;
-}
-
-.my-room-player-list {
-  display: grid;
   gap: 7px;
 }
 
@@ -1177,20 +1350,21 @@
   background: rgba(16, 39, 27, 0.62);
   padding: 6px;
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
 }
 
 .my-room-player-row .seat {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 900;
   color: #dac7a1;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.my-room-player-row strong {
+.my-room-player-row strong,
+.my-room-player-row .my-name-link {
   min-width: 0;
   font-size: 0.8rem;
   color: #f6f1df;
@@ -1199,24 +1373,65 @@
   white-space: nowrap;
 }
 
+.my-room-player-points {
+  color: #ffeec2;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
 .my-room-player-row.mine {
   border-color: rgba(134, 214, 163, 0.84);
   background: rgba(25, 89, 56, 0.62);
 }
 
-.my-room-board-frame {
-  border-color: rgba(95, 57, 14, 0.82);
-  background:
-    linear-gradient(180deg, rgba(176, 128, 41, 0.32), rgba(118, 78, 19, 0.34)),
-    linear-gradient(180deg, rgba(26, 19, 9, 0.54), rgba(15, 10, 4, 0.54));
-  box-shadow:
-    inset 0 0 0 1px rgba(241, 206, 129, 0.24),
-    0 10px 24px rgba(33, 21, 5, 0.34);
+.my-room-action-card {
+  max-height: 360px;
+  overflow-y: auto;
 }
 
-.my-room-board-frame iframe {
-  height: calc(100svh - 170px);
-  min-height: 540px;
+.my-room-score-card {
+  gap: 6px;
+}
+
+.my-room-score-list {
+  display: grid;
+  gap: 6px;
+}
+
+.my-room-score-row {
+  border-radius: 7px;
+  border: 1px solid rgba(167, 205, 219, 0.3);
+  background: rgba(7, 58, 75, 0.62);
+  padding: 5px 7px;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.my-room-score-row .my-name-link {
+  color: #e8f8ff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-room-score-row strong {
+  color: #fff3cc;
+  font-size: 0.86rem;
+}
+
+.my-room-score-row.mine {
+  border-color: rgba(132, 218, 157, 0.85);
+  background: rgba(24, 95, 62, 0.6);
+}
+
+.my-room-dot-black {
+  background: #0f0f11;
+  box-shadow: 0 0 0 1px rgba(188, 188, 188, 0.48);
 }
 
 .my-start-overlay {
@@ -1340,18 +1555,13 @@
     min-height: 430px;
   }
 
-  .my-room-table-layout {
-    grid-template-columns: 176px minmax(0, 1fr);
-  }
-
-  .my-room-right-controls {
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .my-room-main-layout {
+    grid-template-columns: 170px minmax(0, 1fr) 220px;
   }
 
   .my-room-board-frame iframe {
-    height: calc(100svh - 246px);
-    min-height: 470px;
+    height: calc(100svh - 352px);
+    min-height: 430px;
   }
 }
 
@@ -1403,29 +1613,33 @@
     gap: 6px;
   }
 
-  .my-room-table-layout {
+  .my-room-main-layout {
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
 
-  .my-room-board-frame {
+  .my-room-center-stack {
     order: 1;
   }
 
-  .my-room-left-controls {
+  .my-room-right-controls {
     order: 2;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
 
-  .my-room-left-controls .my-room-player-card {
+  .my-room-action-card {
     grid-column: 1 / -1;
   }
 
-  .my-room-right-controls {
+  .my-room-left-controls {
     order: 3;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  .my-room-menu-card {
+    grid-column: 1 / -1;
   }
 
   .my-room-board-frame iframe {
@@ -1577,6 +1791,14 @@
     gap: 6px;
   }
 
+  .my-room-right-controls {
+    order: 2;
+  }
+
+  .my-room-left-controls {
+    order: 3;
+  }
+
   .my-room-board-frame iframe {
     height: min(56svh, 430px);
     min-height: 300px;
@@ -1584,5 +1806,25 @@
 
   .my-room-main-leave {
     min-height: 38px;
+  }
+
+  .my-room-chat-tab {
+    min-height: 30px;
+    min-width: 96px;
+    font-size: 0.76rem;
+  }
+
+  .my-room-chat-compose .my-action-btn {
+    width: 100%;
+  }
+
+  .my-room-start-main-btn {
+    min-height: 74px;
+    min-width: min(270px, 92vw);
+    font-size: clamp(1.3rem, 7vw, 1.8rem);
+  }
+
+  .my-room-score-row {
+    grid-template-columns: 10px minmax(0, 1fr) auto;
   }
 }
