@@ -376,6 +376,11 @@ function getBootLogMessage() {
   return gameMode === "bot" ? "Bilgisayara karşı modda yeni oyun hazır." : "Yeni oyun hazır.";
 }
 
+function syncModeBodyClasses() {
+  const enableBotLayout = !isRoomMode() && gameMode === "bot";
+  document.body.classList.toggle("bot-mode", enableBotLayout);
+}
+
 function initRoomMode() {
   if (!isRoomMode()) return;
 
@@ -1833,6 +1838,7 @@ function syncCheckerSizeToBoard() {
 // ── Render ───────────────────────────────────────────────────────
 
 function render() {
+  syncModeBodyClasses();
   ensureBoardPerspective();
   syncCheckerSizeToBoard();
   renderTurnInfo();

@@ -1543,11 +1543,25 @@ body.room-mode .arena-layout {
   grid-template-columns: minmax(0, 1fr) 148px;
 }
 
+body.bot-mode .arena-layout {
+  grid-template-columns: minmax(0, 1fr) 148px;
+}
+
 body.room-mode .left-control-panel {
   display: none;
 }
 
+body.bot-mode .left-control-panel {
+  display: none;
+}
+
 body.room-mode .right-action-panel {
+  align-self: center;
+  justify-self: end;
+  height: fit-content;
+}
+
+body.bot-mode .right-action-panel {
   align-self: center;
   justify-self: end;
   height: fit-content;
@@ -1806,6 +1820,10 @@ body.room-mode .right-action-panel {
 }
 
 body.room-mode .activity-wrap {
+  display: none !important;
+}
+
+body.bot-mode .activity-wrap {
   display: none !important;
 }
 
