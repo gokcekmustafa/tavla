@@ -2166,24 +2166,6 @@ function App() {
     setIframeKey((v) => v + 1);
   }
 
-  function refreshBoard() {
-    const frameWindow = iframeRef.current?.contentWindow;
-    if (!frameWindow) {
-      forceReloadBoard();
-      return;
-    }
-    frameWindow.postMessage(
-      {
-        source: "tavla-host",
-        type: "request-soft-refresh",
-      },
-      window.location.origin,
-    );
-    if (roomSession) {
-      setLobbyNotice("Tahta senkronu yenilendi. Oyun kaldigi yerden devam eder.");
-    }
-  }
-
   function syncLobbyPresence(force = false) {
     writeLobby((current) => {
       const now = Date.now();
@@ -2279,6 +2261,10 @@ function App() {
   function watchTableAsSpectator(table: LobbyTable) {
     if (!table.white && !table.black) {
       setLobbyNotice("Bos masa izlenemez.");
+      return;
+    }
+    if (table.isPrivate) {
+      setLobbyNotice("Ozel masaya izleyici giremez. Sadece davetli oyuncu katilabilir.");
       return;
     }
     if (myCurrentSeat) {
@@ -5300,6 +5286,13 @@ function App() {
   }, [lobbyState.tables, currentProfile.userId]);
 
   useEffect(() => {
+    if (!roomSession || roomSession.role !== "spectator" || !currentRoomTable?.isPrivate) return;
+    setRoomSession(null);
+    setViewMode("lobby");
+    setLobbyNotice("Ozel masalara izleyici girisi kapali.");
+  }, [roomSession, currentRoomTable]);
+
+  useEffect(() => {
     if (!member && realtimeStatus === "online") {
       const myNo = lobbyState.guestLabels[guestId];
       if (!Number.isInteger(myNo) || myNo <= 0) return;
@@ -5528,7 +5521,7 @@ function App() {
                         : table.black?.sessionId === appSessionId
                           ? "black"
                           : null;
-                    const canWatchTable = !mySeatHere && !myCurrentSeat && Boolean(table.white || table.black);
+                    const canWatchTable = !table.isPrivate && !mySeatHere && !myCurrentSeat && Boolean(table.white || table.black);
                     const canAdminClose = isAdmin;
 
                     return (
@@ -5537,7 +5530,7 @@ function App() {
                           className="my-watch-eye-btn"
                           onClick={() => watchTableAsSpectator(table)}
                           disabled={!canWatchTable}
-                          title={canWatchTable ? "Masayi izleyici olarak ac" : "Izlemek icin masada oturmamalisin"}
+                          title={canWatchTable ? "Masayi izleyici olarak ac" : table.isPrivate ? "Ozel masalar izleyiciye kapali" : "Izlemek icin masada oturmamalisin"}
                           aria-label="Masayi izle"
                         >
                           👁
@@ -6236,9 +6229,6 @@ function App() {
                     ) : null}
                   </div>
                 ) : null}
-                <button className="my-action-btn" onClick={refreshBoard}>
-                  Tahtayi Yenile
-                </button>
                 <button className="my-action-btn soft" onClick={() => setViewMode("lobby")}>
                   Lobiye Don
                 </button>

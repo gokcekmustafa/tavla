@@ -1293,14 +1293,16 @@
 }
 
 .my-room-chat-compose .my-input {
-  min-height: 34px;
+  min-height: 30px;
+  font-size: 0.85rem;
   background: #f4f8fa;
   color: #143342;
 }
 
 .my-room-chat-compose .my-action-btn {
-  min-height: 34px;
-  min-width: 100px;
+  min-height: 30px;
+  min-width: 92px;
+  font-size: 0.8rem;
 }
 
 .my-room-chat-head h3 {
@@ -1308,17 +1310,19 @@
 }
 
 .my-room-chat-list {
-  max-height: 170px;
+  max-height: 205px;
   border-radius: 7px;
   border: 2px solid rgba(26, 131, 161, 0.72);
   background: linear-gradient(180deg, rgba(239, 246, 249, 0.98), rgba(225, 238, 244, 0.99));
-  padding: 7px;
+  padding: 6px;
 }
 
 .my-room-chat-list .my-chat-empty {
   border-color: rgba(53, 120, 144, 0.34);
   background: rgba(21, 103, 131, 0.1);
   color: #194a61;
+  font-size: 0.74rem;
+  padding: 7px 8px;
 }
 
 .my-room-chat-list .my-chat-row {
@@ -1328,6 +1332,7 @@
 
 .my-room-chat-list .my-chat-meta {
   color: #164e65;
+  font-size: 0.7rem;
 }
 
 .my-room-chat-list .my-chat-meta time {
@@ -1336,6 +1341,8 @@
 
 .my-room-chat-list .my-chat-row p {
   color: #1b4d63;
+  font-size: 0.78rem;
+  line-height: 1.24;
 }
 
 .my-room-start-overlay {
