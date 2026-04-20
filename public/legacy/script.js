@@ -107,6 +107,7 @@ let diceSpriteSheetPromise = null;
 let diceSpriteSheet = null;
 let matchToken = createMatchToken();
 let lastHostStateSignature = "";
+let hostActivityTick = 0;
 let tableChatRows = [];
 let roomStartGateActive = false;
 let roomStartGateBothSeated = true;
@@ -689,6 +690,7 @@ function sendRoomMessage(kind, payload) {
 
 function publishRoomSnapshot(reason) {
   if (!isRoomMode() || !roomChannel || isApplyingRemoteState) return;
+  bumpHostActivity();
   roomSyncCounter += 1;
   roomChannel.postMessage({
     kind: "snapshot",
@@ -760,6 +762,7 @@ function applyRoomSnapshot(snapshot) {
   if (winner) showWinnerPopup(winner);
   else hideWinnerPopup();
 
+  bumpHostActivity();
   render();
   maybeScheduleAutoRoll();
   isApplyingRemoteState = false;
@@ -937,6 +940,11 @@ function isMatchActive() {
   return moveLog.length > 1;
 }
 
+function bumpHostActivity() {
+  hostActivityTick = (hostActivityTick + 1) % 1000000000;
+  if (hostActivityTick <= 0) hostActivityTick = 1;
+}
+
 function emitHostState(force = false) {
   const payload = {
     source: "tavla-legacy",
@@ -945,6 +953,8 @@ function emitHostState(force = false) {
     matchActive: isMatchActive(),
     winner: winner || null,
     localColor: getLocalHumanColor(),
+    turn: currentPlayer,
+    activityTick: hostActivityTick,
     roomCode: roomParams.code || "",
     tableNo: roomParams.tableNo || 0,
   };
@@ -991,19 +1001,20 @@ function onHostMessage(event) {
     }
     return;
   }
-  if (data.type !== "request-resign") return;
+  if (data.type !== "request-resign" && data.type !== "request-timeout-win") return;
 
   const incomingToken = typeof data.matchToken === "string" ? data.matchToken.slice(0, 96) : "";
   if (incomingToken) {
     matchToken = incomingToken;
   }
+  const forceLocalWin = data.type === "request-timeout-win";
   const localColor = getLocalHumanColor();
   if (!localColor) return;
   if (winner || !isMatchActive()) return;
 
   clearPendingBotTimer();
   clearPendingAutoRollTimer();
-  winner = opponentOf(localColor);
+  winner = forceLocalWin ? localColor : opponentOf(localColor);
   hasRolled = false;
   remainingDice = [];
   availableMoves = [];
@@ -1012,10 +1023,17 @@ function onHostMessage(event) {
   pendingMoveChain = [];
   movesMadeThisTurn = 0;
   turnUndoSnapshot = null;
-  setStatus(`${playerText(localColor)} masadan kalkti. ${playerText(winner)} kazandi.`);
-  addLog(`${playerText(localColor)} masadan ayrildi.`);
+  if (forceLocalWin) {
+    const opponent = opponentOf(localColor);
+    setStatus(`${playerText(opponent)} 1 dakika hamle yapmadi. ${playerText(winner)} kazandi.`);
+    addLog(`${playerText(opponent)} sure asimi nedeniyle kaybetti.`);
+  } else {
+    setStatus(`${playerText(localColor)} masadan kalkti. ${playerText(winner)} kazandi.`);
+    addLog(`${playerText(localColor)} masadan ayrildi.`);
+  }
+  bumpHostActivity();
   showWinnerPopup(winner);
-  publishRoomSnapshot("host-resign");
+  publishRoomSnapshot(forceLocalWin ? "host-timeout-win" : "host-resign");
   render();
 }
 

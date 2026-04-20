@@ -164,6 +164,8 @@ type LegacyHostStateMessage = {
   matchActive: boolean;
   winner: Seat | null;
   localColor: Seat | null;
+  turn?: Seat | null;
+  activityTick?: number;
 };
 
 type LegacyMatchFinishedMessage = {
@@ -237,7 +239,7 @@ const LOBBY_SYNC_CHANNEL = "tavla.lobby.sync.v2";
 const REALTIME_LOBBY_CHANNEL = "tavla-global-lobby-v1";
 const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_LOBBY_NAME = "Lobi 1";
-const SEAT_STALE_MS = 25_000;
+const SEAT_STALE_MS = 365 * 24 * 60 * 60 * 1000;
 const PRESENCE_STALE_MS = 35_000;
 const HEARTBEAT_MS = 5_000;
 const DEFAULT_WIN_POINTS = 100;
@@ -251,6 +253,7 @@ const CHAT_TEXT_MAX = 180;
 const LOBBY_CHAT_LIMIT = 120;
 const TABLE_CHAT_LIMIT = 80;
 const LOBBY_CHAT_AUTO_SCROLL_THRESHOLD = 24;
+const OPPONENT_MOVE_TIMEOUT_MS = 60_000;
 const AVATAR_PRESETS: readonly AvatarPreset[] = [
   { id: "male_01", label: "Erkek Klasik", gender: "male" },
   { id: "male_02", label: "Erkek Sakalli", gender: "male" },
@@ -1553,6 +1556,33 @@ function App() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const lobbyChatListRef = useRef<HTMLDivElement | null>(null);
   const lobbyPrevChatCountRef = useRef(0);
+  const opponentIdleWatchRef = useRef<{
+    matchToken: string;
+    activityTick: number;
+    turn: Seat;
+    deadlineAt: number;
+  } | null>(null);
+  const opponentIdlePromptRef = useRef(false);
+  const latestLegacyStateRef = useRef<{
+    matchToken: string;
+    matchActive: boolean;
+    winner: Seat | null;
+    localColor: Seat | null;
+    turn: Seat | null;
+    activityTick: number;
+  }>({
+    matchToken: "",
+    matchActive: false,
+    winner: null,
+    localColor: null,
+    turn: null,
+    activityTick: 0,
+  });
+  const timeoutWinWaiverRef = useRef<{
+    tableCode: string;
+    matchToken: string;
+    userId: string;
+  } | null>(null);
 
   const safeGuestName = useMemo(() => {
     const memberName = member ? sanitizeGuestName(member.displayName) : "";
@@ -1842,6 +1872,11 @@ function App() {
     return sorted;
   }, [adminUsers, adminQuery, adminRoleFilter, adminSort]);
 
+  function clearOpponentIdleWatch() {
+    opponentIdleWatchRef.current = null;
+    opponentIdlePromptRef.current = false;
+  }
+
   function broadcastLobbySync() {
     lobbyChannelRef.current?.postMessage({ type: "lobby-sync", at: Date.now() });
   }
@@ -2060,6 +2095,8 @@ function App() {
   }
 
   function goToTable(table: LobbyTable, seat: Seat) {
+    clearOpponentIdleWatch();
+    timeoutWinWaiverRef.current = null;
     setMatchLiveState({
       matchToken: "",
       matchActive: false,
@@ -2094,6 +2131,8 @@ function App() {
       setLobbyNotice("Masada otururken izleyici moduna gecemezsin.");
       return;
     }
+    clearOpponentIdleWatch();
+    timeoutWinWaiverRef.current = null;
     setMatchLiveState({
       matchToken: "",
       matchActive: false,
@@ -2556,6 +2595,8 @@ function App() {
       releaseSeatOnly();
     }
     setRoomSession(null);
+    clearOpponentIdleWatch();
+    timeoutWinWaiverRef.current = null;
     setMode("bot");
     setCopied(false);
     setInvitePickerTableId(null);
@@ -3747,9 +3788,15 @@ function App() {
     const opponentSeat = roomSession.seat === "white" ? activeTable.black : activeTable.white;
     const myUserId = sanitizeGuestId(currentProfile.userId);
     const permissionGranted = Boolean(myUserId && activeTable.leavePermissionGrantedToUserId === myUserId);
+    const timeoutWaiver = Boolean(
+      myUserId
+      && timeoutWinWaiverRef.current
+      && timeoutWinWaiverRef.current.userId === myUserId
+      && timeoutWinWaiverRef.current.tableCode === activeTable.roomCode,
+    );
     const setComplete = isTableSeriesComplete(activeTable);
     const seriesStarted = Boolean(activeTable.startedAt || activeTable.setPlayed > 0 || matchLiveState.matchActive);
-    const shouldPenalize = Boolean(mySeat && opponentSeat && seriesStarted && !setComplete && !permissionGranted);
+    const shouldPenalize = Boolean(mySeat && opponentSeat && seriesStarted && !setComplete && !permissionGranted && !timeoutWaiver);
     return {
       opponentSeat,
       permissionGranted,
@@ -3885,6 +3932,8 @@ function App() {
     setCopied(false);
     setInvitePickerTableId(null);
     setViewMode("lobby");
+    clearOpponentIdleWatch();
+    timeoutWinWaiverRef.current = null;
     setMatchLiveState({
       matchToken: "",
       matchActive: false,
@@ -3904,6 +3953,31 @@ function App() {
       },
       window.location.origin,
     );
+  }
+
+  function sendTimeoutWinCommandToIframe(matchToken: string) {
+    if (!iframeRef.current?.contentWindow) return;
+    iframeRef.current.contentWindow.postMessage(
+      {
+        source: "tavla-host",
+        type: "request-timeout-win",
+        matchToken,
+      },
+      window.location.origin,
+    );
+  }
+
+  function claimTimeoutWinByInactivity(matchToken: string) {
+    if (!roomSession || roomSession.role !== "player") return;
+    if (!currentRoomTable) return;
+    const safeToken = sanitizeSeriesToken(matchToken) || `timeout-${Date.now().toString(36)}`;
+    sendTimeoutWinCommandToIframe(safeToken);
+    timeoutWinWaiverRef.current = {
+      tableCode: currentRoomTable.roomCode,
+      matchToken: safeToken,
+      userId: currentProfile.userId,
+    };
+    setLobbyNotice("Rakibin 1 dakika hamle yapmadigi icin galip sayildin.");
   }
 
   function syncTableChatToIframe(targetWindow?: Window | null) {
@@ -4393,6 +4467,54 @@ function App() {
         const winner = payload.winner === "white" || payload.winner === "black" ? payload.winner : null;
         const localColor = payload.localColor === "white" || payload.localColor === "black" ? payload.localColor : null;
         const matchToken = typeof payload.matchToken === "string" ? payload.matchToken : "";
+        const turn = payload.turn === "white" || payload.turn === "black" ? payload.turn : null;
+        const activityTick = Number.isFinite(payload.activityTick) ? Math.max(0, Math.trunc(Number(payload.activityTick))) : 0;
+
+        latestLegacyStateRef.current = {
+          matchToken,
+          matchActive: Boolean(payload.matchActive),
+          winner,
+          localColor,
+          turn,
+          activityTick,
+        };
+
+        const waitingForOpponent = Boolean(
+          roomSession
+          && roomSession.role === "player"
+          && mode === "local"
+          && matchToken
+          && localColor
+          && turn
+          && turn !== localColor
+          && !winner
+          && payload.matchActive,
+        );
+        if (!waitingForOpponent || !turn) {
+          clearOpponentIdleWatch();
+        } else {
+          const previous = opponentIdleWatchRef.current;
+          if (
+            !previous
+            || previous.matchToken !== matchToken
+            || previous.activityTick !== activityTick
+            || previous.turn !== turn
+          ) {
+            opponentIdleWatchRef.current = {
+              matchToken,
+              activityTick,
+              turn,
+              deadlineAt: Date.now() + OPPONENT_MOVE_TIMEOUT_MS,
+            };
+            opponentIdlePromptRef.current = false;
+          }
+        }
+
+        const timeoutWaiver = timeoutWinWaiverRef.current;
+        if (timeoutWaiver && (!roomSession || roomSession.code !== timeoutWaiver.tableCode || matchToken !== timeoutWaiver.matchToken)) {
+          timeoutWinWaiverRef.current = null;
+        }
+
         setMatchLiveState({
           matchToken,
           matchActive: Boolean(payload.matchActive),
@@ -4421,7 +4543,63 @@ function App() {
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [currentProfile.userId, currentProfile.displayName, handleLegacyMatchFinished, sendTableChat, syncTableChatToIframe]);
+  }, [currentProfile.userId, currentProfile.displayName, handleLegacyMatchFinished, sendTableChat, syncTableChatToIframe, roomSession, mode]);
+
+  useEffect(() => {
+    if (!roomSession || roomSession.role !== "player" || mode !== "local") {
+      clearOpponentIdleWatch();
+      return;
+    }
+    const timer = window.setInterval(() => {
+      const tracker = opponentIdleWatchRef.current;
+      if (!tracker) return;
+      if (opponentIdlePromptRef.current) return;
+
+      const latest = latestLegacyStateRef.current;
+      const waitingForOpponent = Boolean(
+        latest.matchActive
+        && !latest.winner
+        && latest.localColor
+        && latest.turn
+        && latest.turn !== latest.localColor,
+      );
+      if (!waitingForOpponent) {
+        clearOpponentIdleWatch();
+        return;
+      }
+      if (Date.now() < tracker.deadlineAt) return;
+
+      opponentIdlePromptRef.current = true;
+      const accepted = window.confirm(
+        "Rakibiniz 1 dakikadir hamle yapmiyor. Oyunu kazanmak istiyor musunuz?\nTamam: Kazan\nIptal: Beklemek istiyorum",
+      );
+      opponentIdlePromptRef.current = false;
+
+      const activeTracker = opponentIdleWatchRef.current;
+      const stillWaiting = latestLegacyStateRef.current.matchActive
+        && !latestLegacyStateRef.current.winner
+        && latestLegacyStateRef.current.localColor
+        && latestLegacyStateRef.current.turn
+        && latestLegacyStateRef.current.turn !== latestLegacyStateRef.current.localColor;
+      if (!activeTracker || !stillWaiting) {
+        clearOpponentIdleWatch();
+        return;
+      }
+
+      if (accepted) {
+        claimTimeoutWinByInactivity(activeTracker.matchToken || latestLegacyStateRef.current.matchToken);
+        clearOpponentIdleWatch();
+      } else {
+        opponentIdleWatchRef.current = {
+          ...activeTracker,
+          deadlineAt: Date.now() + OPPONENT_MOVE_TIMEOUT_MS,
+        };
+        setLobbyNotice("Bekleme istegin kaydedildi. Rakibe 1 dakika daha sure verildi.");
+      }
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [roomSession, mode, currentRoomTable?.roomCode, currentProfile.userId]);
 
   useEffect(() => {
     void refreshGameRules();
@@ -4789,6 +4967,8 @@ function App() {
         if (current.code !== roomCode || current.tableNo !== roomTableNo) return current;
         return null;
       });
+      clearOpponentIdleWatch();
+      timeoutWinWaiverRef.current = null;
       setViewMode("lobby");
       setMatchLiveState({
         matchToken: "",
