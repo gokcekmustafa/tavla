@@ -1387,17 +1387,15 @@ function mergeSeatState(
   preferBase: boolean,
 ) {
   if (base && !incoming) {
-    return incomingStateUpdatedAt >= base.touchedAt ? null : base;
+    if (incomingStateUpdatedAt - base.touchedAt > SEAT_STALE_MS) return null;
+    return base;
   }
   if (!base && incoming) {
-    return baseStateUpdatedAt >= incoming.touchedAt ? null : incoming;
+    if (baseStateUpdatedAt - incoming.touchedAt > SEAT_STALE_MS) return null;
+    return incoming;
   }
   if (!base && !incoming) return null;
   if (!base || !incoming) return null;
-  const sameIdentity = base.sessionId === incoming.sessionId && base.userId === incoming.userId;
-  if (!sameIdentity) {
-    return preferBase ? base : incoming;
-  }
   if (incoming.touchedAt === base.touchedAt) {
     return preferBase ? base : incoming;
   }
