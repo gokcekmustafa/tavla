@@ -116,6 +116,13 @@ type LobbyTable = {
   whiteReadyAt: number | null;
   blackReadyAt: number | null;
   startedAt: number | null;
+  setCount: number;
+  setPlayed: number;
+  setWhiteWins: number;
+  setBlackWins: number;
+  setResultTokens: string[];
+  leavePermissionRequestByUserId: string | null;
+  leavePermissionGrantedToUserId: string | null;
 };
 
 type LobbyState = {
@@ -236,6 +243,10 @@ const HEARTBEAT_MS = 5_000;
 const DEFAULT_WIN_POINTS = 100;
 const DEFAULT_LOSS_POINTS = 0;
 const DEFAULT_RESIGN_PENALTY_POINTS = 50;
+const DEFAULT_TABLE_SET_COUNT = 1;
+const MIN_TABLE_SET_COUNT = 1;
+const MAX_TABLE_SET_COUNT = 5;
+const TABLE_RESULT_TOKEN_LIMIT = 32;
 const CHAT_TEXT_MAX = 180;
 const LOBBY_CHAT_LIMIT = 120;
 const TABLE_CHAT_LIMIT = 80;
@@ -512,6 +523,67 @@ function pointsDeltaForOutcome(outcome: MatchOutcome, rules: GameRules) {
   return activeRules.lossPoints;
 }
 
+function normalizeTableSetCount(value: unknown, fallback = DEFAULT_TABLE_SET_COUNT) {
+  const safeFallback = Math.max(MIN_TABLE_SET_COUNT, Math.min(MAX_TABLE_SET_COUNT, Math.trunc(fallback)));
+  const num = Number(value);
+  if (!Number.isFinite(num)) return safeFallback;
+  const next = Math.trunc(num);
+  if (next < MIN_TABLE_SET_COUNT) return MIN_TABLE_SET_COUNT;
+  if (next > MAX_TABLE_SET_COUNT) return MAX_TABLE_SET_COUNT;
+  return next;
+}
+
+function sanitizeSeriesToken(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.replace(/[^a-zA-Z0-9:_-]/g, "").slice(0, 120);
+}
+
+function normalizeSeriesTokenList(raw: unknown) {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  raw.forEach((item) => {
+    const token = sanitizeSeriesToken(item);
+    if (!token || seen.has(token)) return;
+    seen.add(token);
+    out.push(token);
+  });
+  if (out.length <= TABLE_RESULT_TOKEN_LIMIT) return out;
+  return out.slice(out.length - TABLE_RESULT_TOKEN_LIMIT);
+}
+
+function resetTableSeriesProgress(table: LobbyTable): LobbyTable {
+  if (
+    table.setPlayed === 0
+    && table.setWhiteWins === 0
+    && table.setBlackWins === 0
+    && table.setResultTokens.length === 0
+    && !table.leavePermissionRequestByUserId
+    && !table.leavePermissionGrantedToUserId
+  ) {
+    return table;
+  }
+  return {
+    ...table,
+    setPlayed: 0,
+    setWhiteWins: 0,
+    setBlackWins: 0,
+    setResultTokens: [],
+    leavePermissionRequestByUserId: null,
+    leavePermissionGrantedToUserId: null,
+  };
+}
+
+function tableSeriesWinner(table: LobbyTable, tieBreakerWinner: Seat | null = null): Seat | null {
+  if (table.setWhiteWins > table.setBlackWins) return "white";
+  if (table.setBlackWins > table.setWhiteWins) return "black";
+  return tieBreakerWinner;
+}
+
+function isTableSeriesComplete(table: LobbyTable) {
+  return table.setPlayed >= table.setCount && table.setCount >= MIN_TABLE_SET_COUNT;
+}
+
 function normalizeNonNegativeInt(value: unknown, fallback = 0) {
   const num = Number(value);
   if (!Number.isFinite(num)) return fallback;
@@ -686,6 +758,53 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
     inviteNoticeText = "";
   }
 
+  const setCount = normalizeTableSetCount(table.setCount, DEFAULT_TABLE_SET_COUNT);
+  let setPlayed = normalizeNonNegativeInt(table.setPlayed, 0);
+  let setWhiteWins = normalizeNonNegativeInt(table.setWhiteWins, 0);
+  let setBlackWins = normalizeNonNegativeInt(table.setBlackWins, 0);
+  let setResultTokens = normalizeSeriesTokenList(table.setResultTokens);
+  let leavePermissionRequestByUserId = sanitizeGuestId(table.leavePermissionRequestByUserId ?? "");
+  let leavePermissionGrantedToUserId = sanitizeGuestId(table.leavePermissionGrantedToUserId ?? "");
+
+  if (!table.white || !table.black) {
+    setPlayed = 0;
+    setWhiteWins = 0;
+    setBlackWins = 0;
+    setResultTokens = [];
+    leavePermissionRequestByUserId = "";
+    leavePermissionGrantedToUserId = "";
+  }
+
+  const minPlayedFromWins = setWhiteWins + setBlackWins;
+  if (setPlayed < minPlayedFromWins) {
+    setPlayed = minPlayedFromWins;
+  }
+  if (setPlayed > setCount) {
+    setPlayed = setCount;
+  }
+  if (setWhiteWins > setPlayed) {
+    setWhiteWins = setPlayed;
+  }
+  if (setBlackWins > setPlayed) {
+    setBlackWins = setPlayed;
+  }
+  if (setPlayed === 0) {
+    setResultTokens = [];
+  }
+
+  if (leavePermissionRequestByUserId && !seatUsers.includes(leavePermissionRequestByUserId)) {
+    leavePermissionRequestByUserId = "";
+  }
+  if (leavePermissionGrantedToUserId && !seatUsers.includes(leavePermissionGrantedToUserId)) {
+    leavePermissionGrantedToUserId = "";
+  }
+  if (!leavePermissionRequestByUserId) {
+    leavePermissionGrantedToUserId = "";
+  }
+  if (leavePermissionGrantedToUserId && leavePermissionGrantedToUserId !== leavePermissionRequestByUserId) {
+    leavePermissionGrantedToUserId = "";
+  }
+
   const normalizedInvitedUserId = invitedUserId || null;
   const normalizedInvitedByUserId = invitedByUserId || null;
   const normalizedInviteNoticeId = inviteNoticeId || null;
@@ -702,6 +821,13 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
     && table.inviteNoticeId === normalizedInviteNoticeId
     && table.inviteNoticeForUserId === normalizedInviteNoticeForUserId
     && table.inviteNoticeText === normalizedInviteNoticeText
+    && table.setCount === setCount
+    && table.setPlayed === setPlayed
+    && table.setWhiteWins === setWhiteWins
+    && table.setBlackWins === setBlackWins
+    && JSON.stringify(table.setResultTokens) === JSON.stringify(setResultTokens)
+    && (table.leavePermissionRequestByUserId ?? null) === (leavePermissionRequestByUserId || null)
+    && (table.leavePermissionGrantedToUserId ?? null) === (leavePermissionGrantedToUserId || null)
   ) {
     return table;
   }
@@ -716,6 +842,13 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
     inviteNoticeId: normalizedInviteNoticeId,
     inviteNoticeForUserId: normalizedInviteNoticeForUserId,
     inviteNoticeText: normalizedInviteNoticeText,
+    setCount,
+    setPlayed,
+    setWhiteWins,
+    setBlackWins,
+    setResultTokens,
+    leavePermissionRequestByUserId: leavePermissionRequestByUserId || null,
+    leavePermissionGrantedToUserId: leavePermissionGrantedToUserId || null,
   };
 }
 
@@ -940,6 +1073,13 @@ function normalizeTable(raw: unknown, index: number): LobbyTable | null {
     whiteReadyAt: parseReadyStamp(candidate.whiteReadyAt),
     blackReadyAt: parseReadyStamp(candidate.blackReadyAt),
     startedAt: parseReadyStamp(candidate.startedAt),
+    setCount: normalizeTableSetCount(candidate.setCount, DEFAULT_TABLE_SET_COUNT),
+    setPlayed: normalizeNonNegativeInt(candidate.setPlayed, 0),
+    setWhiteWins: normalizeNonNegativeInt(candidate.setWhiteWins, 0),
+    setBlackWins: normalizeNonNegativeInt(candidate.setBlackWins, 0),
+    setResultTokens: normalizeSeriesTokenList(candidate.setResultTokens),
+    leavePermissionRequestByUserId: sanitizeGuestId(candidate.leavePermissionRequestByUserId ?? "") || null,
+    leavePermissionGrantedToUserId: sanitizeGuestId(candidate.leavePermissionGrantedToUserId ?? "") || null,
   };
   return normalizeTableAccess(normalizeTableStartGate(table));
 }
@@ -962,7 +1102,7 @@ function cleanupStaleAndPrune(tables: LobbyTable[]): CleanupResult {
     let nextTable: LobbyTable = { ...table, white, black };
     if (white !== table.white || black !== table.black) {
       changed = true;
-      nextTable = resetTableStartGate(nextTable);
+      nextTable = resetTableSeriesProgress(resetTableStartGate(nextTable));
     }
     const normalizedGate = normalizeTableStartGate(nextTable);
     if (normalizedGate !== nextTable) changed = true;
@@ -1143,11 +1283,11 @@ function clearSessionFromTables(tables: LobbyTable[], sessionId: string): { tabl
     if (!whiteOwned && !blackOwned) return table;
     changed = true;
     return normalizeTableAccess(
-      resetTableStartGate({
+      resetTableSeriesProgress(resetTableStartGate({
         ...table,
         white: whiteOwned ? null : table.white,
         black: blackOwned ? null : table.black,
-      }),
+      })),
     );
   });
   return { tables: next, changed };
@@ -1240,6 +1380,22 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
       whiteReadyAt: mergeReadyStamp(existing.whiteReadyAt, table.whiteReadyAt),
       blackReadyAt: mergeReadyStamp(existing.blackReadyAt, table.blackReadyAt),
       startedAt: mergeReadyStamp(existing.startedAt, table.startedAt),
+      setCount: normalizeTableSetCount(preferred.setCount ?? fallback.setCount, DEFAULT_TABLE_SET_COUNT),
+      setPlayed: Math.max(normalizeNonNegativeInt(existing.setPlayed, 0), normalizeNonNegativeInt(table.setPlayed, 0)),
+      setWhiteWins: Math.max(normalizeNonNegativeInt(existing.setWhiteWins, 0), normalizeNonNegativeInt(table.setWhiteWins, 0)),
+      setBlackWins: Math.max(normalizeNonNegativeInt(existing.setBlackWins, 0), normalizeNonNegativeInt(table.setBlackWins, 0)),
+      setResultTokens: normalizeSeriesTokenList([
+        ...normalizeSeriesTokenList(existing.setResultTokens),
+        ...normalizeSeriesTokenList(table.setResultTokens),
+      ]),
+      leavePermissionRequestByUserId:
+        sanitizeGuestId(preferred.leavePermissionRequestByUserId ?? "")
+        || sanitizeGuestId(fallback.leavePermissionRequestByUserId ?? "")
+        || null,
+      leavePermissionGrantedToUserId:
+        sanitizeGuestId(preferred.leavePermissionGrantedToUserId ?? "")
+        || sanitizeGuestId(fallback.leavePermissionGrantedToUserId ?? "")
+        || null,
     };
     mergedTables.set(key, normalizeTableAccess(normalizeTableStartGate(mergedTable)));
   });
@@ -1568,6 +1724,59 @@ function App() {
     if (matchLiveState.matchActive) return false;
     return true;
   }, [roomSession, currentRoomTable, currentRoomIsOwner, roomStartState?.started, matchLiveState.matchActive]);
+
+  const canEditCurrentRoomSetCount = useMemo(() => {
+    if (!roomSession || roomSession.role !== "player") return false;
+    if (!currentRoomTable || !currentRoomIsOwner) return false;
+    if (matchLiveState.matchActive) return false;
+    return !currentRoomTable.startedAt && currentRoomTable.setPlayed === 0;
+  }, [roomSession, currentRoomTable, currentRoomIsOwner, matchLiveState.matchActive]);
+
+  const leavePermissionState = useMemo(() => {
+    if (!roomSession || roomSession.role !== "player" || !currentRoomTable) {
+      return {
+        flowActive: false,
+        hasOpponent: false,
+        myRequestPending: false,
+        opponentRequestPending: false,
+        grantedToMe: false,
+        grantedToOpponent: false,
+        canRequest: false,
+        canApprove: false,
+      };
+    }
+    const mySeat = roomSession.seat === "white" ? currentRoomTable.white : currentRoomTable.black;
+    const opponentSeat = roomSession.seat === "white" ? currentRoomTable.black : currentRoomTable.white;
+    const myUserId = sanitizeGuestId(currentProfile.userId);
+    const opponentUserId = sanitizeGuestId(opponentSeat?.userId ?? "");
+    const requestByUserId = sanitizeGuestId(currentRoomTable.leavePermissionRequestByUserId ?? "");
+    const grantedToUserId = sanitizeGuestId(currentRoomTable.leavePermissionGrantedToUserId ?? "");
+
+    const hasOpponent = Boolean(opponentSeat && opponentUserId);
+    const seriesStarted = Boolean(currentRoomTable.startedAt || currentRoomTable.setPlayed > 0 || matchLiveState.matchActive);
+    const seriesComplete = isTableSeriesComplete(currentRoomTable);
+    const flowActive = Boolean(mySeat && hasOpponent && seriesStarted && !seriesComplete);
+
+    const myRequestPending = Boolean(flowActive && myUserId && requestByUserId === myUserId && grantedToUserId !== myUserId);
+    const opponentRequestPending = Boolean(
+      flowActive && opponentUserId && requestByUserId === opponentUserId && grantedToUserId !== opponentUserId,
+    );
+    const grantedToMe = Boolean(flowActive && myUserId && grantedToUserId === myUserId);
+    const grantedToOpponent = Boolean(flowActive && opponentUserId && grantedToUserId === opponentUserId);
+    const canRequest = Boolean(flowActive && !myRequestPending && !opponentRequestPending && !grantedToMe);
+    const canApprove = Boolean(flowActive && opponentRequestPending && !grantedToOpponent);
+
+    return {
+      flowActive,
+      hasOpponent,
+      myRequestPending,
+      opponentRequestPending,
+      grantedToMe,
+      grantedToOpponent,
+      canRequest,
+      canApprove,
+    };
+  }, [roomSession, currentRoomTable, currentProfile.userId, matchLiveState.matchActive]);
 
   const currentRoomHasOpenSeat = useMemo(() => Boolean(currentRoomTable && getOpenSeat(currentRoomTable)), [currentRoomTable]);
 
@@ -1940,6 +2149,13 @@ function App() {
           whiteReadyAt: null,
           blackReadyAt: null,
           startedAt: null,
+          setCount: DEFAULT_TABLE_SET_COUNT,
+          setPlayed: 0,
+          setWhiteWins: 0,
+          setBlackWins: 0,
+          setResultTokens: [],
+          leavePermissionRequestByUserId: null,
+          leavePermissionGrantedToUserId: null,
         };
         tables.push(table);
         index = tables.length - 1;
@@ -2135,6 +2351,11 @@ function App() {
           ? { ...table, white: refreshedSeat }
           : { ...table, black: refreshedSeat };
       }
+
+      if (!table.startedAt) {
+        table = resetTableSeriesProgress(table);
+      }
+
       const mineReadyAt = roomSession.seat === "white" ? table.whiteReadyAt : table.blackReadyAt;
       const opponentReadyAt = roomSession.seat === "white" ? table.blackReadyAt : table.whiteReadyAt;
 
@@ -2270,15 +2491,14 @@ function App() {
 
   async function leaveRoomAndGoLobby() {
     let penalized = false;
+    let leftWithPermission = false;
     let penaltyWaivedBecauseOpponentLeft = false;
-    if (roomSession && roomSession.role === "player" && matchLiveState.matchActive && !matchLiveState.winner) {
+    if (roomSession && roomSession.role === "player") {
       const activeTable = getActiveRoomTable();
-      const opponentSeat = activeTable
-        ? (roomSession.seat === "white" ? activeTable.black : activeTable.white)
-        : null;
-      if (opponentSeat) {
+      const leaveContext = resolveLeavePenaltyContext(activeTable);
+      if (leaveContext.shouldPenalize && leaveContext.opponentSeat) {
         const confirmed = window.confirm(
-          `Oyun basladi. Masadan kalkarsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Rakibin galip sayilip ${gameRules.winPoints} puan kazanir. Devam etmek istiyor musun?`,
+          `Set serisi tamamlanmadan masadan kalkarsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Rakibin galip sayilip ${gameRules.winPoints} puan kazanir. Devam etmek istiyor musun?`,
         );
         if (!confirmed) return;
         const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
@@ -2286,14 +2506,20 @@ function App() {
         await awardResignResult(token);
         sendResignCommandToIframe(token);
         penalized = true;
+      } else if (leaveContext.permissionGranted) {
+        leftWithPermission = true;
       } else {
-        penaltyWaivedBecauseOpponentLeft = true;
+        penaltyWaivedBecauseOpponentLeft = Boolean(leaveContext.opponentSeat === null);
       }
     }
 
     closeRoomAndReturnLobby();
     if (penalized) {
       setLobbyNotice(`Masadan ayrildin: -${gameRules.resignPenaltyPoints} puan. Rakibin +${gameRules.winPoints} puan kazandi.`);
+      return;
+    }
+    if (leftWithPermission) {
+      setLobbyNotice("Rakibin izin verdigi icin puan kaybetmeden masadan ayrildin.");
       return;
     }
     if (penaltyWaivedBecauseOpponentLeft) {
@@ -2305,16 +2531,15 @@ function App() {
 
   async function startBotGame() {
     let penalized = false;
+    let leftWithPermission = false;
     let penaltyWaivedBecauseOpponentLeft = false;
     if (roomSession) {
-      if (roomSession.role === "player" && matchLiveState.matchActive && !matchLiveState.winner) {
+      if (roomSession.role === "player") {
         const activeTable = getActiveRoomTable();
-        const opponentSeat = activeTable
-          ? (roomSession.seat === "white" ? activeTable.black : activeTable.white)
-          : null;
-        if (opponentSeat) {
+        const leaveContext = resolveLeavePenaltyContext(activeTable);
+        if (leaveContext.shouldPenalize && leaveContext.opponentSeat) {
           const confirmed = window.confirm(
-            `Devam eden masadan ayrilirsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Bot moduna gecmek istiyor musun?`,
+            `Set serisi tamamlanmadan masadan ayrilirsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Bot moduna gecmek istiyor musun?`,
           );
           if (!confirmed) return;
           const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
@@ -2322,8 +2547,10 @@ function App() {
           await awardResignResult(token);
           sendResignCommandToIframe(token);
           penalized = true;
+        } else if (leaveContext.permissionGranted) {
+          leftWithPermission = true;
         } else {
-          penaltyWaivedBecauseOpponentLeft = true;
+          penaltyWaivedBecauseOpponentLeft = Boolean(leaveContext.opponentSeat === null);
         }
       }
       releaseSeatOnly();
@@ -2334,6 +2561,8 @@ function App() {
     setInvitePickerTableId(null);
     if (penalized) {
       setLobbyNotice(`Bot modu aktif. Masadan ayrildigin icin -${gameRules.resignPenaltyPoints} puan uygulandi.`);
+    } else if (leftWithPermission) {
+      setLobbyNotice("Bot modu aktif. Rakip izin verdigi icin puan kesilmedi.");
     } else if (penaltyWaivedBecauseOpponentLeft) {
       setLobbyNotice("Bot modu aktif. Rakip masadan ayrildigi icin ceza uygulanmadi.");
     } else {
@@ -3299,6 +3528,341 @@ function App() {
     return current.tables.find((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code) ?? null;
   }
 
+  function setTableSetCount(tableId: number, nextSetCount: number) {
+    const safeSetCount = normalizeTableSetCount(nextSetCount, DEFAULT_TABLE_SET_COUNT);
+    let tableMissing = false;
+    let notOwner = false;
+    let locked = false;
+    let updated = false;
+
+    writeLobby((current) => {
+      const cleaned = cleanupStaleAndPrune(current.tables).tables;
+      const tables = [...cleaned];
+      const index = tables.findIndex((table) => table.id === tableId);
+      if (index < 0) {
+        tableMissing = true;
+        return current;
+      }
+      let table = tables[index];
+      if (!isTableOwnerForUser(table, currentProfile.userId)) {
+        notOwner = true;
+        return current;
+      }
+      if (table.startedAt || table.setPlayed > 0 || table.setWhiteWins > 0 || table.setBlackWins > 0) {
+        locked = true;
+        return current;
+      }
+      if (table.setCount === safeSetCount) {
+        return current;
+      }
+      table = normalizeTableAccess({
+        ...table,
+        setCount: safeSetCount,
+      });
+      tables[index] = table;
+      updated = true;
+      return {
+        ...current,
+        tables: sortTables(tables),
+        updatedAt: Date.now(),
+      };
+    });
+
+    if (tableMissing) {
+      setLobbyNotice("Masa bulunamadi.");
+      return;
+    }
+    if (notOwner) {
+      setLobbyNotice("Set sayisini sadece masa sahibi belirleyebilir.");
+      return;
+    }
+    if (locked) {
+      setLobbyNotice("Set sayisi sadece seri baslamadan degistirilebilir.");
+      return;
+    }
+    if (updated) {
+      setLobbyNotice(`Masa set sayisi ${safeSetCount} olarak ayarlandi.`);
+    }
+  }
+
+  function requestLeaveWithoutPenalty() {
+    if (!roomSession || roomSession.role !== "player") return;
+    if (!currentRoomTable) return;
+    const requesterUserId = sanitizeGuestId(currentProfile.userId);
+    if (!requesterUserId) return;
+    let tableMissing = false;
+    let notSeated = false;
+    let noOpponent = false;
+    let alreadyRequested = false;
+    let alreadyGranted = false;
+    let updated = false;
+
+    writeLobby((current) => {
+      const cleaned = cleanupStaleAndPrune(current.tables).tables;
+      const tables = [...cleaned];
+      const index = tables.findIndex((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code);
+      if (index < 0) {
+        tableMissing = true;
+        return current;
+      }
+      const table = tables[index];
+      const mySeat = roomSession.seat === "white" ? table.white : table.black;
+      const opponentSeat = roomSession.seat === "white" ? table.black : table.white;
+      if (!mySeat || sanitizeGuestId(mySeat.userId) !== requesterUserId) {
+        notSeated = true;
+        return current;
+      }
+      if (!opponentSeat) {
+        noOpponent = true;
+        return current;
+      }
+      if (table.leavePermissionGrantedToUserId === requesterUserId) {
+        alreadyGranted = true;
+        return current;
+      }
+      if (table.leavePermissionRequestByUserId === requesterUserId) {
+        alreadyRequested = true;
+        return current;
+      }
+      tables[index] = normalizeTableAccess({
+        ...table,
+        leavePermissionRequestByUserId: requesterUserId,
+        leavePermissionGrantedToUserId: null,
+      });
+      updated = true;
+      return {
+        ...current,
+        tables: sortTables(tables),
+        updatedAt: Date.now(),
+      };
+    });
+
+    if (tableMissing) {
+      setLobbyNotice("Masa bulunamadi.");
+      return;
+    }
+    if (notSeated) {
+      setLobbyNotice("Bu istegi gonderebilmek icin masada oturuyor olmalisin.");
+      return;
+    }
+    if (noOpponent) {
+      setLobbyNotice("Rakip olmadigi icin izin istemene gerek yok.");
+      return;
+    }
+    if (alreadyGranted) {
+      setLobbyNotice("Rakibin zaten puansiz ayrilma izni verdi.");
+      return;
+    }
+    if (alreadyRequested) {
+      setLobbyNotice("Izin talebin rakibe gonderildi, cevap bekleniyor.");
+      return;
+    }
+    if (updated) {
+      setLobbyNotice("Rakibe puansiz ayrilma izni talebi gonderildi.");
+    }
+  }
+
+  function approveLeaveWithoutPenalty() {
+    if (!roomSession || roomSession.role !== "player") return;
+    const approverUserId = sanitizeGuestId(currentProfile.userId);
+    if (!approverUserId) return;
+    let tableMissing = false;
+    let noRequest = false;
+    let cannotApproveOwnRequest = false;
+    let notOpponent = false;
+    let updated = false;
+    let requesterName = "Rakip";
+
+    writeLobby((current) => {
+      const cleaned = cleanupStaleAndPrune(current.tables).tables;
+      const tables = [...cleaned];
+      const index = tables.findIndex((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code);
+      if (index < 0) {
+        tableMissing = true;
+        return current;
+      }
+      const table = tables[index];
+      const mySeat = roomSession.seat === "white" ? table.white : table.black;
+      const opponentSeat = roomSession.seat === "white" ? table.black : table.white;
+      if (!mySeat || sanitizeGuestId(mySeat.userId) !== approverUserId) {
+        notOpponent = true;
+        return current;
+      }
+      const requestUserId = sanitizeGuestId(table.leavePermissionRequestByUserId ?? "");
+      if (!requestUserId) {
+        noRequest = true;
+        return current;
+      }
+      if (requestUserId === approverUserId) {
+        cannotApproveOwnRequest = true;
+        return current;
+      }
+      if (!opponentSeat || sanitizeGuestId(opponentSeat.userId) !== requestUserId) {
+        notOpponent = true;
+        return current;
+      }
+      requesterName = opponentSeat.displayName || "Rakip";
+      tables[index] = normalizeTableAccess({
+        ...table,
+        leavePermissionGrantedToUserId: requestUserId,
+      });
+      updated = true;
+      return {
+        ...current,
+        tables: sortTables(tables),
+        updatedAt: Date.now(),
+      };
+    });
+
+    if (tableMissing) {
+      setLobbyNotice("Masa bulunamadi.");
+      return;
+    }
+    if (noRequest) {
+      setLobbyNotice("Bekleyen izin talebi yok.");
+      return;
+    }
+    if (cannotApproveOwnRequest) {
+      setLobbyNotice("Kendi izin talebini onaylayamazsin.");
+      return;
+    }
+    if (notOpponent) {
+      setLobbyNotice("Sadece rakip oyuncunun talebini onaylayabilirsin.");
+      return;
+    }
+    if (updated) {
+      setLobbyNotice(`${requesterName} oyuncusuna puansiz ayrilma izni verildi.`);
+    }
+  }
+
+  function resolveLeavePenaltyContext(activeTable: LobbyTable | null) {
+    if (!roomSession || roomSession.role !== "player" || !activeTable) {
+      return {
+        opponentSeat: null as LobbySeatState | null,
+        permissionGranted: false,
+        shouldPenalize: false,
+      };
+    }
+    const mySeat = roomSession.seat === "white" ? activeTable.white : activeTable.black;
+    const opponentSeat = roomSession.seat === "white" ? activeTable.black : activeTable.white;
+    const myUserId = sanitizeGuestId(currentProfile.userId);
+    const permissionGranted = Boolean(myUserId && activeTable.leavePermissionGrantedToUserId === myUserId);
+    const setComplete = isTableSeriesComplete(activeTable);
+    const seriesStarted = Boolean(activeTable.startedAt || activeTable.setPlayed > 0 || matchLiveState.matchActive);
+    const shouldPenalize = Boolean(mySeat && opponentSeat && seriesStarted && !setComplete && !permissionGranted);
+    return {
+      opponentSeat,
+      permissionGranted,
+      shouldPenalize,
+    };
+  }
+
+  async function recordSeriesGameResult(token: string, winner: Seat) {
+    if (!roomSession || roomSession.role !== "player") {
+      return null;
+    }
+    const safeToken = sanitizeSeriesToken(token);
+    if (!safeToken) return null;
+
+    let tableMissing = false;
+    let duplicate = false;
+    let seriesCompleted = false;
+    let seriesWinnerSeat: Seat | null = null;
+    let nextPlayed = 0;
+    let nextWhiteWins = 0;
+    let nextBlackWins = 0;
+    let nextSetCount = DEFAULT_TABLE_SET_COUNT;
+    let settleToken = "";
+
+    writeLobby((current) => {
+      const cleaned = cleanupStaleAndPrune(current.tables).tables;
+      const tables = [...cleaned];
+      const index = tables.findIndex((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code);
+      if (index < 0) {
+        tableMissing = true;
+        return current;
+      }
+      let table = tables[index];
+      if (!table.white || !table.black) {
+        tableMissing = true;
+        return current;
+      }
+      if (table.setResultTokens.includes(safeToken)) {
+        duplicate = true;
+        nextPlayed = table.setPlayed;
+        nextWhiteWins = table.setWhiteWins;
+        nextBlackWins = table.setBlackWins;
+        nextSetCount = table.setCount;
+        seriesCompleted = isTableSeriesComplete(table);
+        seriesWinnerSeat = tableSeriesWinner(table, winner);
+        settleToken = `series-${table.roomCode}-${table.setCount}-${table.setPlayed}-${table.setWhiteWins}-${table.setBlackWins}-${safeToken}`;
+        return current;
+      }
+
+      const setCount = normalizeTableSetCount(table.setCount, DEFAULT_TABLE_SET_COUNT);
+      const setPlayed = Math.min(setCount, normalizeNonNegativeInt(table.setPlayed, 0) + 1);
+      const setWhiteWins = Math.min(setPlayed, normalizeNonNegativeInt(table.setWhiteWins, 0) + (winner === "white" ? 1 : 0));
+      const setBlackWins = Math.min(setPlayed, normalizeNonNegativeInt(table.setBlackWins, 0) + (winner === "black" ? 1 : 0));
+      const setResultTokens = normalizeSeriesTokenList([...table.setResultTokens, safeToken]);
+      const completed = setPlayed >= setCount;
+      const winnerSeat = tableSeriesWinner(
+        {
+          ...table,
+          setCount,
+          setPlayed,
+          setWhiteWins,
+          setBlackWins,
+          setResultTokens,
+        },
+        winner,
+      );
+
+      table = {
+        ...table,
+        setCount,
+        setPlayed,
+        setWhiteWins,
+        setBlackWins,
+        setResultTokens,
+      };
+
+      if (completed) {
+        table = resetTableStartGate({
+          ...table,
+          leavePermissionRequestByUserId: null,
+          leavePermissionGrantedToUserId: null,
+        });
+      }
+
+      table = normalizeTableAccess(table);
+      tables[index] = table;
+      nextPlayed = table.setPlayed;
+      nextWhiteWins = table.setWhiteWins;
+      nextBlackWins = table.setBlackWins;
+      nextSetCount = table.setCount;
+      seriesCompleted = completed;
+      seriesWinnerSeat = winnerSeat;
+      settleToken = `series-${table.roomCode}-${table.setCount}-${table.setPlayed}-${table.setWhiteWins}-${table.setBlackWins}-${safeToken}`;
+      return {
+        ...current,
+        tables: sortTables(tables),
+        updatedAt: Date.now(),
+      };
+    });
+
+    if (tableMissing) return null;
+    return {
+      duplicate,
+      completed: seriesCompleted,
+      winnerSeat: seriesWinnerSeat,
+      setCount: nextSetCount,
+      setPlayed: nextPlayed,
+      whiteWins: nextWhiteWins,
+      blackWins: nextBlackWins,
+      settleToken,
+    };
+  }
+
   async function awardResignResult(matchToken: string) {
     if (!roomSession) return;
     const table = getActiveRoomTable();
@@ -3476,6 +4040,13 @@ function App() {
           whiteReadyAt: null,
           blackReadyAt: null,
           startedAt: null,
+          setCount: DEFAULT_TABLE_SET_COUNT,
+          setPlayed: 0,
+          setWhiteWins: 0,
+          setBlackWins: 0,
+          setResultTokens: [],
+          leavePermissionRequestByUserId: null,
+          leavePermissionGrantedToUserId: null,
         };
         tables.push(table);
         index = tables.length - 1;
@@ -3622,18 +4193,53 @@ function App() {
       processedMatchTokensRef.current.add(dedupeKey);
     }
 
-    const localOutcome: MatchOutcome =
-      message.reason === "resign" && loser === localColor
-        ? "resign"
-        : winner === localColor
-          ? "win"
-          : "loss";
+    if (!roomSession || roomSession.role !== "player") {
+      const localOutcome: MatchOutcome =
+        message.reason === "resign" && loser === localColor
+          ? "resign"
+          : winner === localColor
+            ? "win"
+            : "loss";
+      await applyOutcomeForUserId(currentProfile.userId, localOutcome, currentProfile.displayName, token);
+      if (localOutcome === "win") {
+        setLobbyNotice(`Oyunu kazandin. +${gameRules.winPoints} puan eklendi.`);
+      } else if (localOutcome === "resign") {
+        setLobbyNotice(`Masadan kalktin. ${gameRules.resignPenaltyPoints} puan dusuldu.`);
+      } else {
+        setLobbyNotice(
+          `Oyunu kaybettin. ${gameRules.lossPoints >= 0 ? `+${gameRules.lossPoints}` : gameRules.lossPoints} puan uygulandi.`,
+        );
+      }
+      return;
+    }
 
-    await applyOutcomeForUserId(currentProfile.userId, localOutcome, currentProfile.displayName, token);
+    if (message.reason === "resign") {
+      return;
+    }
+
+    const seriesResult = await recordSeriesGameResult(token, winner);
+    if (!seriesResult || seriesResult.duplicate) {
+      return;
+    }
+
+    if (!seriesResult.completed) {
+      setLobbyNotice(
+        `Set sonucu kaydedildi. Seri: ${seriesResult.whiteWins}-${seriesResult.blackWins} (${seriesResult.setPlayed}/${seriesResult.setCount}).`,
+      );
+      return;
+    }
+
+    const winnerSeat = seriesResult.winnerSeat ?? winner;
+    const localOutcome: MatchOutcome = winnerSeat === localColor ? "win" : "loss";
+    await applyOutcomeForUserId(currentProfile.userId, localOutcome, currentProfile.displayName, seriesResult.settleToken || token);
     if (localOutcome === "win") {
-      setLobbyNotice(`Oyunu kazandin. +${gameRules.winPoints} puan eklendi.`);
-    } else if (localOutcome === "resign") {
-      setLobbyNotice(`Masadan kalktin. ${gameRules.resignPenaltyPoints} puan dusuldu.`);
+      setLobbyNotice(
+        `Set serisini kazandin (${seriesResult.whiteWins}-${seriesResult.blackWins}). +${gameRules.winPoints} puan eklendi.`,
+      );
+    } else {
+      setLobbyNotice(
+        `Set serisini kaybettin (${seriesResult.whiteWins}-${seriesResult.blackWins}). ${gameRules.lossPoints >= 0 ? `+${gameRules.lossPoints}` : gameRules.lossPoints} puan uygulandi.`,
+      );
     }
   }
 
@@ -5032,6 +5638,37 @@ function App() {
                     Sahip: <code>{currentRoomIsOwner ? "Sen" : "Diger Oyuncu"}</code>
                     {currentRoomTable?.isPrivate ? " / Ozel Masa" : ""}
                   </p>
+                  {currentRoomTable ? (
+                    <>
+                      <p className="line">
+                        Set Sayisi: <code>{currentRoomTable.setCount}</code>
+                      </p>
+                      <p className="line">
+                        Seri Skoru: <code>{currentRoomTable.setWhiteWins} - {currentRoomTable.setBlackWins}</code>
+                        {" "}(<code>{currentRoomTable.setPlayed}/{currentRoomTable.setCount}</code>)
+                      </p>
+                    </>
+                  ) : null}
+                  {currentRoomTable && currentRoomIsOwner ? (
+                    <>
+                      <p className="line">Masa Set Secimi (1-5)</p>
+                      <div className="my-seat-toggle">
+                        {[1, 2, 3, 4, 5].map((setNo) => (
+                          <button
+                            key={setNo}
+                            className={`my-seat-btn ${currentRoomTable.setCount === setNo ? "active" : ""}`}
+                            onClick={() => setTableSetCount(currentRoomTable.id, setNo)}
+                            disabled={!canEditCurrentRoomSetCount}
+                          >
+                            {setNo}
+                          </button>
+                        ))}
+                      </div>
+                      {!canEditCurrentRoomSetCount ? (
+                        <p className="line">Set sayisi seri baslamadan once ayarlanabilir.</p>
+                      ) : null}
+                    </>
+                  ) : null}
                   {roomStartState ? (
                     <>
                       <p className="line">
@@ -5074,6 +5711,32 @@ function App() {
                       <button className="my-action-btn" onClick={onCopyInvite} disabled={!canCopyInviteLink}>
                         {copied ? "Kopyalandi" : "Davet Linki Kopyala"}
                       </button>
+                    </>
+                  ) : null}
+                  {roomSession.role === "player" && leavePermissionState.flowActive ? (
+                    <>
+                      <button
+                        className="my-action-btn soft"
+                        onClick={requestLeaveWithoutPenalty}
+                        disabled={!leavePermissionState.canRequest}
+                      >
+                        {leavePermissionState.grantedToMe
+                          ? "Izin Verildi"
+                          : leavePermissionState.myRequestPending
+                            ? "Izin Talebin Gonderildi"
+                            : "Puansiz Ayrilma Izin Iste"}
+                      </button>
+                      {leavePermissionState.canApprove ? (
+                        <button className="my-action-btn soft" onClick={approveLeaveWithoutPenalty}>
+                          Izin Veriyorum
+                        </button>
+                      ) : null}
+                      {leavePermissionState.grantedToMe ? (
+                        <p className="line">Rakibin puansiz ayrilmana izin verdi.</p>
+                      ) : null}
+                      {leavePermissionState.grantedToOpponent ? (
+                        <p className="line">Rakibine puansiz ayrilma izni verdin.</p>
+                      ) : null}
                     </>
                   ) : null}
                   <button className="my-action-btn danger" onClick={leaveRoomAndGoLobby}>
