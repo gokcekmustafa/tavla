@@ -323,7 +323,7 @@
 }
 
 .my-chat-list-lobby {
-  max-height: 170px;
+  max-height: 194px;
   border-radius: 7px;
   border: 2px solid rgba(26, 131, 161, 0.74);
   background: linear-gradient(180deg, rgba(239, 246, 249, 0.96), rgba(225, 238, 244, 0.98));
@@ -358,6 +358,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.my-chat-head.my-chat-head-no-title {
+  justify-content: flex-end;
 }
 
 .my-chat-head h3 {
@@ -1315,7 +1319,7 @@
 }
 
 .my-room-chat-list {
-  max-height: 234px;
+  max-height: 258px;
   border-radius: 7px;
   border: 2px solid rgba(26, 131, 161, 0.72);
   background: linear-gradient(180deg, rgba(239, 246, 249, 0.98), rgba(225, 238, 244, 0.99));

@@ -735,9 +735,13 @@ function isTableOwnerForUser(table: LobbyTable | null | undefined, userId: strin
 
 function isTablePrivateBlockedForUser(table: LobbyTable, userId: string, sessionId: string) {
   if (!table.isPrivate) return false;
+  if (table.white?.sessionId === sessionId || table.black?.sessionId === sessionId) return false;
   const safeUserId = sanitizeGuestId(userId);
   if (!safeUserId) return true;
-  if (table.white?.sessionId === sessionId || table.black?.sessionId === sessionId) return false;
+  const ownerUserId = sanitizeGuestId(table.ownerUserId ?? "");
+  if (ownerUserId && safeUserId === ownerUserId) return false;
+  const invitedUserId = sanitizeGuestId(table.invitedUserId ?? "");
+  if (invitedUserId && safeUserId === invitedUserId) return false;
   return true;
 }
 
@@ -765,8 +769,7 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
   let inviteNoticeText = sanitizeChatText(table.inviteNoticeText ?? "");
 
   if (ownerChanged) {
-    // Masa sahibi devrolunca eski davet ve ozel kilitleri temizle.
-    isPrivate = false;
+    // Masa sahibi degisirse davet kaydini temizle ama ozel kilidi koru.
     invitedUserId = "";
     invitedByUserId = "";
     inviteNoticeId = "";
@@ -5621,8 +5624,7 @@ function App() {
                 </button>
               </div>
 
-              <div className="my-chat-head">
-                <h3>Lobi Sohbeti</h3>
+              <div className="my-chat-head my-chat-head-no-title">
                 <div className="my-chat-head-actions">
                   <span>{lobbyChatRows.length} mesaj</span>
                   {!lobbyChatAutoScroll || lobbyChatUnread > 0 ? (
