@@ -1786,8 +1786,15 @@ function App() {
       && (currentRoomTable.black.sessionId === appSessionId || currentRoomTable.black.userId === currentProfile.userId),
     );
     const resolvedSeat: Seat = ownsWhite ? "white" : ownsBlack ? "black" : roomSession.seat;
-    const bothSeated = Boolean(currentRoomTable.white && currentRoomTable.black);
-    const started = Boolean(bothSeated && currentRoomTable.startedAt);
+    const mine = resolvedSeat === "white" ? currentRoomTable.white : currentRoomTable.black;
+    const opponent = resolvedSeat === "white" ? currentRoomTable.black : currentRoomTable.white;
+    const mineOwnedByMe = Boolean(
+      mine
+      && (mine.sessionId === appSessionId || mine.userId === currentProfile.userId),
+    );
+    const canRecoverMineSeat = !mine;
+    const bothSeated = Boolean(opponent && (mineOwnedByMe || canRecoverMineSeat));
+    const started = bothSeated;
 
     return {
       resolvedSeat,
