@@ -2153,6 +2153,34 @@ body.bot-mode .activity-wrap {
   body.bot-mode .right-action-panel .side-auto-roll {
     min-height: 38px;
   }
+
+  /* Mobilde tahta daha dolgun gorunsun: yan raylar ve padding kompakt */
+  body.room-mode .table-wrap,
+  body.bot-mode .table-wrap {
+    max-width: 100%;
+    padding: 4px;
+    gap: 4px;
+    overflow: hidden;
+  }
+
+  body.room-mode .off-area,
+  body.bot-mode .off-area {
+    width: 26px;
+    padding: 4px 1px;
+    gap: 1px;
+  }
+
+  body.room-mode .off-stack,
+  body.bot-mode .off-stack {
+    width: 18px;
+  }
+
+  body.room-mode .off-chip,
+  body.bot-mode .off-chip {
+    width: 13px;
+    height: 9px;
+    bottom: calc(3px + (var(--stack-index) * 5px));
+  }
 }
 
 @media (max-width: 640px) {
@@ -2169,6 +2197,22 @@ body.bot-mode .activity-wrap {
 
   body.room-mode .table-wrap,
   body.bot-mode .table-wrap {
-    padding: 5px;
+    padding: 3px;
+    gap: 3px;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Mobilde pullar daha dolgun ve okunakli */
+  body.room-mode,
+  body.bot-mode {
+    --checker-size: clamp(20px, 5.8vw, 30px);
+  }
+}
+
+@media (max-width: 420px) {
+  body.room-mode,
+  body.bot-mode {
+    --checker-size: clamp(18px, 5.2vw, 25px);
   }
 }

@@ -1471,7 +1471,8 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     if (!existing) {
       if (isTableSuppressedByCloseTombstone(table, closedTableRooms)) return;
       const latestSeatTouch = Math.max(table.white?.touchedAt ?? 0, table.black?.touchedAt ?? 0);
-      if (preferRemote && latestSeatTouch <= remote.updatedAt) {
+      const remoteAheadMs = remote.updatedAt - latestSeatTouch;
+      if (preferRemote && remoteAheadMs > HEARTBEAT_MS * 2) {
         return;
       }
       mergedTables.set(key, table);
@@ -2131,12 +2132,19 @@ function App() {
         setRealtimeStatus("offline");
         return;
       }
-      realtimePendingSnapshotRef.current = null;
+      const contentType = (response.headers.get("content-type") || "").toLowerCase();
+      if (!contentType.includes("application/json")) {
+        setRealtimeStatus("offline");
+        return;
+      }
       const data = (await response.json().catch(() => null)) as { snapshot?: unknown } | null;
       const incoming = normalizeRealtimeMessage(data?.snapshot);
-      if (incoming) {
-        applyIncomingRealtimeSnapshot(incoming);
+      if (!incoming || incoming.kind !== "snapshot" || incoming.channel !== REALTIME_LOBBY_CHANNEL) {
+        setRealtimeStatus("offline");
+        return;
       }
+      realtimePendingSnapshotRef.current = null;
+      applyIncomingRealtimeSnapshot(incoming);
       setRealtimeStatus("online");
     } catch {
       setRealtimeStatus("offline");
@@ -5415,10 +5423,6 @@ function App() {
   }, [roomSession, currentRoomTable]);
 
   useEffect(() => {
-    if (!member && realtimeStatus === "online") {
-      const myNo = lobbyState.guestLabels[guestId];
-      if (!Number.isInteger(myNo) || myNo <= 0) return;
-    }
     syncLobbyPresence(true);
     const timer = window.setInterval(() => syncLobbyPresence(false), HEARTBEAT_MS);
     return () => window.clearInterval(timer);
@@ -5440,9 +5444,17 @@ function App() {
   useEffect(() => {
     if (!roomSession) return;
     if (currentRoomTable) return;
+    if (realtimePendingSnapshotRef.current) {
+      void syncRealtimeViaHttp("room-missing-sync");
+    }
     const roomCode = roomSession.code;
     const roomTableNo = roomSession.tableNo;
+    const closeDelayMs = realtimeStatus === "online" ? 1200 : 2800;
     const timer = window.setTimeout(() => {
+      if (realtimePendingSnapshotRef.current) {
+        void syncRealtimeViaHttp("room-missing-retry");
+        return;
+      }
       const latest = getCurrentLobbyState();
       const stillExists = latest.tables.some((table) => table.id === roomTableNo || table.roomCode === roomCode);
       if (stillExists) return;
@@ -5463,9 +5475,9 @@ function App() {
         localColor: null,
       });
       setLobbyNotice("Masa kapandi.");
-    }, 650);
+    }, closeDelayMs);
     return () => window.clearTimeout(timer);
-  }, [roomSession, currentRoomTable]);
+  }, [roomSession, currentRoomTable, realtimeStatus]);
 
   useEffect(() => {
     if (viewMode === "lobby") return;
