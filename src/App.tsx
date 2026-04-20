@@ -239,7 +239,7 @@ const LOBBY_SYNC_CHANNEL = "tavla.lobby.sync.v2";
 const REALTIME_LOBBY_CHANNEL = "tavla-global-lobby-v1";
 const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_LOBBY_NAME = "Lobi 1";
-const SEAT_STALE_MS = 365 * 24 * 60 * 60 * 1000;
+const SEAT_STALE_MS = 180_000;
 const PRESENCE_STALE_MS = 35_000;
 const HEARTBEAT_MS = 5_000;
 const DEFAULT_WIN_POINTS = 100;
@@ -3795,6 +3795,49 @@ function App() {
     }
   }
 
+  function adminCloseTable(tableId: number) {
+    if (!member || member.role !== "admin") {
+      setLobbyNotice("Masayi kapatmak icin admin olmalisin.");
+      return;
+    }
+
+    let tableFound = false;
+    let removedTable: LobbyTable | null = null;
+    writeLobby((current) => {
+      const cleaned = cleanupStaleAndPrune(current.tables).tables;
+      const index = cleaned.findIndex((table) => table.id === tableId);
+      if (index < 0) {
+        return current;
+      }
+      tableFound = true;
+      removedTable = cleaned[index];
+
+      const tables = cleaned.filter((table) => table.id !== tableId);
+      const tableChats = { ...current.tableChats };
+      const chatKey = removedTable ? tableChatKey(removedTable) : "";
+      if (chatKey && chatKey in tableChats) {
+        delete tableChats[chatKey];
+      }
+
+      return {
+        ...current,
+        tables: sortTables(tables),
+        tableChats,
+        updatedAt: Date.now(),
+      };
+    });
+
+    if (!tableFound) {
+      setLobbyNotice("Kapatilacak masa bulunamadi.");
+      return;
+    }
+
+    if (invitePickerTableId === tableId) {
+      setInvitePickerTableId(null);
+    }
+    setLobbyNotice(`Masa ${tableId} admin tarafindan kapatildi.`);
+  }
+
   function resolveLeavePenaltyContext(activeTable: LobbyTable | null) {
     if (!roomSession || roomSession.role !== "player" || !activeTable) {
       return {
@@ -3813,9 +3856,22 @@ function App() {
       && timeoutWinWaiverRef.current.userId === myUserId
       && timeoutWinWaiverRef.current.tableCode === activeTable.roomCode,
     );
+    const opponentLooksDisconnected = Boolean(
+      opponentSeat && Date.now() - opponentSeat.touchedAt > HEARTBEAT_MS * 2,
+    );
+    const localWonCurrentGame = Boolean(matchLiveState.winner && matchLiveState.winner === roomSession.seat);
     const setComplete = isTableSeriesComplete(activeTable);
     const seriesStarted = Boolean(activeTable.startedAt || activeTable.setPlayed > 0 || matchLiveState.matchActive);
-    const shouldPenalize = Boolean(mySeat && opponentSeat && seriesStarted && !setComplete && !permissionGranted && !timeoutWaiver);
+    const shouldPenalize = Boolean(
+      mySeat
+      && opponentSeat
+      && seriesStarted
+      && !setComplete
+      && !permissionGranted
+      && !timeoutWaiver
+      && !opponentLooksDisconnected
+      && !localWonCurrentGame
+    );
     return {
       opponentSeat,
       permissionGranted,
@@ -5066,7 +5122,7 @@ function App() {
         localColor: null,
       });
       setLobbyNotice("Masa kapandi.");
-    }, 2200);
+    }, 650);
     return () => window.clearTimeout(timer);
   }, [roomSession, currentRoomTable]);
 
@@ -5233,6 +5289,7 @@ function App() {
                           ? "black"
                           : null;
                     const canWatchTable = !mySeatHere && !myCurrentSeat && Boolean(table.white || table.black);
+                    const canAdminClose = isAdmin;
 
                     return (
                       <article key={table.id} className={`my-table-card ${status}`}>
@@ -5268,12 +5325,14 @@ function App() {
 
                         <div className="my-table-footer">
                           <span className="my-table-code">Kod: {table.roomCode}</span>
-                          {mySeatHere ? (
+                          {mySeatHere || canAdminClose ? (
                             <div className="my-mini-actions">
-                              <button className="my-action-btn" onClick={() => goToTable(table, mySeatHere)}>
-                                Masaya Git
-                              </button>
-                              {isOwnerHere ? (
+                              {mySeatHere ? (
+                                <button className="my-action-btn" onClick={() => goToTable(table, mySeatHere)}>
+                                  Masaya Git
+                                </button>
+                              ) : null}
+                              {mySeatHere && isOwnerHere ? (
                                 <button
                                   className="my-action-btn soft"
                                   onClick={() => openInvitePicker(table)}
@@ -5283,12 +5342,17 @@ function App() {
                                   Davet Et
                                 </button>
                               ) : null}
-                              {isOwnerHere ? (
+                              {mySeatHere && isOwnerHere ? (
                                 <button
                                   className={`my-action-btn ${table.isPrivate ? "" : "soft"}`}
                                   onClick={() => setTablePrivateMode(table.id, !table.isPrivate)}
                                 >
                                   {table.isPrivate ? "Ozeli Kapat" : "Ozel Yap"}
+                                </button>
+                              ) : null}
+                              {canAdminClose ? (
+                                <button className="my-action-btn danger" onClick={() => adminCloseTable(table.id)}>
+                                  Admin Kapat
                                 </button>
                               ) : null}
                             </div>
