@@ -1618,6 +1618,8 @@ function App() {
   const [memberNotice, setMemberNotice] = useState("");
   const [authError, setAuthError] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [showAdminPanelInLobby, setShowAdminPanelInLobby] = useState(false);
   const [profileModal, setProfileModal] = useState<PlayerProfileModalState>({
     open: false,
     loading: false,
@@ -1833,18 +1835,6 @@ function App() {
     () => isTableOwnerForUser(currentRoomTable, currentProfile.userId),
     [currentRoomTable, currentProfile.userId],
   );
-
-  const currentMatchupLabel = useMemo(() => {
-    if (!roomSession || !currentRoomTable) return "";
-    const whiteName = currentRoomTable.white?.displayName ?? "Beyaz bekleniyor";
-    const blackName = currentRoomTable.black?.displayName ?? "Siyah bekleniyor";
-    if (roomSession.role === "spectator") {
-      return `Beyaz: ${whiteName} | Siyah: ${blackName}`;
-    }
-    const myName = roomSession.seat === "white" ? whiteName : blackName;
-    const opponentName = roomSession.seat === "white" ? blackName : whiteName;
-    return `Sen: ${myName} | Rakip: ${opponentName}`;
-  }, [roomSession, currentRoomTable]);
 
   const invitePickerTable = useMemo(() => {
     if (!invitePickerTableId) return null;
@@ -3010,13 +3000,15 @@ function App() {
     }
   }
 
-  function onOpenMemberPanel() {
+  function openAccountMenu(mode: AuthMode) {
     setViewMode("lobby");
-    setAuthMode("register");
+    setAuthMode(mode);
     setAuthError("");
     setMemberNotice("");
-    setAuthAvatarId(DEFAULT_AVATAR_BY_GENDER[sanitizeMemberGender(authGender)]);
-    setLobbyNotice("Uyelik paneli sag tarafta.");
+    if (mode === "register") {
+      setAuthAvatarId(DEFAULT_AVATAR_BY_GENDER[sanitizeMemberGender(authGender)]);
+    }
+    setAccountMenuOpen(true);
   }
 
   function closeInvitePicker() {
@@ -3587,6 +3579,7 @@ function App() {
   function onLogoutMember() {
     window.localStorage.removeItem(MEMBER_SESSION_KEY);
     setMember(null);
+    setShowAdminPanelInLobby(false);
     setMemberAvatarDraft(DEFAULT_AVATAR_BY_GENDER.unknown);
     setMemberPasswordCurrent("");
     setMemberPasswordNext("");
@@ -3596,6 +3589,7 @@ function App() {
     setAuthPassword("");
     setAuthAvatarId(DEFAULT_AVATAR_BY_GENDER.unknown);
     setAuthError("");
+    setAccountMenuOpen(false);
     setLobbyNotice("Uyelik oturumu kapatildi.");
   }
 
@@ -5366,6 +5360,11 @@ function App() {
   }, [roomSession, currentRoomTable]);
 
   useEffect(() => {
+    if (viewMode === "lobby") return;
+    setAccountMenuOpen(false);
+  }, [viewMode]);
+
+  useEffect(() => {
     const onBeforeUnload = () => {
       const latest = getCurrentLobbyState();
       const cleanedTables = cleanupStaleAndPrune(latest.tables).tables;
@@ -5412,15 +5411,6 @@ function App() {
                 </button>
               </>
             ) : null}
-            {!member ? (
-              <button className="my-top-btn my-btn-member" onClick={onOpenMemberPanel}>
-                Uye Ol
-              </button>
-            ) : (
-              <button className="my-top-btn my-btn-member-alt" onClick={onLogoutMember}>
-                Cikis
-              </button>
-            )}
             {roomSession ? (
               <button className="my-top-btn my-btn-danger" onClick={leaveRoomAndGoLobby}>
                 Masadan Kalk
@@ -5428,30 +5418,228 @@ function App() {
             ) : null}
           </div>
 
-          <div className="my-topbar-right">
-            <span className="my-chip">{lobbyState.lobbyName}</span>
-            <span className="my-chip">Acik Masa: {openedTables.length}</span>
-            <span className={`my-chip ${realtimeStatus === "online" ? "active" : ""}`}>
-              {realtimeStatus === "online"
-                ? "Canli Senkron Acik"
-                : realtimeStatus === "connecting"
-                  ? "Canli Senkron Baglaniyor"
-                  : "Canli Senkron Kapali"}
-            </span>
-            <span className={`my-chip ${roomSession ? "active" : ""}`}>
-              {roomSession
-                ? roomSession.role === "spectator"
-                  ? `Masa ${roomSession.tableNo} Izle`
-                  : `Masa ${roomSession.tableNo}`
-                : mode === "bot"
-                  ? "Bot Modu"
-                  : "Yerel"}
-            </span>
-            {currentMatchupLabel ? (
-              <span className="my-chip my-chip-matchup" title={currentMatchupLabel}>
-                {currentMatchupLabel}
-              </span>
-              ) : null}
+          <div className="my-topbar-right my-topbar-account-wrap">
+            <button
+              className="my-account-trigger"
+              onClick={() => setAccountMenuOpen((current) => !current)}
+              title={member ? "Profil ve ayarlar" : "Uyelik ve giris"}
+            >
+              <AvatarBadge avatarId={currentProfile.avatarId} gender={currentProfile.gender} size="sm" />
+              <span>{member ? member.displayName : "Misafir"}</span>
+            </button>
+            {!member ? (
+              <>
+                <button className="my-top-btn my-btn-member" onClick={() => openAccountMenu("register")}>
+                  Uye Ol
+                </button>
+                <button className="my-top-btn my-btn-member-alt" onClick={() => openAccountMenu("login")}>
+                  Giris
+                </button>
+              </>
+            ) : (
+              <button className="my-top-btn my-btn-member-alt" onClick={() => setAccountMenuOpen((current) => !current)}>
+                Ayarlar
+              </button>
+            )}
+            {accountMenuOpen ? (
+              <section className="my-account-menu">
+                {member ? (
+                  <div className="my-account-member">
+                    <div className="my-member-avatar-row">
+                      <AvatarBadge avatarId={member.avatarId} gender={member.gender} size="lg" />
+                      <div className="my-member-avatar-meta">
+                        <p className="line">
+                          <strong>{member.displayName}</strong>
+                        </p>
+                        <p className="line">Kullanici: @{member.username}</p>
+                      </div>
+                    </div>
+                    <p className="line">Puan: {member.points}</p>
+                    <p className="line">Oyun: {member.stats.gamesPlayed} / K: {member.stats.wins} / M: {member.stats.losses}</p>
+                    <div className="my-avatar-picker">
+                      {avatarOptionsForGender(member.gender).map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          className={`my-avatar-option ${memberAvatarDraft === preset.id ? "active" : ""}`}
+                          onClick={() => setMemberAvatarDraft(preset.id)}
+                          disabled={memberActionBusy}
+                          title={preset.label}
+                        >
+                          <AvatarBadge avatarId={preset.id} gender={preset.gender} size="sm" />
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      className="my-action-btn soft"
+                      onClick={onChangeMyAvatar}
+                      disabled={memberActionBusy || memberAvatarDraft === member.avatarId}
+                    >
+                      {memberActionBusy ? "Isleniyor..." : "Avatari Degistir"}
+                    </button>
+                    <div className="my-auth-form">
+                      <input
+                        className="my-input"
+                        type="password"
+                        placeholder="Mevcut sifre"
+                        value={memberPasswordCurrent}
+                        onChange={(e) => setMemberPasswordCurrent(e.target.value)}
+                        disabled={memberActionBusy}
+                      />
+                      <input
+                        className="my-input"
+                        type="password"
+                        placeholder="Yeni sifre"
+                        value={memberPasswordNext}
+                        onChange={(e) => setMemberPasswordNext(e.target.value)}
+                        disabled={memberActionBusy}
+                      />
+                      <button className="my-action-btn" onClick={onChangeMyPassword} disabled={memberActionBusy}>
+                        {memberActionBusy ? "Isleniyor..." : "Sifre Degistir"}
+                      </button>
+                    </div>
+                    {memberNotice ? <p className="my-notice my-notice-soft">{memberNotice}</p> : null}
+                    <div className="my-inline-actions">
+                      <button className="my-action-btn soft" onClick={onLogoutMember}>
+                        Cikis
+                      </button>
+                      {isAdmin ? (
+                        <button
+                          className={`my-action-btn ${showAdminPanelInLobby ? "" : "soft"}`}
+                          onClick={() => setShowAdminPanelInLobby((current) => !current)}
+                        >
+                          {showAdminPanelInLobby ? "Admini Gizle" : "Admini Goster"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="my-auth-form my-account-auth">
+                    <div className="my-auth-toggle">
+                      <button
+                        className={authMode === "register" ? "active" : ""}
+                        onClick={() => {
+                          setAuthMode("register");
+                          setAuthAvatarId(DEFAULT_AVATAR_BY_GENDER[sanitizeMemberGender(authGender)]);
+                        }}
+                        disabled={authBusy}
+                      >
+                        Uye Ol
+                      </button>
+                      <button className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")} disabled={authBusy}>
+                        Giris
+                      </button>
+                    </div>
+                    {authMode === "register" ? (
+                      <>
+                        <input
+                          className="my-input"
+                          placeholder="Kullanici adi (or: gokcek34)"
+                          value={authUsername}
+                          onChange={(e) => setAuthUsername(e.target.value)}
+                          disabled={authBusy}
+                        />
+                        <input
+                          className="my-input"
+                          placeholder="Gorunen ad"
+                          value={authDisplayName}
+                          onChange={(e) => setAuthDisplayName(e.target.value)}
+                          disabled={authBusy}
+                        />
+                        <select
+                          className="my-input"
+                          value={authGender}
+                          onChange={(e) => {
+                            const nextGender = sanitizeMemberGender(e.target.value);
+                            setAuthGender(nextGender);
+                            setAuthAvatarId(DEFAULT_AVATAR_BY_GENDER[nextGender]);
+                          }}
+                          disabled={authBusy}
+                        >
+                          <option value="unknown">Cinsiyet secin</option>
+                          <option value="female">Kadin</option>
+                          <option value="male">Erkek</option>
+                        </select>
+                        <div className="my-avatar-picker">
+                          {avatarOptionsForGender(authGender).map((preset) => (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              className={`my-avatar-option ${authAvatarId === preset.id ? "active" : ""}`}
+                              onClick={() => setAuthAvatarId(preset.id)}
+                              disabled={authBusy}
+                              title={preset.label}
+                            >
+                              <AvatarBadge avatarId={preset.id} gender={preset.gender} size="sm" />
+                            </button>
+                          ))}
+                        </div>
+                        <input
+                          className="my-input"
+                          placeholder="E-posta"
+                          value={authEmail}
+                          onChange={(e) => setAuthEmail(e.target.value)}
+                          disabled={authBusy}
+                        />
+                        <input
+                          className="my-input"
+                          type="password"
+                          placeholder="Sifre"
+                          value={authPassword}
+                          onChange={(e) => setAuthPassword(e.target.value)}
+                          disabled={authBusy}
+                        />
+                        <button className="my-action-btn" onClick={onRegisterMember} disabled={authBusy}>
+                          {authBusy ? "Isleniyor..." : "Uye Ol ve Basla"}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          className="my-input"
+                          placeholder="Kullanici adi veya E-posta"
+                          value={authEmail}
+                          onChange={(e) => setAuthEmail(e.target.value)}
+                          disabled={authBusy}
+                        />
+                        <input
+                          className="my-input"
+                          type="password"
+                          placeholder="Sifre"
+                          value={authPassword}
+                          onChange={(e) => setAuthPassword(e.target.value)}
+                          disabled={authBusy}
+                        />
+                        <button className="my-action-btn" onClick={onLoginMember} disabled={authBusy}>
+                          {authBusy ? "Isleniyor..." : "Giris Yap"}
+                        </button>
+                        <p className="line">Sifremi unuttum</p>
+                        <input
+                          className="my-input"
+                          placeholder="Kayitli e-posta"
+                          value={forgotEmail}
+                          onChange={(e) => setForgotEmail(e.target.value)}
+                          disabled={forgotBusy}
+                        />
+                        <input
+                          className="my-input"
+                          type="password"
+                          placeholder="Yeni sifre"
+                          value={forgotNewPassword}
+                          onChange={(e) => setForgotNewPassword(e.target.value)}
+                          disabled={forgotBusy}
+                        />
+                        <button className="my-action-btn soft" onClick={onForgotPassword} disabled={forgotBusy}>
+                          {forgotBusy ? "Isleniyor..." : "E-posta ile Sifre Sifirla"}
+                        </button>
+                      </>
+                    )}
+                    {memberNotice ? <p className="my-notice my-notice-soft">{memberNotice}</p> : null}
+                    {authError ? <p className="my-error">{authError}</p> : null}
+                  </div>
+                )}
+              </section>
+            ) : null}
           </div>
         </header>
       ) : null}
@@ -5682,203 +5870,6 @@ function App() {
           </div>
 
           <aside className="my-lobby-side">
-            <section className="my-side-card my-side-card-member">
-              <h3>Uyelik</h3>
-              {member ? (
-                <div className="my-member-card">
-                  <div className="my-member-avatar-row">
-                    <AvatarBadge avatarId={member.avatarId} gender={member.gender} size="lg" />
-                    <div className="my-member-avatar-meta">
-                      <p className="line">
-                        <strong>{member.displayName}</strong>
-                      </p>
-                      <p className="line">Kullanici: @{member.username}</p>
-                    </div>
-                  </div>
-                  <p className="line">
-                    Avatar: <code>{AVATAR_PRESET_BY_ID[member.avatarId]?.label ?? member.avatarId}</code>
-                  </p>
-                  <p className="line">{member.email}</p>
-                  <p className="line">Cinsiyet: {genderLabel(member.gender)}</p>
-                  <p className="line">Rol: {member.role === "admin" ? "Admin" : "Uye"}</p>
-                  <p className="line">Puan: {member.points}</p>
-                  <p className="line">Oyun: {member.stats.gamesPlayed} / K: {member.stats.wins} / M: {member.stats.losses}</p>
-                  <p className="line">Masadan Kacis: {member.stats.resigns}</p>
-                  <div className="my-avatar-picker">
-                    {avatarOptionsForGender(member.gender).map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        className={`my-avatar-option ${memberAvatarDraft === preset.id ? "active" : ""}`}
-                        onClick={() => setMemberAvatarDraft(preset.id)}
-                        disabled={memberActionBusy}
-                        title={preset.label}
-                      >
-                        <AvatarBadge avatarId={preset.id} gender={preset.gender} size="sm" />
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    className="my-action-btn soft"
-                    onClick={onChangeMyAvatar}
-                    disabled={memberActionBusy || memberAvatarDraft === member.avatarId}
-                  >
-                    {memberActionBusy ? "Isleniyor..." : "Avatari Degistir"}
-                  </button>
-                  <div className="my-auth-form">
-                    <input
-                      className="my-input"
-                      type="password"
-                      placeholder="Mevcut sifre"
-                      value={memberPasswordCurrent}
-                      onChange={(e) => setMemberPasswordCurrent(e.target.value)}
-                      disabled={memberActionBusy}
-                    />
-                    <input
-                      className="my-input"
-                      type="password"
-                      placeholder="Yeni sifre"
-                      value={memberPasswordNext}
-                      onChange={(e) => setMemberPasswordNext(e.target.value)}
-                      disabled={memberActionBusy}
-                    />
-                    <button className="my-action-btn" onClick={onChangeMyPassword} disabled={memberActionBusy}>
-                      {memberActionBusy ? "Isleniyor..." : "Sifre Degistir"}
-                    </button>
-                  </div>
-                  {memberNotice ? <p className="my-notice my-notice-soft">{memberNotice}</p> : null}
-                  <button className="my-action-btn soft" onClick={onLogoutMember}>
-                    Cikis
-                  </button>
-                </div>
-              ) : (
-                <div className="my-auth-form">
-                  <div className="my-auth-toggle">
-                    <button
-                      className={authMode === "register" ? "active" : ""}
-                      onClick={() => {
-                        setAuthMode("register");
-                        setAuthAvatarId(DEFAULT_AVATAR_BY_GENDER[sanitizeMemberGender(authGender)]);
-                      }}
-                      disabled={authBusy}
-                    >
-                      Uye Ol
-                    </button>
-                    <button className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")} disabled={authBusy}>
-                      Giris
-                    </button>
-                  </div>
-
-                  {authMode === "register" ? (
-                    <>
-                      <input
-                        className="my-input"
-                        placeholder="Kullanici adi (or: gokcek34)"
-                        value={authUsername}
-                        onChange={(e) => setAuthUsername(e.target.value)}
-                        disabled={authBusy}
-                      />
-                      <input
-                        className="my-input"
-                        placeholder="Gorunen ad"
-                        value={authDisplayName}
-                        onChange={(e) => setAuthDisplayName(e.target.value)}
-                        disabled={authBusy}
-                      />
-                      <select
-                        className="my-input"
-                        value={authGender}
-                        onChange={(e) => {
-                          const nextGender = sanitizeMemberGender(e.target.value);
-                          setAuthGender(nextGender);
-                          setAuthAvatarId(DEFAULT_AVATAR_BY_GENDER[nextGender]);
-                        }}
-                        disabled={authBusy}
-                      >
-                        <option value="unknown">Cinsiyet secin</option>
-                        <option value="female">Kadin</option>
-                        <option value="male">Erkek</option>
-                      </select>
-                      <div className="my-avatar-picker">
-                        {avatarOptionsForGender(authGender).map((preset) => (
-                          <button
-                            key={preset.id}
-                            type="button"
-                            className={`my-avatar-option ${authAvatarId === preset.id ? "active" : ""}`}
-                            onClick={() => setAuthAvatarId(preset.id)}
-                            disabled={authBusy}
-                            title={preset.label}
-                          >
-                            <AvatarBadge avatarId={preset.id} gender={preset.gender} size="sm" />
-                          </button>
-                        ))}
-                      </div>
-                      <input
-                        className="my-input"
-                        placeholder="E-posta"
-                        value={authEmail}
-                        onChange={(e) => setAuthEmail(e.target.value)}
-                        disabled={authBusy}
-                      />
-                      <input
-                        className="my-input"
-                        type="password"
-                        placeholder="Sifre"
-                        value={authPassword}
-                        onChange={(e) => setAuthPassword(e.target.value)}
-                        disabled={authBusy}
-                      />
-                      <button className="my-action-btn" onClick={onRegisterMember} disabled={authBusy}>
-                        {authBusy ? "Isleniyor..." : "Uye Ol ve Basla"}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <input
-                        className="my-input"
-                        placeholder="Kullanici adi veya E-posta"
-                        value={authEmail}
-                        onChange={(e) => setAuthEmail(e.target.value)}
-                        disabled={authBusy}
-                      />
-                      <input
-                        className="my-input"
-                        type="password"
-                        placeholder="Sifre"
-                        value={authPassword}
-                        onChange={(e) => setAuthPassword(e.target.value)}
-                        disabled={authBusy}
-                      />
-                      <button className="my-action-btn" onClick={onLoginMember} disabled={authBusy}>
-                        {authBusy ? "Isleniyor..." : "Giris Yap"}
-                      </button>
-                      <p className="line">Sifremi unuttum</p>
-                      <input
-                        className="my-input"
-                        placeholder="Kayitli e-posta"
-                        value={forgotEmail}
-                        onChange={(e) => setForgotEmail(e.target.value)}
-                        disabled={forgotBusy}
-                      />
-                      <input
-                        className="my-input"
-                        type="password"
-                        placeholder="Yeni sifre"
-                        value={forgotNewPassword}
-                        onChange={(e) => setForgotNewPassword(e.target.value)}
-                        disabled={forgotBusy}
-                      />
-                      <button className="my-action-btn soft" onClick={onForgotPassword} disabled={forgotBusy}>
-                        {forgotBusy ? "Isleniyor..." : "E-posta ile Sifre Sifirla"}
-                      </button>
-                    </>
-                  )}
-                  {memberNotice ? <p className="my-notice my-notice-soft">{memberNotice}</p> : null}
-                  {authError ? <p className="my-error">{authError}</p> : null}
-                </div>
-              )}
-            </section>
-
             <section className="my-side-card my-side-card-online">
               <h3>Oyuncu Listesi</h3>
               <div className="my-online-head">
@@ -5907,7 +5898,7 @@ function App() {
               </div>
             </section>
 
-            {isAdmin ? (
+            {isAdmin && showAdminPanelInLobby ? (
               <section className="my-side-card">
                 <h3>Admin Paneli</h3>
                 <div className="my-admin-summary-grid">

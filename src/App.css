@@ -27,6 +27,51 @@
   flex-wrap: wrap;
 }
 
+.my-topbar-account-wrap {
+  position: relative;
+}
+
+.my-account-trigger {
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid rgba(117, 199, 223, 0.62);
+  background: linear-gradient(180deg, rgba(8, 74, 95, 0.92), rgba(6, 57, 73, 0.95));
+  color: #e8f9ff;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 0 8px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.my-account-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(76svh, 680px);
+  overflow-y: auto;
+  border-radius: 10px;
+  border: 2px solid rgba(11, 99, 125, 0.84);
+  background: linear-gradient(180deg, rgba(8, 94, 118, 0.98), rgba(7, 76, 96, 0.99));
+  box-shadow: 0 14px 36px rgba(3, 28, 39, 0.48);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  z-index: 90;
+}
+
+.my-account-member {
+  display: grid;
+  gap: 7px;
+}
+
+.my-account-auth {
+  gap: 8px;
+}
+
 .my-top-btn {
   min-height: 38px;
   border-radius: 6px;
@@ -97,7 +142,7 @@
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 12px;
   padding: 10px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .my-lobby-main {
@@ -782,8 +827,10 @@
 
 .my-lobby-side {
   display: grid;
+  grid-template-rows: minmax(0, 1fr);
   gap: 10px;
-  align-content: start;
+  align-content: stretch;
+  min-height: 0;
 }
 
 .my-side-card {
@@ -800,9 +847,9 @@
   padding: 8px 8px 6px;
   gap: 6px;
   grid-template-rows: auto auto minmax(0, 1fr);
-  height: calc(100svh - 220px);
-  min-height: 420px;
-  max-height: 620px;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
   overflow: hidden;
 }
 
@@ -1603,14 +1650,15 @@
   }
 
   .my-lobby-side {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .my-side-card-online {
     grid-column: 1 / -1;
-    height: 420px;
-    min-height: 420px;
-    max-height: 420px;
+    height: min(48svh, 500px);
+    min-height: 340px;
+    max-height: none;
   }
 
   .my-lobby-table-zone {
@@ -1652,9 +1700,9 @@
   }
 
   .my-side-card-online {
-    height: 400px;
-    min-height: 400px;
-    max-height: 400px;
+    height: min(46svh, 430px);
+    min-height: 300px;
+    max-height: none;
   }
 
   .my-lobby-table-zone {
@@ -1750,6 +1798,11 @@
     width: 100%;
   }
 
+  .my-account-menu {
+    right: auto;
+    left: 0;
+  }
+
   .my-top-btn {
     width: 100%;
     min-height: 32px;
@@ -1818,9 +1871,9 @@
   }
 
   .my-side-card-online {
-    height: min(40svh, 320px);
-    min-height: 210px;
-    max-height: 320px;
+    height: min(44svh, 360px);
+    min-height: 230px;
+    max-height: none;
   }
 
   .my-table-grid {
