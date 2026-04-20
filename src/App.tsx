@@ -108,6 +108,7 @@ type LobbyTable = {
   allowSpectatorChat: boolean;
   ownerUserId: string;
   isPrivate: boolean;
+  privateChangedAt: number;
   invitedUserId: string | null;
   invitedByUserId: string | null;
   inviteNoticeId: string | null;
@@ -762,6 +763,7 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
 
   const ownerChanged = ownerUserId !== rawOwnerUserId;
   let isPrivate = Boolean(table.isPrivate && ownerUserId);
+  let privateChangedAt = normalizeNonNegativeInt(table.privateChangedAt, 0);
   let invitedUserId = sanitizeGuestId(table.invitedUserId ?? "");
   let invitedByUserId = sanitizeGuestId(table.invitedByUserId ?? "");
   let inviteNoticeId = sanitizeChatId(table.inviteNoticeId ?? "");
@@ -866,6 +868,7 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
     &&
     table.ownerUserId === ownerUserId
     && table.isPrivate === isPrivate
+    && table.privateChangedAt === privateChangedAt
     && table.invitedUserId === normalizedInvitedUserId
     && table.invitedByUserId === normalizedInvitedByUserId
     && table.inviteNoticeId === normalizedInviteNoticeId
@@ -887,6 +890,7 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
     allowSpectatorChat,
     ownerUserId,
     isPrivate,
+    privateChangedAt,
     invitedUserId: normalizedInvitedUserId,
     invitedByUserId: normalizedInvitedByUserId,
     inviteNoticeId: normalizedInviteNoticeId,
@@ -1118,6 +1122,7 @@ function normalizeTable(raw: unknown, index: number): LobbyTable | null {
     allowSpectatorChat: candidate.allowSpectatorChat !== false,
     ownerUserId: sanitizeGuestId(candidate.ownerUserId ?? ""),
     isPrivate: Boolean(candidate.isPrivate),
+    privateChangedAt: normalizeNonNegativeInt(candidate.privateChangedAt, 0),
     invitedUserId: sanitizeGuestId(candidate.invitedUserId ?? "") || null,
     invitedByUserId: sanitizeGuestId(candidate.invitedByUserId ?? "") || null,
     inviteNoticeId: sanitizeChatId(candidate.inviteNoticeId ?? "") || null,
@@ -1446,6 +1451,17 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     }
     const preferred = preferRemote ? existing : table;
     const fallback = preferRemote ? table : existing;
+    const preferredPrivateChangedAt = normalizeNonNegativeInt(preferred.privateChangedAt, 0);
+    const fallbackPrivateChangedAt = normalizeNonNegativeInt(fallback.privateChangedAt, 0);
+    let mergedPrivateChangedAt = preferredPrivateChangedAt;
+    let mergedIsPrivate = Boolean(preferred.isPrivate);
+    if (fallbackPrivateChangedAt > preferredPrivateChangedAt) {
+      mergedPrivateChangedAt = fallbackPrivateChangedAt;
+      mergedIsPrivate = Boolean(fallback.isPrivate);
+    } else if (fallbackPrivateChangedAt === preferredPrivateChangedAt && preferredPrivateChangedAt === 0) {
+      mergedIsPrivate = Boolean(preferred.isPrivate || fallback.isPrivate);
+    }
+
     const mergedTable: LobbyTable = {
       id: Math.min(existing.id, table.id),
       roomCode: sanitizeRoomCode(existing.roomCode) || sanitizeRoomCode(table.roomCode) || createRoomCode(),
@@ -1453,7 +1469,8 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
       black: mergeSeatState(existing.black, table.black, remote.updatedAt, local.updatedAt, preferRemote),
       allowSpectatorChat: preferred.allowSpectatorChat !== false,
       ownerUserId: sanitizeGuestId(preferred.ownerUserId) || sanitizeGuestId(fallback.ownerUserId) || "",
-      isPrivate: Boolean(preferred.isPrivate),
+      isPrivate: mergedIsPrivate,
+      privateChangedAt: mergedPrivateChangedAt,
       invitedUserId: sanitizeGuestId(preferred.invitedUserId ?? "") || sanitizeGuestId(fallback.invitedUserId ?? "") || null,
       invitedByUserId: sanitizeGuestId(preferred.invitedByUserId ?? "") || sanitizeGuestId(fallback.invitedByUserId ?? "") || null,
       inviteNoticeId: sanitizeChatId(preferred.inviteNoticeId ?? "") || sanitizeChatId(fallback.inviteNoticeId ?? "") || null,
@@ -2322,6 +2339,7 @@ function App() {
           allowSpectatorChat: true,
           ownerUserId: sanitizeGuestId(currentProfile.userId),
           isPrivate: false,
+          privateChangedAt: 0,
           invitedUserId: null,
           invitedByUserId: null,
           inviteNoticeId: null,
@@ -3044,6 +3062,7 @@ function App() {
       const patched = normalizeTableAccess({
         ...table,
         isPrivate,
+        privateChangedAt: Date.now(),
       });
       tables[index] = patched;
       updated = true;
@@ -4350,6 +4369,7 @@ function App() {
           allowSpectatorChat: true,
           ownerUserId: sanitizeGuestId(currentProfile.userId),
           isPrivate: false,
+          privateChangedAt: 0,
           invitedUserId: null,
           invitedByUserId: null,
           inviteNoticeId: null,
@@ -6319,25 +6339,12 @@ function App() {
                   </button>
                 </div>
 
-                <div className="my-chat-head my-room-chat-head">
-                  <div className="my-chat-head-actions">
-                    <span>{roomChatRows.length} mesaj</span>
-                    {!roomChatAutoScroll || roomChatUnread > 0 ? (
-                      <button
-                        className="my-action-btn soft my-chat-jump-btn"
-                        onClick={() => {
-                          setRoomChatAutoScroll(true);
-                          setRoomChatUnread(0);
-                          scrollRoomChatToBottom();
-                        }}
-                      >
-                        {roomChatUnread > 0 ? `Sona Git (${roomChatUnread})` : "Sona Git"}
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div ref={roomChatListRef} className="my-chat-list my-room-chat-list" onScroll={onRoomChatScroll}>
+                <div
+                  ref={roomChatListRef}
+                  className="my-chat-list my-room-chat-list"
+                  onScroll={onRoomChatScroll}
+                  data-unread={roomChatUnread}
+                >
                   {roomChatRows.length === 0 ? (
                     <p className="my-chat-empty">
                       {roomChatTab === "table" ? "Bu masada henuz sohbet mesaji yok." : "Lobide henuz mesaj yok."}
