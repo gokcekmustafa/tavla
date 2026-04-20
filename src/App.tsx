@@ -1980,12 +1980,14 @@ function App() {
       }
 
       const occupied = seat === "white" ? table.white : table.black;
-      if (occupied && occupied.sessionId !== appSessionId) {
+      const occupiedByDifferentSession = Boolean(occupied && occupied.sessionId !== appSessionId);
+      const occupiedByDifferentUser = Boolean(occupied && occupied.userId !== currentProfile.userId);
+      if (occupiedByDifferentSession && occupiedByDifferentUser) {
         seatBlocked = true;
         blockReason = "occupied";
         return current;
       }
-      if (occupied && (occupied.sessionId !== appSessionId || occupied.userId !== currentProfile.userId)) {
+      if (occupiedByDifferentUser) {
         gateShouldReset = true;
       }
 
@@ -2109,12 +2111,30 @@ function App() {
 
       let table = tables[index];
       const mySeat = roomSession.seat === "white" ? table.white : table.black;
-      if (!mySeat || mySeat.sessionId !== appSessionId) {
+      const seatOwnedByMe = Boolean(mySeat && (mySeat.sessionId === appSessionId || mySeat.userId === currentProfile.userId));
+      if (!seatOwnedByMe || !mySeat) {
         seatMissing = true;
         return current;
       }
 
       const now = Date.now();
+      if (mySeat.sessionId !== appSessionId) {
+        const refreshedSeat: LobbySeatState = {
+          ...mySeat,
+          sessionId: appSessionId,
+          userId: currentProfile.userId,
+          username: currentProfile.username,
+          displayName: currentProfile.displayName,
+          gender: currentProfile.gender,
+          avatarId: currentProfile.avatarId,
+          points: currentProfile.points,
+          stats: normalizeStats(currentProfile.stats),
+          touchedAt: now,
+        };
+        table = roomSession.seat === "white"
+          ? { ...table, white: refreshedSeat }
+          : { ...table, black: refreshedSeat };
+      }
       const mineReadyAt = roomSession.seat === "white" ? table.whiteReadyAt : table.blackReadyAt;
       const opponentReadyAt = roomSession.seat === "white" ? table.blackReadyAt : table.whiteReadyAt;
 
@@ -3487,12 +3507,14 @@ function App() {
       }
 
       const occupied = roomSession.seat === "white" ? table.white : table.black;
-      if (occupied && occupied.sessionId !== appSessionId) {
+      const occupiedByDifferentSession = Boolean(occupied && occupied.sessionId !== appSessionId);
+      const occupiedByDifferentUser = Boolean(occupied && occupied.userId !== currentProfile.userId);
+      if (occupiedByDifferentSession && occupiedByDifferentUser) {
         blocked = true;
         blockedReason = "occupied";
         return current;
       }
-      if (occupied && (occupied.sessionId !== appSessionId || occupied.userId !== currentProfile.userId)) {
+      if (occupiedByDifferentUser) {
         gateShouldReset = true;
       }
       if (gateShouldReset) {

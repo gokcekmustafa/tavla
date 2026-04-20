@@ -1177,6 +1177,7 @@ function onRollDice(arg) {
   clearPendingAutoRollTimer();
   if (winner) return;
   if (!fromBot && !canControlRoomAction()) return;
+  if (isRoomStartLocked()) { setStatus(getRoomStartLockedMessage()); render(); return; }
   if (isBotTurn() && !fromBot) { setStatus("Sıra bilgisayarda."); render(); return; }
   if (hasRolled) { setStatus("Zar zaten atıldı. Hamle yap."); render(); return; }
 
