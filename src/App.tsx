@@ -1964,6 +1964,19 @@ function App() {
   const activeLobbySyncChannel = useMemo(() => makeLobbySyncChannel(activeLobbyId), [activeLobbyId]);
   const activeRealtimeLobbyChannel = useMemo(() => makeRealtimeLobbyChannel(activeLobbyId), [activeLobbyId]);
   const shouldShowLobbyPicker = roomPickerOpen && !isAdminWindow && !roomSession && viewMode === "lobby";
+  const activeLobbyStorageKeyRef = useRef(activeLobbyStorageKey);
+  const activeRealtimeLobbyChannelRef = useRef(activeRealtimeLobbyChannel);
+  const activeLobbyNameRef = useRef(activeLobbyName);
+
+  useEffect(() => {
+    activeLobbyStorageKeyRef.current = activeLobbyStorageKey;
+    activeRealtimeLobbyChannelRef.current = activeRealtimeLobbyChannel;
+    activeLobbyNameRef.current = activeLobbyName;
+  }, [activeLobbyStorageKey, activeRealtimeLobbyChannel, activeLobbyName]);
+
+  useEffect(() => {
+    realtimeSenderCountersRef.current = new Map();
+  }, [activeRealtimeLobbyChannel]);
 
   function openLeaveConfirmModal(title: string, message: string) {
     if (leaveConfirmResolverRef.current) {
@@ -2339,7 +2352,8 @@ function App() {
 
   function applyIncomingRealtimeSnapshot(message: RealtimeMessage) {
     if (message.kind !== "snapshot") return false;
-    if (message.channel !== activeRealtimeLobbyChannel) return false;
+    const expectedChannel = activeRealtimeLobbyChannelRef.current;
+    if (message.channel !== expectedChannel) return false;
     if (!message.sender || !Number.isFinite(message.counter)) return false;
     const counter = Number(message.counter);
     const previousCounter = realtimeSenderCountersRef.current.get(message.sender) ?? 0;
@@ -2347,17 +2361,19 @@ function App() {
     realtimeSenderCountersRef.current.set(message.sender, counter);
 
     const incoming = normalizeLobbyState(message.payload);
-const now = Date.now();
-const currentLocal = realtimeRemoteStateRef.current ?? loadLobbyState(activeLobbyStorageKey, activeLobbyName);
-const merged = mergeLobbyStates(currentLocal, incoming);
-realtimeRemoteStateRef.current = merged;
-realtimeReceivedSnapshotRef.current = true;
-saveJson(activeLobbyStorageKey, merged);
-setLobbyState(merged);
-setSyncHealth((prev) => ({
-  ...prev,
-  lastIncomingAt: now,
-  lastIncomingServerAt: Number.isFinite(message.at) ? Number(message.at) : 0,
+    const now = Date.now();
+    const storageKey = activeLobbyStorageKeyRef.current;
+    const lobbyName = activeLobbyNameRef.current;
+    const currentLocal = realtimeRemoteStateRef.current ?? loadLobbyState(storageKey, lobbyName);
+    const merged = mergeLobbyStates(currentLocal, incoming);
+    realtimeRemoteStateRef.current = merged;
+    realtimeReceivedSnapshotRef.current = true;
+    saveJson(storageKey, merged);
+    setLobbyState(merged);
+    setSyncHealth((prev) => ({
+      ...prev,
+      lastIncomingAt: now,
+      lastIncomingServerAt: Number.isFinite(message.at) ? Number(message.at) : 0,
       lastIncomingSender: message.sender,
       lastIncomingCounter: counter,
       lastError: "",
@@ -5149,6 +5165,9 @@ setSyncHealth((prev) => ({
   useEffect(() => {
     let cancelled = false;
     let reconnectDelay = 1_000;
+    const channelForConnection = activeRealtimeLobbyChannel;
+    const storageKeyForConnection = activeLobbyStorageKey;
+    const lobbyNameForConnection = activeLobbyName;
 
     const clearReconnectTimer = () => {
       if (realtimeReconnectTimerRef.current === null) return;
@@ -5184,7 +5203,7 @@ setSyncHealth((prev) => ({
       setRealtimeStatus("connecting");
       let socket: WebSocket;
       try {
-        socket = new WebSocket(buildRealtimeChannelUrl(REALTIME_WS_BASE_URL, activeRealtimeLobbyChannel, appSessionId));
+        socket = new WebSocket(buildRealtimeChannelUrl(REALTIME_WS_BASE_URL, channelForConnection, appSessionId));
       } catch {
         setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
         setRealtimeStatus("offline");
@@ -5199,18 +5218,20 @@ setSyncHealth((prev) => ({
       const seedTimer = window.setTimeout(() => {
         if (cancelled) return;
         if (realtimeSocketRef.current !== socket) return;
+        if (activeRealtimeLobbyChannelRef.current !== channelForConnection) return;
         if (socket.readyState !== WebSocket.OPEN) return;
         if (realtimeReceivedSnapshotRef.current) return;
-        const localSnapshot = loadLobbyState(activeLobbyStorageKey, activeLobbyName);
+        const localSnapshot = loadLobbyState(storageKeyForConnection, lobbyNameForConnection);
         realtimeRemoteStateRef.current = localSnapshot;
         realtimeReceivedSnapshotRef.current = true;
-        saveJson(activeLobbyStorageKey, localSnapshot);
+        saveJson(storageKeyForConnection, localSnapshot);
         setLobbyState(localSnapshot);
         sendRealtimeSnapshot(localSnapshot, "seed");
       }, 1_200);
 
       socket.addEventListener("open", () => {
         if (cancelled || realtimeSocketRef.current !== socket) return;
+        if (activeRealtimeLobbyChannelRef.current !== channelForConnection) return;
         reconnectDelay = 1_000;
         console.log("[WS] opened, session:", appSessionId, "url:", socket.url);
         setRealtimeSocketReadyState(socket.readyState);
@@ -5218,7 +5239,7 @@ setSyncHealth((prev) => ({
         setRealtimeStatus("online");
         const helloMessage: RealtimeMessage = {
           kind: "hello",
-          channel: activeRealtimeLobbyChannel,
+          channel: channelForConnection,
           sender: appSessionId,
           counter: realtimeSyncCounterRef.current,
           at: Date.now(),
@@ -5231,6 +5252,7 @@ setSyncHealth((prev) => ({
 
       socket.addEventListener("message", (event) => {
         if (cancelled || realtimeSocketRef.current !== socket) return;
+        if (activeRealtimeLobbyChannelRef.current !== channelForConnection) return;
         if (typeof event.data !== "string") return;
         console.log("[WS] message received, length:", event.data.length);
         setSyncHealth((prev) => ({ ...prev, lastWsMessageAt: Date.now() }));
@@ -5249,6 +5271,7 @@ setSyncHealth((prev) => ({
 
       socket.addEventListener("error", () => {
         if (cancelled || realtimeSocketRef.current !== socket) return;
+        if (activeRealtimeLobbyChannelRef.current !== channelForConnection) return;
         setSyncHealth((prev) => ({ ...prev, lastError: "ws baglanti hatasi" }));
         setRealtimeStatus("offline");
       });
@@ -5256,6 +5279,7 @@ setSyncHealth((prev) => ({
       socket.addEventListener("close", () => {
         window.clearTimeout(seedTimer);
         if (cancelled || realtimeSocketRef.current !== socket) return;
+        if (activeRealtimeLobbyChannelRef.current !== channelForConnection) return;
         console.log("[WS] closed");
         realtimeSocketRef.current = null;
         setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
