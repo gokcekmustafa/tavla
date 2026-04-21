@@ -257,11 +257,18 @@ type RealtimeMessage = {
   reason?: string;
 };
 
+type RoomPickerSessionState = {
+  identity: string;
+  lobbyId: string;
+  confirmedAt: number;
+};
+
 const GUEST_STORAGE_KEY = "tavla.guestName";
 const GUEST_ID_STORAGE_KEY = "tavla.guest.id.v1";
 const GUEST_PROFILE_SESSION_KEY = "tavla.guest.profile.session.v1";
 const MEMBER_SESSION_KEY = "tavla.member.session.v1";
 const ACTIVE_LOBBY_ID_KEY = "tavla.active.lobby.id.v1";
+const ROOM_PICKER_SESSION_KEY = "tavla.room.picker.session.v1";
 const LOBBY_STATE_KEY_PREFIX = "tavla.lobby.state.v3";
 const LOBBY_SYNC_CHANNEL_PREFIX = "tavla.lobby.sync.v3";
 const REALTIME_LOBBY_CHANNEL_PREFIX = "tavla-global-lobby-v2";
@@ -289,6 +296,7 @@ const SHOW_SYNC_HEALTH_PANEL = false;
 const ROOM_MISSING_CHECK_DELAY_MS = 2_200;
 const ROOM_MISSING_CLOSE_GRACE_MS = 9_000;
 const ACTIVITY_CLOCK_SKEW_LIMIT_MS = 24 * 60 * 60 * 1000;
+const ENABLE_WS_DEBUG_LOGS = false;
 const PROFILE_POPOVER_WIDTH_PX = 300;
 const PROFILE_POPOVER_MIN_HEIGHT_PX = 220;
 const PROFILE_POPOVER_GAP_PX = 6;
@@ -1528,6 +1536,62 @@ function loadMemberSession() {
   return { userId: String(candidate.userId) } satisfies MemberSession;
 }
 
+function getRoomPickerIdentity(memberUserId: string | null | undefined, guestId: string) {
+  const safeMemberUserId = sanitizeGuestId(memberUserId ?? "");
+  if (safeMemberUserId) return `member:${safeMemberUserId}`;
+  const safeGuestId = sanitizeGuestId(guestId);
+  return `guest:${safeGuestId || "guest"}`;
+}
+
+function loadRoomPickerSessionState(): RoomPickerSessionState | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.sessionStorage.getItem(ROOM_PICKER_SESSION_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<RoomPickerSessionState>;
+    const identity = typeof parsed.identity === "string" ? parsed.identity.trim().slice(0, 80) : "";
+    const lobbyId = sanitizeLobbyId(typeof parsed.lobbyId === "string" ? parsed.lobbyId : "");
+    if (!identity || !lobbyId) return null;
+    const confirmedAt = Number.isFinite(parsed.confirmedAt) ? Number(parsed.confirmedAt) : Date.now();
+    return {
+      identity,
+      lobbyId,
+      confirmedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveRoomPickerSessionState(identity: string, lobbyId: string) {
+  if (typeof window === "undefined") return;
+  const safeIdentity = identity.trim().slice(0, 80);
+  const safeLobbyId = sanitizeLobbyId(lobbyId);
+  if (!safeIdentity || !safeLobbyId) return;
+  window.sessionStorage.setItem(
+    ROOM_PICKER_SESSION_KEY,
+    JSON.stringify({
+      identity: safeIdentity,
+      lobbyId: safeLobbyId,
+      confirmedAt: Date.now(),
+    } satisfies RoomPickerSessionState),
+  );
+}
+
+function clearRoomPickerSessionState() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(ROOM_PICKER_SESSION_KEY);
+}
+
+function shouldOpenRoomPickerInitially(initialRoom: RoomSession | null) {
+  if (initialRoom) return false;
+  const memberSession = loadMemberSession();
+  const identity = getRoomPickerIdentity(memberSession?.userId ?? "", getOrCreateGuestId());
+  const sessionState = loadRoomPickerSessionState();
+  if (!sessionState) return true;
+  return sessionState.identity !== identity;
+}
+
 function getInitialGuestName() {
   if (typeof window === "undefined") return "Misafir";
   const params = new URLSearchParams(window.location.search);
@@ -1788,7 +1852,7 @@ function App() {
   ]));
   const [lobbyRoomsBusy, setLobbyRoomsBusy] = useState(false);
   const [lobbyRoomsError, setLobbyRoomsError] = useState("");
-  const [roomPickerOpen, setRoomPickerOpen] = useState<boolean>(() => !initialRoom);
+  const [roomPickerOpen, setRoomPickerOpen] = useState<boolean>(() => shouldOpenRoomPickerInitially(initialRoom));
   const [adminLobbyNameDraft, setAdminLobbyNameDraft] = useState("");
   const [adminSelectedLobbyId, setAdminSelectedLobbyId] = useState("");
   const [adminSelectedUserId, setAdminSelectedUserId] = useState("");
@@ -3572,6 +3636,22 @@ function App() {
     }
   }
 
+  function rememberRoomPickerSelection(lobbyId: string) {
+    const safeLobbyId = sanitizeLobbyId(lobbyId);
+    if (!safeLobbyId) return;
+    const identity = getRoomPickerIdentity(member?.id ?? "", guestId);
+    saveRoomPickerSessionState(identity, safeLobbyId);
+  }
+
+  function confirmCurrentLobbyRoomSelection() {
+    const safeId = sanitizeLobbyId(activeLobbyId) || DEFAULT_LOBBY_ID;
+    rememberRoomPickerSelection(safeId);
+    setViewMode("lobby");
+    setRoomPickerOpen(false);
+    const roomName = lobbyRooms.find((room) => room.id === safeId)?.name || DEFAULT_LOBBY_NAME;
+    setLobbyNotice(`${sanitizeLobbyName(roomName)} odasina girildi.`);
+  }
+
   function selectLobbyRoom(lobbyId: string) {
     const safeId = sanitizeLobbyId(lobbyId);
     if (!safeId) return;
@@ -3580,6 +3660,7 @@ function App() {
       return;
     }
     setSelectedLobbyId(safeId);
+    rememberRoomPickerSelection(safeId);
     setViewMode("lobby");
     setRoomPickerOpen(false);
     const roomName = lobbyRooms.find((room) => room.id === safeId)?.name || DEFAULT_LOBBY_NAME;
@@ -3998,6 +4079,9 @@ function App() {
       setAuthPassword("");
       setAuthError("");
       setMemberNotice("");
+      clearRoomPickerSessionState();
+      setViewMode("lobby");
+      setRoomPickerOpen(true);
       setLobbyNotice("Uyelik acildi.");
       patchSeatByUserId(user.id, user.points, user.stats, user.displayName, user.username, user.gender, user.avatarId);
     } catch {
@@ -4046,6 +4130,9 @@ function App() {
       setAuthPassword("");
       setAuthError("");
       setMemberNotice("");
+      clearRoomPickerSessionState();
+      setViewMode("lobby");
+      setRoomPickerOpen(true);
       setLobbyNotice("Giris yapildi.");
       patchSeatByUserId(user.id, user.points, user.stats, user.displayName, user.username, user.gender, user.avatarId);
     } catch {
@@ -4178,6 +4265,7 @@ function App() {
 
   function onLogoutMember() {
     window.localStorage.removeItem(MEMBER_SESSION_KEY);
+    clearRoomPickerSessionState();
     setMember(null);
     setMemberAvatarDraft(DEFAULT_AVATAR_BY_GENDER.unknown);
     setMemberPasswordCurrent("");
@@ -4188,6 +4276,8 @@ function App() {
     setAuthPassword("");
     setAuthAvatarId(DEFAULT_AVATAR_BY_GENDER.unknown);
     setAuthError("");
+    setViewMode("lobby");
+    setRoomPickerOpen(true);
     setAccountMenuOpen(false);
     setLobbyNotice("Uyelik oturumu kapatildi.");
   }
@@ -5242,7 +5332,20 @@ function App() {
 
     const connectSocket = () => {
       if (cancelled) return;
-      closeSocket();
+      const existingSocket = realtimeSocketRef.current;
+      if (existingSocket) {
+        if (existingSocket.readyState === WebSocket.OPEN) {
+          setRealtimeSocketReadyState(existingSocket.readyState);
+          setRealtimeStatus("online");
+          return;
+        }
+        if (existingSocket.readyState === WebSocket.CONNECTING) {
+          setRealtimeSocketReadyState(existingSocket.readyState);
+          setRealtimeStatus("connecting");
+          return;
+        }
+        realtimeSocketRef.current = null;
+      }
       setRealtimeStatus("connecting");
       let socket: WebSocket;
       try {
@@ -5276,7 +5379,9 @@ function App() {
         if (cancelled || realtimeSocketRef.current !== socket) return;
         if (activeRealtimeLobbyChannelRef.current !== channelForConnection) return;
         reconnectDelay = 1_000;
-        console.log("[WS] opened, session:", appSessionId, "url:", socket.url);
+        if (ENABLE_WS_DEBUG_LOGS) {
+          console.debug("[WS] opened", { session: appSessionId, url: socket.url });
+        }
         setRealtimeSocketReadyState(socket.readyState);
         setSyncHealth((prev) => ({ ...prev, lastWsOpenAt: Date.now(), lastError: "" }));
         setRealtimeStatus("online");
@@ -5297,7 +5402,9 @@ function App() {
         if (cancelled || realtimeSocketRef.current !== socket) return;
         if (activeRealtimeLobbyChannelRef.current !== channelForConnection) return;
         if (typeof event.data !== "string") return;
-        console.log("[WS] message received, length:", event.data.length);
+        if (ENABLE_WS_DEBUG_LOGS) {
+          console.debug("[WS] message received", { length: event.data.length });
+        }
         setSyncHealth((prev) => ({ ...prev, lastWsMessageAt: Date.now() }));
 
         let message: RealtimeMessage | null = null;
@@ -5323,7 +5430,9 @@ function App() {
         window.clearTimeout(seedTimer);
         if (cancelled || realtimeSocketRef.current !== socket) return;
         if (activeRealtimeLobbyChannelRef.current !== channelForConnection) return;
-        console.log("[WS] closed");
+        if (ENABLE_WS_DEBUG_LOGS) {
+          console.debug("[WS] closed");
+        }
         realtimeSocketRef.current = null;
         setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
         setRealtimeStatus("offline");
@@ -7520,7 +7629,7 @@ function App() {
               <button className="my-action-btn soft" onClick={() => void loadLobbyRoomsFromService()} disabled={lobbyRoomsBusy}>
                 {lobbyRoomsBusy ? "Yukleniyor..." : "Listeyi Yenile"}
               </button>
-              <button className="my-action-btn" onClick={() => setRoomPickerOpen(false)} disabled={lobbyRoomsBusy}>
+              <button className="my-action-btn" onClick={confirmCurrentLobbyRoomSelection} disabled={lobbyRoomsBusy}>
                 Odaya Gir
               </button>
             </div>
