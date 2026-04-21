@@ -2136,15 +2136,17 @@ function App() {
     realtimeSenderCountersRef.current.set(message.sender, counter);
 
     const incoming = normalizeLobbyState(message.payload);
-    const now = Date.now();
-    realtimeRemoteStateRef.current = incoming;
-    realtimeReceivedSnapshotRef.current = true;
-    saveJson(LOBBY_STATE_KEY, incoming);
-    setLobbyState(incoming);
-    setSyncHealth((prev) => ({
-      ...prev,
-      lastIncomingAt: now,
-      lastIncomingServerAt: Number.isFinite(message.at) ? Number(message.at) : 0,
+const now = Date.now();
+const currentLocal = realtimeRemoteStateRef.current ?? loadLobbyState();
+const merged = mergeLobbyStates(currentLocal, incoming);
+realtimeRemoteStateRef.current = merged;
+realtimeReceivedSnapshotRef.current = true;
+saveJson(LOBBY_STATE_KEY, merged);
+setLobbyState(merged);
+setSyncHealth((prev) => ({
+  ...prev,
+  lastIncomingAt: now,
+  lastIncomingServerAt: Number.isFinite(message.at) ? Number(message.at) : 0,
       lastIncomingSender: message.sender,
       lastIncomingCounter: counter,
       lastError: "",
