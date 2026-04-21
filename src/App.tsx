@@ -485,9 +485,8 @@ function normalizeActivityTimestamp(value: unknown, now = Date.now(), maxFutureM
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return now;
   if (parsed > now + maxFutureMs) return now;
-  // Eğer çok geride ise (muhtemelen farklı cihaz saati) now olarak say
-  if (now - parsed > PRESENCE_STALE_MS * 0.5) return now;
-  return parsed;
+  if (now - parsed <= PRESENCE_STALE_MS) return parsed;
+  return now - HEARTBEAT_MS;
 }
 
 function tableChatKey(table: Pick<LobbyTable, "roomCode" | "id">) {
