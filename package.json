@@ -7,6 +7,8 @@
     "dev": "vite",
     "dev:worker": "npm run build && npx wrangler dev",
     "build": "tsc -b && vite build",
+    "guard:lobby-sync": "node scripts/guard-lobby-sync.mjs",
+    "check:safe": "npm run guard:lobby-sync && npm run build",
     "deploy": "npm run build && npx wrangler deploy",
     "preview": "vite preview"
   },
