@@ -227,6 +227,8 @@ type PlayerProfileModalState = {
   email?: string;
   userId?: string;
   error?: string;
+  anchorLeft: number;
+  anchorTop: number;
 };
 
 type LeaveConfirmModalState = {
@@ -287,6 +289,10 @@ const SHOW_SYNC_HEALTH_PANEL = false;
 const ROOM_MISSING_CHECK_DELAY_MS = 2_200;
 const ROOM_MISSING_CLOSE_GRACE_MS = 9_000;
 const ACTIVITY_CLOCK_SKEW_LIMIT_MS = 24 * 60 * 60 * 1000;
+const PROFILE_POPOVER_WIDTH_PX = 300;
+const PROFILE_POPOVER_MIN_HEIGHT_PX = 220;
+const PROFILE_POPOVER_GAP_PX = 6;
+const PROFILE_POPOVER_VIEWPORT_MARGIN_PX = 8;
 const AVATAR_PRESETS: readonly AvatarPreset[] = [
   { id: "male_01", label: "Erkek Klasik", gender: "male" },
   { id: "male_02", label: "Erkek Sakalli", gender: "male" },
@@ -1844,6 +1850,8 @@ function App() {
     avatarId: DEFAULT_AVATAR_BY_GENDER.unknown,
     points: 0,
     stats: createEmptyStats(),
+    anchorLeft: PROFILE_POPOVER_VIEWPORT_MARGIN_PX,
+    anchorTop: PROFILE_POPOVER_VIEWPORT_MARGIN_PX,
   });
   const [leaveConfirmModal, setLeaveConfirmModal] = useState<LeaveConfirmModalState>({
     open: false,
@@ -4864,6 +4872,34 @@ function App() {
     setProfileModal((prev) => ({ ...prev, open: false, loading: false }));
   }
 
+  function resolveProfilePopoverAnchor(triggerEl?: HTMLElement | null) {
+    if (typeof window === "undefined") {
+      return {
+        left: PROFILE_POPOVER_VIEWPORT_MARGIN_PX,
+        top: PROFILE_POPOVER_VIEWPORT_MARGIN_PX,
+      };
+    }
+    const viewportWidth = window.innerWidth || 0;
+    const viewportHeight = window.innerHeight || 0;
+    const maxLeft = Math.max(
+      PROFILE_POPOVER_VIEWPORT_MARGIN_PX,
+      viewportWidth - PROFILE_POPOVER_WIDTH_PX - PROFILE_POPOVER_VIEWPORT_MARGIN_PX,
+    );
+    if (!triggerEl) {
+      return {
+        left: PROFILE_POPOVER_VIEWPORT_MARGIN_PX,
+        top: Math.max(PROFILE_POPOVER_VIEWPORT_MARGIN_PX, Math.round(viewportHeight * 0.2)),
+      };
+    }
+    const rect = triggerEl.getBoundingClientRect();
+    const left = Math.round(Math.min(maxLeft, Math.max(PROFILE_POPOVER_VIEWPORT_MARGIN_PX, rect.left)));
+    let top = Math.round(rect.bottom + PROFILE_POPOVER_GAP_PX);
+    if (top + PROFILE_POPOVER_MIN_HEIGHT_PX > viewportHeight - PROFILE_POPOVER_VIEWPORT_MARGIN_PX) {
+      top = Math.round(Math.max(PROFILE_POPOVER_VIEWPORT_MARGIN_PX, rect.top - PROFILE_POPOVER_MIN_HEIGHT_PX - PROFILE_POPOVER_GAP_PX));
+    }
+    return { left, top };
+  }
+
   async function openPlayerProfile(
     userId: string,
     displayName: string,
@@ -4872,7 +4908,9 @@ function App() {
     username?: string,
     gender?: MemberGender,
     avatarId?: AvatarId,
+    triggerEl?: HTMLElement | null,
   ) {
+    const anchor = resolveProfilePopoverAnchor(triggerEl);
     const baseState: PlayerProfileModalState = {
       open: true,
       loading: false,
@@ -4884,6 +4922,8 @@ function App() {
       points: normalizeNonNegativeInt(points, 0),
       stats: normalizeStats(stats),
       userId,
+      anchorLeft: anchor.left,
+      anchorTop: anchor.top,
     };
 
     if (!isMemberUserId(userId)) {
@@ -4921,6 +4961,8 @@ function App() {
         points: user.points,
         stats: normalizeStats(user.stats),
         userId: user.id,
+        anchorLeft: anchor.left,
+        anchorTop: anchor.top,
       });
     } catch {
       setProfileModal({ ...baseState, loading: false, error: "Profil servisine baglanilamadi." });
@@ -5078,7 +5120,7 @@ function App() {
           <button
             type="button"
             className="my-name-link my-occupant-name"
-            onClick={() => openPlayerProfile(
+            onClick={(event) => openPlayerProfile(
               occupant.userId,
               occupant.displayName,
               occupant.points,
@@ -5086,6 +5128,7 @@ function App() {
               occupant.username,
               occupant.gender,
               occupant.avatarId,
+              event.currentTarget,
             )}
             title={`${occupant.displayName} profilini goster`}
           >
@@ -6830,7 +6873,9 @@ function App() {
                     <button
                       type="button"
                       className="my-name-link name"
-                      onClick={() => openPlayerProfile(row.userId, row.name, row.points, row.stats, row.username, row.gender, row.avatarId)}
+                      onClick={(event) =>
+                        openPlayerProfile(row.userId, row.name, row.points, row.stats, row.username, row.gender, row.avatarId, event.currentTarget)
+                      }
                       title={`${row.name} profilini goster`}
                     >
                       {row.name}
@@ -7369,7 +7414,7 @@ function App() {
                     <button
                       type="button"
                       className="my-name-link"
-                      onClick={() => openPlayerProfile(
+                      onClick={(event) => openPlayerProfile(
                         roomWhiteSeat.userId,
                         roomWhiteSeat.displayName,
                         roomWhiteSeat.points,
@@ -7377,6 +7422,7 @@ function App() {
                         roomWhiteSeat.username,
                         roomWhiteSeat.gender,
                         roomWhiteSeat.avatarId,
+                        event.currentTarget,
                       )}
                       title={`${roomWhiteSeat.displayName} profilini goster`}
                     >
@@ -7394,7 +7440,7 @@ function App() {
                     <button
                       type="button"
                       className="my-name-link"
-                      onClick={() => openPlayerProfile(
+                      onClick={(event) => openPlayerProfile(
                         roomBlackSeat.userId,
                         roomBlackSeat.displayName,
                         roomBlackSeat.points,
@@ -7402,6 +7448,7 @@ function App() {
                         roomBlackSeat.username,
                         roomBlackSeat.gender,
                         roomBlackSeat.avatarId,
+                        event.currentTarget,
                       )}
                       title={`${roomBlackSeat.displayName} profilini goster`}
                     >
@@ -7426,7 +7473,7 @@ function App() {
                         <button
                           type="button"
                           className="my-name-link"
-                          onClick={() => openPlayerProfile(
+                          onClick={(event) => openPlayerProfile(
                             row.userId,
                             row.name,
                             row.points,
@@ -7434,6 +7481,7 @@ function App() {
                             row.username,
                             row.gender,
                             row.avatarId,
+                            event.currentTarget,
                           )}
                           title={`${row.name} profilini goster`}
                         >
@@ -7508,32 +7556,36 @@ function App() {
       ) : null}
 
       {profileModal.open ? (
-        <section className="my-modal-backdrop" role="presentation" onClick={closeProfileModal}>
-          <article className="my-modal-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <div className="my-profile-modal-head">
-              <AvatarBadge avatarId={profileModal.avatarId} gender={profileModal.gender} size="lg" />
-              <h3>{profileModal.username ? `@${profileModal.username}` : "Oyuncu Profili"}</h3>
-            </div>
-            {profileModal.loading ? (
-              <p className="line">Profil yukleniyor...</p>
-            ) : (
-              <>
-                <p className="line">{profileModal.isMember ? "Uye Oyuncu" : "Misafir Oyuncu"}</p>
-                {profileModal.username ? <p className="line">Kullanici: @{profileModal.username}</p> : null}
-                <p className="line">Cinsiyet: {genderLabel(profileModal.gender)}</p>
-                <p className="line">Puan: {profileModal.points}</p>
-                <p className="line">Toplam Oyun: {profileModal.stats.gamesPlayed}</p>
-                <p className="line">Kazandigi: {profileModal.stats.wins}</p>
-                <p className="line">Kaybettigi: {profileModal.stats.losses}</p>
-                <p className="line">Masadan Kacis: {profileModal.stats.resigns}</p>
-                {profileModal.error ? <p className="my-error">{profileModal.error}</p> : null}
-              </>
-            )}
-            <button className="my-action-btn" type="button" onClick={closeProfileModal}>
-              Kapat
-            </button>
-          </article>
-        </section>
+        <article
+          className="my-modal-card my-profile-popover"
+          role="dialog"
+          aria-modal="false"
+          aria-label="Oyuncu Profili"
+          style={{ left: `${profileModal.anchorLeft}px`, top: `${profileModal.anchorTop}px` }}
+        >
+          <div className="my-profile-modal-head">
+            <AvatarBadge avatarId={profileModal.avatarId} gender={profileModal.gender} size="lg" />
+            <h3>{profileModal.username ? `@${profileModal.username}` : "Oyuncu Profili"}</h3>
+          </div>
+          {profileModal.loading ? (
+            <p className="line">Profil yukleniyor...</p>
+          ) : (
+            <>
+              <p className="line">{profileModal.isMember ? "Uye Oyuncu" : "Misafir Oyuncu"}</p>
+              {profileModal.username ? <p className="line">Kullanici: @{profileModal.username}</p> : null}
+              <p className="line">Cinsiyet: {genderLabel(profileModal.gender)}</p>
+              <p className="line">Puan: {profileModal.points}</p>
+              <p className="line">Toplam Oyun: {profileModal.stats.gamesPlayed}</p>
+              <p className="line">Kazandigi: {profileModal.stats.wins}</p>
+              <p className="line">Kaybettigi: {profileModal.stats.losses}</p>
+              <p className="line">Masadan Kacis: {profileModal.stats.resigns}</p>
+              {profileModal.error ? <p className="my-error">{profileModal.error}</p> : null}
+            </>
+          )}
+          <button className="my-action-btn" type="button" onClick={closeProfileModal}>
+            Kapat
+          </button>
+        </article>
       ) : null}
 
       {leaveConfirmModal.open ? (

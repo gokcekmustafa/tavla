@@ -1761,6 +1761,14 @@
   line-height: 1.3;
 }
 
+.my-profile-popover {
+  position: fixed;
+  z-index: 1225;
+  width: min(300px, calc(100vw - 16px));
+  max-height: min(72svh, 420px);
+  overflow-y: auto;
+}
+
 .my-invite-modal {
   width: min(360px, 100%);
 }
