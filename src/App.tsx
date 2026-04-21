@@ -258,6 +258,7 @@ const LOBBY_CHAT_LIMIT = 120;
 const TABLE_CHAT_LIMIT = 80;
 const LOBBY_CHAT_AUTO_SCROLL_THRESHOLD = 24;
 const OPPONENT_MOVE_TIMEOUT_MS = 60_000;
+const SHOW_SYNC_HEALTH_PANEL = false;
 const ROOM_MISSING_CHECK_DELAY_MS = 2_200;
 const ROOM_MISSING_CLOSE_GRACE_MS = 9_000;
 const AVATAR_PRESETS: readonly AvatarPreset[] = [
@@ -478,6 +479,13 @@ function sanitizeTableChatKey(value: string) {
   const roomCode = sanitizeRoomCode(value);
   if (roomCode) return roomCode;
   return value.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24);
+}
+
+function normalizeActivityTimestamp(value: unknown, now = Date.now(), maxFutureMs = HEARTBEAT_MS * 2) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return now;
+  if (parsed > now + maxFutureMs) return now;
+  return parsed;
 }
 
 function tableChatKey(table: Pick<LobbyTable, "roomCode" | "id">) {
@@ -1066,7 +1074,7 @@ function normalizeSeat(raw: unknown): LobbySeatState | null {
     avatarId: sanitizeAvatarId(candidate.avatarId, gender),
     points: normalizeNonNegativeInt(candidate.points, 1500),
     stats: normalizeStats(candidate.stats),
-    touchedAt: Number.isFinite(candidate.touchedAt) ? Number(candidate.touchedAt) : Date.now(),
+    touchedAt: normalizeActivityTimestamp(candidate.touchedAt),
   };
 }
 
@@ -1089,7 +1097,7 @@ function normalizePresence(raw: unknown): LobbyPresenceState | null {
     avatarId: sanitizeAvatarId(candidate.avatarId, gender),
     points: normalizeNonNegativeInt(candidate.points, 1500),
     stats: normalizeStats(candidate.stats),
-    touchedAt: Number.isFinite(candidate.touchedAt) ? Number(candidate.touchedAt) : Date.now(),
+    touchedAt: normalizeActivityTimestamp(candidate.touchedAt),
   };
 }
 
@@ -1200,10 +1208,20 @@ function cleanupStaleAndPrune(tables: LobbyTable[]): CleanupResult {
   const next: LobbyTable[] = [];
 
   sortTables(tables).forEach((table) => {
-    const whiteExpired = table.white ? now - table.white.touchedAt > SEAT_STALE_MS : false;
-    const blackExpired = table.black ? now - table.black.touchedAt > SEAT_STALE_MS : false;
-    const white = whiteExpired ? null : table.white;
-    const black = blackExpired ? null : table.black;
+    const normalizedWhite = table.white
+      ? { ...table.white, touchedAt: normalizeActivityTimestamp(table.white.touchedAt, now) }
+      : null;
+    const normalizedBlack = table.black
+      ? { ...table.black, touchedAt: normalizeActivityTimestamp(table.black.touchedAt, now) }
+      : null;
+    if ((table.white && normalizedWhite && table.white.touchedAt !== normalizedWhite.touchedAt)
+      || (table.black && normalizedBlack && table.black.touchedAt !== normalizedBlack.touchedAt)) {
+      changed = true;
+    }
+    const whiteExpired = normalizedWhite ? now - normalizedWhite.touchedAt > SEAT_STALE_MS : false;
+    const blackExpired = normalizedBlack ? now - normalizedBlack.touchedAt > SEAT_STALE_MS : false;
+    const white = whiteExpired ? null : normalizedWhite;
+    const black = blackExpired ? null : normalizedBlack;
     if (whiteExpired || blackExpired) changed = true;
     if (!white && !black) {
       changed = true;
@@ -1241,14 +1259,19 @@ function cleanupPresenceRows(rows: LobbyPresenceState[]) {
   const bySession = new Map<string, LobbyPresenceState>();
 
   rows.forEach((row) => {
-    if (now - row.touchedAt > PRESENCE_STALE_MS) {
+    const safeTouchedAt = normalizeActivityTimestamp(row.touchedAt, now);
+    const safeRow = safeTouchedAt === row.touchedAt ? row : { ...row, touchedAt: safeTouchedAt };
+    if (safeTouchedAt !== row.touchedAt) {
+      changed = true;
+    }
+    if (now - safeTouchedAt > PRESENCE_STALE_MS) {
       changed = true;
       return;
     }
-    const existing = bySession.get(row.sessionId);
-    if (!existing || row.touchedAt >= existing.touchedAt) {
-      if (existing && existing !== row) changed = true;
-      bySession.set(row.sessionId, row);
+    const existing = bySession.get(safeRow.sessionId);
+    if (!existing || safeRow.touchedAt >= existing.touchedAt) {
+      if (existing && existing !== safeRow) changed = true;
+      bySession.set(safeRow.sessionId, safeRow);
     }
   });
 
@@ -6172,59 +6195,61 @@ function App() {
               </div>
             </section>
 
-            <section className="my-side-card my-side-card-sync">
-              <h3>Canli Senkron</h3>
-              <div className="my-sync-grid">
-                <div className="my-sync-row">
-                  <span>Durum</span>
-                  <strong className={`my-sync-status ${realtimeStatus}`}>{realtimeStatus}</strong>
+            {SHOW_SYNC_HEALTH_PANEL ? (
+              <section className="my-side-card my-side-card-sync">
+                <h3>Canli Senkron</h3>
+                <div className="my-sync-grid">
+                  <div className="my-sync-row">
+                    <span>Durum</span>
+                    <strong className={`my-sync-status ${realtimeStatus}`}>{realtimeStatus}</strong>
+                  </div>
+                  <div className="my-sync-row">
+                    <span>WebSocket</span>
+                    <strong>{websocketStateText(realtimeSocketReadyState)}</strong>
+                  </div>
+                  <div className="my-sync-row">
+                    <span>Session</span>
+                    <strong>{appSessionId.slice(0, 12)}</strong>
+                  </div>
+                  <div className="my-sync-row">
+                    <span>Son Snapshot</span>
+                    <strong>{formatSince(syncHealth.lastIncomingAt, syncHealthNow)}</strong>
+                  </div>
+                  <div className="my-sync-row">
+                    <span>Snapshot Gonderen</span>
+                    <strong>{syncHealth.lastIncomingSender || "-"}</strong>
+                  </div>
+                  <div className="my-sync-row">
+                    <span>Counter</span>
+                    <strong>{syncHealth.lastIncomingCounter || 0}</strong>
+                  </div>
+                  <div className="my-sync-row">
+                    <span>WS Mesaj</span>
+                    <strong>{formatSince(syncHealth.lastWsMessageAt, syncHealthNow)}</strong>
+                  </div>
+                  <div className="my-sync-row">
+                    <span>HTTP Push</span>
+                    <strong>{formatSince(syncHealth.lastHttpPushAt, syncHealthNow)}</strong>
+                  </div>
+                  <div className="my-sync-row">
+                    <span>Push Sebebi</span>
+                    <strong>{syncHealth.lastHttpPushReason || "-"}</strong>
+                  </div>
+                  <div className="my-sync-row">
+                    <span>HTTP Pull</span>
+                    <strong>{formatSince(syncHealth.lastHttpPullAt, syncHealthNow)}</strong>
+                  </div>
+                  <div className="my-sync-row">
+                    <span>Pull Sebebi</span>
+                    <strong>{syncHealth.lastHttpPullReason || "-"}</strong>
+                  </div>
                 </div>
-                <div className="my-sync-row">
-                  <span>WebSocket</span>
-                  <strong>{websocketStateText(realtimeSocketReadyState)}</strong>
-                </div>
-                <div className="my-sync-row">
-                  <span>Session</span>
-                  <strong>{appSessionId.slice(0, 12)}</strong>
-                </div>
-                <div className="my-sync-row">
-                  <span>Son Snapshot</span>
-                  <strong>{formatSince(syncHealth.lastIncomingAt, syncHealthNow)}</strong>
-                </div>
-                <div className="my-sync-row">
-                  <span>Snapshot Gonderen</span>
-                  <strong>{syncHealth.lastIncomingSender || "-"}</strong>
-                </div>
-                <div className="my-sync-row">
-                  <span>Counter</span>
-                  <strong>{syncHealth.lastIncomingCounter || 0}</strong>
-                </div>
-                <div className="my-sync-row">
-                  <span>WS Mesaj</span>
-                  <strong>{formatSince(syncHealth.lastWsMessageAt, syncHealthNow)}</strong>
-                </div>
-                <div className="my-sync-row">
-                  <span>HTTP Push</span>
-                  <strong>{formatSince(syncHealth.lastHttpPushAt, syncHealthNow)}</strong>
-                </div>
-                <div className="my-sync-row">
-                  <span>Push Sebebi</span>
-                  <strong>{syncHealth.lastHttpPushReason || "-"}</strong>
-                </div>
-                <div className="my-sync-row">
-                  <span>HTTP Pull</span>
-                  <strong>{formatSince(syncHealth.lastHttpPullAt, syncHealthNow)}</strong>
-                </div>
-                <div className="my-sync-row">
-                  <span>Pull Sebebi</span>
-                  <strong>{syncHealth.lastHttpPullReason || "-"}</strong>
-                </div>
-              </div>
-              <button className="my-action-btn soft" onClick={() => void runRealtimeHealthProbe()}>
-                Simdi Test Et
-              </button>
-              {syncHealth.lastError ? <p className="my-error my-sync-error">{syncHealth.lastError}</p> : null}
-            </section>
+                <button className="my-action-btn soft" onClick={() => void runRealtimeHealthProbe()}>
+                  Simdi Test Et
+                </button>
+                {syncHealth.lastError ? <p className="my-error my-sync-error">{syncHealth.lastError}</p> : null}
+              </section>
+            ) : null}
 
             {isAdmin && showAdminPanelInLobby ? (
               <section className="my-side-card">
