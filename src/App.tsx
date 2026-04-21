@@ -212,6 +212,12 @@ type PlayerProfileModalState = {
   error?: string;
 };
 
+type LeaveConfirmModalState = {
+  open: boolean;
+  title: string;
+  message: string;
+};
+
 type CleanupResult = {
   tables: LobbyTable[];
   changed: boolean;
@@ -1710,6 +1716,11 @@ function App() {
     points: 0,
     stats: createEmptyStats(),
   });
+  const [leaveConfirmModal, setLeaveConfirmModal] = useState<LeaveConfirmModalState>({
+    open: false,
+    title: "",
+    message: "",
+  });
   const [matchLiveState, setMatchLiveState] = useState({
     matchToken: "",
     matchActive: false,
@@ -1780,6 +1791,7 @@ function App() {
   const opponentIdlePromptRef = useRef(false);
   const leavePermissionPromptKeyRef = useRef("");
   const leavePermissionAutoLeavingRef = useRef(false);
+  const leaveConfirmResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const roomMissingSinceRef = useRef<number | null>(null);
   const latestLegacyStateRef = useRef<{
     matchToken: string;
@@ -1801,6 +1813,34 @@ function App() {
     matchToken: string;
     userId: string;
   } | null>(null);
+
+  function openLeaveConfirmModal(title: string, message: string) {
+    if (leaveConfirmResolverRef.current) {
+      leaveConfirmResolverRef.current(false);
+      leaveConfirmResolverRef.current = null;
+    }
+    setLeaveConfirmModal({
+      open: true,
+      title,
+      message,
+    });
+    return new Promise<boolean>((resolve) => {
+      leaveConfirmResolverRef.current = resolve;
+    });
+  }
+
+  function closeLeaveConfirmModal(approved: boolean) {
+    setLeaveConfirmModal((prev) => (prev.open ? { ...prev, open: false } : prev));
+    const resolver = leaveConfirmResolverRef.current;
+    leaveConfirmResolverRef.current = null;
+    if (resolver) resolver(approved);
+  }
+
+  useEffect(() => () => {
+    const resolver = leaveConfirmResolverRef.current;
+    leaveConfirmResolverRef.current = null;
+    if (resolver) resolver(false);
+  }, []);
 
   const safeGuestName = useMemo(() => {
     const memberName = member ? sanitizeGuestName(member.displayName) : "";
@@ -2941,8 +2981,9 @@ setSyncHealth((prev) => ({
       const activeTable = getActiveRoomTable();
       const leaveContext = resolveLeavePenaltyContext(activeTable);
       if (leaveContext.shouldPenalize && leaveContext.opponentSeat) {
-        const confirmed = window.confirm(
-          `Set serisi tamamlanmadan masadan kalkarsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Rakibin galip sayilip ${gameRules.winPoints} puan kazanir. Devam etmek istiyor musun?`,
+        const confirmed = await openLeaveConfirmModal(
+          "Masadan Çıkış Uyarısı",
+          `Set serisi tamamlanmadan masadan kalkarsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Rakibin galip sayilip ${gameRules.winPoints} puan kazanir.`,
         );
         if (!confirmed) return;
         const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
@@ -6868,6 +6909,29 @@ setSyncHealth((prev) => ({
             <button className="my-action-btn" type="button" onClick={closeProfileModal}>
               Kapat
             </button>
+          </article>
+        </section>
+      ) : null}
+
+      {leaveConfirmModal.open ? (
+        <section className="my-modal-backdrop" role="presentation" onClick={() => closeLeaveConfirmModal(false)}>
+          <article
+            className="my-modal-card my-leave-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Masadan cikis uyarisi"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>{leaveConfirmModal.title || "Masadan Çıkış Uyarısı"}</h3>
+            <p className="line">{leaveConfirmModal.message}</p>
+            <div className="my-leave-confirm-actions">
+              <button className="my-action-btn danger" type="button" onClick={() => closeLeaveConfirmModal(true)}>
+                Çık
+              </button>
+              <button className="my-action-btn soft" type="button" onClick={() => closeLeaveConfirmModal(false)}>
+                İptal
+              </button>
+            </div>
           </article>
         </section>
       ) : null}
