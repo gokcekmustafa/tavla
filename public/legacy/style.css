@@ -2207,13 +2207,13 @@ body.bot-mode .activity-wrap {
   /* Mobilde pullar daha dolgun ve okunakli */
   body.room-mode,
   body.bot-mode {
-    --checker-size: clamp(22px, 6.4vw, 32px);
+    --checker-size: clamp(20px, 5.8vw, 30px);
   }
 }
 
 @media (max-width: 420px) {
   body.room-mode,
   body.bot-mode {
-    --checker-size: clamp(20px, 5.8vw, 27px);
+    --checker-size: clamp(18px, 5.2vw, 25px);
   }
 }
