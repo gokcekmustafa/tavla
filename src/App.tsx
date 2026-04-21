@@ -499,14 +499,20 @@ function normalizeActivityTimestamp(
 
   let offset = activityClockOffsetBySession.get(sessionId);
   if (offset === undefined || !Number.isFinite(offset)) {
+    // Yeni oturumlarda sadece "gelecek zaman" sapmasını düzelt.
+    // Eski/gecmis kayitlari simdiye cekmek gecici hayalet kullanici olusturuyor.
+    if (parsed <= now + maxFutureMs) {
+      return parsed;
+    }
     offset = now - parsed;
   }
   offset = Math.max(-ACTIVITY_CLOCK_SKEW_LIMIT_MS, Math.min(ACTIVITY_CLOCK_SKEW_LIMIT_MS, offset));
 
   let adjusted = parsed + offset;
   if (adjusted > now + maxFutureMs || adjusted < now - ACTIVITY_CLOCK_SKEW_LIMIT_MS) {
-    offset = Math.max(-ACTIVITY_CLOCK_SKEW_LIMIT_MS, Math.min(ACTIVITY_CLOCK_SKEW_LIMIT_MS, now - parsed));
-    adjusted = parsed + offset;
+    // Eger kayit halen gecersizse oturum offset'ini sifirla ve ham degeri kullan.
+    activityClockOffsetBySession.delete(sessionId);
+    return parsed;
   }
   activityClockOffsetBySession.set(sessionId, offset);
   return adjusted;
