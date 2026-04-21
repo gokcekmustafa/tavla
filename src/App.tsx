@@ -243,8 +243,8 @@ const REALTIME_HTTP_SYNC_PATH = "/api/lobby-sync";
 const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_LOBBY_NAME = "Lobi 1";
 const SEAT_STALE_MS = 180_000;
-const PRESENCE_STALE_MS = 35_000;
-const HEARTBEAT_MS = 5_000;
+const PRESENCE_STALE_MS = 90_000;
+const HEARTBEAT_MS = 8_000;
 const DEFAULT_WIN_POINTS = 100;
 const DEFAULT_LOSS_POINTS = 0;
 const DEFAULT_RESIGN_PENALTY_POINTS = 50;
@@ -5598,7 +5598,6 @@ function App() {
     currentProfile.points,
     currentProfile.stats,
     member,
-    realtimeStatus,
     lobbyState.guestLabels,
     guestId,
   ]);
