@@ -2035,7 +2035,7 @@ function App() {
     if (!currentRoomTable) return [];
     const key = tableChatKey(currentRoomTable);
     const rows = normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
-    if (!roomSession || roomSession.role !== "spectator") return rows;
+    if (!roomSession) return rows;
     return rows.filter((row) => row.at >= roomSession.joinedAt);
   }, [currentRoomTable, lobbyState.tableChats, roomSession]);
 
