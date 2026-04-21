@@ -1989,7 +1989,7 @@
 
   .my-topbar-left {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 4px;
     width: 100%;
   }
@@ -2025,13 +2025,13 @@
   }
 
   .my-lobby-layout {
-    padding: 6px;
-    gap: 8px;
+    padding: 5px;
+    gap: 6px;
   }
 
   .my-lobby-main {
-    padding: 6px;
-    gap: 6px;
+    padding: 5px;
+    gap: 5px;
   }
 
   .my-lobby-header h2 {
@@ -2047,9 +2047,9 @@
   }
 
   .my-lobby-table-zone {
-    height: min(52svh, 400px);
-    min-height: 250px;
-    padding: 6px;
+    height: min(46svh, 340px);
+    min-height: 220px;
+    padding: 5px;
   }
 
   .my-chat-compose {
@@ -2074,8 +2074,8 @@
   }
 
   .my-side-card-online {
-    height: min(44svh, 360px);
-    min-height: 230px;
+    height: min(38svh, 300px);
+    min-height: 200px;
     max-height: none;
   }
 
@@ -2088,13 +2088,13 @@
   }
 
   .my-game-frame iframe {
-    height: min(74svh, 620px);
-    min-height: 380px;
+    height: clamp(320px, 56svh, 460px);
+    min-height: 320px;
   }
 
   .my-game-layout {
     padding: 4px;
-    gap: 6px;
+    gap: 5px;
   }
 
   .my-game-controls {
@@ -2117,9 +2117,9 @@
   }
 
   .my-room-header-strip {
-    min-height: 30px;
+    min-height: 28px;
     padding: 0 8px;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
   }
 
   .my-room-header-strip span {
@@ -2127,14 +2127,14 @@
   }
 
   .my-room-start-indicator {
-    font-size: 0.66rem;
+    font-size: 0.62rem;
     padding: 2px 8px;
   }
 
   .my-room-left-controls,
   .my-room-right-controls {
     grid-template-columns: 1fr;
-    gap: 6px;
+    gap: 5px;
   }
 
   .my-room-right-controls {
@@ -2146,13 +2146,13 @@
   }
 
   .my-room-board-frame iframe {
-    height: min(68svh, 560px);
-    min-height: 360px;
+    height: clamp(320px, 58svh, 460px);
+    min-height: 320px;
   }
 
   .my-room-view-topless .my-room-board-frame iframe {
-    height: min(72svh, 620px);
-    min-height: 380px;
+    height: clamp(330px, 60svh, 480px);
+    min-height: 330px;
   }
 
   .my-room-main-leave {
@@ -2161,7 +2161,7 @@
 
   .my-room-chat-tab {
     min-height: 30px;
-    min-width: 96px;
+    min-width: 86px;
     font-size: 0.76rem;
   }
 
@@ -2177,5 +2177,20 @@
 
   .my-room-score-row {
     grid-template-columns: 10px minmax(0, 1fr) auto;
+  }
+
+  .my-room-view {
+    padding: 4px 6px 6px;
+    gap: 5px;
+  }
+
+  .my-room-chat-card {
+    padding: 5px;
+    gap: 3px;
+  }
+
+  .my-room-chat-list {
+    max-height: 220px;
+    min-height: 170px;
   }
 }
