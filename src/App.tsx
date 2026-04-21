@@ -485,8 +485,7 @@ function normalizeActivityTimestamp(value: unknown, now = Date.now(), maxFutureM
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return now;
   if (parsed > now + maxFutureMs) return now;
-  if (now - parsed <= PRESENCE_STALE_MS) return parsed;
-  return now - HEARTBEAT_MS;
+  return parsed;
 }
 
 function tableChatKey(table: Pick<LobbyTable, "roomCode" | "id">) {
