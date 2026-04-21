@@ -481,10 +481,9 @@ function sanitizeTableChatKey(value: string) {
   return value.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24);
 }
 
-function normalizeActivityTimestamp(value: unknown, now = Date.now(), maxFutureMs = HEARTBEAT_MS * 2) {
+function normalizeActivityTimestamp(value: unknown, now = Date.now()) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return now;
-  if (parsed > now + maxFutureMs) return now;
   return parsed;
 }
 
@@ -1218,8 +1217,10 @@ function cleanupStaleAndPrune(tables: LobbyTable[]): CleanupResult {
       || (table.black && normalizedBlack && table.black.touchedAt !== normalizedBlack.touchedAt)) {
       changed = true;
     }
-    const whiteExpired = normalizedWhite ? now - normalizedWhite.touchedAt > SEAT_STALE_MS : false;
-    const blackExpired = normalizedBlack ? now - normalizedBlack.touchedAt > SEAT_STALE_MS : false;
+    const whiteInFuture = Boolean(normalizedWhite && normalizedWhite.touchedAt > now + HEARTBEAT_MS * 2);
+    const blackInFuture = Boolean(normalizedBlack && normalizedBlack.touchedAt > now + HEARTBEAT_MS * 2);
+    const whiteExpired = normalizedWhite ? whiteInFuture || now - normalizedWhite.touchedAt > SEAT_STALE_MS : false;
+    const blackExpired = normalizedBlack ? blackInFuture || now - normalizedBlack.touchedAt > SEAT_STALE_MS : false;
     const white = whiteExpired ? null : normalizedWhite;
     const black = blackExpired ? null : normalizedBlack;
     if (whiteExpired || blackExpired) changed = true;
@@ -1260,6 +1261,10 @@ function cleanupPresenceRows(rows: LobbyPresenceState[]) {
 
   rows.forEach((row) => {
     const safeTouchedAt = normalizeActivityTimestamp(row.touchedAt, now);
+    if (safeTouchedAt > now + HEARTBEAT_MS * 2) {
+      changed = true;
+      return;
+    }
     const safeRow = safeTouchedAt === row.touchedAt ? row : { ...row, touchedAt: safeTouchedAt };
     if (safeTouchedAt !== row.touchedAt) {
       changed = true;
@@ -1870,11 +1875,11 @@ function App() {
       });
     });
 
-    map.set(`session:${appSessionId}`, {
+    upsertPresence({
       sessionId: appSessionId,
       userId: currentProfile.userId,
       username: currentProfile.username,
-      displayName: safeGuestName,
+      displayName: currentProfile.displayName,
       gender: currentProfile.gender,
       avatarId: currentProfile.avatarId,
       points: currentProfile.points,
