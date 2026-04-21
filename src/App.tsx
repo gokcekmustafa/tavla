@@ -1052,11 +1052,12 @@ function normalizeSeat(raw: unknown): LobbySeatState | null {
   const candidate = raw as Partial<LobbySeatState>;
   const sessionId = typeof candidate.sessionId === "string" ? candidate.sessionId : "";
   if (!sessionId) return null;
+  const normalizedUserId = sanitizeGuestId(typeof candidate.userId === "string" ? candidate.userId : "");
   const displayName = sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Misafir") || "Misafir";
   const gender = sanitizeMemberGender(candidate.gender);
   return {
     sessionId,
-    userId: typeof candidate.userId === "string" ? candidate.userId : `guest-${sessionId}`,
+    userId: normalizedUserId || `guest-${sessionId}`,
     username:
       sanitizeMemberUsername(typeof candidate.username === "string" ? candidate.username : "")
       || fallbackUsernameFromName(displayName),
@@ -1074,11 +1075,12 @@ function normalizePresence(raw: unknown): LobbyPresenceState | null {
   const candidate = raw as Partial<LobbyPresenceState>;
   const sessionId = typeof candidate.sessionId === "string" ? candidate.sessionId : "";
   if (!sessionId) return null;
+  const normalizedUserId = sanitizeGuestId(typeof candidate.userId === "string" ? candidate.userId : "");
   const displayName = sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Misafir") || "Misafir";
   const gender = sanitizeMemberGender(candidate.gender);
   return {
     sessionId,
-    userId: typeof candidate.userId === "string" ? candidate.userId : `guest-${sessionId}`,
+    userId: normalizedUserId || `guest-${sessionId}`,
     username:
       sanitizeMemberUsername(typeof candidate.username === "string" ? candidate.username : "")
       || fallbackUsernameFromName(displayName),
@@ -1250,7 +1252,17 @@ function cleanupPresenceRows(rows: LobbyPresenceState[]) {
     }
   });
 
-  const presence = Array.from(bySession.values());
+  const byUser = new Map<string, LobbyPresenceState>();
+  bySession.forEach((row) => {
+    const key = sanitizeGuestId(row.userId) || `session:${row.sessionId}`;
+    const existing = byUser.get(key);
+    if (!existing || row.touchedAt >= existing.touchedAt) {
+      if (existing && existing !== row) changed = true;
+      byUser.set(key, row);
+    }
+  });
+
+  const presence = Array.from(byUser.values());
   if (presence.length !== rows.length) {
     changed = true;
   }
@@ -1818,7 +1830,7 @@ function App() {
 
     const map = new Map<string, LobbyPresenceState>();
     const upsertPresence = (row: LobbyPresenceState) => {
-      const key = row.userId || `session:${row.sessionId}`;
+      const key = sanitizeGuestId(row.userId) || `session:${row.sessionId}`;
       const existing = map.get(key);
       if (!existing || row.touchedAt >= existing.touchedAt) {
         map.set(key, row);
