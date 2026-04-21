@@ -4904,7 +4904,6 @@ setSyncHealth((prev) => ({
         avatarId: user.avatarId,
         points: user.points,
         stats: normalizeStats(user.stats),
-        email: user.email,
         userId: user.id,
       });
     } catch {
@@ -7487,7 +7486,7 @@ setSyncHealth((prev) => ({
           <article className="my-modal-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="my-profile-modal-head">
               <AvatarBadge avatarId={profileModal.avatarId} gender={profileModal.gender} size="lg" />
-              <h3>{profileModal.name}</h3>
+              <h3>{profileModal.username ? `@${profileModal.username}` : "Oyuncu Profili"}</h3>
             </div>
             {profileModal.loading ? (
               <p className="line">Profil yukleniyor...</p>
@@ -7496,7 +7495,6 @@ setSyncHealth((prev) => ({
                 <p className="line">{profileModal.isMember ? "Uye Oyuncu" : "Misafir Oyuncu"}</p>
                 {profileModal.username ? <p className="line">Kullanici: @{profileModal.username}</p> : null}
                 <p className="line">Cinsiyet: {genderLabel(profileModal.gender)}</p>
-                {profileModal.email ? <p className="line">{profileModal.email}</p> : null}
                 <p className="line">Puan: {profileModal.points}</p>
                 <p className="line">Toplam Oyun: {profileModal.stats.gamesPlayed}</p>
                 <p className="line">Kazandigi: {profileModal.stats.wins}</p>
