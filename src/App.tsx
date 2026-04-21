@@ -258,7 +258,7 @@ const LOBBY_CHAT_LIMIT = 120;
 const TABLE_CHAT_LIMIT = 80;
 const LOBBY_CHAT_AUTO_SCROLL_THRESHOLD = 24;
 const OPPONENT_MOVE_TIMEOUT_MS = 60_000;
-const SHOW_SYNC_HEALTH_PANEL = true;
+const SHOW_SYNC_HEALTH_PANEL = false;
 const ROOM_MISSING_CHECK_DELAY_MS = 2_200;
 const ROOM_MISSING_CLOSE_GRACE_MS = 9_000;
 const AVATAR_PRESETS: readonly AvatarPreset[] = [
@@ -485,6 +485,8 @@ function normalizeActivityTimestamp(value: unknown, now = Date.now(), maxFutureM
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return now;
   if (parsed > now + maxFutureMs) return now;
+  // Eğer çok geride ise (muhtemelen farklı cihaz saati) now olarak say
+  if (now - parsed > PRESENCE_STALE_MS * 0.5) return now;
   return parsed;
 }
 
