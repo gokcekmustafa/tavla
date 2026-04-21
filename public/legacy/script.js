@@ -88,6 +88,7 @@ let pendingBotTimer   = null;
 let pendingAutoRollTimer = null;
 let pendingCheckerSelectTimer = null;
 let turnUndoSnapshot  = null;
+let turnUndoStack     = [];
 let movesMadeThisTurn = 0;
 let turnRollMoveCount = 0;
 let dragSource        = null;
@@ -768,6 +769,7 @@ function applyRoomSnapshot(snapshot) {
   dragSource = null;
   pendingMoveChain = [];
   turnUndoSnapshot = null;
+  turnUndoStack = [];
   movesMadeThisTurn = 0;
   turnRollMoveCount = 0;
   isAnimating = false;
@@ -1039,6 +1041,7 @@ function onHostMessage(event) {
   movesMadeThisTurn = 0;
   turnRollMoveCount = 0;
   turnUndoSnapshot = null;
+  turnUndoStack = [];
   if (forceLocalWin) {
     const opponent = opponentOf(localColor);
     setStatus(`${playerText(opponent)} 1 dakika hamle yapmadi. ${playerText(winner)} kazandi.`);
@@ -1079,6 +1082,7 @@ function onNewGame() {
   winner            = null;
   moveLog           = [];
   turnUndoSnapshot  = null;
+  turnUndoStack     = [];
   movesMadeThisTurn = 0;
   turnRollMoveCount = 0;
   dragSource        = null;
@@ -1109,6 +1113,7 @@ function onModeChange() {
   clearPendingBotTimer();
   clearPendingAutoRollTimer();
   turnUndoSnapshot  = null;
+  turnUndoStack     = [];
   movesMadeThisTurn = 0;
   turnRollMoveCount = 0;
   dragSource        = null;
@@ -1223,8 +1228,14 @@ function onUndoMove() {
   }
   clearPendingBotTimer();
   clearPendingAutoRollTimer();
-  restoreSnapshot(turnUndoSnapshot);
-  movesMadeThisTurn = 0;
+  const snapshot = turnUndoStack.pop();
+  if (!snapshot) {
+    setStatus("Bu asamada geri alma kullanilamaz.");
+    render();
+    return;
+  }
+  restoreSnapshot(snapshot);
+  turnUndoSnapshot = turnUndoStack.length ? turnUndoStack[turnUndoStack.length - 1] : null;
   dragSource        = null;
   pendingMoveChain  = [];
   setStatus("Tur başına geri alındı. Devam edebilirsin.");
@@ -1251,6 +1262,7 @@ function onRollDice(arg) {
   hasRolled         = true;
   movesMadeThisTurn = 0;
   turnRollMoveCount = remainingDice.length;
+  turnUndoStack     = [];
   selectedSource    = null;
   pendingMoveChain  = [];
   availableMoves    = getOptimalMoves(gameState, currentPlayer, remainingDice);
@@ -1263,6 +1275,7 @@ function onRollDice(arg) {
     setStatus(`${playerText(currentPlayer)} hamle yapamadı. Sıra geçti.`);
     addLog(`${playerText(currentPlayer)} pas geçti.`);
     turnUndoSnapshot = null;
+    turnUndoStack = [];
     turnRollMoveCount = 0;
     render();
     publishRoomSnapshot("roll-no-move");
@@ -1270,7 +1283,7 @@ function onRollDice(arg) {
     return;
   }
 
-  turnUndoSnapshot = captureSnapshot();
+  turnUndoSnapshot = null;
   setStatus(`${playerText(currentPlayer)}: kaynak taşı seç.`);
   render();
   publishRoomSnapshot("roll");
@@ -1677,6 +1690,9 @@ function getOffStackTargetPosition(player, currentOffCount) {
 
 function playMove(move) {
   if (!move) return;
+  const undoSnap = captureSnapshot();
+  turnUndoStack.push(undoSnap);
+  turnUndoSnapshot = undoSnap;
   isAnimating = true;
   render();
 
@@ -1703,6 +1719,7 @@ function executeMove(move) {
     remainingDice = [];
     availableMoves= [];
     turnUndoSnapshot = null;
+    turnUndoStack = [];
     turnRollMoveCount = 0;
     setStatus(`${playerText(currentPlayer)} kazandi!`);
     addLog(`${playerText(currentPlayer)} kazandi.`);
@@ -1765,6 +1782,7 @@ function finishTurn() {
   movesMadeThisTurn = 0;
   turnRollMoveCount = 0;
   turnUndoSnapshot  = null;
+  turnUndoStack     = [];
   lastRolledDice    = [];
   diceRollSettledAt = 0;
   clearCenterDiceStage();
@@ -2538,12 +2556,13 @@ function captureSnapshot() {
     moveLog:        [...moveLog],
     lastRolledDice: [...lastRolledDice],
     diceRollSettledAt,
+    movesMadeThisTurn,
   };
 }
 
 function canUndoCurrentTurn() {
   return Boolean(
-    turnUndoSnapshot
+    turnUndoStack.length
     && hasRolled
     && !winner
     && !isBotTurn()
@@ -2571,6 +2590,9 @@ function restoreSnapshot(snap) {
   moveLog        = [...snap.moveLog];
   lastRolledDice = [...(snap.lastRolledDice || [])];
   diceRollSettledAt = Number.isFinite(snap.diceRollSettledAt) ? Number(snap.diceRollSettledAt) : 0;
+  movesMadeThisTurn = Number.isInteger(snap.movesMadeThisTurn)
+    ? Math.max(0, Number(snap.movesMadeThisTurn))
+    : 0;
 }
 
 function fmtMove(player, move, hit) {
