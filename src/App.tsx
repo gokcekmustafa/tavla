@@ -485,7 +485,8 @@ function normalizeActivityTimestamp(value: unknown, now = Date.now(), maxFutureM
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return now;
   if (parsed > now + maxFutureMs) return now;
-  return parsed;
+  if (now - parsed <= PRESENCE_STALE_MS) return parsed;
+  return now - HEARTBEAT_MS;
 }
 
 function tableChatKey(table: Pick<LobbyTable, "roomCode" | "id">) {
@@ -1760,7 +1761,6 @@ function App() {
   const lobbyPrevChatCountRef = useRef(0);
   const roomChatListRef = useRef<HTMLDivElement | null>(null);
   const roomPrevChatCountRef = useRef(0);
-  const clockDriftRef = useRef(0);
   const opponentIdleWatchRef = useRef<{
     matchToken: string;
     activityTick: number;
@@ -2139,8 +2139,6 @@ function App() {
     const incoming = normalizeLobbyState(message.payload);
 const now = Date.now();
 const currentLocal = realtimeRemoteStateRef.current ?? loadLobbyState();
-const serverTime = Number.isFinite(message.at) ? Number(message.at) : now;
-clockDriftRef.current = serverTime - now;    
 const merged = mergeLobbyStates(currentLocal, incoming);
 realtimeRemoteStateRef.current = merged;
 realtimeReceivedSnapshotRef.current = true;
@@ -2437,7 +2435,7 @@ setSyncHealth((prev) => ({
         avatarId: currentProfile.avatarId,
         points: currentProfile.points,
         stats: normalizeStats(currentProfile.stats),
-        touchedAt: now + clockDriftRef.current,
+        touchedAt: now,
       };
 
       const existing = cleanedPresence.presence.find((entry) => entry.sessionId === appSessionId) ?? null;
@@ -6872,5 +6870,4 @@ setSyncHealth((prev) => ({
 }
 
 export default App;
-
 
