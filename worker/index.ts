@@ -24,6 +24,7 @@ type MemberStats = {
 type MatchOutcome = "win" | "loss" | "resign";
 type MemberRole = "user" | "admin";
 type MemberGender = "male" | "female" | "unknown";
+type MemberPermissionKey = "lobbyChat" | "tableChat" | "spectatorChat";
 type AvatarId =
   | "male_01"
   | "male_02"
@@ -40,6 +41,20 @@ type GameRules = {
   updatedAt: number;
 };
 
+type MemberPermissions = {
+  lobbyChat: boolean;
+  tableChat: boolean;
+  spectatorChat: boolean;
+};
+
+type LobbyRoomConfig = {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  createdByUserId: string | null;
+};
+
 type PublicMemberUser = {
   id: string;
   username: string;
@@ -51,6 +66,8 @@ type PublicMemberUser = {
   createdAt: number;
   stats: MemberStats;
   role: MemberRole;
+  isBlocked: boolean;
+  permissions: MemberPermissions;
 };
 
 type StoredMemberUser = PublicMemberUser & {
@@ -59,10 +76,20 @@ type StoredMemberUser = PublicMemberUser & {
 
 const AUTH_DO_NAME = "members-v1";
 const AUTH_RULES_KEY = "settings:rules";
+const AUTH_LOBBIES_KEY = "settings:lobbies";
 const DEFAULT_WIN_POINTS = 100;
 const DEFAULT_LOSS_POINTS = 0;
 const DEFAULT_RESIGN_PENALTY_POINTS = 50;
 const PRIMARY_ADMIN_EMAIL = "gokcek@outlook.com";
+const DEFAULT_LOBBY_ROOMS: LobbyRoomConfig[] = [
+  {
+    id: "lobi-1",
+    name: "Lobi 1",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    createdByUserId: null,
+  },
+];
 const DEFAULT_AVATAR_BY_GENDER: Record<MemberGender, AvatarId> = {
   male: "male_01",
   female: "female_01",
@@ -189,6 +216,93 @@ function sanitizeRuleNumber(raw: unknown, fallback: number, min: number, max: nu
   return intValue;
 }
 
+function sanitizeBoolean(raw: unknown, fallback = false) {
+  if (typeof raw === "boolean") return raw;
+  if (raw === "1" || raw === 1 || raw === "true") return true;
+  if (raw === "0" || raw === 0 || raw === "false") return false;
+  return fallback;
+}
+
+function createDefaultMemberPermissions(): MemberPermissions {
+  return {
+    lobbyChat: true,
+    tableChat: true,
+    spectatorChat: true,
+  };
+}
+
+function normalizeMemberPermissions(raw: unknown): MemberPermissions {
+  if (!raw || typeof raw !== "object") return createDefaultMemberPermissions();
+  const candidate = raw as Partial<MemberPermissions>;
+  return {
+    lobbyChat: sanitizeBoolean(candidate.lobbyChat, true),
+    tableChat: sanitizeBoolean(candidate.tableChat, true),
+    spectatorChat: sanitizeBoolean(candidate.spectatorChat, true),
+  };
+}
+
+function sanitizeMemberPermissionKey(raw: unknown): MemberPermissionKey | null {
+  if (raw === "lobbyChat" || raw === "tableChat" || raw === "spectatorChat") return raw;
+  return null;
+}
+
+function sanitizeLobbyId(raw: unknown) {
+  if (typeof raw !== "string") return "";
+  return raw.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 32);
+}
+
+function sanitizeLobbyName(raw: unknown) {
+  if (typeof raw !== "string") return "";
+  return raw.replace(/\s+/g, " ").trim().slice(0, 32);
+}
+
+function createLobbyId() {
+  return sanitizeLobbyId(`l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`) || "lobi-1";
+}
+
+function normalizeLobbyRoom(raw: unknown): LobbyRoomConfig | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<LobbyRoomConfig>;
+  const id = sanitizeLobbyId(candidate.id);
+  const name = sanitizeLobbyName(candidate.name);
+  if (!id || !name) return null;
+  return {
+    id,
+    name,
+    createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
+    updatedAt: Number.isFinite(candidate.updatedAt) ? Number(candidate.updatedAt) : Date.now(),
+    createdByUserId: sanitizeMemberId(candidate.createdByUserId) || null,
+  };
+}
+
+function normalizeLobbyRooms(raw: unknown): LobbyRoomConfig[] {
+  const rows = Array.isArray(raw) ? raw : [];
+  const byId = new Map<string, LobbyRoomConfig>();
+  rows.forEach((row) => {
+    const lobby = normalizeLobbyRoom(row);
+    if (!lobby) return;
+    const existing = byId.get(lobby.id);
+    if (!existing || lobby.updatedAt >= existing.updatedAt) {
+      byId.set(lobby.id, lobby);
+    }
+  });
+  if (byId.size === 0) {
+    DEFAULT_LOBBY_ROOMS.forEach((room) => {
+      byId.set(room.id, {
+        ...room,
+        createdAt: room.createdAt || Date.now(),
+        updatedAt: room.updatedAt || Date.now(),
+      });
+    });
+  }
+  return [...byId.values()]
+    .sort((a, b) => a.name.localeCompare(b.name, "tr") || a.id.localeCompare(b.id))
+    .map((room) => ({
+      ...room,
+      name: sanitizeLobbyName(room.name) || "Lobi",
+    }));
+}
+
 function createDefaultMemberStats(): MemberStats {
   return {
     gamesPlayed: 0,
@@ -260,6 +374,8 @@ function toPublicUser(user: StoredMemberUser): PublicMemberUser {
     createdAt: user.createdAt,
     stats: normalizeMemberStats(user.stats),
     role: sanitizeMemberRole(user.role),
+    isBlocked: sanitizeBoolean(user.isBlocked, false),
+    permissions: normalizeMemberPermissions(user.permissions),
   };
 }
 
@@ -289,6 +405,8 @@ function normalizeStoredMemberUser(raw: unknown): StoredMemberUser | null {
     createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
     stats: normalizeMemberStats(candidate.stats),
     role: sanitizeMemberRole(candidate.role),
+    isBlocked: sanitizeBoolean(candidate.isBlocked, false),
+    permissions: normalizeMemberPermissions(candidate.permissions),
   };
 }
 
@@ -526,6 +644,7 @@ export class AuthStore {
   private readonly transientUsersById = new Map<string, StoredMemberUser>();
   private readonly transientMatchDedupe = new Set<string>();
   private transientRules: GameRules | null = null;
+  private transientLobbies: LobbyRoomConfig[] | null = null;
 
   constructor(ctx: DurableObjectState, _env: Env) {
     this.ctx = ctx;
@@ -539,11 +658,17 @@ export class AuthStore {
     return AUTH_RULES_KEY;
   }
 
+  private keyLobbies() {
+    return AUTH_LOBBIES_KEY;
+  }
+
   private listTransientUsers(): StoredMemberUser[] {
     return [...this.transientUsersById.values()].map((user) => ({
       ...user,
       stats: normalizeMemberStats(user.stats),
       role: sanitizeMemberRole(user.role),
+      isBlocked: sanitizeBoolean(user.isBlocked, false),
+      permissions: normalizeMemberPermissions(user.permissions),
     }));
   }
 
@@ -691,6 +816,25 @@ export class AuthStore {
     return normalized;
   }
 
+  private async getLobbies(): Promise<LobbyRoomConfig[]> {
+    const fallback = this.transientLobbies ?? normalizeLobbyRooms(DEFAULT_LOBBY_ROOMS);
+    const raw = await this.ctx.storage.get<unknown>(this.keyLobbies());
+    const normalized = normalizeLobbyRooms(raw ?? fallback);
+    this.transientLobbies = normalized;
+    return normalized;
+  }
+
+  private async putLobbies(lobbies: LobbyRoomConfig[]): Promise<LobbyRoomConfig[]> {
+    const normalized = normalizeLobbyRooms(lobbies);
+    this.transientLobbies = normalized;
+    try {
+      await this.ctx.storage.put(this.keyLobbies(), normalized);
+    } catch (error) {
+      if (!isDoFreeTierWriteLimitError(error)) throw error;
+    }
+    return normalized;
+  }
+
   private async ensureBootstrapAdmin(user: StoredMemberUser): Promise<StoredMemberUser> {
     if (user.role === "admin") return user;
     if (isPrimaryAdminEmail(user.email)) {
@@ -718,6 +862,8 @@ export class AuthStore {
       gender,
       avatarId: sanitizeAvatarId(user.avatarId, gender),
       role: sanitizeMemberRole(user.role),
+      isBlocked: sanitizeBoolean(user.isBlocked, false),
+      permissions: normalizeMemberPermissions(user.permissions),
       stats: normalizeMemberStats(user.stats),
     };
     this.transientUsersById.set(normalized.id, normalized);
@@ -770,6 +916,9 @@ export class AuthStore {
     if (request.method === "GET" && pathname === "/api/auth/rules") {
       return this.handleRules();
     }
+    if (request.method === "GET" && pathname === "/api/auth/lobbies") {
+      return this.handleLobbies();
+    }
     if (request.method === "GET" && pathname === "/api/auth/me") {
       return this.handleMe(url);
     }
@@ -790,6 +939,9 @@ export class AuthStore {
     }
     if (request.method === "POST" && pathname === "/api/auth/admin/rules") {
       return this.handleAdminRules(request);
+    }
+    if (request.method === "POST" && pathname === "/api/auth/admin/lobbies") {
+      return this.handleAdminLobbies(request);
     }
 
     return jsonResponse({ error: "Bulunamadi." }, 404);
@@ -851,6 +1003,8 @@ export class AuthStore {
       createdAt: Date.now(),
       stats: createDefaultMemberStats(),
       role,
+      isBlocked: false,
+      permissions: createDefaultMemberPermissions(),
     };
 
     await this.putUser(user);
@@ -875,6 +1029,9 @@ export class AuthStore {
     const user = await this.findByIdentifier(identifier);
     if (!user || user.password !== password) {
       return jsonResponse({ error: "Kullanici adi/e-posta veya sifre yanlis." }, 401);
+    }
+    if (sanitizeBoolean(user.isBlocked, false)) {
+      return jsonResponse({ error: "Hesabiniz admin tarafindan engellenmis." }, 403);
     }
 
     const normalized = await this.ensureBootstrapAdmin(user);
@@ -946,6 +1103,11 @@ export class AuthStore {
   private async handleRules(): Promise<Response> {
     const rules = await this.getRules();
     return jsonResponse({ ok: true, rules }, 200);
+  }
+
+  private async handleLobbies(): Promise<Response> {
+    const lobbies = await this.getLobbies();
+    return jsonResponse({ ok: true, lobbies }, 200);
   }
 
   private async handleMe(url: URL): Promise<Response> {
@@ -1110,11 +1272,13 @@ export class AuthStore {
 
     const users = (await this.listUsers()).map((user) => toPublicUser(user));
     const rules = await this.getRules();
+    const lobbies = await this.getLobbies();
     return jsonResponse({
       ok: true,
       admin: toPublicUser(admin),
       users,
       rules,
+      lobbies,
     }, 200);
   }
 
@@ -1205,6 +1369,34 @@ export class AuthStore {
       return jsonResponse({ ok: true, user: toPublicUser(updated) }, 200);
     }
 
+    if (action === "setBlocked") {
+      const blocked = sanitizeBoolean(body.blocked, target.isBlocked);
+      const updated: StoredMemberUser = {
+        ...target,
+        isBlocked: blocked,
+      };
+      await this.putUser(updated, target);
+      return jsonResponse({ ok: true, user: toPublicUser(updated) }, 200);
+    }
+
+    if (action === "setPermission") {
+      const permission = sanitizeMemberPermissionKey(body.permission);
+      if (!permission) {
+        return jsonResponse({ error: "Gecersiz yetki anahtari." }, 400);
+      }
+      const value = sanitizeBoolean(body.value, true);
+      const nextPermissions = {
+        ...normalizeMemberPermissions(target.permissions),
+        [permission]: value,
+      } satisfies MemberPermissions;
+      const updated: StoredMemberUser = {
+        ...target,
+        permissions: nextPermissions,
+      };
+      await this.putUser(updated, target);
+      return jsonResponse({ ok: true, user: toPublicUser(updated) }, 200);
+    }
+
     return jsonResponse({ error: "Bilinmeyen admin islemi." }, 400);
   }
 
@@ -1232,5 +1424,93 @@ export class AuthStore {
       admin: toPublicUser(admin),
       rules: saved,
     }, 200);
+  }
+
+  private async handleAdminLobbies(request: Request): Promise<Response> {
+    const payload = await parseJsonBody(request);
+    if (!payload || typeof payload !== "object") {
+      return jsonResponse({ error: "Gecersiz istek." }, 400);
+    }
+    const body = payload as Record<string, unknown>;
+    const admin = await this.requireAdmin(body.adminUserId);
+    if (!admin) {
+      return jsonResponse({ error: "Admin yetkisi gerekli." }, 403);
+    }
+
+    const action = typeof body.action === "string" ? body.action : "";
+    const current = await this.getLobbies();
+
+    if (action === "createLobby") {
+      const name = sanitizeLobbyName(body.name);
+      if (!name || name.length < 2) {
+        return jsonResponse({ error: "Lobi adi en az 2 karakter olmali." }, 400);
+      }
+      const id = createLobbyId();
+      if (current.some((room) => room.id === id)) {
+        return jsonResponse({ error: "Lobi olusturulurken id cakismasi olustu. Tekrar deneyin." }, 409);
+      }
+      const now = Date.now();
+      const next = await this.putLobbies([
+        ...current,
+        {
+          id,
+          name,
+          createdAt: now,
+          updatedAt: now,
+          createdByUserId: admin.id,
+        },
+      ]);
+      return jsonResponse({ ok: true, lobbies: next }, 200);
+    }
+
+    if (action === "renameLobby") {
+      const lobbyId = sanitizeLobbyId(body.lobbyId);
+      const name = sanitizeLobbyName(body.name);
+      if (!lobbyId || !name || name.length < 2) {
+        return jsonResponse({ error: "Lobi veya ad bilgisi gecersiz." }, 400);
+      }
+      const index = current.findIndex((room) => room.id === lobbyId);
+      if (index < 0) {
+        return jsonResponse({ error: "Lobi bulunamadi." }, 404);
+      }
+      const now = Date.now();
+      const nextRows = [...current];
+      nextRows[index] = {
+        ...nextRows[index],
+        name,
+        updatedAt: now,
+      };
+      const next = await this.putLobbies(nextRows);
+      return jsonResponse({ ok: true, lobbies: next }, 200);
+    }
+
+    if (action === "deleteLobby") {
+      const lobbyId = sanitizeLobbyId(body.lobbyId);
+      if (!lobbyId) {
+        return jsonResponse({ error: "Lobi bilgisi gecersiz." }, 400);
+      }
+      if (current.length <= 1) {
+        return jsonResponse({ error: "En az bir lobi kalmali." }, 400);
+      }
+      const nextRows = current.filter((room) => room.id !== lobbyId);
+      if (nextRows.length === current.length) {
+        return jsonResponse({ error: "Lobi bulunamadi." }, 404);
+      }
+      const next = await this.putLobbies(nextRows);
+      return jsonResponse({ ok: true, lobbies: next }, 200);
+    }
+
+    if (action === "replaceLobbies") {
+      const rows = Array.isArray(body.lobbies) ? body.lobbies : null;
+      if (!rows) return jsonResponse({ error: "Lobi listesi gecersiz." }, 400);
+      const normalized = normalizeLobbyRooms(rows);
+      if (normalized.length === 0) {
+        return jsonResponse({ error: "En az bir lobi olmali." }, 400);
+      }
+      const saved = await this.putLobbies(normalized);
+      return jsonResponse({ ok: true, lobbies: saved }, 200);
+    }
+
+    return jsonResponse({ error: "Bilinmeyen admin lobi islemi." }, 400);
   }
 }

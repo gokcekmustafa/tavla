@@ -1049,6 +1049,79 @@
   font-size: 0.78rem;
 }
 
+.my-admin-window-page {
+  grid-template-rows: auto 1fr;
+}
+
+.my-admin-title {
+  color: #f6ecd5;
+  font-size: 1.02rem;
+  letter-spacing: 0.01em;
+}
+
+.my-admin-window-blocked {
+  margin: 16px;
+  border-radius: 10px;
+  border: 2px solid rgba(17, 103, 130, 0.76);
+  background: linear-gradient(180deg, rgba(8, 92, 116, 0.96), rgba(6, 67, 86, 0.98));
+  padding: 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.my-admin-window-layout {
+  padding: 10px;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(280px, 1fr);
+  gap: 10px;
+  align-content: start;
+}
+
+.my-admin-window-layout .my-side-card {
+  min-height: 260px;
+}
+
+.my-admin-room-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+}
+
+.my-admin-users-panel {
+  grid-column: 1 / -1;
+}
+
+.my-admin-user-split {
+  display: grid;
+  grid-template-columns: minmax(230px, 320px) minmax(0, 1fr);
+  gap: 8px;
+  min-height: 360px;
+}
+
+.my-admin-user-list-compact {
+  display: grid;
+  gap: 6px;
+  max-height: 430px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.my-admin-user-detail {
+  border-radius: 8px;
+  border: 1px solid rgba(104, 188, 214, 0.44);
+  background: rgba(6, 56, 72, 0.76);
+  padding: 9px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.my-admin-user-detail h4 {
+  margin: 0;
+  color: #fff1cd;
+  font-size: 1rem;
+}
+
 .my-auth-toggle {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1692,6 +1765,18 @@
   width: min(360px, 100%);
 }
 
+.my-lobby-picker-modal {
+  width: min(420px, 100%);
+}
+
+.my-lobby-picker-list {
+  max-height: 320px;
+  overflow-y: auto;
+  display: grid;
+  gap: 6px;
+  padding-right: 2px;
+}
+
 .my-invite-candidate-list {
   max-height: 220px;
   overflow-y: auto;
@@ -1787,6 +1872,15 @@
   .my-room-view-topless .my-room-board-frame iframe {
     height: calc(100svh - 224px);
     min-height: 500px;
+  }
+
+  .my-admin-window-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .my-admin-user-split {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
   }
 }
 

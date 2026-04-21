@@ -37,10 +37,25 @@ type RoomSession = {
   code: string;
   seat: Seat;
   sessionId: string;
+  lobbyId: string;
   roomName: string;
   tableNo: number;
   role: RoomRole;
   joinedAt: number;
+};
+
+type LobbyRoom = {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  createdByUserId: string | null;
+};
+
+type MemberPermissions = {
+  lobbyChat: boolean;
+  tableChat: boolean;
+  spectatorChat: boolean;
 };
 
 type MemberUser = {
@@ -54,6 +69,8 @@ type MemberUser = {
   createdAt: number;
   stats: PlayerStats;
   role: MemberRole;
+  isBlocked: boolean;
+  permissions: MemberPermissions;
 };
 
 type GameRules = {
@@ -242,12 +259,14 @@ const GUEST_STORAGE_KEY = "tavla.guestName";
 const GUEST_ID_STORAGE_KEY = "tavla.guest.id.v1";
 const GUEST_PROFILE_SESSION_KEY = "tavla.guest.profile.session.v1";
 const MEMBER_SESSION_KEY = "tavla.member.session.v1";
-const LOBBY_STATE_KEY = "tavla.lobby.state.v2";
-const LOBBY_SYNC_CHANNEL = "tavla.lobby.sync.v2";
-const REALTIME_LOBBY_CHANNEL = "tavla-global-lobby-v1";
+const ACTIVE_LOBBY_ID_KEY = "tavla.active.lobby.id.v1";
+const LOBBY_STATE_KEY_PREFIX = "tavla.lobby.state.v3";
+const LOBBY_SYNC_CHANNEL_PREFIX = "tavla.lobby.sync.v3";
+const REALTIME_LOBBY_CHANNEL_PREFIX = "tavla-global-lobby-v2";
 const REALTIME_HTTP_SYNC_PATH = "/api/lobby-sync";
 const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_LOBBY_NAME = "Lobi 1";
+const DEFAULT_LOBBY_ID = "lobi-1";
 const SEAT_STALE_MS = 180_000;
 const PRESENCE_STALE_MS = 20_000;
 const HEARTBEAT_MS = 8_000;
@@ -442,6 +461,80 @@ function avatarOptionsForGender(gender: MemberGender) {
 function sanitizeMemberRole(raw: unknown): MemberRole {
   if (raw === "admin") return "admin";
   return "user";
+}
+
+function createDefaultMemberPermissions(): MemberPermissions {
+  return {
+    lobbyChat: true,
+    tableChat: true,
+    spectatorChat: true,
+  };
+}
+
+function normalizeMemberPermissions(raw: unknown): MemberPermissions {
+  if (!raw || typeof raw !== "object") return createDefaultMemberPermissions();
+  const candidate = raw as Partial<MemberPermissions>;
+  return {
+    lobbyChat: Boolean(candidate.lobbyChat ?? true),
+    tableChat: Boolean(candidate.tableChat ?? true),
+    spectatorChat: Boolean(candidate.spectatorChat ?? true),
+  };
+}
+
+function sanitizeLobbyId(raw: unknown) {
+  if (typeof raw !== "string") return "";
+  return raw.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 32);
+}
+
+function makeLobbyStateStorageKey(lobbyId: string) {
+  const safeLobbyId = sanitizeLobbyId(lobbyId) || DEFAULT_LOBBY_ID;
+  return `${LOBBY_STATE_KEY_PREFIX}:${safeLobbyId}`;
+}
+
+function makeLobbySyncChannel(lobbyId: string) {
+  const safeLobbyId = sanitizeLobbyId(lobbyId) || DEFAULT_LOBBY_ID;
+  return `${LOBBY_SYNC_CHANNEL_PREFIX}:${safeLobbyId}`;
+}
+
+function makeRealtimeLobbyChannel(lobbyId: string) {
+  const safeLobbyId = sanitizeLobbyId(lobbyId) || DEFAULT_LOBBY_ID;
+  return `${REALTIME_LOBBY_CHANNEL_PREFIX}:${safeLobbyId}`;
+}
+
+function normalizeLobbyRoom(raw: unknown): LobbyRoom | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<LobbyRoom>;
+  const id = sanitizeLobbyId(candidate.id);
+  const name = sanitizeLobbyName(typeof candidate.name === "string" ? candidate.name : DEFAULT_LOBBY_NAME);
+  if (!id || !name) return null;
+  return {
+    id,
+    name,
+    createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
+    updatedAt: Number.isFinite(candidate.updatedAt) ? Number(candidate.updatedAt) : Date.now(),
+    createdByUserId: sanitizeGuestId(typeof candidate.createdByUserId === "string" ? candidate.createdByUserId : "") || null,
+  };
+}
+
+function normalizeLobbyRooms(raw: unknown): LobbyRoom[] {
+  const rows = Array.isArray(raw) ? raw : [];
+  const byId = new Map<string, LobbyRoom>();
+  rows.forEach((item) => {
+    const room = normalizeLobbyRoom(item);
+    if (!room) return;
+    const existing = byId.get(room.id);
+    if (!existing || room.updatedAt >= existing.updatedAt) byId.set(room.id, room);
+  });
+  if (byId.size === 0) {
+    byId.set(DEFAULT_LOBBY_ID, {
+      id: DEFAULT_LOBBY_ID,
+      name: DEFAULT_LOBBY_NAME,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      createdByUserId: null,
+    });
+  }
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name, "tr") || a.id.localeCompare(b.id));
 }
 
 function normalizeRuleNumber(value: unknown, fallback: number, min: number, max: number) {
@@ -742,6 +835,8 @@ function normalizeMemberUser(raw: unknown): MemberUser | null {
     createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
     stats: normalizeStats(candidate.stats),
     role: sanitizeMemberRole(candidate.role),
+    isBlocked: Boolean(candidate.isBlocked),
+    permissions: normalizeMemberPermissions(candidate.permissions),
   };
 }
 
@@ -982,9 +1077,9 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
   };
 }
 
-function createDefaultLobbyState(): LobbyState {
+function createDefaultLobbyState(lobbyName = DEFAULT_LOBBY_NAME): LobbyState {
   return {
-    lobbyName: DEFAULT_LOBBY_NAME,
+    lobbyName: sanitizeLobbyName(lobbyName),
     tables: [],
     presence: [],
     lobbyChat: [],
@@ -1367,8 +1462,8 @@ function normalizeLobbyState(raw: unknown): LobbyState {
   };
 }
 
-function loadLobbyState() {
-  return normalizeLobbyState(loadJson<unknown>(LOBBY_STATE_KEY, createDefaultLobbyState()));
+function loadLobbyState(storageKey: string, lobbyName = DEFAULT_LOBBY_NAME) {
+  return normalizeLobbyState(loadJson<unknown>(storageKey, createDefaultLobbyState(lobbyName)));
 }
 
 function loadGuestProfile(guestId: string, fallbackName: string): GuestProfile {
@@ -1438,6 +1533,15 @@ function getInitialGuestName() {
 
 function getInitialRoomSession(): RoomSession | null {
   return null;
+}
+
+function getInitialLobbyId() {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = sanitizeLobbyId(params.get("lobby") ?? "");
+  if (fromUrl) return fromUrl;
+  const fromStorage = sanitizeLobbyId(window.localStorage.getItem(ACTIVE_LOBBY_ID_KEY) ?? "");
+  return fromStorage;
 }
 
 function clearSessionFromTables(
@@ -1657,6 +1761,31 @@ function AvatarBadge(props: {
 
 function App() {
   const [initialRoom] = useState<RoomSession | null>(() => getInitialRoomSession());
+  const [isAdminWindow] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.get("admin") === "1";
+  });
+  const [selectedLobbyId, setSelectedLobbyId] = useState<string>(() => {
+    const fromRoom = sanitizeLobbyId(initialRoom?.lobbyId ?? "");
+    if (fromRoom) return fromRoom;
+    return sanitizeLobbyId(getInitialLobbyId()) || DEFAULT_LOBBY_ID;
+  });
+  const [lobbyRooms, setLobbyRooms] = useState<LobbyRoom[]>(() => normalizeLobbyRooms([
+    {
+      id: sanitizeLobbyId(initialRoom?.lobbyId ?? "") || DEFAULT_LOBBY_ID,
+      name: sanitizeLobbyName(initialRoom?.roomName ?? DEFAULT_LOBBY_NAME),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      createdByUserId: null,
+    },
+  ]));
+  const [lobbyRoomsBusy, setLobbyRoomsBusy] = useState(false);
+  const [lobbyRoomsError, setLobbyRoomsError] = useState("");
+  const [roomPickerOpen, setRoomPickerOpen] = useState<boolean>(() => !initialRoom);
+  const [adminLobbyNameDraft, setAdminLobbyNameDraft] = useState("");
+  const [adminSelectedLobbyId, setAdminSelectedLobbyId] = useState("");
+  const [adminSelectedUserId, setAdminSelectedUserId] = useState("");
   const [mode, setMode] = useState<GameMode>("local");
   const [iframeKey, setIframeKey] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>(initialRoom ? "table" : "lobby");
@@ -1672,11 +1801,12 @@ function App() {
   const [lobbyNotice, setLobbyNotice] = useState("");
   const [invitePickerTableId, setInvitePickerTableId] = useState<number | null>(null);
   const [lobbyState, setLobbyState] = useState<LobbyState>(() => {
-    const loaded = loadLobbyState();
+    const initialLobbyId = sanitizeLobbyId(initialRoom?.lobbyId ?? "") || sanitizeLobbyId(getInitialLobbyId()) || DEFAULT_LOBBY_ID;
     const roomName = sanitizeLobbyName(initialRoom?.roomName ?? DEFAULT_LOBBY_NAME);
+    const loaded = loadLobbyState(makeLobbyStateStorageKey(initialLobbyId), roomName);
     if (loaded.lobbyName === roomName) return loaded;
     const merged = { ...loaded, lobbyName: roomName, updatedAt: Date.now() };
-    saveJson(LOBBY_STATE_KEY, merged);
+    saveJson(makeLobbyStateStorageKey(initialLobbyId), merged);
     return merged;
   });
 
@@ -1705,7 +1835,6 @@ function App() {
   const [authError, setAuthError] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [showAdminPanelInLobby, setShowAdminPanelInLobby] = useState(false);
   const [profileModal, setProfileModal] = useState<PlayerProfileModalState>({
     open: false,
     loading: false,
@@ -1813,6 +1942,28 @@ function App() {
     matchToken: string;
     userId: string;
   } | null>(null);
+
+  const activeLobbyId = useMemo(() => {
+    const safeSelected = sanitizeLobbyId(selectedLobbyId);
+    if (safeSelected && lobbyRooms.some((room) => room.id === safeSelected)) return safeSelected;
+    return lobbyRooms[0]?.id || DEFAULT_LOBBY_ID;
+  }, [selectedLobbyId, lobbyRooms]);
+
+  const activeLobbyRoom = useMemo(() => {
+    return lobbyRooms.find((room) => room.id === activeLobbyId) ?? {
+      id: activeLobbyId,
+      name: DEFAULT_LOBBY_NAME,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      createdByUserId: null,
+    };
+  }, [lobbyRooms, activeLobbyId]);
+
+  const activeLobbyName = sanitizeLobbyName(activeLobbyRoom.name || DEFAULT_LOBBY_NAME);
+  const activeLobbyStorageKey = useMemo(() => makeLobbyStateStorageKey(activeLobbyId), [activeLobbyId]);
+  const activeLobbySyncChannel = useMemo(() => makeLobbySyncChannel(activeLobbyId), [activeLobbyId]);
+  const activeRealtimeLobbyChannel = useMemo(() => makeRealtimeLobbyChannel(activeLobbyId), [activeLobbyId]);
+  const shouldShowLobbyPicker = roomPickerOpen && !isAdminWindow && !roomSession && viewMode === "lobby";
 
   function openLeaveConfirmModal(title: string, message: string) {
     if (leaveConfirmResolverRef.current) {
@@ -2086,13 +2237,14 @@ function App() {
     return Boolean(mySeat && mySeat.sessionId === appSessionId);
   }, [roomSession, currentRoomTable, appSessionId]);
 
-  const canWriteLobbyChat = Boolean(member);
+  const canWriteLobbyChat = Boolean(member && !member.isBlocked && member.permissions.lobbyChat);
   const canWriteTableChat = useMemo(() => {
     if (!roomSession || !canViewTableChat || mode !== "local") return false;
     if (roomSession.role === "spectator") {
-      return currentRoomTable?.allowSpectatorChat !== false;
+      const memberAllowed = member ? !member.isBlocked && member.permissions.spectatorChat : true;
+      return currentRoomTable?.allowSpectatorChat !== false && memberAllowed;
     }
-    return Boolean(member);
+    return Boolean(member && !member.isBlocked && member.permissions.tableChat);
   }, [roomSession, canViewTableChat, mode, currentRoomTable, member]);
   const roomChatRows = useMemo(() => (roomChatTab === "table" ? tableChatRows : lobbyChatRows), [roomChatTab, tableChatRows, lobbyChatRows]);
   const canWriteRoomChat = roomChatTab === "table" ? canWriteTableChat : canWriteLobbyChat;
@@ -2131,6 +2283,14 @@ function App() {
   const roomBlackSeat = currentRoomTable?.black ?? null;
   const isAdmin = member?.role === "admin";
   const lobbyDraft = sanitizeChatText(lobbyChatInput);
+  const selectedAdminUser = useMemo(
+    () => adminUsers.find((row) => row.id === adminSelectedUserId) ?? null,
+    [adminUsers, adminSelectedUserId],
+  );
+  const selectedAdminLobby = useMemo(
+    () => lobbyRooms.find((row) => row.id === adminSelectedLobbyId) ?? null,
+    [lobbyRooms, adminSelectedLobbyId],
+  );
   const adminSummary = useMemo(() => {
     const users = adminUsers;
     const totalUsers = users.length;
@@ -2179,7 +2339,7 @@ function App() {
 
   function applyIncomingRealtimeSnapshot(message: RealtimeMessage) {
     if (message.kind !== "snapshot") return false;
-    if (message.channel !== REALTIME_LOBBY_CHANNEL) return false;
+    if (message.channel !== activeRealtimeLobbyChannel) return false;
     if (!message.sender || !Number.isFinite(message.counter)) return false;
     const counter = Number(message.counter);
     const previousCounter = realtimeSenderCountersRef.current.get(message.sender) ?? 0;
@@ -2188,11 +2348,11 @@ function App() {
 
     const incoming = normalizeLobbyState(message.payload);
 const now = Date.now();
-const currentLocal = realtimeRemoteStateRef.current ?? loadLobbyState();
+const currentLocal = realtimeRemoteStateRef.current ?? loadLobbyState(activeLobbyStorageKey, activeLobbyName);
 const merged = mergeLobbyStates(currentLocal, incoming);
 realtimeRemoteStateRef.current = merged;
 realtimeReceivedSnapshotRef.current = true;
-saveJson(LOBBY_STATE_KEY, merged);
+saveJson(activeLobbyStorageKey, merged);
 setLobbyState(merged);
 setSyncHealth((prev) => ({
   ...prev,
@@ -2211,7 +2371,7 @@ setSyncHealth((prev) => ({
     realtimeSyncCounterRef.current += 1;
     const message: RealtimeMessage = {
       kind: "snapshot",
-      channel: REALTIME_LOBBY_CHANNEL,
+      channel: activeRealtimeLobbyChannel,
       sender: appSessionId,
       counter: realtimeSyncCounterRef.current,
       at: Date.now(),
@@ -2246,14 +2406,14 @@ setSyncHealth((prev) => ({
       realtimeSyncCounterRef.current += 1;
       const outgoing: RealtimeMessage = {
         kind: "snapshot",
-        channel: REALTIME_LOBBY_CHANNEL,
+        channel: activeRealtimeLobbyChannel,
         sender: appSessionId,
         counter: realtimeSyncCounterRef.current,
         at: Date.now(),
         payload,
         reason,
       };
-      const response = await fetch(buildRealtimeHttpSyncUrl(REALTIME_LOBBY_CHANNEL, appSessionId), {
+      const response = await fetch(buildRealtimeHttpSyncUrl(activeRealtimeLobbyChannel, appSessionId), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(outgoing),
@@ -2271,7 +2431,7 @@ setSyncHealth((prev) => ({
       }
       const data = (await response.json().catch(() => null)) as { snapshot?: unknown } | null;
       const incoming = normalizeRealtimeMessage(data?.snapshot);
-      if (!incoming || incoming.kind !== "snapshot" || incoming.channel !== REALTIME_LOBBY_CHANNEL) {
+      if (!incoming || incoming.kind !== "snapshot" || incoming.channel !== activeRealtimeLobbyChannel) {
         setSyncHealth((prev) => ({ ...prev, lastError: "http push snapshot gecersiz" }));
         setRealtimeStatus("offline");
         return;
@@ -2309,7 +2469,7 @@ setSyncHealth((prev) => ({
     if (realtimeHttpPullInFlightRef.current) return;
     realtimeHttpPullInFlightRef.current = true;
     try {
-      const response = await fetch(buildRealtimeHttpSyncUrl(REALTIME_LOBBY_CHANNEL, appSessionId), {
+      const response = await fetch(buildRealtimeHttpSyncUrl(activeRealtimeLobbyChannel, appSessionId), {
         method: "GET",
         headers: { "cache-control": "no-store" },
       });
@@ -2326,7 +2486,7 @@ setSyncHealth((prev) => ({
       }
       const data = (await response.json().catch(() => null)) as { snapshot?: unknown } | null;
       const incoming = normalizeRealtimeMessage(data?.snapshot);
-      if (incoming && incoming.kind === "snapshot" && incoming.channel === REALTIME_LOBBY_CHANNEL) {
+      if (incoming && incoming.kind === "snapshot" && incoming.channel === activeRealtimeLobbyChannel) {
         applyIncomingRealtimeSnapshot(incoming);
       }
       const now = Date.now();
@@ -2348,7 +2508,7 @@ setSyncHealth((prev) => ({
   }
 
   function getCurrentLobbyState() {
-    return readRealtimeLobbyState() ?? loadLobbyState();
+    return readRealtimeLobbyState() ?? loadLobbyState(activeLobbyStorageKey, activeLobbyName);
   }
 
   function persistLobbyState(next: LobbyState) {
@@ -2356,7 +2516,7 @@ setSyncHealth((prev) => ({
     realtimeRemoteStateRef.current = normalized;
     realtimeReceivedSnapshotRef.current = true;
     realtimePendingSnapshotRef.current = normalized;
-    saveJson(LOBBY_STATE_KEY, normalized);
+    saveJson(activeLobbyStorageKey, normalized);
     setLobbyState(normalized);
     const sent = sendRealtimeSnapshot(normalized, "lobby-update");
     void syncRealtimeViaHttp(sent ? "lobby-update-mirror" : "lobby-update-fallback");
@@ -2402,6 +2562,10 @@ setSyncHealth((prev) => ({
       setLobbyNotice("Lobi sohbetine yazmak icin uye girisi yapmalisin.");
       return;
     }
+    if (member.isBlocked || !member.permissions.lobbyChat) {
+      setLobbyNotice("Lobi sohbeti yetkiniz admin tarafindan kapatildi.");
+      return;
+    }
     const message = createOutgoingChatMessage(rawText);
     if (!message) return;
     writeLobby((current) => ({
@@ -2416,6 +2580,14 @@ setSyncHealth((prev) => ({
     if (!roomSession) return;
     if (roomSession.role === "player" && !member) {
       setLobbyNotice("Masa sohbeti sadece uye oyuncular icin acik.");
+      return;
+    }
+    if (member && (member.isBlocked || !member.permissions.tableChat)) {
+      setLobbyNotice("Masa sohbeti yetkiniz admin tarafindan kapatildi.");
+      return;
+    }
+    if (roomSession.role === "spectator" && member && !member.permissions.spectatorChat) {
+      setLobbyNotice("Izleyici sohbeti yetkiniz kapatildi.");
       return;
     }
     const message = createOutgoingChatMessage(rawText);
@@ -2547,7 +2719,8 @@ setSyncHealth((prev) => ({
       code: table.roomCode,
       seat,
       sessionId: appSessionId,
-      roomName: lobbyState.lobbyName,
+      lobbyId: activeLobbyId,
+      roomName: activeLobbyName,
       tableNo: table.id,
       role: "player",
       joinedAt: Date.now(),
@@ -2589,7 +2762,8 @@ setSyncHealth((prev) => ({
       code: table.roomCode,
       seat: "white",
       sessionId: appSessionId,
-      roomName: lobbyState.lobbyName,
+      lobbyId: activeLobbyId,
+      roomName: activeLobbyName,
       tableNo: table.id,
       role: "spectator",
       joinedAt: Date.now(),
@@ -2774,7 +2948,8 @@ setSyncHealth((prev) => ({
         code: table.roomCode,
         seat,
         sessionId: appSessionId,
-        roomName: lobbyState.lobbyName,
+        lobbyId: activeLobbyId,
+        roomName: activeLobbyName,
         tableNo: table.id,
         role: "player",
         joinedAt: Date.now(),
@@ -3103,7 +3278,7 @@ setSyncHealth((prev) => ({
       const url = new URL("/api/auth/admin/state", window.location.origin);
       url.searchParams.set("userId", userId);
       const response = await fetch(url.toString(), { method: "GET" });
-      const data = (await response.json().catch(() => null)) as { users?: unknown; rules?: unknown; error?: unknown } | null;
+      const data = (await response.json().catch(() => null)) as { users?: unknown; rules?: unknown; lobbies?: unknown; error?: unknown } | null;
       if (!response.ok) {
         const errorText = typeof data?.error === "string" ? data.error : "Admin verisi alinamadi.";
         setAdminError(errorText);
@@ -3111,9 +3286,13 @@ setSyncHealth((prev) => ({
       }
       const users = normalizeMemberUsers(data?.users);
       setAdminUsers(users);
+      const rooms = normalizeLobbyRooms(data?.lobbies);
+      setLobbyRooms(rooms);
       const nextRules = normalizeGameRules(data?.rules, gameRules);
       setGameRules(nextRules);
       setRuleDraft(nextRules);
+      setAdminSelectedUserId((prev) => (prev && users.some((u) => u.id === prev) ? prev : (users[0]?.id ?? "")));
+      setAdminSelectedLobbyId((prev) => (prev && rooms.some((r) => r.id === prev) ? prev : (rooms[0]?.id ?? "")));
     } catch {
       setAdminError("Admin servisine baglanilamadi.");
     } finally {
@@ -3123,7 +3302,7 @@ setSyncHealth((prev) => ({
 
   async function runAdminUserAction(
     targetUserId: string,
-    action: "addPoints" | "setPoints" | "setRole" | "resetStats" | "deleteUser",
+    action: "addPoints" | "setPoints" | "setRole" | "resetStats" | "deleteUser" | "setBlocked" | "setPermission",
     payload: Record<string, unknown> = {},
   ) {
     if (!member || member.role !== "admin") return;
@@ -3182,6 +3361,81 @@ setSyncHealth((prev) => ({
       setAdminNotice("Admin islemi tamamlandi.");
     } catch {
       setAdminError("Admin servisine baglanilamadi.");
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function loadLobbyRoomsFromService() {
+    setLobbyRoomsBusy(true);
+    setLobbyRoomsError("");
+    try {
+      const response = await fetch("/api/auth/lobbies", { method: "GET" });
+      const data = (await response.json().catch(() => null)) as { lobbies?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const err = typeof data?.error === "string" ? data.error : "Lobi listesi alinamadi.";
+        setLobbyRoomsError(err);
+        return;
+      }
+      const rooms = normalizeLobbyRooms(data?.lobbies);
+      setLobbyRooms(rooms);
+      setSelectedLobbyId((prev) => {
+        const safePrev = sanitizeLobbyId(prev);
+        if (safePrev && rooms.some((room) => room.id === safePrev)) return safePrev;
+        return rooms[0]?.id || DEFAULT_LOBBY_ID;
+      });
+      setAdminSelectedLobbyId((prev) => {
+        const safePrev = sanitizeLobbyId(prev);
+        if (safePrev && rooms.some((room) => room.id === safePrev)) return safePrev;
+        return rooms[0]?.id || DEFAULT_LOBBY_ID;
+      });
+    } catch {
+      setLobbyRoomsError("Lobi servisine baglanilamadi.");
+    } finally {
+      setLobbyRoomsBusy(false);
+    }
+  }
+
+  async function runAdminLobbyAction(
+    action: "createLobby" | "renameLobby" | "deleteLobby",
+    payload: Record<string, unknown> = {},
+  ) {
+    if (!member || member.role !== "admin") return;
+    setAdminBusy(true);
+    setAdminError("");
+    setAdminNotice("");
+    try {
+      const response = await fetch("/api/auth/admin/lobbies", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          adminUserId: member.id,
+          action,
+          ...payload,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { lobbies?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const err = typeof data?.error === "string" ? data.error : "Lobi islemi basarisiz.";
+        setAdminError(err);
+        return;
+      }
+      const rooms = normalizeLobbyRooms(data?.lobbies);
+      setLobbyRooms(rooms);
+      setSelectedLobbyId((prev) => {
+        const safePrev = sanitizeLobbyId(prev);
+        if (safePrev && rooms.some((room) => room.id === safePrev)) return safePrev;
+        return rooms[0]?.id || DEFAULT_LOBBY_ID;
+      });
+      setAdminSelectedLobbyId((prev) => {
+        const safePrev = sanitizeLobbyId(prev);
+        if (safePrev && rooms.some((room) => room.id === safePrev)) return safePrev;
+        return rooms[0]?.id || DEFAULT_LOBBY_ID;
+      });
+      setAdminNotice("Lobi ayari guncellendi.");
+      setAdminLobbyNameDraft("");
+    } catch {
+      setAdminError("Lobi servisine baglanilamadi.");
     } finally {
       setAdminBusy(false);
     }
@@ -3292,6 +3546,34 @@ setSyncHealth((prev) => ({
     } finally {
       setAdminBusy(false);
     }
+  }
+
+  function selectLobbyRoom(lobbyId: string) {
+    const safeId = sanitizeLobbyId(lobbyId);
+    if (!safeId) return;
+    if (roomSession) {
+      setLobbyNotice("Oda degistirmek icin once masadan kalkmalisin.");
+      return;
+    }
+    setSelectedLobbyId(safeId);
+    setViewMode("lobby");
+    setRoomPickerOpen(false);
+    const roomName = lobbyRooms.find((room) => room.id === safeId)?.name || DEFAULT_LOBBY_NAME;
+    setLobbyNotice(`${sanitizeLobbyName(roomName)} odasina girildi.`);
+  }
+
+  function openAdminPanelWindow() {
+    if (!member || member.role !== "admin") return;
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("admin", "1");
+    url.searchParams.set("lobby", activeLobbyId);
+    const opened = window.open(url.toString(), "_blank", "noopener,noreferrer");
+    if (!opened) {
+      setLobbyNotice("Tarayici yeni pencereyi engelledi. Popup izni verip tekrar dene.");
+      return;
+    }
+    setLobbyNotice("Admin paneli yeni pencerede acildi.");
   }
 
   function openAccountMenu(mode: AuthMode) {
@@ -3596,7 +3878,7 @@ setSyncHealth((prev) => ({
     url.searchParams.set("room", table.roomCode);
     url.searchParams.set("seat", inviteSeat);
     url.searchParams.set("name", safeGuestName);
-    url.searchParams.set("room_name", lobbyState.lobbyName);
+    url.searchParams.set("room_name", activeLobbyName);
     url.searchParams.set("table", String(table.id));
     await navigator.clipboard.writeText(url.toString());
     setCopied(true);
@@ -3873,7 +4155,6 @@ setSyncHealth((prev) => ({
   function onLogoutMember() {
     window.localStorage.removeItem(MEMBER_SESSION_KEY);
     setMember(null);
-    setShowAdminPanelInLobby(false);
     setMemberAvatarDraft(DEFAULT_AVATAR_BY_GENDER.unknown);
     setMemberPasswordCurrent("");
     setMemberPasswordNext("");
@@ -4904,7 +5185,7 @@ setSyncHealth((prev) => ({
       setRealtimeStatus("connecting");
       let socket: WebSocket;
       try {
-        socket = new WebSocket(buildRealtimeChannelUrl(REALTIME_WS_BASE_URL, REALTIME_LOBBY_CHANNEL, appSessionId));
+        socket = new WebSocket(buildRealtimeChannelUrl(REALTIME_WS_BASE_URL, activeRealtimeLobbyChannel, appSessionId));
       } catch {
         setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
         setRealtimeStatus("offline");
@@ -4921,10 +5202,10 @@ setSyncHealth((prev) => ({
         if (realtimeSocketRef.current !== socket) return;
         if (socket.readyState !== WebSocket.OPEN) return;
         if (realtimeReceivedSnapshotRef.current) return;
-        const localSnapshot = loadLobbyState();
+        const localSnapshot = loadLobbyState(activeLobbyStorageKey, activeLobbyName);
         realtimeRemoteStateRef.current = localSnapshot;
         realtimeReceivedSnapshotRef.current = true;
-        saveJson(LOBBY_STATE_KEY, localSnapshot);
+        saveJson(activeLobbyStorageKey, localSnapshot);
         setLobbyState(localSnapshot);
         sendRealtimeSnapshot(localSnapshot, "seed");
       }, 1_200);
@@ -4938,7 +5219,7 @@ setSyncHealth((prev) => ({
         setRealtimeStatus("online");
         const helloMessage: RealtimeMessage = {
           kind: "hello",
-          channel: REALTIME_LOBBY_CHANNEL,
+          channel: activeRealtimeLobbyChannel,
           sender: appSessionId,
           counter: realtimeSyncCounterRef.current,
           at: Date.now(),
@@ -4992,7 +5273,7 @@ setSyncHealth((prev) => ({
       closeSocket();
       setRealtimeStatus("offline");
     };
-  }, [appSessionId]);
+  }, [appSessionId, activeRealtimeLobbyChannel, activeLobbyStorageKey, activeLobbyName]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -5036,7 +5317,7 @@ setSyncHealth((prev) => ({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [appSessionId]);
+  }, [appSessionId, activeRealtimeLobbyChannel]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent<LegacyHostMessage>) => {
@@ -5230,6 +5511,46 @@ setSyncHealth((prev) => ({
   }, [adminUsers, isAdmin]);
 
   useEffect(() => {
+    if (adminSelectedUserId && adminUsers.some((user) => user.id === adminSelectedUserId)) return;
+    setAdminSelectedUserId(adminUsers[0]?.id ?? "");
+  }, [adminUsers, adminSelectedUserId]);
+
+  useEffect(() => {
+    if (adminSelectedLobbyId && lobbyRooms.some((room) => room.id === adminSelectedLobbyId)) return;
+    setAdminSelectedLobbyId(lobbyRooms[0]?.id ?? "");
+  }, [lobbyRooms, adminSelectedLobbyId]);
+
+  useEffect(() => {
+    void loadLobbyRoomsFromService();
+  }, []);
+
+  useEffect(() => {
+    const safeLobbyId = sanitizeLobbyId(activeLobbyId) || DEFAULT_LOBBY_ID;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ACTIVE_LOBBY_ID_KEY, safeLobbyId);
+    }
+    const loaded = loadLobbyState(makeLobbyStateStorageKey(safeLobbyId), activeLobbyName);
+    const next = loaded.lobbyName === activeLobbyName
+      ? loaded
+      : { ...loaded, lobbyName: activeLobbyName, updatedAt: Date.now() };
+    saveJson(makeLobbyStateStorageKey(safeLobbyId), next);
+    realtimeRemoteStateRef.current = next;
+    realtimePendingSnapshotRef.current = next;
+    realtimeReceivedSnapshotRef.current = false;
+    setLobbyState(next);
+
+    if (roomSession && roomSession.lobbyId !== safeLobbyId) {
+      clearOpponentIdleWatch();
+      timeoutWinWaiverRef.current = null;
+      leavePermissionPromptKeyRef.current = "";
+      leavePermissionAutoLeavingRef.current = false;
+      setRoomSession(null);
+      setViewMode("lobby");
+      setLobbyNotice(`${activeLobbyName} odasina gecildi.`);
+    }
+  }, [activeLobbyId, activeLobbyName]);
+
+  useEffect(() => {
     let cancelled = false;
     const syncMemberFromSession = async () => {
       const session = loadMemberSession();
@@ -5409,6 +5730,7 @@ setSyncHealth((prev) => ({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
+    url.searchParams.set("lobby", activeLobbyId);
     if (roomSession) {
       url.searchParams.set("room", roomSession.code);
       url.searchParams.set("seat", roomSession.seat);
@@ -5429,11 +5751,11 @@ setSyncHealth((prev) => ({
       url.searchParams.delete("observer");
     }
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [roomSession, safeGuestName]);
+  }, [roomSession, safeGuestName, activeLobbyId]);
 
   useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
-    const channel = new BroadcastChannel(LOBBY_SYNC_CHANNEL);
+    const channel = new BroadcastChannel(activeLobbySyncChannel);
     lobbyChannelRef.current = channel;
     const onMessage = (event: MessageEvent<{ type?: string }>) => {
       if (event.data?.type !== "lobby-sync") return;
@@ -5447,11 +5769,11 @@ setSyncHealth((prev) => ({
         lobbyChannelRef.current = null;
       }
     };
-  }, []);
+  }, [activeLobbySyncChannel, activeLobbyStorageKey, activeLobbyName]);
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key === LOBBY_STATE_KEY) {
+      if (event.key === activeLobbyStorageKey) {
         refreshLobbyFromStorage();
       }
       if (event.key === MEMBER_SESSION_KEY) {
@@ -5478,7 +5800,7 @@ setSyncHealth((prev) => ({
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  }, [activeLobbyStorageKey, activeLobbyName]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -5508,7 +5830,7 @@ setSyncHealth((prev) => ({
       setLobbyState(normalized);
     }, 8_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [activeLobbyStorageKey, activeLobbyName]);
 
   useEffect(() => {
     if (!roomSession || roomSession.role !== "player") return;
@@ -5676,7 +5998,7 @@ setSyncHealth((prev) => ({
     const timer = window.setTimeout(() => {
       void (async () => {
         await syncRealtimeViaHttp("room-missing-check");
-        const localSnapshot = loadLobbyState();
+        const localSnapshot = loadLobbyState(activeLobbyStorageKey, activeLobbyName);
         const remoteSnapshot = readRealtimeLobbyState();
         const latest = remoteSnapshot ? mergeLobbyStates(localSnapshot, remoteSnapshot) : localSnapshot;
         const stillExists = latest.tables.some((table) => table.id === roomTableNo || table.roomCode === roomCode);
@@ -5710,7 +6032,7 @@ setSyncHealth((prev) => ({
       })();
     }, ROOM_MISSING_CHECK_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [roomSession, currentRoomTable, realtimeStatus]);
+  }, [roomSession, currentRoomTable, realtimeStatus, activeLobbyStorageKey, activeLobbyName]);
 
   useEffect(() => {
     if (viewMode === "lobby") return;
@@ -5740,11 +6062,255 @@ setSyncHealth((prev) => ({
         closedTableRooms: nextClosedTableRooms,
         updatedAt: Date.now(),
       };
-      saveJson(LOBBY_STATE_KEY, next);
+      saveJson(activeLobbyStorageKey, next);
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [appSessionId, currentProfile.userId]);
+  }, [appSessionId, currentProfile.userId, activeLobbyStorageKey]);
+
+  if (isAdminWindow) {
+    return (
+      <main className="my-shell my-admin-window-page">
+        <header className="my-topbar">
+          <div className="my-topbar-left">
+            <button className="my-top-btn my-btn-member-alt" onClick={() => window.close()}>
+              Pencereyi Kapat
+            </button>
+            <button className="my-top-btn my-btn-open" onClick={() => window.location.assign(window.location.pathname)}>
+              Oyuna Don
+            </button>
+          </div>
+          <div className="my-topbar-right">
+            <strong className="my-admin-title">Admin Paneli</strong>
+          </div>
+        </header>
+        {!member || member.role !== "admin" ? (
+          <section className="my-admin-window-blocked">
+            <h2>Admin girisi gerekli</h2>
+            <p className="line">Bu pencereyi kullanmak icin admin hesabi ile giris yapmalisin.</p>
+          </section>
+        ) : (
+          <section className="my-admin-window-layout">
+            <section className="my-side-card">
+              <h3>Lobi Yonetimi</h3>
+              <div className="my-inline-actions">
+                <input
+                  className="my-input"
+                  placeholder="Yeni lobi adi"
+                  value={adminLobbyNameDraft}
+                  onChange={(e) => setAdminLobbyNameDraft(e.target.value)}
+                  disabled={adminBusy}
+                />
+                <button
+                  className="my-action-btn"
+                  onClick={() => runAdminLobbyAction("createLobby", { name: sanitizeLobbyName(adminLobbyNameDraft) })}
+                  disabled={adminBusy || sanitizeLobbyName(adminLobbyNameDraft).length < 2}
+                >
+                  Lobi Ekle
+                </button>
+              </div>
+              <div className="my-admin-room-list">
+                {lobbyRooms.map((room) => (
+                  <button
+                    key={room.id}
+                    className={`my-action-btn ${adminSelectedLobbyId === room.id ? "" : "soft"}`}
+                    onClick={() => {
+                      setAdminSelectedLobbyId(room.id);
+                      setAdminLobbyNameDraft(room.name);
+                    }}
+                    disabled={adminBusy}
+                  >
+                    {room.name}
+                  </button>
+                ))}
+              </div>
+              {selectedAdminLobby ? (
+                <div className="my-inline-actions">
+                  <input
+                    className="my-input"
+                    value={adminLobbyNameDraft}
+                    onChange={(e) => setAdminLobbyNameDraft(e.target.value)}
+                    disabled={adminBusy}
+                  />
+                  <button
+                    className="my-action-btn soft"
+                    onClick={() => runAdminLobbyAction("renameLobby", { lobbyId: selectedAdminLobby.id, name: sanitizeLobbyName(adminLobbyNameDraft) })}
+                    disabled={adminBusy || sanitizeLobbyName(adminLobbyNameDraft).length < 2}
+                  >
+                    Adi Degistir
+                  </button>
+                  <button
+                    className="my-action-btn danger"
+                    onClick={() => runAdminLobbyAction("deleteLobby", { lobbyId: selectedAdminLobby.id })}
+                    disabled={adminBusy || lobbyRooms.length <= 1}
+                  >
+                    Lobiyi Sil
+                  </button>
+                </div>
+              ) : null}
+              {lobbyRoomsError ? <p className="my-error">{lobbyRoomsError}</p> : null}
+              {adminNotice ? <p className="my-notice my-notice-soft">{adminNotice}</p> : null}
+            </section>
+
+            <section className="my-side-card">
+              <h3>Oyun Kurallari</h3>
+              <div className="my-admin-rules-grid">
+                <label className="my-field">
+                  <span>Kazanma Puani</span>
+                  <input
+                    className="my-input"
+                    type="number"
+                    value={ruleDraft.winPoints}
+                    onChange={(e) => {
+                      const next = normalizeRuleNumber(e.target.value, ruleDraft.winPoints, -10_000, 10_000);
+                      setRuleDraft((prev) => ({ ...prev, winPoints: next }));
+                    }}
+                    disabled={adminBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Kaybetme Puani</span>
+                  <input
+                    className="my-input"
+                    type="number"
+                    value={ruleDraft.lossPoints}
+                    onChange={(e) => {
+                      const next = normalizeRuleNumber(e.target.value, ruleDraft.lossPoints, -10_000, 10_000);
+                      setRuleDraft((prev) => ({ ...prev, lossPoints: next }));
+                    }}
+                    disabled={adminBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Masadan Kalkma Cezasi</span>
+                  <input
+                    className="my-input"
+                    type="number"
+                    min={0}
+                    value={ruleDraft.resignPenaltyPoints}
+                    onChange={(e) => {
+                      const next = normalizeRuleNumber(e.target.value, ruleDraft.resignPenaltyPoints, 0, 10_000);
+                      setRuleDraft((prev) => ({ ...prev, resignPenaltyPoints: next }));
+                    }}
+                    disabled={adminBusy}
+                  />
+                </label>
+              </div>
+              <div className="my-inline-actions">
+                <button className="my-action-btn" onClick={saveAdminRules} disabled={adminBusy}>
+                  Kurallari Kaydet
+                </button>
+                <button className="my-action-btn soft" onClick={() => loadAdminState(member.id)} disabled={adminBusy}>
+                  Yenile
+                </button>
+              </div>
+              {adminError ? <p className="my-error">{adminError}</p> : null}
+            </section>
+
+            <section className="my-side-card my-admin-users-panel">
+              <h3>Kullanici Yonetimi</h3>
+              <div className="my-admin-toolbar">
+                <input
+                  className="my-input"
+                  placeholder="Kullanici ara"
+                  value={adminQuery}
+                  onChange={(e) => setAdminQuery(e.target.value)}
+                  disabled={adminBusy}
+                />
+                <select
+                  className="my-input"
+                  value={adminRoleFilter}
+                  onChange={(e) => setAdminRoleFilter((e.target.value as AdminRoleFilter) || "all")}
+                  disabled={adminBusy}
+                >
+                  <option value="all">Tum Roller</option>
+                  <option value="admin">Sadece Admin</option>
+                  <option value="user">Sadece Uye</option>
+                </select>
+              </div>
+
+              <div className="my-admin-user-split">
+                <div className="my-admin-user-list-compact">
+                  {visibleAdminUsers.map((user) => (
+                    <button
+                      key={user.id}
+                      className={`my-action-btn ${adminSelectedUserId === user.id ? "" : "soft"}`}
+                      onClick={() => setAdminSelectedUserId(user.id)}
+                    >
+                      {user.displayName} ({user.points})
+                    </button>
+                  ))}
+                </div>
+
+                <div className="my-admin-user-detail">
+                  {selectedAdminUser ? (
+                    <>
+                      <h4>{selectedAdminUser.displayName}</h4>
+                      <p className="line">@{selectedAdminUser.username}</p>
+                      <p className="line">{selectedAdminUser.email}</p>
+                      <p className="line">Rol: {selectedAdminUser.role === "admin" ? "Admin" : "Uye"}</p>
+                      <p className="line">Durum: {selectedAdminUser.isBlocked ? "Engelli" : "Aktif"}</p>
+                      <p className="line">Puan: {selectedAdminUser.points}</p>
+                      <p className="line">
+                        Oyun: {selectedAdminUser.stats.gamesPlayed} / K: {selectedAdminUser.stats.wins} / M: {selectedAdminUser.stats.losses} / Kacis: {selectedAdminUser.stats.resigns}
+                      </p>
+
+                      <div className="my-admin-actions">
+                        <button
+                          className={`my-action-btn ${selectedAdminUser.isBlocked ? "" : "soft"}`}
+                          onClick={() => runAdminUserAction(selectedAdminUser.id, "setBlocked", { blocked: !selectedAdminUser.isBlocked })}
+                          disabled={adminBusy || selectedAdminUser.id === member.id}
+                        >
+                          {selectedAdminUser.isBlocked ? "Engeli Kaldir" : "Kullaniciyi Engelle"}
+                        </button>
+                        <button
+                          className={`my-action-btn ${selectedAdminUser.permissions.lobbyChat ? "soft" : ""}`}
+                          onClick={() => runAdminUserAction(selectedAdminUser.id, "setPermission", { permission: "lobbyChat", value: !selectedAdminUser.permissions.lobbyChat })}
+                          disabled={adminBusy}
+                        >
+                          Lobi Mesaj: {selectedAdminUser.permissions.lobbyChat ? "Acik" : "Kapali"}
+                        </button>
+                        <button
+                          className={`my-action-btn ${selectedAdminUser.permissions.tableChat ? "soft" : ""}`}
+                          onClick={() => runAdminUserAction(selectedAdminUser.id, "setPermission", { permission: "tableChat", value: !selectedAdminUser.permissions.tableChat })}
+                          disabled={adminBusy}
+                        >
+                          Masa Mesaj: {selectedAdminUser.permissions.tableChat ? "Acik" : "Kapali"}
+                        </button>
+                        <button
+                          className={`my-action-btn ${selectedAdminUser.permissions.spectatorChat ? "soft" : ""}`}
+                          onClick={() => runAdminUserAction(selectedAdminUser.id, "setPermission", { permission: "spectatorChat", value: !selectedAdminUser.permissions.spectatorChat })}
+                          disabled={adminBusy}
+                        >
+                          Izleyici Mesaj: {selectedAdminUser.permissions.spectatorChat ? "Acik" : "Kapali"}
+                        </button>
+                        <button
+                          className="my-action-btn"
+                          onClick={() => runAdminUserAction(selectedAdminUser.id, "setRole", { role: selectedAdminUser.role === "admin" ? "user" : "admin" })}
+                          disabled={adminBusy}
+                        >
+                          {selectedAdminUser.role === "admin" ? "Uyeye Cevir" : "Admin Yap"}
+                        </button>
+                        <button
+                          className="my-action-btn danger"
+                          onClick={() => runAdminUserAction(selectedAdminUser.id, "deleteUser")}
+                          disabled={adminBusy || selectedAdminUser.id === member.id}
+                        >
+                          Kullaniciyi Sil
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="my-chat-empty">Detay icin listeden bir kullanici sec.</p>
+                  )}
+                </div>
+              </div>
+            </section>
+          </section>
+        )}
+      </main>
+    );
+  }
 
   return (
     <main className="my-shell">
@@ -5753,6 +6319,9 @@ setSyncHealth((prev) => ({
           <div className="my-topbar-left">
             {!roomSession ? (
               <>
+                <button className="my-top-btn my-btn-member-alt" onClick={() => setRoomPickerOpen(true)}>
+                  Oda Sec
+                </button>
                 <button className="my-top-btn my-btn-open" onClick={onOpenTable}>
                   Masa Ac
                 </button>
@@ -5790,9 +6359,16 @@ setSyncHealth((prev) => ({
                 </button>
               </>
             ) : (
-              <button className="my-top-btn my-btn-member-alt" onClick={() => setAccountMenuOpen((current) => !current)}>
-                Ayarlar
-              </button>
+              <>
+                <button className="my-top-btn my-btn-member-alt" onClick={() => setAccountMenuOpen((current) => !current)}>
+                  Ayarlar
+                </button>
+                {isAdmin ? (
+                  <button className="my-top-btn my-btn-member" onClick={openAdminPanelWindow}>
+                    Admin Paneli
+                  </button>
+                ) : null}
+              </>
             )}
             {accountMenuOpen ? (
               <section className="my-account-menu">
@@ -5856,14 +6432,7 @@ setSyncHealth((prev) => ({
                       <button className="my-action-btn soft" onClick={onLogoutMember}>
                         Cikis
                       </button>
-                      {isAdmin ? (
-                        <button
-                          className={`my-action-btn ${showAdminPanelInLobby ? "" : "soft"}`}
-                          onClick={() => setShowAdminPanelInLobby((current) => !current)}
-                        >
-                          {showAdminPanelInLobby ? "Admini Gizle" : "Admini Goster"}
-                        </button>
-                      ) : null}
+                      {isAdmin ? <p className="line">Admin paneline ust menudeki <strong>Admin Paneli</strong> butonundan ulasabilirsin.</p> : null}
                     </div>
                   </div>
                 ) : (
@@ -6001,7 +6570,7 @@ setSyncHealth((prev) => ({
         <section className="my-lobby-layout">
           <div className="my-lobby-main">
             <div className="my-lobby-header">
-              <h2>{lobbyState.lobbyName}</h2>
+              <h2>{activeLobbyName}</h2>
               <p>Acik masalar</p>
             </div>
 
@@ -6305,7 +6874,7 @@ setSyncHealth((prev) => ({
               </section>
             ) : null}
 
-            {isAdmin && showAdminPanelInLobby ? (
+            {false ? (
               <section className="my-side-card">
                 <h3>Admin Paneli</h3>
                 <div className="my-admin-summary-grid">
@@ -6855,6 +7424,36 @@ setSyncHealth((prev) => ({
           </section>
         </section>
       )}
+
+      {shouldShowLobbyPicker ? (
+        <section className="my-modal-backdrop" role="presentation">
+          <article className="my-modal-card my-lobby-picker-modal" role="dialog" aria-modal="true">
+            <h3>Oda Secimi</h3>
+            <p className="line">Bir odaya girerek oyuna devam et.</p>
+            <div className="my-lobby-picker-list">
+              {lobbyRooms.map((room) => (
+                <button
+                  key={room.id}
+                  className={`my-action-btn ${activeLobbyId === room.id ? "" : "soft"}`}
+                  onClick={() => selectLobbyRoom(room.id)}
+                  disabled={lobbyRoomsBusy}
+                >
+                  {room.name}
+                </button>
+              ))}
+            </div>
+            {lobbyRoomsError ? <p className="my-error">{lobbyRoomsError}</p> : null}
+            <div className="my-inline-actions">
+              <button className="my-action-btn soft" onClick={() => void loadLobbyRoomsFromService()} disabled={lobbyRoomsBusy}>
+                {lobbyRoomsBusy ? "Yukleniyor..." : "Listeyi Yenile"}
+              </button>
+              <button className="my-action-btn" onClick={() => setRoomPickerOpen(false)} disabled={lobbyRoomsBusy}>
+                Odaya Gir
+              </button>
+            </div>
+          </article>
+        </section>
+      ) : null}
 
       {invitePickerTable ? (
         <section className="my-modal-backdrop" role="presentation" onClick={closeInvitePicker}>
