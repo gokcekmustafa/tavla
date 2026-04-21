@@ -5855,7 +5855,7 @@ setSyncHealth((prev) => ({
       releaseSeatOnly();
     }, 1200);
     return () => window.clearInterval(timer);
-  }, [roomSession, appSessionId, currentProfile.userId]);
+  }, [roomSession, appSessionId, currentProfile.userId, activeLobbyId, activeLobbyStorageKey]);
 
   useEffect(() => {
     if (!roomSession || roomSession.role !== "player" || !currentRoomTable) {
@@ -5978,6 +5978,8 @@ setSyncHealth((prev) => ({
     member,
     lobbyState.guestLabels,
     guestId,
+    activeLobbyId,
+    activeLobbyStorageKey,
   ]);
 
   useEffect(() => {
