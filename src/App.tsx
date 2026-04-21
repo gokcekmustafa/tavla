@@ -523,18 +523,6 @@ function createChatMessageId(seed: string) {
   return sanitizeChatId(`${Date.now().toString(36)}-${safeSeed}-${Math.random().toString(36).slice(2, 8)}`);
 }
 
-function formatChatTime(timestamp: number) {
-  if (!Number.isFinite(timestamp)) return "--:--";
-  try {
-    return new Date(timestamp).toLocaleTimeString("tr-TR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "--:--";
-  }
-}
-
 function formatSince(timestamp: number, now = Date.now()) {
   if (!Number.isFinite(timestamp) || timestamp <= 0) return "hic";
   const delta = Math.max(0, now - timestamp);
@@ -6180,11 +6168,9 @@ setSyncHealth((prev) => ({
                 ) : (
                   lobbyChatRows.map((message) => (
                     <article key={message.id} className="my-chat-row">
-                      <div className="my-chat-meta">
-                        <strong>{message.displayName}</strong>
-                        <time>{formatChatTime(message.at)}</time>
-                      </div>
-                      <p>{message.text}</p>
+                      <p>
+                        <strong>{message.displayName}:</strong> {message.text}
+                      </p>
                     </article>
                   ))
                 )}
@@ -6723,11 +6709,9 @@ setSyncHealth((prev) => ({
                   ) : (
                     roomChatRows.map((message) => (
                       <article key={message.id} className="my-chat-row">
-                        <div className="my-chat-meta">
-                          <strong>{message.displayName}</strong>
-                          <time>{formatChatTime(message.at)}</time>
-                        </div>
-                        <p>{message.text}</p>
+                        <p>
+                          <strong>{message.displayName}:</strong> {message.text}
+                        </p>
                       </article>
                     ))
                   )}

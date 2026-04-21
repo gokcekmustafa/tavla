@@ -1454,6 +1454,33 @@
   line-height: 1.24;
 }
 
+.my-chat-list.my-chat-list-lobby,
+.my-chat-list.my-room-chat-list {
+  gap: 0;
+}
+
+.my-chat-list.my-chat-list-lobby .my-chat-row,
+.my-chat-list.my-room-chat-list .my-chat-row {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 1px 0;
+  display: block;
+}
+
+.my-chat-list.my-chat-list-lobby .my-chat-row p,
+.my-chat-list.my-room-chat-list .my-chat-row p {
+  margin: 0;
+  line-height: 1.22;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.my-chat-list.my-chat-list-lobby .my-chat-row p strong,
+.my-chat-list.my-room-chat-list .my-chat-row p strong {
+  font-weight: 700;
+}
+
 .my-room-start-overlay {
   background: transparent;
   backdrop-filter: none;
