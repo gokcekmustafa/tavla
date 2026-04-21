@@ -2088,8 +2088,8 @@
   }
 
   .my-game-frame iframe {
-    height: clamp(320px, 56svh, 460px);
-    min-height: 320px;
+    height: clamp(350px, 62svh, 520px);
+    min-height: 350px;
   }
 
   .my-game-layout {
@@ -2146,13 +2146,13 @@
   }
 
   .my-room-board-frame iframe {
-    height: clamp(320px, 58svh, 460px);
-    min-height: 320px;
+    height: clamp(360px, 64svh, 540px);
+    min-height: 360px;
   }
 
   .my-room-view-topless .my-room-board-frame iframe {
-    height: clamp(330px, 60svh, 480px);
-    min-height: 330px;
+    height: clamp(370px, 66svh, 560px);
+    min-height: 370px;
   }
 
   .my-room-main-leave {

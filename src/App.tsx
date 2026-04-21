@@ -297,6 +297,8 @@ const ROOM_MISSING_CHECK_DELAY_MS = 2_200;
 const ROOM_MISSING_CLOSE_GRACE_MS = 9_000;
 const ACTIVITY_CLOCK_SKEW_LIMIT_MS = 24 * 60 * 60 * 1000;
 const ENABLE_WS_DEBUG_LOGS = false;
+const WS_PREOPEN_FAIL_DISABLE_THRESHOLD = 3;
+const WS_DISABLE_DURATION_MS = 2 * 60 * 1000;
 const PROFILE_POPOVER_WIDTH_PX = 300;
 const PROFILE_POPOVER_MIN_HEIGHT_PX = 220;
 const PROFILE_POPOVER_GAP_PX = 6;
@@ -1965,6 +1967,8 @@ function App() {
   const lobbyChannelRef = useRef<BroadcastChannel | null>(null);
   const realtimeSocketRef = useRef<WebSocket | null>(null);
   const realtimeReconnectTimerRef = useRef<number | null>(null);
+  const realtimeWsPreopenFailCountRef = useRef(0);
+  const realtimeWsDisabledUntilRef = useRef(0);
   const realtimeSenderCountersRef = useRef<Map<string, number>>(new Map());
   const realtimeSyncCounterRef = useRef(0);
   const realtimeRemoteStateRef = useRef<LobbyState | null>(null);
@@ -5308,10 +5312,13 @@ function App() {
       realtimeReconnectTimerRef.current = null;
     };
 
-    const scheduleReconnect = () => {
+    const scheduleReconnect = (overrideWaitMs?: number) => {
       if (cancelled || realtimeReconnectTimerRef.current !== null) return;
-      const waitMs = reconnectDelay;
-      reconnectDelay = Math.min(reconnectDelay * 2, 10_000);
+      const forcedWait = Number.isFinite(overrideWaitMs) ? Number(overrideWaitMs) : 0;
+      const waitMs = forcedWait > 0 ? forcedWait : reconnectDelay;
+      if (!(forcedWait > 0)) {
+        reconnectDelay = Math.min(reconnectDelay * 2, 10_000);
+      }
       realtimeReconnectTimerRef.current = window.setTimeout(() => {
         realtimeReconnectTimerRef.current = null;
         connectSocket();
@@ -5332,6 +5339,15 @@ function App() {
 
     const connectSocket = () => {
       if (cancelled) return;
+      const now = Date.now();
+      const wsDisabledUntil = realtimeWsDisabledUntilRef.current;
+      if (wsDisabledUntil > now) {
+        const remaining = wsDisabledUntil - now;
+        setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
+        setRealtimeStatus("offline");
+        scheduleReconnect(Math.min(Math.max(remaining + 120, 600), WS_DISABLE_DURATION_MS));
+        return;
+      }
       const existingSocket = realtimeSocketRef.current;
       if (existingSocket) {
         if (existingSocket.readyState === WebSocket.OPEN) {
@@ -5360,6 +5376,7 @@ function App() {
       realtimeSocketRef.current = socket;
       setRealtimeSocketReadyState(socket.readyState);
       realtimeReceivedSnapshotRef.current = false;
+      let opened = false;
 
       const seedTimer = window.setTimeout(() => {
         if (cancelled) return;
@@ -5378,6 +5395,9 @@ function App() {
       socket.addEventListener("open", () => {
         if (cancelled || realtimeSocketRef.current !== socket) return;
         if (activeRealtimeLobbyChannelRef.current !== channelForConnection) return;
+        opened = true;
+        realtimeWsPreopenFailCountRef.current = 0;
+        realtimeWsDisabledUntilRef.current = 0;
         reconnectDelay = 1_000;
         if (ENABLE_WS_DEBUG_LOGS) {
           console.debug("[WS] opened", { session: appSessionId, url: socket.url });
@@ -5433,9 +5453,23 @@ function App() {
         if (ENABLE_WS_DEBUG_LOGS) {
           console.debug("[WS] closed");
         }
+        if (!opened) {
+          const nextFailCount = realtimeWsPreopenFailCountRef.current + 1;
+          realtimeWsPreopenFailCountRef.current = nextFailCount;
+          if (nextFailCount >= WS_PREOPEN_FAIL_DISABLE_THRESHOLD) {
+            realtimeWsDisabledUntilRef.current = Date.now() + WS_DISABLE_DURATION_MS;
+            setSyncHealth((prev) => ({ ...prev, lastError: "ws gecici kapatildi, http senkron aktif" }));
+          }
+        } else {
+          realtimeWsPreopenFailCountRef.current = 0;
+        }
         realtimeSocketRef.current = null;
         setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
         setRealtimeStatus("offline");
+        if (realtimeWsDisabledUntilRef.current > Date.now()) {
+          scheduleReconnect(Math.min(Math.max(realtimeWsDisabledUntilRef.current - Date.now() + 120, 600), WS_DISABLE_DURATION_MS));
+          return;
+        }
         scheduleReconnect();
       });
     };

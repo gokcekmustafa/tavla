@@ -1392,6 +1392,8 @@ function onCheckerMouseDown(e) {
   if (!Number.isInteger(source)) return;
   const selectable = getSelectableSources();
   if (!selectable.has(source)) return;
+  e.preventDefault();
+  e.stopPropagation();
 
   if (e.detail >= 2) {
     const move = getDoubleClickMove(source);
@@ -1404,6 +1406,25 @@ function onCheckerMouseDown(e) {
     playMove(move);
     return;
   }
+
+  if (selectedSource === source) {
+    selectedSource = null;
+    queueCheckerSelectionRender(source);
+    return;
+  }
+  selectedSource = source;
+  queueCheckerSelectionRender(source);
+}
+
+function onCheckerTouchStart(e) {
+  if (winner || isAnimating || isBotTurn() || !hasRolled) return;
+  if (!canControlRoomAction()) return;
+  const source = Number(e.currentTarget.dataset.source);
+  if (!Number.isInteger(source)) return;
+  const selectable = getSelectableSources();
+  if (!selectable.has(source)) return;
+  e.preventDefault();
+  e.stopPropagation();
 
   if (selectedSource === source) {
     selectedSource = null;
@@ -2029,6 +2050,7 @@ function renderBoardState() {
         ch.classList.add("draggable-checker");
         ch.dataset.source = String(pt);
         ch.addEventListener("mousedown", onCheckerMouseDown);
+        ch.addEventListener("touchstart", onCheckerTouchStart, { passive: false });
         ch.addEventListener("dragstart", onDragStartFromChecker);
         ch.addEventListener("dragend",   onDragEnd);
         ch.addEventListener("dblclick",  onCheckerDoubleClick);
