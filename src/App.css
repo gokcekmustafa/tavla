@@ -439,6 +439,9 @@
   overflow-y: auto;
   display: grid;
   gap: 6px;
+  align-content: start;
+  justify-content: start;
+  grid-auto-rows: max-content;
 }
 
 .my-chat-list.my-chat-list-compact {
@@ -1464,7 +1467,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 1px 0;
+  padding: 0;
   display: block;
 }
 
