@@ -12,6 +12,7 @@ const BOT_THINK_DELAY_BY_LEVEL = {
   [BOT_DIFFICULTY_MEDIUM]: BOT_DELAY_MS,
   [BOT_DIFFICULTY_HARD]: 640,
 };
+const BOT_DICE_OUTCOMES = buildBotDiceOutcomes();
 const LOG_LIMIT = 140;
 const ANIM_MS = 380;
 const AUTO_ROLL_DELAY_MS = 520;
@@ -2645,21 +2646,49 @@ function chooseBotMoveMedium(state, player, moves) {
   return best;
 }
 
+function buildBotDiceOutcomes() {
+  const outcomes = [];
+  for (let first = 1; first <= 6; first++) {
+    for (let second = first; second <= 6; second++) {
+      const isDouble = first === second;
+      outcomes.push({
+        dice: isDouble ? [first, first, first, first] : [first, second],
+        weight: isDouble ? 1 : 2,
+      });
+    }
+  }
+  return outcomes;
+}
+
 function chooseBotMoveHard(state, player, moves, dice) {
   const turnDice = Array.isArray(dice) ? [...dice] : [];
   const searchDepth = Math.min(4, Math.max(1, turnDice.length));
-  const memo = new Map();
+  const planMemo = new Map();
+  const replyMemo = new Map();
+  const replyTurnMemo = new Map();
 
   let best = moves[0];
   let bestScore = -Infinity;
 
-  for (const move of moves) {
+  const rankedMoves = [...moves]
+    .map((move) => ({ move, quick: scoreBotMove(state, player, move) }))
+    .sort((a, b) => b.quick - a.quick);
+
+  for (const { move, quick } of rankedMoves) {
     const nextState = applyMove(state, player, move);
     const nextDice = removeOneDie(turnDice, move.die);
-    const immediate = scoreBotMove(state, player, move) * 0.6;
-    const continuation = getHardTurnPlanScore(nextState, player, nextDice, searchDepth - 1, memo);
+    const continuation = nextDice.length
+      ? getHardTurnPlanScore(nextState, player, nextDice, searchDepth - 1, planMemo)
+      : 0;
     const boardEval = evaluateBoardStateForBot(nextState, player);
-    const total = immediate + continuation + boardEval;
+    const opponentReply = estimateOpponentTurnScore(nextState, player, replyMemo, replyTurnMemo);
+    const safetyEdge = (countBlots(nextState, opponentOf(player)) - countBlots(nextState, player)) * 1.15;
+    const total =
+      quick * 0.48
+      + continuation * 1.04
+      + boardEval * 0.72
+      - opponentReply * 0.4
+      + safetyEdge;
 
     if (total > bestScore || (total === bestScore && move.die > best.die)) {
       bestScore = total;
@@ -2670,28 +2699,114 @@ function chooseBotMoveHard(state, player, moves, dice) {
 }
 
 function getHardTurnPlanScore(state, player, dice, depth, memo) {
-  const usableDice = Array.isArray(dice) ? dice : [];
+  const usableDice = Array.isArray(dice) ? [...dice] : [];
   if (!usableDice.length || depth <= 0) {
     return evaluateBoardStateForBot(state, player);
   }
 
-  const key = `${depth}|${serialize(state, player, usableDice)}`;
+  const key = `${depth}|${serialize(state, player, usableDice)}|plan`;
   if (memo.has(key)) return memo.get(key);
 
   const options = getOptimalMoves(state, player, usableDice);
   if (!options.length) {
-    const score = evaluateBoardStateForBot(state, player) - 8;
+    const stuckPenalty = 6 + countBlots(state, player) * 1.25;
+    const score = evaluateBoardStateForBot(state, player) - stuckPenalty;
     memo.set(key, score);
     return score;
   }
 
+  const ranked = options
+    .map((move) => {
+      const nextState = applyMove(state, player, move);
+      const immediate = scoreBotMove(state, player, move);
+      const boardEval = evaluateBoardStateForBot(nextState, player);
+      return {
+        move,
+        nextState,
+        immediate,
+        boardEval,
+        quick: immediate * 0.35 + boardEval * 0.65,
+      };
+    })
+    .sort((a, b) => b.quick - a.quick);
+
+  const beamWidth = depth >= 3 ? 6 : 10;
+  const candidates = ranked.slice(0, Math.min(beamWidth, ranked.length));
+
   let best = -Infinity;
-  for (const move of options) {
-    const nextState = applyMove(state, player, move);
-    const nextDice = removeOneDie(usableDice, move.die);
-    const immediate = scoreBotMove(state, player, move) * 0.32;
-    const score = immediate + getHardTurnPlanScore(nextState, player, nextDice, depth - 1, memo);
+  for (const candidate of candidates) {
+    const nextDice = removeOneDie(usableDice, candidate.move.die);
+    const continuation = nextDice.length
+      ? getHardTurnPlanScore(candidate.nextState, player, nextDice, depth - 1, memo)
+      : evaluateBoardStateForBot(candidate.nextState, player);
+    const score = candidate.immediate * 0.3 + candidate.boardEval * 0.55 + continuation * 0.85;
     if (score > best) best = score;
+  }
+
+  memo.set(key, best);
+  return best;
+}
+
+function estimateOpponentTurnScore(state, player, memo, turnMemo) {
+  const opp = opponentOf(player);
+  const key = `${serialize(state, opp, [])}|reply`;
+  if (memo.has(key)) return memo.get(key);
+
+  let weightedTotal = 0;
+  let weightSum = 0;
+
+  for (const outcome of BOT_DICE_OUTCOMES) {
+    const score = estimateBestTurnScoreForDice(state, opp, outcome.dice, turnMemo);
+    weightedTotal += score * outcome.weight;
+    weightSum += outcome.weight;
+  }
+
+  const expected = weightSum > 0
+    ? weightedTotal / weightSum
+    : evaluateBoardStateForBot(state, opp);
+
+  memo.set(key, expected);
+  return expected;
+}
+
+function estimateBestTurnScoreForDice(state, player, dice, memo) {
+  const usableDice = Array.isArray(dice) ? [...dice] : [];
+  if (!usableDice.length) return evaluateBoardStateForBot(state, player);
+
+  const key = `${serialize(state, player, usableDice)}|opp-turn`;
+  if (memo.has(key)) return memo.get(key);
+
+  const options = getOptimalMoves(state, player, usableDice);
+  if (!options.length) {
+    const score = evaluateBoardStateForBot(state, player) - 5;
+    memo.set(key, score);
+    return score;
+  }
+
+  const ranked = options
+    .map((move) => {
+      const nextState = applyMove(state, player, move);
+      const immediate = scoreBotMove(state, player, move);
+      return {
+        move,
+        nextState,
+        immediate,
+        quick: immediate * 0.32 + evaluateBoardStateForBot(nextState, player) * 0.68,
+      };
+    })
+    .sort((a, b) => b.quick - a.quick);
+
+  const beamWidth = usableDice.length > 2 ? 4 : 6;
+  const candidates = ranked.slice(0, Math.min(beamWidth, ranked.length));
+
+  let best = -Infinity;
+  for (const candidate of candidates) {
+    const nextDice = removeOneDie(usableDice, candidate.move.die);
+    const continuation = nextDice.length
+      ? estimateBestTurnScoreForDice(candidate.nextState, player, nextDice, memo)
+      : evaluateBoardStateForBot(candidate.nextState, player);
+    const total = candidate.immediate * 0.25 + continuation * 0.9;
+    if (total > best) best = total;
   }
 
   memo.set(key, best);
@@ -2700,23 +2815,148 @@ function getHardTurnPlanScore(state, player, dice, depth, memo) {
 
 function evaluateBoardStateForBot(state, player) {
   const opp = opponentOf(player);
+  const raceMode = isRacePosition(state);
   const pipAdvantage = getPipCount(state, opp) - getPipCount(state, player);
   const offAdvantage = state.borneOff[player] - state.borneOff[opp];
   const barAdvantage = state.bar[opp] - state.bar[player];
   const madePointAdvantage = countMadePoints(state, player) - countMadePoints(state, opp);
   const homeMadeAdvantage = countHomeMadePoints(state, player) - countHomeMadePoints(state, opp);
-  const blotPenalty = countBlots(state, player) - countBlots(state, opp);
+  const blotAdvantage = countBlots(state, opp) - countBlots(state, player);
   const primeAdvantage = longestPrime(state, player) - longestPrime(state, opp);
+  const anchorAdvantage = countAnchorsInOpponentHome(state, player) - countAnchorsInOpponentHome(state, opp);
+  const blockedEntryAdvantage = countBlockedEntryPoints(state, opp) - countBlockedEntryPoints(state, player);
+  const shotAdvantage = countPotentialShots(state, player) - countPotentialShots(state, opp);
+  const flexibilityAdvantage = countFlexibility(state, player) - countFlexibility(state, opp);
+
+  if (raceMode) {
+    return (
+      pipAdvantage * 0.98
+      + offAdvantage * 44
+      + barAdvantage * 14
+      + madePointAdvantage * 1.2
+      + homeMadeAdvantage * 2.1
+      + blotAdvantage * 4.6
+      + flexibilityAdvantage * 1.7
+    );
+  }
 
   return (
-    pipAdvantage * 0.65
-    + offAdvantage * 34
-    + barAdvantage * 22
-    + madePointAdvantage * 3.5
-    + homeMadeAdvantage * 5.2
-    - blotPenalty * 7.5
-    + primeAdvantage * 4.8
+    pipAdvantage * 0.56
+    + offAdvantage * 31
+    + barAdvantage * 27
+    + madePointAdvantage * 4.3
+    + homeMadeAdvantage * 7.4
+    + blotAdvantage * 8.6
+    + primeAdvantage * 6.2
+    + anchorAdvantage * 4.4
+    + blockedEntryAdvantage * 3.8
+    + shotAdvantage * 2.6
+    + flexibilityAdvantage * 2.2
   );
+}
+
+function isRacePosition(state) {
+  if (state.bar[WHITE] > 0 || state.bar[BLACK] > 0) return false;
+  const whiteBack = findBackChecker(state, WHITE);
+  const blackBack = findBackChecker(state, BLACK);
+  if (!Number.isInteger(whiteBack) || !Number.isInteger(blackBack)) return true;
+  return whiteBack < blackBack;
+}
+
+function findBackChecker(state, player) {
+  if (player === WHITE) {
+    for (let pt = POINT_COUNT; pt >= 1; pt--) {
+      const ps = state.points[pt - 1];
+      if (ps.owner === WHITE && ps.count > 0) return pt;
+    }
+    return null;
+  }
+
+  for (let pt = 1; pt <= POINT_COUNT; pt++) {
+    const ps = state.points[pt - 1];
+    if (ps.owner === BLACK && ps.count > 0) return pt;
+  }
+  return null;
+}
+
+function countAnchorsInOpponentHome(state, player) {
+  const opp = opponentOf(player);
+  let total = 0;
+  for (let pt = 1; pt <= POINT_COUNT; pt++) {
+    if (!isHomePoint(opp, pt)) continue;
+    const ps = state.points[pt - 1];
+    if (ps.owner === player && ps.count >= 2) total++;
+  }
+  return total;
+}
+
+function countBlockedEntryPoints(state, player) {
+  const opp = opponentOf(player);
+  let blocked = 0;
+  for (let die = 1; die <= 6; die++) {
+    const target = entryFromBar(player, die);
+    const slot = state.points[target - 1];
+    if (slot.owner === opp && slot.count >= 2) blocked++;
+  }
+  return blocked;
+}
+
+function countPotentialShots(state, player) {
+  const opp = opponentOf(player);
+  let total = 0;
+
+  for (let pt = 1; pt <= POINT_COUNT; pt++) {
+    const target = state.points[pt - 1];
+    if (target.owner !== opp || target.count !== 1) continue;
+
+    let reachable = false;
+    if (state.bar[player] > 0) {
+      const die = player === WHITE ? 25 - pt : pt;
+      reachable = die >= 1 && die <= 6;
+    } else {
+      for (let src = 1; src <= POINT_COUNT; src++) {
+        const ps = state.points[src - 1];
+        if (ps.owner !== player || ps.count <= 0) continue;
+        const die = (pt - src) * directionOf(player);
+        if (die >= 1 && die <= 6) {
+          reachable = true;
+          break;
+        }
+      }
+    }
+
+    if (reachable) total++;
+  }
+
+  return total;
+}
+
+function countFlexibility(state, player) {
+  if (state.bar[player] > 0) {
+    let entries = 0;
+    for (let die = 1; die <= 6; die++) {
+      const target = entryFromBar(player, die);
+      const slot = state.points[target - 1];
+      if (!(slot.owner === opponentOf(player) && slot.count >= 2)) entries++;
+    }
+    return entries * 0.6;
+  }
+
+  const sources = collectSources(state, player);
+  if (!sources.length) return 0;
+
+  let playableDice = 0;
+  for (let die = 1; die <= 6; die++) {
+    if (getMovesForDie(state, player, die).length > 0) playableDice++;
+  }
+
+  let spread = 0;
+  for (const src of sources) {
+    const slot = state.points[src - 1];
+    spread += slot.count >= 2 ? 0.7 : 0.45;
+  }
+
+  return playableDice + Math.min(6, spread);
 }
 
 function getPipCount(state, player) {
@@ -2776,30 +3016,65 @@ function longestPrime(state, player) {
 }
 
 function scoreBotMove(state, player, move) {
-  const hit  = isHitMove(state, player, move);
+  const hit = isHitMove(state, player, move);
   const next = applyMove(state, player, move);
-  const opp  = opponentOf(player);
-  let score  = 0;
+  const opp = opponentOf(player);
+  const raceMode = isRacePosition(state);
+  let score = 0;
 
-  if (move.to === "off")  return 250;
-  if (move.from === "bar") score += 60;
+  if (move.to === "off") {
+    score += 230;
+    if (countCheckersInPlay(next, player) <= 2) score += 45;
+  }
+
+  if (move.from === "bar") {
+    score += 62 + (state.bar[player] > 1 ? 14 : 0);
+  }
+
   if (hit) {
-    score += 90;
-    score += getPlayerProgress(state, opp) * 40;
+    score += 96;
+    score += getPlayerProgress(state, opp) * 38;
+    score += countBlockedEntryPoints(next, opp) * 5.5;
   }
 
   if (move.to !== "off") {
+    const beforeDest = state.points[move.to - 1];
     const dest = next.points[move.to - 1];
     if (dest.owner === player) {
-      if (dest.count >= 2) score += 35;
-      if (dest.count >= 4) score += 10;
-      if (dest.count === 1) score -= getHitThreat(next, player, move.to) * 18;
+      const madeNow = dest.count >= 2 && (beforeDest.owner !== player || beforeDest.count < 2);
+      if (madeNow) score += raceMode ? 18 : 36;
+      if (dest.count >= 4) score += 8;
+      if (isHomePoint(player, move.to)) score += raceMode ? 8 : 14;
+
+      if (dest.count === 1) {
+        score -= getHitThreat(next, player, move.to) * (raceMode ? 8 : 16);
+      } else {
+        score -= getHitThreat(next, player, move.to) * 1.4;
+      }
     }
   }
 
-  score += moveProgress(player, move.from, move.to) * 4;
-  if (move.to !== "off" && isHomePoint(player, move.to)) score += 10;
-  score += move.die;
+  if (move.from !== "bar") {
+    const srcBefore = state.points[move.from - 1];
+    const srcAfter = next.points[move.from - 1];
+    if (srcBefore.owner === player && srcBefore.count >= 2 && srcAfter.count === 1) {
+      score -= raceMode ? 5 : 20;
+      if (isHomePoint(player, move.from)) score -= raceMode ? 4 : 10;
+    }
+  }
+
+  const progress = moveProgress(player, move.from, move.to);
+  score += progress * (raceMode ? 7.4 : 4.8);
+
+  const pipGain = getPipCount(state, player) - getPipCount(next, player);
+  score += pipGain * (raceMode ? 1.9 : 0.75);
+
+  if (!raceMode) {
+    const shotGain = countPotentialShots(next, player) - countPotentialShots(state, player);
+    score += shotGain * 2.4;
+  }
+
+  score += move.die * 0.65;
 
   return score;
 }
