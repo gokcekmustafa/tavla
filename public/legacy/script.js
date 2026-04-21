@@ -1548,6 +1548,23 @@ function findMoveChain(source, target) {
   return chain;
 }
 
+function collectReachableTargetsFromSource(state, player, dice, source, outTargets) {
+  if (!Array.isArray(dice) || !dice.length) return;
+  if (source === "off") return;
+
+  const options = getOptimalMoves(state, player, dice).filter((m) => m.from === source);
+  if (!options.length) return;
+
+  for (const move of options) {
+    outTargets.add(move.to);
+    if (move.to === "off") continue;
+    const nextState = applyMove(state, player, move);
+    const nextDice = removeOneDie(dice, move.die);
+    if (!nextDice.length) continue;
+    collectReachableTargetsFromSource(nextState, player, nextDice, move.to, outTargets);
+  }
+}
+
 function searchMoveChain(state, dice, from, target, path) {
   if (!dice.length) return null;
   const options = getOptimalMoves(state, currentPlayer, dice).filter((m) => m.from === from);
@@ -2099,7 +2116,8 @@ function renderHighlights() {
   if (selectedSource === "bar") barSlotElements.get(currentPlayer)?.classList.add("selected-source");
   else                          pointElements.get(selectedSource)?.classList.add("selected-source");
 
-  const targets = new Set(highlightMoves.filter(m => m.from === selectedSource).map(m => m.to));
+  const targets = new Set();
+  collectReachableTargetsFromSource(gameState, currentPlayer, remainingDice, selectedSource, targets);
   for (const t of targets) {
     if (t === "off") {
       (currentPlayer === WHITE ? dom.offWhite : dom.offBlack).classList.add("highlight-target");
