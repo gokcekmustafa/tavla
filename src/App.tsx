@@ -261,6 +261,7 @@ const OPPONENT_MOVE_TIMEOUT_MS = 60_000;
 const SHOW_SYNC_HEALTH_PANEL = false;
 const ROOM_MISSING_CHECK_DELAY_MS = 2_200;
 const ROOM_MISSING_CLOSE_GRACE_MS = 9_000;
+const ACTIVITY_CLOCK_SKEW_LIMIT_MS = 24 * 60 * 60 * 1000;
 const AVATAR_PRESETS: readonly AvatarPreset[] = [
   { id: "male_01", label: "Erkek Klasik", gender: "male" },
   { id: "male_02", label: "Erkek Sakalli", gender: "male" },
@@ -481,11 +482,34 @@ function sanitizeTableChatKey(value: string) {
   return value.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24);
 }
 
-function normalizeActivityTimestamp(value: unknown, now = Date.now(), maxFutureMs = HEARTBEAT_MS * 2) {
+const activityClockOffsetBySession = new Map<string, number>();
+
+function normalizeActivityTimestamp(
+  value: unknown,
+  now = Date.now(),
+  maxFutureMs = HEARTBEAT_MS * 2,
+  sessionId = "",
+) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return now;
-  if (parsed > now + maxFutureMs) return now;
-  return parsed;
+  if (!sessionId) {
+    if (parsed > now + maxFutureMs) return now;
+    return parsed;
+  }
+
+  let offset = activityClockOffsetBySession.get(sessionId);
+  if (offset === undefined || !Number.isFinite(offset)) {
+    offset = now - parsed;
+  }
+  offset = Math.max(-ACTIVITY_CLOCK_SKEW_LIMIT_MS, Math.min(ACTIVITY_CLOCK_SKEW_LIMIT_MS, offset));
+
+  let adjusted = parsed + offset;
+  if (adjusted > now + maxFutureMs || adjusted < now - ACTIVITY_CLOCK_SKEW_LIMIT_MS) {
+    offset = Math.max(-ACTIVITY_CLOCK_SKEW_LIMIT_MS, Math.min(ACTIVITY_CLOCK_SKEW_LIMIT_MS, now - parsed));
+    adjusted = parsed + offset;
+  }
+  activityClockOffsetBySession.set(sessionId, offset);
+  return adjusted;
 }
 
 function tableChatKey(table: Pick<LobbyTable, "roomCode" | "id">) {
@@ -1208,20 +1232,16 @@ function cleanupStaleAndPrune(tables: LobbyTable[]): CleanupResult {
   const next: LobbyTable[] = [];
 
   sortTables(tables).forEach((table) => {
-    const normalizedWhite = table.white
-      ? { ...table.white, touchedAt: normalizeActivityTimestamp(table.white.touchedAt, now) }
-      : null;
-    const normalizedBlack = table.black
-      ? { ...table.black, touchedAt: normalizeActivityTimestamp(table.black.touchedAt, now) }
-      : null;
-    if ((table.white && normalizedWhite && table.white.touchedAt !== normalizedWhite.touchedAt)
-      || (table.black && normalizedBlack && table.black.touchedAt !== normalizedBlack.touchedAt)) {
-      changed = true;
-    }
-    const whiteExpired = normalizedWhite ? now - normalizedWhite.touchedAt > SEAT_STALE_MS : false;
-    const blackExpired = normalizedBlack ? now - normalizedBlack.touchedAt > SEAT_STALE_MS : false;
-    const white = whiteExpired ? null : normalizedWhite;
-    const black = blackExpired ? null : normalizedBlack;
+    const whiteTouchedAt = table.white
+      ? normalizeActivityTimestamp(table.white.touchedAt, now, HEARTBEAT_MS * 2, table.white.sessionId)
+      : 0;
+    const blackTouchedAt = table.black
+      ? normalizeActivityTimestamp(table.black.touchedAt, now, HEARTBEAT_MS * 2, table.black.sessionId)
+      : 0;
+    const whiteExpired = table.white ? now - whiteTouchedAt > SEAT_STALE_MS : false;
+    const blackExpired = table.black ? now - blackTouchedAt > SEAT_STALE_MS : false;
+    const white = whiteExpired ? null : table.white;
+    const black = blackExpired ? null : table.black;
     if (whiteExpired || blackExpired) changed = true;
     if (!white && !black) {
       changed = true;
@@ -1257,31 +1277,34 @@ function cleanupPresenceRows(rows: LobbyPresenceState[]) {
   const now = Date.now();
   let changed = false;
   const bySession = new Map<string, LobbyPresenceState>();
+  const bySessionTouchedAt = new Map<string, number>();
 
   rows.forEach((row) => {
-    const safeTouchedAt = normalizeActivityTimestamp(row.touchedAt, now);
-    const safeRow = safeTouchedAt === row.touchedAt ? row : { ...row, touchedAt: safeTouchedAt };
-    if (safeTouchedAt !== row.touchedAt) {
-      changed = true;
-    }
+    const safeTouchedAt = normalizeActivityTimestamp(row.touchedAt, now, HEARTBEAT_MS * 2, row.sessionId);
     if (now - safeTouchedAt > PRESENCE_STALE_MS) {
       changed = true;
       return;
     }
-    const existing = bySession.get(safeRow.sessionId);
-    if (!existing || safeRow.touchedAt >= existing.touchedAt) {
-      if (existing && existing !== safeRow) changed = true;
-      bySession.set(safeRow.sessionId, safeRow);
+    const existing = bySession.get(row.sessionId);
+    const existingTouchedAt = bySessionTouchedAt.get(row.sessionId) ?? Number.NEGATIVE_INFINITY;
+    if (!existing || safeTouchedAt >= existingTouchedAt) {
+      if (existing && existing !== row) changed = true;
+      bySession.set(row.sessionId, row);
+      bySessionTouchedAt.set(row.sessionId, safeTouchedAt);
     }
   });
 
   const byUser = new Map<string, LobbyPresenceState>();
+  const byUserTouchedAt = new Map<string, number>();
   bySession.forEach((row) => {
     const key = sanitizeGuestId(row.userId) || `session:${row.sessionId}`;
     const existing = byUser.get(key);
-    if (!existing || row.touchedAt >= existing.touchedAt) {
+    const safeTouchedAt = bySessionTouchedAt.get(row.sessionId) ?? normalizeActivityTimestamp(row.touchedAt, now, HEARTBEAT_MS * 2, row.sessionId);
+    const existingTouchedAt = byUserTouchedAt.get(key) ?? Number.NEGATIVE_INFINITY;
+    if (!existing || safeTouchedAt >= existingTouchedAt) {
       if (existing && existing !== row) changed = true;
       byUser.set(key, row);
+      byUserTouchedAt.set(key, safeTouchedAt);
     }
   });
 
