@@ -4880,6 +4880,7 @@ setSyncHealth((prev) => ({
       socket.addEventListener("open", () => {
         if (cancelled || realtimeSocketRef.current !== socket) return;
         reconnectDelay = 1_000;
+        console.log("[WS] opened, session:", appSessionId, "url:", socket.url);
         setRealtimeSocketReadyState(socket.readyState);
         setSyncHealth((prev) => ({ ...prev, lastWsOpenAt: Date.now(), lastError: "" }));
         setRealtimeStatus("online");
@@ -4899,6 +4900,7 @@ setSyncHealth((prev) => ({
       socket.addEventListener("message", (event) => {
         if (cancelled || realtimeSocketRef.current !== socket) return;
         if (typeof event.data !== "string") return;
+        console.log("[WS] message received, length:", event.data.length);
         setSyncHealth((prev) => ({ ...prev, lastWsMessageAt: Date.now() }));
 
         let message: RealtimeMessage | null = null;
@@ -4922,6 +4924,7 @@ setSyncHealth((prev) => ({
       socket.addEventListener("close", () => {
         window.clearTimeout(seedTimer);
         if (cancelled || realtimeSocketRef.current !== socket) return;
+        console.log("[WS] closed");
         realtimeSocketRef.current = null;
         setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
         setRealtimeStatus("offline");
