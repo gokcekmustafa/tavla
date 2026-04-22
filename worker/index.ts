@@ -602,9 +602,16 @@ export default {
 export class RealtimeRoom {
   private readonly ctx: DurableObjectState;
   private latestSnapshot: RealtimeMessage | null = null;
+  private static readonly SNAPSHOT_KEY = "latest-snapshot-v1";
 
   constructor(ctx: DurableObjectState, _env: Env) {
     this.ctx = ctx;
+    this.ctx.blockConcurrencyWhile(async () => {
+      const stored = await this.ctx.storage.get<RealtimeMessage>(RealtimeRoom.SNAPSHOT_KEY);
+      if (stored && stored.kind === "snapshot") {
+        this.latestSnapshot = stored;
+      }
+    });
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -644,6 +651,7 @@ export class RealtimeRoom {
       };
 
       this.latestSnapshot = snapshot;
+      await this.ctx.storage.put(RealtimeRoom.SNAPSHOT_KEY, snapshot);
       const encoded = JSON.stringify(snapshot);
       for (const socket of this.ctx.getWebSockets()) {
         try {
@@ -697,6 +705,7 @@ export class RealtimeRoom {
     };
 
     this.latestSnapshot = snapshot;
+    await this.ctx.storage.put(RealtimeRoom.SNAPSHOT_KEY, snapshot);
     const encoded = JSON.stringify(snapshot);
     for (const socket of this.ctx.getWebSockets()) {
       try {
