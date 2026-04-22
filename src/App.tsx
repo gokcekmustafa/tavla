@@ -1745,12 +1745,10 @@ function mergeSeatState(
   preferBase: boolean,
 ) {
   if (base && !incoming) {
-    if (incomingStateUpdatedAt >= baseStateUpdatedAt) return null;
     if (incomingStateUpdatedAt - base.touchedAt > SEAT_STALE_MS) return null;
     return base;
   }
   if (!base && incoming) {
-    if (baseStateUpdatedAt >= incomingStateUpdatedAt) return null;
     if (baseStateUpdatedAt - incoming.touchedAt > SEAT_STALE_MS) return null;
     return incoming;
   }
@@ -1827,11 +1825,9 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
       ]),
       leavePermissionRequestByUserId:
         sanitizeGuestId(preferred.leavePermissionRequestByUserId ?? "")
-        || sanitizeGuestId(fallback.leavePermissionRequestByUserId ?? "")
         || null,
       leavePermissionGrantedToUserId:
         sanitizeGuestId(preferred.leavePermissionGrantedToUserId ?? "")
-        || sanitizeGuestId(fallback.leavePermissionGrantedToUserId ?? "")
         || null,
     };
     const normalizedMerged = normalizeTableAccess(normalizeTableStartGate(mergedTable));
@@ -6551,6 +6547,34 @@ function App() {
     leavePermissionAutoLeavingRef.current = true;
     void leaveRoomAndGoLobby(true);
   }, [roomSession, currentRoomTable, currentProfile.userId, leaveRoomAndGoLobby]);
+
+  useEffect(() => {
+    if (!roomSession || roomSession.role !== "player" || !currentRoomTable) return;
+    const mySeat = roomSession.seat === "white" ? currentRoomTable.white : currentRoomTable.black;
+    const myUserId = sanitizeGuestId(currentProfile.userId);
+    const stillSeated = Boolean(
+      mySeat
+      && (
+        mySeat.sessionId === appSessionId
+        || (myUserId && sanitizeGuestId(mySeat.userId) === myUserId)
+      ),
+    );
+    if (stillSeated) return;
+
+    setRoomSession(null);
+    clearOpponentIdleWatch();
+    timeoutWinWaiverRef.current = null;
+    leavePermissionPromptKeyRef.current = "";
+    leavePermissionAutoLeavingRef.current = false;
+    setViewMode("lobby");
+    setMatchLiveState({
+      matchToken: "",
+      matchActive: false,
+      winner: null,
+      localColor: null,
+    });
+    setLobbyNotice("Masadaki koltugun kapandi.");
+  }, [roomSession, currentRoomTable, appSessionId, currentProfile.userId]);
 
   useEffect(() => {
     const safeUserId = sanitizeGuestId(currentProfile.userId);
