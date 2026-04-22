@@ -3390,6 +3390,7 @@ function App() {
 
     sitToTable(table.id, targetSeat, table.roomCode);
   }
+  void onJoinByCode;
 
   async function leaveRoomAndGoLobby(skipPenaltyConfirm = false) {
     let penalized = false;
@@ -7256,44 +7257,6 @@ function App() {
             <div className="my-lobby-header">
               <h2>{activeLobbyName}</h2>
               <p>Acik masalar</p>
-            </div>
-
-            <div className="my-lobby-controls">
-              <label className="my-field">
-                <span>Oyuncu</span>
-                <input
-                  className="my-input"
-                  value={guestName}
-                  maxLength={24}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  disabled
-                />
-              </label>
-              <label className="my-field">
-                <span>Oda Kodu</span>
-                <input
-                  className="my-input"
-                  value={joinCodeInput}
-                  onChange={(e) => setJoinCodeInput(sanitizeRoomCode(e.target.value))}
-                  placeholder="AB12CD"
-                />
-              </label>
-              <div className="my-seat-toggle">
-                <button className={`my-seat-btn ${joinSeat === "white" ? "active" : ""}`} onClick={() => setJoinSeat("white")}>
-                  Beyaz
-                </button>
-                <button className={`my-seat-btn ${joinSeat === "black" ? "active" : ""}`} onClick={() => setJoinSeat("black")}>
-                  Siyah
-                </button>
-              </div>
-              <div className="my-inline-actions">
-                <button className="my-action-btn" onClick={onJoinByCode}>
-                  Koda Katil
-                </button>
-                <button className="my-action-btn soft" onClick={onOpenTable}>
-                  Yeni Masa
-                </button>
-              </div>
             </div>
 
             {lobbyNotice ? <p className="my-notice">{lobbyNotice}</p> : null}
