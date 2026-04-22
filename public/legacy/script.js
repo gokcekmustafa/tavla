@@ -23,6 +23,7 @@ const DICE_SPRITE_PATH = "./assets/theme/dice-roll-sprite.png";
 const DICE_SPRITE_ALPHA_THRESHOLD = 16;
 const DICE_ROLL_TOTAL_MS = 1750;
 const DICE_ROLL_STAGGER_MS = 120;
+const DICE_RESULT_VISIBLE_MS = 1200;
 const SHOW_MOVE_PATH_GUIDES = false;
 const CHECKER_SIZE_MIN = 16;
 const CHECKER_SIZE_MAX = 48;
@@ -109,6 +110,8 @@ let diceRollSettledAt = 0;
 let boardPerspectiveColor = null;
 let diceSpriteSheetPromise = null;
 let diceSpriteSheet = null;
+let centerDiceVisibleUntil = 0;
+let centerDiceClearTimer = null;
 let matchToken = createMatchToken();
 let lastHostStateSignature = "";
 let hostActivityTick = 0;
@@ -737,6 +740,9 @@ function applyRoomSnapshot(snapshot) {
   isApplyingRemoteState = true;
   clearPendingBotTimer();
   clearPendingAutoRollTimer();
+  const prevDiceRollSettledAt = diceRollSettledAt;
+  const prevLastRolledDice = [...lastRolledDice];
+  const prevLastDicePlayer = lastDicePlayer;
 
   gameState = cloneState(snapshot.gameState || createInitialState());
   currentPlayer = snapshot.currentPlayer === BLACK ? BLACK : WHITE;
@@ -764,6 +770,13 @@ function applyRoomSnapshot(snapshot) {
   diceRollSettledAt = Number.isFinite(snapshot.diceRollSettledAt)
     ? Number(snapshot.diceRollSettledAt)
     : 0;
+  const hasIncomingDice = lastRolledDice.length >= 2;
+  const diceChanged = hasIncomingDice && (
+    prevLastRolledDice[0] !== lastRolledDice[0]
+    || prevLastRolledDice[1] !== lastRolledDice[1]
+    || prevLastDicePlayer !== lastDicePlayer
+  );
+  const hasNewRollStamp = diceRollSettledAt > prevDiceRollSettledAt + 60;
 
   gameMode = "local";
   selectedSource = null;
@@ -778,6 +791,12 @@ function applyRoomSnapshot(snapshot) {
 
   if (winner) showWinnerPopup(winner);
   else hideWinnerPopup();
+
+  if (hasIncomingDice && (diceChanged || hasNewRollStamp)) {
+    showCenterDice(lastRolledDice[0], lastRolledDice[1] ?? lastRolledDice[0], lastDicePlayer);
+  } else if (!hasRolled && !lastRolledDice.length) {
+    clearCenterDiceStage();
+  }
 
   bumpHostActivity();
   render();
@@ -1095,7 +1114,7 @@ function onNewGame() {
   setStatus(`Yeni oyun basladi. ${playerText(currentPlayer)} zar atsin.`);
   addLog("Yeni oyun basladi.");
   hideWinnerPopup();
-  clearCenterDiceStage();
+  clearCenterDiceStage(true);
   render();
   maybeScheduleAutoRoll();
   publishRoomSnapshot("new-game");
@@ -1746,7 +1765,7 @@ function executeMove(move) {
     setStatus(`${playerText(currentPlayer)} kazandi!`);
     addLog(`${playerText(currentPlayer)} kazandi.`);
     showWinnerPopup(currentPlayer);
-    clearCenterDiceStage();
+    clearCenterDiceStage(true);
     render();
     publishRoomSnapshot("win");
     return;
@@ -2290,11 +2309,16 @@ function renderMoveLog() {
 
 function showCenterDice(d1, d2, player) {
   if (!dom.centerDiceStage) return;
+  if (centerDiceClearTimer !== null) {
+    window.clearTimeout(centerDiceClearTimer);
+    centerDiceClearTimer = null;
+  }
   dom.centerDiceStage.innerHTML = "";
   const wrap = document.createElement("div");
   const toneClass = player === WHITE ? "dice-white" : "dice-black";
   const values = [d1, d2];
   wrap.className = `center-dice-wrap ${toneClass}`;
+  centerDiceVisibleUntil = Date.now() + DICE_ROLL_TOTAL_MS + DICE_ROLL_STAGGER_MS + DICE_RESULT_VISIBLE_MS;
 
   dom.centerDiceStage.classList.remove("white-turn", "black-turn");
   dom.centerDiceStage.classList.add(player === WHITE ? "white-turn" : "black-turn");
@@ -2312,8 +2336,26 @@ function showCenterDice(d1, d2, player) {
   }, DICE_ROLL_TOTAL_MS + DICE_ROLL_STAGGER_MS + 120);
 }
 
-function clearCenterDiceStage() {
+function clearCenterDiceStage(force = false) {
   if (!dom.centerDiceStage) return;
+  if (!force) {
+    const waitMs = centerDiceVisibleUntil - Date.now();
+    if (waitMs > 0) {
+      if (centerDiceClearTimer !== null) {
+        window.clearTimeout(centerDiceClearTimer);
+      }
+      centerDiceClearTimer = window.setTimeout(() => {
+        centerDiceClearTimer = null;
+        clearCenterDiceStage(true);
+      }, waitMs + 16);
+      return;
+    }
+  }
+  if (centerDiceClearTimer !== null) {
+    window.clearTimeout(centerDiceClearTimer);
+    centerDiceClearTimer = null;
+  }
+  centerDiceVisibleUntil = 0;
   dom.centerDiceStage.innerHTML = "";
   dom.centerDiceStage.classList.remove("show", "white-turn", "black-turn");
 }
