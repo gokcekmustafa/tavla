@@ -143,6 +143,7 @@ type LobbyTable = {
   setBlackWins: number;
   setResultTokens: string[];
   leavePermissionRequestByUserId: string | null;
+  leavePermissionRequestAt: number | null;
   leavePermissionGrantedToUserId: string | null;
 };
 
@@ -815,6 +816,7 @@ function resetTableSeriesProgress(table: LobbyTable): LobbyTable {
     && table.setBlackWins === 0
     && table.setResultTokens.length === 0
     && !table.leavePermissionRequestByUserId
+    && !table.leavePermissionRequestAt
     && !table.leavePermissionGrantedToUserId
   ) {
     return table;
@@ -826,6 +828,7 @@ function resetTableSeriesProgress(table: LobbyTable): LobbyTable {
     setBlackWins: 0,
     setResultTokens: [],
     leavePermissionRequestByUserId: null,
+    leavePermissionRequestAt: null,
     leavePermissionGrantedToUserId: null,
   };
 }
@@ -1023,6 +1026,7 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
   let setBlackWins = normalizeNonNegativeInt(table.setBlackWins, 0);
   let setResultTokens = normalizeSeriesTokenList(table.setResultTokens);
   let leavePermissionRequestByUserId = sanitizeGuestId(table.leavePermissionRequestByUserId ?? "");
+  let leavePermissionRequestAt = normalizeNonNegativeInt(table.leavePermissionRequestAt, 0);
   let leavePermissionGrantedToUserId = sanitizeGuestId(table.leavePermissionGrantedToUserId ?? "");
 
   if (!table.white || !table.black) {
@@ -1031,6 +1035,7 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
     setBlackWins = 0;
     setResultTokens = [];
     leavePermissionRequestByUserId = "";
+    leavePermissionRequestAt = 0;
     leavePermissionGrantedToUserId = "";
   }
 
@@ -1053,11 +1058,13 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
 
   if (leavePermissionRequestByUserId && !seatUsers.includes(leavePermissionRequestByUserId)) {
     leavePermissionRequestByUserId = "";
+    leavePermissionRequestAt = 0;
   }
   if (leavePermissionGrantedToUserId && !seatUsers.includes(leavePermissionGrantedToUserId)) {
     leavePermissionGrantedToUserId = "";
   }
   if (!leavePermissionRequestByUserId) {
+    leavePermissionRequestAt = 0;
     leavePermissionGrantedToUserId = "";
   }
   if (leavePermissionGrantedToUserId && leavePermissionGrantedToUserId !== leavePermissionRequestByUserId) {
@@ -1087,6 +1094,7 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
     && table.setBlackWins === setBlackWins
     && JSON.stringify(table.setResultTokens) === JSON.stringify(setResultTokens)
     && (table.leavePermissionRequestByUserId ?? null) === (leavePermissionRequestByUserId || null)
+    && (table.leavePermissionRequestAt ?? null) === (leavePermissionRequestAt || null)
     && (table.leavePermissionGrantedToUserId ?? null) === (leavePermissionGrantedToUserId || null)
   ) {
     return table;
@@ -1109,6 +1117,7 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
     setBlackWins,
     setResultTokens,
     leavePermissionRequestByUserId: leavePermissionRequestByUserId || null,
+    leavePermissionRequestAt: leavePermissionRequestAt || null,
     leavePermissionGrantedToUserId: leavePermissionGrantedToUserId || null,
   };
 }
@@ -1349,6 +1358,7 @@ function normalizeTable(raw: unknown, index: number): LobbyTable | null {
     setBlackWins: normalizeNonNegativeInt(candidate.setBlackWins, 0),
     setResultTokens: normalizeSeriesTokenList(candidate.setResultTokens),
     leavePermissionRequestByUserId: sanitizeGuestId(candidate.leavePermissionRequestByUserId ?? "") || null,
+    leavePermissionRequestAt: normalizeNonNegativeInt(candidate.leavePermissionRequestAt, 0) || null,
     leavePermissionGrantedToUserId: sanitizeGuestId(candidate.leavePermissionGrantedToUserId ?? "") || null,
   };
   return normalizeTableAccess(normalizeTableStartGate(table));
@@ -1768,6 +1778,13 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     } else if (fallbackPrivateChangedAt === preferredPrivateChangedAt && preferredPrivateChangedAt === 0) {
       mergedIsPrivate = Boolean(preferred.isPrivate || fallback.isPrivate);
     }
+    const preferredRequestByUserId = sanitizeGuestId(preferred.leavePermissionRequestByUserId ?? "");
+    const fallbackRequestByUserId = sanitizeGuestId(fallback.leavePermissionRequestByUserId ?? "");
+    const preferredRequestAt = normalizeNonNegativeInt(preferred.leavePermissionRequestAt, 0);
+    const fallbackRequestAt = normalizeNonNegativeInt(fallback.leavePermissionRequestAt, 0);
+    const mergedRequestAt = preferredRequestByUserId && fallbackRequestByUserId === preferredRequestByUserId
+      ? Math.max(preferredRequestAt, fallbackRequestAt)
+      : preferredRequestAt;
 
     const mergedTable: LobbyTable = {
       id: Math.min(existing.id, table.id),
@@ -1795,7 +1812,8 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
         ...normalizeSeriesTokenList(table.setResultTokens),
       ]),
       // Leave-offer state is ephemeral; never resurrect cleared values from older snapshots.
-      leavePermissionRequestByUserId: sanitizeGuestId(preferred.leavePermissionRequestByUserId ?? "") || null,
+      leavePermissionRequestByUserId: preferredRequestByUserId || null,
+      leavePermissionRequestAt: mergedRequestAt || null,
       leavePermissionGrantedToUserId: sanitizeGuestId(preferred.leavePermissionGrantedToUserId ?? "") || null,
     };
     const normalizedMerged = normalizeTableAccess(normalizeTableStartGate(mergedTable));
@@ -3053,6 +3071,7 @@ function App() {
           setBlackWins: 0,
           setResultTokens: [],
           leavePermissionRequestByUserId: null,
+          leavePermissionRequestAt: null,
           leavePermissionGrantedToUserId: null,
         };
         tables.push(table);
@@ -3448,10 +3467,10 @@ function App() {
 
   function getCurrentLeavePromptKey() {
     if (!roomSession || roomSession.role !== "player" || !currentRoomTable) return "";
-    const opponentSeat = roomSession.seat === "white" ? currentRoomTable.black : currentRoomTable.white;
-    const requestUserId = sanitizeGuestId(opponentSeat?.userId ?? "");
+    const requestUserId = sanitizeGuestId(currentRoomTable.leavePermissionRequestByUserId ?? "");
     if (!requestUserId) return "";
-    return `${currentRoomTable.roomCode}:${requestUserId}`;
+    const requestAt = normalizeNonNegativeInt(currentRoomTable.leavePermissionRequestAt, 0);
+    return `${currentRoomTable.roomCode}:${requestUserId}:${requestAt}`;
   }
 
   async function leaveNowFromModal() {
@@ -3525,10 +3544,12 @@ function App() {
         cannotRejectOwnRequest = true;
         return current;
       }
-      rejectedRequestKey = `${table.roomCode}:${requestUserId}`;
+      const requestAt = normalizeNonNegativeInt(table.leavePermissionRequestAt, 0);
+      rejectedRequestKey = `${table.roomCode}:${requestUserId}:${requestAt}`;
       tables[index] = normalizeTableAccess({
         ...table,
         leavePermissionRequestByUserId: null,
+        leavePermissionRequestAt: null,
         leavePermissionGrantedToUserId: null,
         inviteNoticeId: createChatMessageId(`leave-reject-${table.id}-${requestUserId}`),
         inviteNoticeForUserId: requestUserId,
@@ -4832,7 +4853,7 @@ function App() {
     let tableMissing = false;
     let notSeated = false;
     let noOpponent = false;
-    let alreadyRequested = false;
+    let pendingOpponentRequest = false;
     let alreadyGranted = false;
     let updated = false;
 
@@ -4859,13 +4880,16 @@ function App() {
         alreadyGranted = true;
         return current;
       }
-      if (table.leavePermissionRequestByUserId === requesterUserId) {
-        alreadyRequested = true;
+      const existingRequestUserId = sanitizeGuestId(table.leavePermissionRequestByUserId ?? "");
+      if (existingRequestUserId && existingRequestUserId !== requesterUserId) {
+        pendingOpponentRequest = true;
         return current;
       }
+      const requestAt = Date.now();
       tables[index] = normalizeTableAccess({
         ...table,
         leavePermissionRequestByUserId: requesterUserId,
+        leavePermissionRequestAt: requestAt,
         leavePermissionGrantedToUserId: null,
       });
       updated = true;
@@ -4892,8 +4916,8 @@ function App() {
       setLobbyNotice("Rakibin zaten puansiz ayrilma izni verdi.");
       return;
     }
-    if (alreadyRequested) {
-      setLobbyNotice("Izin talebin rakibe gonderildi, cevap bekleniyor.");
+    if (pendingOpponentRequest) {
+      setLobbyNotice("Rakibinden gelen puansiz ayrilma teklifini once cevaplamalisin.");
       return;
     }
     if (updated) {
@@ -5140,6 +5164,7 @@ function App() {
         table = resetTableStartGate({
           ...table,
           leavePermissionRequestByUserId: null,
+          leavePermissionRequestAt: null,
           leavePermissionGrantedToUserId: null,
         });
       }
@@ -5419,6 +5444,7 @@ function App() {
           setBlackWins: 0,
           setResultTokens: [],
           leavePermissionRequestByUserId: null,
+          leavePermissionRequestAt: null,
           leavePermissionGrantedToUserId: null,
         };
         tables.push(table);
@@ -6441,18 +6467,18 @@ function App() {
     const mySeat = roomSession.seat === "white" ? currentRoomTable.white : currentRoomTable.black;
     const opponentSeat = roomSession.seat === "white" ? currentRoomTable.black : currentRoomTable.white;
     const requestUserId = sanitizeGuestId(currentRoomTable.leavePermissionRequestByUserId ?? "");
+    const requestAt = normalizeNonNegativeInt(currentRoomTable.leavePermissionRequestAt, 0);
     const grantedUserId = sanitizeGuestId(currentRoomTable.leavePermissionGrantedToUserId ?? "");
     const mySeatUserId = sanitizeGuestId(mySeat?.userId ?? "");
-    const opponentUserId = sanitizeGuestId(opponentSeat?.userId ?? "");
+    const requesterIsOpponent = Boolean(requestUserId && requestUserId !== myUserId);
 
     const shouldClearIgnoredRequestKey = !requestUserId || grantedUserId === requestUserId;
     if (
       !mySeat
       || !mySeatUserId
       || mySeatUserId !== myUserId
-      || !opponentSeat
       || !requestUserId
-      || requestUserId !== opponentUserId
+      || !requesterIsOpponent
       || grantedUserId === requestUserId
     ) {
       leavePermissionPromptKeyRef.current = "";
@@ -6464,7 +6490,7 @@ function App() {
       return;
     }
 
-    const promptKey = `${currentRoomTable.roomCode}:${requestUserId}`;
+    const promptKey = `${currentRoomTable.roomCode}:${requestUserId}:${requestAt}`;
     if (leaveIncomingIgnoredKeyRef.current === promptKey) {
       if (leaveIncomingModal.open) {
         setLeaveIncomingModal({ open: false, requesterName: "", requestKey: "" });
@@ -6476,7 +6502,7 @@ function App() {
     leavePermissionPromptKeyRef.current = promptKey;
     leaveIncomingActiveKeyRef.current = promptKey;
 
-    const requesterName = opponentSeat.displayName || "Rakip";
+    const requesterName = opponentSeat?.displayName || "Rakip";
     setLeaveIncomingModal({
       open: true,
       requesterName,
