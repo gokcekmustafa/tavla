@@ -3468,6 +3468,11 @@ function App() {
   }
 
   function rejectLeaveOfferFromModal() {
+    const key = leaveIncomingModal.requestKey || leaveIncomingActiveKeyRef.current || getCurrentLeavePromptKey();
+    if (key) {
+      leaveIncomingIgnoredKeyRef.current = key;
+      leavePermissionPromptKeyRef.current = key;
+    }
     leaveIncomingActiveKeyRef.current = "";
     leavePermissionPromptKeyRef.current = "";
     setLeaveIncomingModal({ open: false, requesterName: "", requestKey: "" });
@@ -6335,11 +6340,14 @@ function App() {
     const opponentSeat = roomSession.seat === "white" ? currentRoomTable.black : currentRoomTable.white;
     const requestUserId = sanitizeGuestId(currentRoomTable.leavePermissionRequestByUserId ?? "");
     const grantedUserId = sanitizeGuestId(currentRoomTable.leavePermissionGrantedToUserId ?? "");
+    const mySeatUserId = sanitizeGuestId(mySeat?.userId ?? "");
     const opponentUserId = sanitizeGuestId(opponentSeat?.userId ?? "");
 
     const shouldClearIgnoredRequestKey = !requestUserId || grantedUserId === requestUserId;
     if (
       !mySeat
+      || !mySeatUserId
+      || mySeatUserId !== myUserId
       || !opponentSeat
       || !requestUserId
       || requestUserId !== opponentUserId
