@@ -6923,17 +6923,19 @@ function App() {
             <div className="my-game-picker-grid">
               <button
                 type="button"
-                className={`my-game-picker-card ${selectedGameId === "tavla" ? "active" : ""}`}
+                className={`my-game-picker-card game-tavla ${selectedGameId === "tavla" ? "active" : ""}`}
                 onClick={() => onSelectGame("tavla")}
               >
+                <span className="my-game-picker-thumb" aria-hidden="true" />
                 <span className="my-game-picker-badge">Hazir</span>
                 <strong>Klasik Tavla</strong>
                 <p>Online masa, bot modu ve mevcut sistemle devam et.</p>
               </button>
-              <article className="my-game-picker-card disabled">
+              <article className="my-game-picker-card game-okey disabled">
+                <span className="my-game-picker-thumb" aria-hidden="true" />
                 <span className="my-game-picker-badge">Yakinda</span>
-                <strong>Yeni Oyun</strong>
-                <p>Yeni oyunlar bu ekrana eklenecek.</p>
+                <strong>101 Okey</strong>
+                <p>101 Okey masasi yakinda bu ekrana eklenecek.</p>
               </article>
             </div>
           </section>

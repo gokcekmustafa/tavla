@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="140" viewBox="0 0 240 140" role="img" aria-label="101 okey tahtasi">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#1a2b45"/>
+      <stop offset="1" stop-color="#2b4c71"/>
+    </linearGradient>
+    <linearGradient id="rack" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#74634f"/>
+      <stop offset="1" stop-color="#4d3f31"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="236" height="136" rx="8" fill="url(#bg)" stroke="#152238" stroke-width="3"/>
+  <g transform="translate(24,24)">
+    <rect x="0" y="18" width="192" height="56" rx="7" fill="url(#rack)" stroke="#3b2f24" stroke-width="2"/>
+    <g transform="translate(10,6)">
+      <rect x="0" y="0" width="28" height="38" rx="4" fill="#efe6d6" stroke="#c9b99d"/>
+      <text x="14" y="24" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#f0931d" font-weight="700">8</text>
+      <rect x="32" y="0" width="28" height="38" rx="4" fill="#efe6d6" stroke="#c9b99d"/>
+      <text x="46" y="24" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#d64040" font-weight="700">9</text>
+      <rect x="64" y="0" width="28" height="38" rx="4" fill="#efe6d6" stroke="#c9b99d"/>
+      <text x="78" y="24" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#2d8a35" font-weight="700">10</text>
+      <rect x="96" y="0" width="28" height="38" rx="4" fill="#efe6d6" stroke="#c9b99d"/>
+      <text x="110" y="24" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#2f6fcb" font-weight="700">11</text>
+      <rect x="128" y="0" width="28" height="38" rx="4" fill="#efe6d6" stroke="#c9b99d"/>
+      <text x="142" y="24" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#d64040" font-weight="700">12</text>
+      <rect x="160" y="0" width="20" height="38" rx="4" fill="#efe6d6" stroke="#c9b99d"/>
+      <circle cx="170" cy="20" r="6" fill="#f6b01e"/>
+    </g>
+  </g>
+  <g opacity="0.85">
+    <rect x="170" y="16" width="22" height="30" rx="3" fill="#efe6d6" stroke="#cabca3"/>
+    <text x="181" y="36" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#2f6fcb" font-weight="700">5</text>
+    <rect x="196" y="22" width="22" height="30" rx="3" fill="#efe6d6" stroke="#cabca3"/>
+    <text x="207" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#d64040" font-weight="700">12</text>
+  </g>
+</svg>

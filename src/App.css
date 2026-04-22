@@ -167,24 +167,25 @@
 
 .my-game-picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
 }
 
 .my-game-picker-card {
   position: relative;
   border-radius: 10px;
   border: 2px solid rgba(18, 62, 81, 0.74);
-  padding: 14px;
-  min-height: 180px;
+  padding: 10px;
+  min-height: 148px;
   color: #fff;
   text-align: left;
   display: grid;
   align-content: end;
-  gap: 6px;
+  gap: 4px;
   overflow: hidden;
+  cursor: pointer;
   background:
-    radial-gradient(220px 130px at 78% 16%, rgba(255, 255, 255, 0.25), transparent 64%),
+    radial-gradient(170px 100px at 76% 16%, rgba(255, 255, 255, 0.25), transparent 64%),
     linear-gradient(135deg, #9d2727, #6c1717 48%, #4c1111);
 }
 
@@ -204,13 +205,13 @@
 }
 
 .my-game-picker-card strong {
-  font-size: 1.14rem;
+  font-size: 1.02rem;
   letter-spacing: 0.01em;
 }
 
 .my-game-picker-card p {
   margin: 0;
-  font-size: 0.83rem;
+  font-size: 0.76rem;
   color: rgba(246, 252, 255, 0.92);
 }
 
@@ -221,9 +222,10 @@
 
 .my-game-picker-card.disabled {
   background:
-    radial-gradient(220px 130px at 78% 16%, rgba(255, 255, 255, 0.2), transparent 64%),
+    radial-gradient(170px 100px at 76% 16%, rgba(255, 255, 255, 0.2), transparent 64%),
     linear-gradient(135deg, #3f5361, #33424e 48%, #28353f);
   opacity: 0.88;
+  cursor: default;
 }
 
 .my-game-picker-badge {
@@ -234,6 +236,34 @@
   padding: 1px 8px;
   font-size: 0.7rem;
   font-weight: 800;
+}
+
+.my-game-picker-thumb {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 118px;
+  height: 74px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.96;
+}
+
+.my-game-picker-card.game-tavla .my-game-picker-thumb {
+  background-image: url("/game-cards/tavla-board.svg");
+}
+
+.my-game-picker-card.game-okey .my-game-picker-thumb {
+  background-image: url("/game-cards/okey-board.svg");
+}
+
+.my-game-picker-card.game-tavla:hover {
+  border-color: rgba(248, 217, 147, 0.92);
+  box-shadow: 0 0 0 2px rgba(248, 220, 157, 0.25);
 }
 
 .my-room-picker-page {
@@ -2232,8 +2262,13 @@
   }
 
   .my-game-picker-card {
-    min-height: 154px;
+    min-height: 128px;
     padding: 10px;
+  }
+
+  .my-game-picker-thumb {
+    width: 94px;
+    height: 60px;
   }
 
   .my-room-picker-tabs {

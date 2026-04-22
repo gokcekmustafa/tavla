@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="140" viewBox="0 0 240 140" role="img" aria-label="Tavla tahtasi">
+  <defs>
+    <linearGradient id="wood" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#a36a3b"/>
+      <stop offset="1" stop-color="#7a4a25"/>
+    </linearGradient>
+    <linearGradient id="felt" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#0e6f83"/>
+      <stop offset="1" stop-color="#0b4f5d"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="236" height="136" rx="8" fill="url(#wood)" stroke="#5f3517" stroke-width="3"/>
+  <rect x="14" y="14" width="212" height="112" rx="4" fill="url(#felt)" stroke="#5f3517" stroke-width="2"/>
+  <rect x="117" y="14" width="6" height="112" fill="#78411f"/>
+  <g fill="#e8dfc6">
+    <polygon points="22,16 30,65 38,16"/>
+    <polygon points="46,16 54,65 62,16"/>
+    <polygon points="70,16 78,65 86,16"/>
+    <polygon points="94,16 102,65 110,16"/>
+    <polygon points="130,16 138,65 146,16"/>
+    <polygon points="154,16 162,65 170,16"/>
+    <polygon points="178,16 186,65 194,16"/>
+    <polygon points="202,16 210,65 218,16"/>
+  </g>
+  <g fill="#6f2e20">
+    <polygon points="30,124 38,75 46,124"/>
+    <polygon points="54,124 62,75 70,124"/>
+    <polygon points="78,124 86,75 94,124"/>
+    <polygon points="102,124 110,75 118,124"/>
+    <polygon points="138,124 146,75 154,124"/>
+    <polygon points="162,124 170,75 178,124"/>
+    <polygon points="186,124 194,75 202,124"/>
+    <polygon points="210,124 218,75 226,124"/>
+  </g>
+  <g>
+    <circle cx="28" cy="28" r="8" fill="#f2f2f2" stroke="#c8c8c8"/>
+    <circle cx="28" cy="42" r="8" fill="#f2f2f2" stroke="#c8c8c8"/>
+    <circle cx="212" cy="98" r="8" fill="#222" stroke="#111"/>
+    <circle cx="212" cy="112" r="8" fill="#222" stroke="#111"/>
+  </g>
+</svg>
