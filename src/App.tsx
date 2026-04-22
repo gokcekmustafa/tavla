@@ -6963,10 +6963,10 @@ function App() {
                 >
                   Oda Sec
                 </button>
-                <button className="my-top-btn my-btn-open" onClick={onOpenTable}>
+                <button className="my-top-btn my-btn-open my-lobby-top-action-hidden" onClick={onOpenTable}>
                   Masa Aç
                 </button>
-                <button className="my-top-btn my-btn-play" onClick={onQuickPlay}>
+                <button className="my-top-btn my-btn-play my-lobby-top-action-hidden" onClick={onQuickPlay}>
                   Hemen Oyna
                 </button>
                 <button className="my-top-btn my-btn-bot" onClick={startBotGame}>
@@ -7277,8 +7277,20 @@ function App() {
           <section className="my-lobby-layout">
           <div className="my-lobby-main">
             <div className="my-lobby-header">
-              <h2>{activeLobbyName}</h2>
-              <p>Acik masalar</p>
+              <div className="my-lobby-title">
+                <h2>{activeLobbyName}</h2>
+                <p>Açık masalar</p>
+              </div>
+              {!roomSession ? (
+                <div className="my-lobby-header-actions">
+                  <button className="my-top-btn my-btn-open" onClick={onOpenTable}>
+                    Masa Aç
+                  </button>
+                  <button className="my-top-btn my-btn-play" onClick={onQuickPlay}>
+                    Hemen Oyna
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             {lobbyNotice ? <p className="my-notice">{lobbyNotice}</p> : null}
@@ -7301,8 +7313,9 @@ function App() {
 
             <div className="my-lobby-table-zone">
               {openedTables.length === 0 ? (
-                <div className="my-empty-state">
-                  Henüz açık masa yok. <strong>Masa Aç</strong> ile ilk masayı açabilirsin.
+                <div className="my-empty-state my-empty-state-lobby">
+                  <p className="my-empty-state-title">Henüz açık masa yok.</p>
+                  <p className="my-empty-state-sub">Masa Aç butonu ile ilk masayı açabilirsin.</p>
                 </div>
               ) : (
                 <div className="my-table-grid">

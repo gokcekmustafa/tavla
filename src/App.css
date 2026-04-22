@@ -408,6 +408,14 @@
 
 .my-lobby-header {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+}
+
+.my-lobby-title {
+  display: flex;
   flex-direction: column;
   gap: 2px;
   margin: 0;
@@ -428,6 +436,23 @@
   line-height: 1;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.my-lobby-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.my-lobby-header-actions .my-top-btn {
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.my-lobby-top-action-hidden {
+  display: none !important;
 }
 
 .my-lobby-controls {
@@ -562,6 +587,24 @@
   padding: 18px;
   text-align: center;
   font-size: 0.95rem;
+}
+
+.my-empty-state-lobby {
+  gap: 8px;
+}
+
+.my-empty-state-title {
+  margin: 0;
+  font-size: 1.14rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.my-empty-state-sub {
+  margin: 0;
+  font-size: 1.01rem;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .my-table-grid {
@@ -2250,6 +2293,16 @@
     gap: 6px;
   }
 
+  .my-lobby-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .my-lobby-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .my-lobby-side {
     grid-template-columns: 1fr;
   }
@@ -2451,6 +2504,16 @@
 
   .my-lobby-header p {
     font-size: 0.72rem;
+  }
+
+  .my-lobby-header-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .my-lobby-header-actions .my-top-btn {
+    flex: 1;
+    min-width: 0;
   }
 
   .my-lobby-controls {
