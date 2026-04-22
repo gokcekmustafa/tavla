@@ -1583,7 +1583,15 @@ function handleSourceOrDest(target) {
   const sel = getSelectableSources();
 
   if (selectedSource === null) {
-    if (!sel.has(target)) { setStatus("Bu taş için geçerli hamle yok."); render(); return; }
+    if (!sel.has(target)) {
+      if (gameState.bar[currentPlayer] > 0 && target !== "bar") {
+        setStatus("Once kirik pulu girmelisiniz.");
+      } else {
+        setStatus("Bu taş için geçerli hamle yok.");
+      }
+      render();
+      return;
+    }
     const quickOffMove = getQuickBearOffMove(target);
     if (quickOffMove) { playMove(quickOffMove); return; }
     selectedSource = target;
@@ -1600,7 +1608,11 @@ function handleSourceOrDest(target) {
 
   if (sel.has(target)) { selectedSource = target; render(); return; }
 
-  setStatus("Bu hedefe gidemez.");
+  if (gameState.bar[currentPlayer] > 0 && selectedSource !== "bar") {
+    setStatus("Once kirik pulu girmelisiniz.");
+  } else {
+    setStatus("Bu hedefe gidemez.");
+  }
   render();
 }
 
