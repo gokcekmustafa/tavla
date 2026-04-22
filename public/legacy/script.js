@@ -1340,7 +1340,17 @@ function onRollDice(arg) {
 function onPointClick(e) {
   if (isAnimating) return;
   if (!canControlRoomAction()) return;
-  handleSourceOrDest(Number(e.currentTarget.dataset.point));
+  const target = Number(e.currentTarget.dataset.point);
+  if (selectedSource === null) {
+    const selectable = getSelectableSources();
+    if (gameState.bar[currentPlayer] > 0 && !selectable.has(target)) {
+      setStatus("Once kirik pulu girmelisiniz.");
+      showPointerHint("Once kirik pulu girmelisiniz.", e);
+      render();
+      return;
+    }
+  }
+  handleSourceOrDest(target);
 }
 
 function onBarSlotClick(e) {
