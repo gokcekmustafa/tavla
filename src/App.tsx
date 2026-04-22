@@ -1758,10 +1758,12 @@ function mergeSeatState(
   preferBase: boolean,
 ) {
   if (base && !incoming) {
+    if (incomingStateUpdatedAt > baseStateUpdatedAt) return null;
     if (incomingStateUpdatedAt - base.touchedAt > SEAT_STALE_MS) return null;
     return base;
   }
   if (!base && incoming) {
+    if (baseStateUpdatedAt > incomingStateUpdatedAt) return null;
     if (baseStateUpdatedAt - incoming.touchedAt > SEAT_STALE_MS) return null;
     return incoming;
   }
@@ -1811,6 +1813,14 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
       mergedIsPrivate = Boolean(preferred.isPrivate || fallback.isPrivate);
     }
 
+    const preferredRequestByUserId = sanitizeGuestId(preferred.leavePermissionRequestByUserId ?? "");
+    const fallbackRequestByUserId = sanitizeGuestId(fallback.leavePermissionRequestByUserId ?? "");
+    const preferredRequestNonce = sanitizeChatId(preferred.leavePermissionRequestNonce ?? "");
+    const fallbackRequestNonce = sanitizeChatId(fallback.leavePermissionRequestNonce ?? "");
+    const preferredGrantedToUserId = sanitizeGuestId(preferred.leavePermissionGrantedToUserId ?? "");
+    const fallbackGrantedToUserId = sanitizeGuestId(fallback.leavePermissionGrantedToUserId ?? "");
+    const useFallbackLeaveRequest = Boolean(!preferRemote && !preferredRequestByUserId && fallbackRequestByUserId);
+
     const mergedTable: LobbyTable = {
       id: Math.min(existing.id, table.id),
       roomCode: sanitizeRoomCode(existing.roomCode) || sanitizeRoomCode(table.roomCode) || createRoomCode(),
@@ -1837,13 +1847,13 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
         ...normalizeSeriesTokenList(table.setResultTokens),
       ]),
       leavePermissionRequestNonce:
-        sanitizeChatId(preferred.leavePermissionRequestNonce ?? "")
+        (useFallbackLeaveRequest ? fallbackRequestNonce : preferredRequestNonce)
         || null,
       leavePermissionRequestByUserId:
-        sanitizeGuestId(preferred.leavePermissionRequestByUserId ?? "")
+        (useFallbackLeaveRequest ? fallbackRequestByUserId : preferredRequestByUserId)
         || null,
       leavePermissionGrantedToUserId:
-        sanitizeGuestId(preferred.leavePermissionGrantedToUserId ?? "")
+        (useFallbackLeaveRequest ? fallbackGrantedToUserId : preferredGrantedToUserId)
         || null,
     };
     const normalizedMerged = normalizeTableAccess(normalizeTableStartGate(mergedTable));
