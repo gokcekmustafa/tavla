@@ -2088,13 +2088,13 @@
 
 .my-leave-action-modal {
   position: relative;
-  width: min(520px, calc(100vw - 28px));
+  width: min(440px, calc(100vw - 28px));
   border-color: rgba(202, 237, 241, 0.92);
   background: linear-gradient(180deg, #4aaac6, #50aeca);
   box-shadow:
     0 24px 44px rgba(3, 23, 30, 0.52),
     inset 0 1px 0 rgba(232, 250, 255, 0.36);
-  gap: 12px;
+  gap: 10px;
 }
 
 .my-leave-action-modal h3 {
@@ -2122,12 +2122,12 @@
 
 .my-leave-action-message {
   margin: 0;
-  min-height: 146px;
+  min-height: 102px;
   border-radius: 8px;
-  padding: 20px 18px;
+  padding: 14px 12px;
   background: #286d81;
   color: #e9f9ff;
-  font-size: clamp(1.05rem, 2vw, 1.1rem);
+  font-size: clamp(0.98rem, 2vw, 1.04rem);
   line-height: 1.3;
   text-align: center;
   display: grid;
@@ -2141,9 +2141,9 @@
 }
 
 .my-leave-action-buttons .my-action-btn {
-  min-height: 52px;
+  min-height: 46px;
   border-radius: 0;
-  font-size: 1rem;
+  font-size: 0.94rem;
   font-weight: 800;
 }
 
@@ -2153,6 +2153,18 @@
   background: #005571;
   border-color: #0a6b86;
   color: #f4fbff;
+}
+
+.my-leave-action-buttons-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.my-leave-action-buttons-single {
+  grid-template-columns: 1fr;
+}
+
+.my-leave-action-modal-compact .my-leave-action-message {
+  min-height: 94px;
 }
 
 @media (max-width: 1200px) {
@@ -2362,9 +2374,9 @@
   }
 
   .my-leave-action-message {
-    min-height: 120px;
-    padding: 14px 10px;
-    font-size: 0.94rem;
+    min-height: 88px;
+    padding: 12px 9px;
+    font-size: 0.9rem;
   }
 
   .my-leave-action-buttons {

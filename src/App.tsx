@@ -273,6 +273,7 @@ const MEMBER_SESSION_KEY = "tavla.member.session.v1";
 const ACTIVE_LOBBY_ID_KEY = "tavla.active.lobby.id.v1";
 const ROOM_PICKER_SESSION_KEY = "tavla.room.picker.session.v1";
 const GAME_SELECTION_SESSION_KEY = "tavla.game.selection.session.v1";
+const LEAVE_NOTICE_REJECT_PREFIX = "LEAVE_REJECT|";
 const LOBBY_STATE_KEY_PREFIX = "tavla.lobby.state.v3";
 const LOBBY_SYNC_CHANNEL_PREFIX = "tavla.lobby.sync.v3";
 const REALTIME_LOBBY_CHANNEL_PREFIX = "tavla-global-lobby-v2";
@@ -1973,6 +1974,15 @@ function App() {
     message: "",
   });
   const [leaveActionModalOpen, setLeaveActionModalOpen] = useState(false);
+  const [leaveIncomingModal, setLeaveIncomingModal] = useState<{ open: boolean; requesterName: string }>({
+    open: false,
+    requesterName: "",
+  });
+  const [leaveInfoModal, setLeaveInfoModal] = useState<{ open: boolean; title: string; message: string }>({
+    open: false,
+    title: "",
+    message: "",
+  });
   const [matchLiveState, setMatchLiveState] = useState({
     matchToken: "",
     matchActive: false,
@@ -2334,52 +2344,6 @@ function App() {
     if (matchLiveState.matchActive) return false;
     return !currentRoomTable.startedAt && currentRoomTable.setPlayed === 0;
   }, [roomSession, currentRoomTable, currentRoomIsOwner, matchLiveState.matchActive]);
-
-  const leavePermissionState = useMemo(() => {
-    if (!roomSession || roomSession.role !== "player" || !currentRoomTable) {
-      return {
-        flowActive: false,
-        hasOpponent: false,
-        myRequestPending: false,
-        opponentRequestPending: false,
-        grantedToMe: false,
-        grantedToOpponent: false,
-        canRequest: false,
-        canApprove: false,
-      };
-    }
-    const mySeat = roomSession.seat === "white" ? currentRoomTable.white : currentRoomTable.black;
-    const opponentSeat = roomSession.seat === "white" ? currentRoomTable.black : currentRoomTable.white;
-    const myUserId = sanitizeGuestId(currentProfile.userId);
-    const opponentUserId = sanitizeGuestId(opponentSeat?.userId ?? "");
-    const requestByUserId = sanitizeGuestId(currentRoomTable.leavePermissionRequestByUserId ?? "");
-    const grantedToUserId = sanitizeGuestId(currentRoomTable.leavePermissionGrantedToUserId ?? "");
-
-    const hasOpponent = Boolean(opponentSeat && opponentUserId);
-    const seriesStarted = Boolean(currentRoomTable.startedAt || currentRoomTable.setPlayed > 0 || matchLiveState.matchActive);
-    const seriesComplete = isTableSeriesComplete(currentRoomTable);
-    const flowActive = Boolean(mySeat && hasOpponent && seriesStarted && !seriesComplete);
-
-    const myRequestPending = Boolean(flowActive && myUserId && requestByUserId === myUserId && grantedToUserId !== myUserId);
-    const opponentRequestPending = Boolean(
-      flowActive && opponentUserId && requestByUserId === opponentUserId && grantedToUserId !== opponentUserId,
-    );
-    const grantedToMe = Boolean(flowActive && myUserId && grantedToUserId === myUserId);
-    const grantedToOpponent = Boolean(flowActive && opponentUserId && grantedToUserId === opponentUserId);
-    const canRequest = Boolean(flowActive && !myRequestPending && !opponentRequestPending && !grantedToMe);
-    const canApprove = Boolean(flowActive && opponentRequestPending && !grantedToOpponent);
-
-    return {
-      flowActive,
-      hasOpponent,
-      myRequestPending,
-      opponentRequestPending,
-      grantedToMe,
-      grantedToOpponent,
-      canRequest,
-      canApprove,
-    };
-  }, [roomSession, currentRoomTable, currentProfile.userId, matchLiveState.matchActive]);
 
   const currentRoomHasOpenSeat = useMemo(() => Boolean(currentRoomTable && getOpenSeat(currentRoomTable)), [currentRoomTable]);
 
@@ -3380,6 +3344,97 @@ function App() {
   async function leaveNowFromModal() {
     setLeaveActionModalOpen(false);
     await leaveRoomAndGoLobby(true);
+  }
+
+  function closeLeaveIncomingModal() {
+    setLeaveIncomingModal((prev) => (prev.open ? { open: false, requesterName: "" } : prev));
+  }
+
+  function closeLeaveInfoModal() {
+    setLeaveInfoModal((prev) => (prev.open ? { open: false, title: "", message: "" } : prev));
+  }
+
+  function acceptLeaveOfferFromModal() {
+    closeLeaveIncomingModal();
+    approveLeaveWithoutPenalty();
+  }
+
+  function rejectLeaveWithoutPenalty() {
+    if (!roomSession || roomSession.role !== "player") return;
+    const rejecterUserId = sanitizeGuestId(currentProfile.userId);
+    if (!rejecterUserId) return;
+    let tableMissing = false;
+    let noRequest = false;
+    let cannotRejectOwnRequest = false;
+    let notOpponent = false;
+    let updated = false;
+
+    const rejecterName = sanitizeGuestName(currentProfile.displayName) || "Rakip";
+
+    writeLobby((current) => {
+      const cleaned = cleanupStaleAndPrune(current.tables).tables;
+      const tables = [...cleaned];
+      const index = tables.findIndex((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code);
+      if (index < 0) {
+        tableMissing = true;
+        return current;
+      }
+      const table = tables[index];
+      const mySeat = roomSession.seat === "white" ? table.white : table.black;
+      const opponentSeat = roomSession.seat === "white" ? table.black : table.white;
+      if (!mySeat || sanitizeGuestId(mySeat.userId) !== rejecterUserId || !opponentSeat) {
+        notOpponent = true;
+        return current;
+      }
+      const requestUserId = sanitizeGuestId(table.leavePermissionRequestByUserId ?? "");
+      if (!requestUserId) {
+        noRequest = true;
+        return current;
+      }
+      if (requestUserId === rejecterUserId) {
+        cannotRejectOwnRequest = true;
+        return current;
+      }
+      tables[index] = normalizeTableAccess({
+        ...table,
+        leavePermissionRequestByUserId: null,
+        leavePermissionGrantedToUserId: null,
+        inviteNoticeId: createChatMessageId(`leave-reject-${table.id}-${requestUserId}`),
+        inviteNoticeForUserId: requestUserId,
+        inviteNoticeText: `${LEAVE_NOTICE_REJECT_PREFIX}${rejecterName} oyuncusu puansiz ayrilma teklifinizi reddetti.`,
+      });
+      updated = true;
+      return {
+        ...current,
+        tables: sortTables(tables),
+        updatedAt: Date.now(),
+      };
+    });
+
+    if (tableMissing) {
+      setLobbyNotice("Masa bulunamadi.");
+      return;
+    }
+    if (notOpponent) {
+      setLobbyNotice("Bu teklifi reddetmek icin masadaki rakip oyuncu olmalisin.");
+      return;
+    }
+    if (noRequest) {
+      setLobbyNotice("Aktif bir puansiz ayrilma teklifi yok.");
+      return;
+    }
+    if (cannotRejectOwnRequest) {
+      setLobbyNotice("Kendi teklifini reddedemezsin.");
+      return;
+    }
+    if (updated) {
+      setLobbyNotice("Puansiz ayrilma teklifi reddedildi.");
+    }
+  }
+
+  function rejectLeaveOfferFromModal() {
+    closeLeaveIncomingModal();
+    rejectLeaveWithoutPenalty();
   }
 
   async function startBotGame() {
@@ -6221,11 +6276,13 @@ function App() {
   useEffect(() => {
     if (!roomSession || roomSession.role !== "player" || !currentRoomTable) {
       leavePermissionPromptKeyRef.current = "";
+      closeLeaveIncomingModal();
       return;
     }
     const myUserId = sanitizeGuestId(currentProfile.userId);
     if (!myUserId) {
       leavePermissionPromptKeyRef.current = "";
+      closeLeaveIncomingModal();
       return;
     }
     const mySeat = roomSession.seat === "white" ? currentRoomTable.white : currentRoomTable.black;
@@ -6242,6 +6299,7 @@ function App() {
       || grantedUserId === requestUserId
     ) {
       leavePermissionPromptKeyRef.current = "";
+      closeLeaveIncomingModal();
       return;
     }
 
@@ -6250,15 +6308,11 @@ function App() {
     leavePermissionPromptKeyRef.current = promptKey;
 
     const requesterName = opponentSeat.displayName || "Rakip";
-    const accepted = window.confirm(
-      `${requesterName} puan kaybetmeden masadan ayrilmak icin izin istiyor. Izin veriyor musun?`,
-    );
-    if (accepted) {
-      approveLeaveWithoutPenalty();
-    } else {
-      setLobbyNotice(`${requesterName} icin ayrilma iznini su an reddettin.`);
-    }
-  }, [roomSession, currentRoomTable, currentProfile.userId, approveLeaveWithoutPenalty]);
+    setLeaveIncomingModal({
+      open: true,
+      requesterName,
+    });
+  }, [roomSession, currentRoomTable, currentProfile.userId]);
 
   useEffect(() => {
     if (!roomSession || roomSession.role !== "player" || !currentRoomTable) {
@@ -6281,7 +6335,7 @@ function App() {
     }
     if (leavePermissionAutoLeavingRef.current) return;
     leavePermissionAutoLeavingRef.current = true;
-    void leaveRoomAndGoLobby();
+    void leaveRoomAndGoLobby(true);
   }, [roomSession, currentRoomTable, currentProfile.userId, leaveRoomAndGoLobby]);
 
   useEffect(() => {
@@ -6293,7 +6347,16 @@ function App() {
     if (notices.length === 0) return;
     const latest = notices[notices.length - 1];
     if (latest.inviteNoticeText) {
-      setLobbyNotice(latest.inviteNoticeText);
+      if (latest.inviteNoticeText.startsWith(LEAVE_NOTICE_REJECT_PREFIX)) {
+        const message = latest.inviteNoticeText.slice(LEAVE_NOTICE_REJECT_PREFIX.length).trim();
+        setLeaveInfoModal({
+          open: true,
+          title: "Masadan Cik",
+          message: message || "Puansiz ayrilma teklifin reddedildi.",
+        });
+      } else {
+        setLobbyNotice(latest.inviteNoticeText);
+      }
     }
     writeLobby((current) => {
       let changed = false;
@@ -7631,24 +7694,6 @@ function App() {
                     </button>
                   </div>
                 ) : null}
-                {roomSession?.role === "player" && leavePermissionState.flowActive ? (
-                  <div className="my-room-owner-inline">
-                    {leavePermissionState.canApprove ? (
-                      <button className="my-action-btn soft" onClick={approveLeaveWithoutPenalty}>
-                        Izin Veriyorum
-                      </button>
-                    ) : null}
-                    {leavePermissionState.myRequestPending ? (
-                      <p className="line">Izin talebin gonderildi, rakip yaniti bekleniyor.</p>
-                    ) : null}
-                    {leavePermissionState.grantedToMe ? (
-                      <p className="line">Rakibin puansiz ayrilmana izin verdi.</p>
-                    ) : null}
-                    {leavePermissionState.grantedToOpponent ? (
-                      <p className="line">Rakibine puansiz ayrilma izni verdin.</p>
-                    ) : null}
-                  </div>
-                ) : null}
                 <button className="my-action-btn soft" onClick={() => setViewMode("lobby")}>
                   Lobiye Don
                 </button>
@@ -7945,6 +7990,54 @@ function App() {
               </button>
               <button className="my-action-btn soft" type="button" onClick={closeLeaveActionModal}>
                 Iptal Et
+              </button>
+            </div>
+          </article>
+        </section>
+      ) : null}
+
+      {leaveIncomingModal.open ? (
+        <section className="my-modal-backdrop" role="presentation" onClick={closeLeaveIncomingModal}>
+          <article
+            className="my-modal-card my-leave-action-modal my-leave-action-modal-compact"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Puansiz ayrilma teklifi"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="my-leave-action-close" type="button" onClick={closeLeaveIncomingModal} aria-label="Kapat">
+              x
+            </button>
+            <h3>Masadan Cik</h3>
+            <p className="my-leave-action-message">
+              {leaveIncomingModal.requesterName} puan kaybetmeden terk etme teklif ediyor. Kabul ediyor musun?
+            </p>
+            <div className="my-leave-action-buttons my-leave-action-buttons-two">
+              <button className="my-action-btn" type="button" onClick={acceptLeaveOfferFromModal}>
+                Kabul Et
+              </button>
+              <button className="my-action-btn soft" type="button" onClick={rejectLeaveOfferFromModal}>
+                Reddet
+              </button>
+            </div>
+          </article>
+        </section>
+      ) : null}
+
+      {leaveInfoModal.open ? (
+        <section className="my-modal-backdrop" role="presentation" onClick={closeLeaveInfoModal}>
+          <article
+            className="my-modal-card my-leave-action-modal my-leave-action-modal-compact"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Teklif sonucu"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>{leaveInfoModal.title || "Masadan Cik"}</h3>
+            <p className="my-leave-action-message">{leaveInfoModal.message}</p>
+            <div className="my-leave-action-buttons my-leave-action-buttons-single">
+              <button className="my-action-btn" type="button" onClick={closeLeaveInfoModal}>
+                Tamam
               </button>
             </div>
           </article>
