@@ -281,19 +281,35 @@
 
 .my-room-picker-columns {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 6px;
   align-content: start;
 }
 
 .my-room-picker-card {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
   border-radius: 8px;
   border: 1px solid rgba(16, 116, 143, 0.74);
   background: linear-gradient(180deg, rgba(238, 245, 249, 0.97), rgba(219, 232, 239, 0.98));
   color: #123f54;
-  padding: 10px;
+  padding: 8px;
   display: grid;
-  gap: 4px;
+  gap: 3px;
+  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+.my-room-picker-card:hover {
+  border-color: rgba(218, 171, 77, 0.9);
+  box-shadow: 0 0 0 1px rgba(225, 184, 95, 0.35) inset;
+}
+
+.my-room-picker-card:focus-visible {
+  outline: none;
+  border-color: rgba(240, 188, 78, 0.95);
+  box-shadow: 0 0 0 2px rgba(232, 185, 82, 0.35) inset;
 }
 
 .my-room-picker-card.active {
@@ -310,7 +326,7 @@
 
 .my-room-picker-card-head strong {
   color: #0f3550;
-  font-size: 1rem;
+  font-size: 0.94rem;
 }
 
 .my-room-picker-card-head span {
@@ -325,7 +341,7 @@
 
 .my-room-picker-card p {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: #18485f;
 }
 

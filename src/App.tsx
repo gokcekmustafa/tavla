@@ -6,6 +6,7 @@ type Seat = "white" | "black";
 type RoomRole = "player" | "spectator";
 type ViewMode = "lobby" | "table";
 type GameId = "tavla";
+type EntryScreen = "game" | "room" | "lobby";
 type AuthMode = "login" | "register";
 type MatchOutcome = "win" | "loss" | "resign";
 type MemberRole = "user" | "admin";
@@ -116,6 +117,7 @@ type LobbyPresenceState = {
   points: number;
   stats: PlayerStats;
   touchedAt: number;
+  lobbyId: string;
 };
 
 type LobbyTable = {
@@ -1218,6 +1220,7 @@ function normalizePresence(raw: unknown): LobbyPresenceState | null {
   const normalizedUserId = sanitizeGuestId(typeof candidate.userId === "string" ? candidate.userId : "");
   const displayName = sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Misafir") || "Misafir";
   const gender = sanitizeMemberGender(candidate.gender);
+  const lobbyId = sanitizeLobbyId(typeof candidate.lobbyId === "string" ? candidate.lobbyId : "");
   return {
     sessionId,
     userId: normalizedUserId || `guest-${sessionId}`,
@@ -1230,10 +1233,11 @@ function normalizePresence(raw: unknown): LobbyPresenceState | null {
     points: normalizeNonNegativeInt(candidate.points, 1500),
     stats: normalizeStats(candidate.stats),
     touchedAt: normalizeActivityTimestamp(candidate.touchedAt),
+    lobbyId,
   };
 }
 
-function presenceFromSeat(seat: LobbySeatState): LobbyPresenceState {
+function presenceFromSeat(seat: LobbySeatState, lobbyId = ""): LobbyPresenceState {
   return {
     sessionId: seat.sessionId,
     userId: seat.userId,
@@ -1244,6 +1248,7 @@ function presenceFromSeat(seat: LobbySeatState): LobbyPresenceState {
     points: seat.points,
     stats: normalizeStats(seat.stats),
     touchedAt: seat.touchedAt,
+    lobbyId: sanitizeLobbyId(lobbyId),
   };
 }
 
@@ -1405,7 +1410,8 @@ function cleanupPresenceRows(rows: LobbyPresenceState[]) {
   const byUser = new Map<string, LobbyPresenceState>();
   const byUserTouchedAt = new Map<string, number>();
   bySession.forEach((row) => {
-    const key = sanitizeGuestId(row.userId) || `session:${row.sessionId}`;
+    const lobbyScope = sanitizeLobbyId(row.lobbyId ?? "");
+    const key = `${sanitizeGuestId(row.userId) || `session:${row.sessionId}`}|${lobbyScope || "-"}`;
     const existing = byUser.get(key);
     const safeTouchedAt = bySessionTouchedAt.get(row.sessionId) ?? normalizeActivityTimestamp(row.touchedAt, now, HEARTBEAT_MS * 2, row.sessionId);
     const existingTouchedAt = byUserTouchedAt.get(key) ?? Number.NEGATIVE_INFINITY;
@@ -1607,6 +1613,21 @@ function loadSelectedGameIdFromSession(): GameId | null {
 function saveSelectedGameIdToSession(gameId: GameId) {
   if (typeof window === "undefined") return;
   window.sessionStorage.setItem(GAME_SELECTION_SESSION_KEY, gameId);
+}
+
+function readEntryScreenFromUrl(): EntryScreen | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get("entry");
+  if (raw === "game" || raw === "room" || raw === "lobby") return raw;
+  return null;
+}
+
+function pushEntryScreenHistory(screen: EntryScreen) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("entry", screen);
+  window.history.pushState({ entry: screen }, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
 function getInitialGuestName() {
@@ -1870,8 +1891,18 @@ function App() {
   const [lobbyRoomsBusy, setLobbyRoomsBusy] = useState(false);
   const [lobbyRoomsError, setLobbyRoomsError] = useState("");
   const [selectedGameId, setSelectedGameId] = useState<GameId>(() => loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID);
-  const [gamePickerOpen, setGamePickerOpen] = useState<boolean>(() => !loadSelectedGameIdFromSession());
-  const [roomPickerOpen, setRoomPickerOpen] = useState<boolean>(() => shouldOpenRoomPickerInitially(initialRoom));
+  const [gamePickerOpen, setGamePickerOpen] = useState<boolean>(() => {
+    const entryScreen = readEntryScreenFromUrl();
+    if (entryScreen === "game") return true;
+    if (entryScreen === "room" || entryScreen === "lobby") return false;
+    return !loadSelectedGameIdFromSession();
+  });
+  const [roomPickerOpen, setRoomPickerOpen] = useState<boolean>(() => {
+    const entryScreen = readEntryScreenFromUrl();
+    if (entryScreen === "room") return true;
+    if (entryScreen === "game" || entryScreen === "lobby") return false;
+    return shouldOpenRoomPickerInitially(initialRoom);
+  });
   const [adminLobbyNameDraft, setAdminLobbyNameDraft] = useState("");
   const [adminSelectedLobbyId, setAdminSelectedLobbyId] = useState("");
   const [adminSelectedUserId, setAdminSelectedUserId] = useState("");
@@ -2193,7 +2224,7 @@ function App() {
     openedTables.forEach((table) => {
       [table.white, table.black].forEach((seatInfo) => {
         if (!seatInfo) return;
-        upsertPresence(presenceFromSeat(seatInfo));
+        upsertPresence(presenceFromSeat(seatInfo, activeLobbyId));
       });
     });
 
@@ -2207,9 +2238,17 @@ function App() {
       points: currentProfile.points,
       stats: normalizeStats(currentProfile.stats),
       touchedAt: Date.now(),
+      lobbyId: activeLobbyId,
     });
 
     return Array.from(map.values())
+      .filter((row) => {
+        const seatedInActiveLobby = tableByUser.has(row.userId) || tableBySession.has(row.sessionId);
+        if (seatedInActiveLobby) return true;
+        const presenceLobbyId = sanitizeLobbyId(row.lobbyId ?? "");
+        if (!presenceLobbyId) return row.sessionId === appSessionId;
+        return presenceLobbyId === activeLobbyId;
+      })
       .map((row) => ({
         key: row.userId || row.sessionId,
         userId: row.userId,
@@ -2223,7 +2262,7 @@ function App() {
         tableNo: tableByUser.get(row.userId) ?? tableBySession.get(row.sessionId) ?? null,
       }))
       .sort((a, b) => a.name.localeCompare(b.name, "tr", { sensitivity: "base" }));
-  }, [openedTables, lobbyState.presence, appSessionId, safeGuestName, currentProfile.userId, currentProfile.username, currentProfile.gender, currentProfile.avatarId, currentProfile.points, currentProfile.stats]);
+  }, [openedTables, lobbyState.presence, appSessionId, activeLobbyId, safeGuestName, currentProfile.userId, currentProfile.username, currentProfile.gender, currentProfile.avatarId, currentProfile.points, currentProfile.stats]);
 
   const currentRoomTable = useMemo(() => {
     if (!roomSession) return null;
@@ -2786,6 +2825,7 @@ function App() {
         points: currentProfile.points,
         stats: normalizeStats(currentProfile.stats),
         touchedAt: now,
+        lobbyId: activeLobbyId,
       };
 
       const existing = cleanedPresence.presence.find((entry) => entry.sessionId === appSessionId) ?? null;
@@ -3683,6 +3723,19 @@ function App() {
     setRoomPickerOpen(true);
     setViewMode("lobby");
     setLobbyNotice("Oda secerek oyuna devam et.");
+    pushEntryScreenHistory("room");
+  }
+
+  function goToGameSelection() {
+    if (roomSession) {
+      setLobbyNotice("Anasayfaya donmek icin once masadan kalkmalisin.");
+      return;
+    }
+    setViewMode("lobby");
+    setRoomPickerOpen(false);
+    setGamePickerOpen(true);
+    setLobbyNotice("Anasayfaya donuldu.");
+    pushEntryScreenHistory("game");
   }
 
   function rememberRoomPickerSelection(lobbyId: string) {
@@ -3704,6 +3757,7 @@ function App() {
     setGamePickerOpen(false);
     setViewMode("lobby");
     setRoomPickerOpen(false);
+    pushEntryScreenHistory("lobby");
     const roomName = lobbyRooms.find((room) => room.id === safeId)?.name || DEFAULT_LOBBY_NAME;
     setLobbyNotice(`${sanitizeLobbyName(roomName)} odasina girildi.`);
   }
@@ -5996,8 +6050,43 @@ function App() {
       url.searchParams.delete("table");
       url.searchParams.delete("observer");
     }
+    if (!roomSession && viewMode === "lobby") {
+      const entryScreen: EntryScreen = showGamePicker ? "game" : showRoomPicker ? "room" : "lobby";
+      url.searchParams.set("entry", entryScreen);
+    } else {
+      url.searchParams.delete("entry");
+    }
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [roomSession, safeGuestName, activeLobbyId]);
+  }, [roomSession, safeGuestName, activeLobbyId, viewMode, showGamePicker, showRoomPicker]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onPopState = () => {
+      if (roomSession) return;
+      const entry = readEntryScreenFromUrl();
+      if (entry === "game") {
+        setViewMode("lobby");
+        setRoomPickerOpen(false);
+        setGamePickerOpen(true);
+        return;
+      }
+      if (entry === "room") {
+        setViewMode("lobby");
+        setGamePickerOpen(false);
+        setRoomPickerOpen(true);
+        return;
+      }
+      if (entry === "lobby") {
+        setViewMode("lobby");
+        setGamePickerOpen(false);
+        setRoomPickerOpen(false);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, [roomSession]);
 
   useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
@@ -6567,11 +6656,15 @@ function App() {
           <div className="my-topbar-left">
             {!roomSession ? (
               <>
+                <button className="my-top-btn my-btn-member-alt" onClick={goToGameSelection}>
+                  Ana Sayfa
+                </button>
                 <button
                   className="my-top-btn my-btn-member-alt"
                   onClick={() => {
                     setGamePickerOpen(false);
                     setRoomPickerOpen(true);
+                    pushEntryScreenHistory("room");
                   }}
                 >
                   Oda Sec
@@ -6861,19 +6954,19 @@ function App() {
             </div>
             <div className="my-room-picker-columns">
               {roomPickerRows.map((room) => (
-                <article key={room.id} className={`my-room-picker-card ${activeLobbyId === room.id ? "active" : ""}`}>
+                <button
+                  key={room.id}
+                  type="button"
+                  className={`my-room-picker-card ${activeLobbyId === room.id ? "active" : ""}`}
+                  onClick={() => selectLobbyRoom(room.id)}
+                >
                   <div className="my-room-picker-card-head">
                     <strong>{room.name}</strong>
                     {activeLobbyId === room.id ? <span>Secili</span> : null}
                   </div>
                   <p>Masa: {room.activeTables}</p>
                   <p>Oyuncu: {room.seatedPlayers}</p>
-                  <div className="my-room-picker-card-actions">
-                    <button className="my-action-btn" type="button" onClick={() => selectLobbyRoom(room.id)}>
-                      Odaya Gir
-                    </button>
-                  </div>
-                </article>
+                </button>
               ))}
             </div>
             {lobbyRoomsError ? <p className="my-error">{lobbyRoomsError}</p> : null}
