@@ -3435,8 +3435,6 @@ function App() {
       return;
     }
     if (updated) {
-      leavePermissionPromptKeyRef.current = "";
-      leaveIncomingIgnoredKeyRef.current = "";
       setLeaveIncomingModal({ open: false, requesterName: "" });
       setLobbyNotice("Puansiz ayrilma teklifi reddedildi.");
     }
