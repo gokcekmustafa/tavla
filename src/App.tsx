@@ -2055,6 +2055,8 @@ function App() {
   const opponentIdlePromptRef = useRef(false);
   const leavePermissionPromptKeyRef = useRef("");
   const leavePermissionAutoLeavingRef = useRef(false);
+  const leaveIncomingIgnoredKeyRef = useRef("");
+  const leaveRejectNoticeSeenIdRef = useRef("");
   const leaveConfirmResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const roomMissingSinceRef = useRef<number | null>(null);
   const latestLegacyStateRef = useRef<{
@@ -3346,7 +3348,10 @@ function App() {
     await leaveRoomAndGoLobby(true);
   }
 
-  function closeLeaveIncomingModal() {
+  function closeLeaveIncomingModal(ignoreCurrentRequest = false) {
+    if (ignoreCurrentRequest && leavePermissionPromptKeyRef.current) {
+      leaveIncomingIgnoredKeyRef.current = leavePermissionPromptKeyRef.current;
+    }
     setLeaveIncomingModal((prev) => (prev.open ? { open: false, requesterName: "" } : prev));
   }
 
@@ -3355,7 +3360,7 @@ function App() {
   }
 
   function acceptLeaveOfferFromModal() {
-    closeLeaveIncomingModal();
+    closeLeaveIncomingModal(true);
     approveLeaveWithoutPenalty();
   }
 
@@ -3433,7 +3438,7 @@ function App() {
   }
 
   function rejectLeaveOfferFromModal() {
-    closeLeaveIncomingModal();
+    closeLeaveIncomingModal(true);
     rejectLeaveWithoutPenalty();
   }
 
@@ -6276,12 +6281,14 @@ function App() {
   useEffect(() => {
     if (!roomSession || roomSession.role !== "player" || !currentRoomTable) {
       leavePermissionPromptKeyRef.current = "";
+      leaveIncomingIgnoredKeyRef.current = "";
       closeLeaveIncomingModal();
       return;
     }
     const myUserId = sanitizeGuestId(currentProfile.userId);
     if (!myUserId) {
       leavePermissionPromptKeyRef.current = "";
+      leaveIncomingIgnoredKeyRef.current = "";
       closeLeaveIncomingModal();
       return;
     }
@@ -6299,12 +6306,14 @@ function App() {
       || grantedUserId === requestUserId
     ) {
       leavePermissionPromptKeyRef.current = "";
+      leaveIncomingIgnoredKeyRef.current = "";
       closeLeaveIncomingModal();
       return;
     }
 
     const promptKey = `${currentRoomTable.roomCode}:${requestUserId}:${currentRoomTable.setPlayed}:${currentRoomTable.setResultTokens.length}`;
-    if (leavePermissionPromptKeyRef.current === promptKey) return;
+    if (leaveIncomingIgnoredKeyRef.current === promptKey) return;
+    if (leavePermissionPromptKeyRef.current === promptKey && leaveIncomingModal.open) return;
     leavePermissionPromptKeyRef.current = promptKey;
 
     const requesterName = opponentSeat.displayName || "Rakip";
@@ -6312,7 +6321,7 @@ function App() {
       open: true,
       requesterName,
     });
-  }, [roomSession, currentRoomTable, currentProfile.userId]);
+  }, [roomSession, currentRoomTable, currentProfile.userId, leaveIncomingModal.open]);
 
   useEffect(() => {
     if (!roomSession || roomSession.role !== "player" || !currentRoomTable) {
@@ -6346,14 +6355,20 @@ function App() {
     );
     if (notices.length === 0) return;
     const latest = notices[notices.length - 1];
+    const latestNoticeId = sanitizeChatId(latest.inviteNoticeId ?? "");
     if (latest.inviteNoticeText) {
       if (latest.inviteNoticeText.startsWith(LEAVE_NOTICE_REJECT_PREFIX)) {
-        const message = latest.inviteNoticeText.slice(LEAVE_NOTICE_REJECT_PREFIX.length).trim();
-        setLeaveInfoModal({
-          open: true,
-          title: "Masadan Cik",
-          message: message || "Puansiz ayrilma teklifin reddedildi.",
-        });
+        if (!latestNoticeId || leaveRejectNoticeSeenIdRef.current !== latestNoticeId) {
+          if (latestNoticeId) {
+            leaveRejectNoticeSeenIdRef.current = latestNoticeId;
+          }
+          const message = latest.inviteNoticeText.slice(LEAVE_NOTICE_REJECT_PREFIX.length).trim();
+          setLeaveInfoModal({
+            open: true,
+            title: "Masadan Cik",
+            message: message || "Puansiz ayrilma teklifin reddedildi.",
+          });
+        }
       } else {
         setLobbyNotice(latest.inviteNoticeText);
       }
@@ -7997,7 +8012,7 @@ function App() {
       ) : null}
 
       {leaveIncomingModal.open ? (
-        <section className="my-modal-backdrop" role="presentation" onClick={closeLeaveIncomingModal}>
+        <section className="my-modal-backdrop" role="presentation" onClick={() => closeLeaveIncomingModal(true)}>
           <article
             className="my-modal-card my-leave-action-modal my-leave-action-modal-compact"
             role="dialog"
@@ -8005,7 +8020,7 @@ function App() {
             aria-label="Puansiz ayrilma teklifi"
             onClick={(e) => e.stopPropagation()}
           >
-            <button className="my-leave-action-close" type="button" onClick={closeLeaveIncomingModal} aria-label="Kapat">
+            <button className="my-leave-action-close" type="button" onClick={() => closeLeaveIncomingModal(true)} aria-label="Kapat">
               x
             </button>
             <h3>Masadan Cik</h3>
