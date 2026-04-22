@@ -137,6 +137,202 @@
   white-space: nowrap;
 }
 
+.my-entry-page {
+  margin: 10px;
+  border-radius: 10px;
+  border: 2px solid rgba(8, 95, 121, 0.82);
+  background: linear-gradient(180deg, #0c809e, #0a6f8a 40%, #0b5f77);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.my-entry-head {
+  display: grid;
+  gap: 4px;
+}
+
+.my-entry-head h2 {
+  margin: 0;
+  color: #f2f8ff;
+  font-size: 1.3rem;
+}
+
+.my-entry-head p {
+  margin: 0;
+  color: #d4ebf7;
+  font-size: 0.84rem;
+}
+
+.my-game-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.my-game-picker-card {
+  position: relative;
+  border-radius: 10px;
+  border: 2px solid rgba(18, 62, 81, 0.74);
+  padding: 14px;
+  min-height: 180px;
+  color: #fff;
+  text-align: left;
+  display: grid;
+  align-content: end;
+  gap: 6px;
+  overflow: hidden;
+  background:
+    radial-gradient(220px 130px at 78% 16%, rgba(255, 255, 255, 0.25), transparent 64%),
+    linear-gradient(135deg, #9d2727, #6c1717 48%, #4c1111);
+}
+
+.my-game-picker-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120px 120px at 28% 32%, rgba(255, 255, 255, 0.2), transparent 72%),
+    linear-gradient(180deg, rgba(8, 26, 34, 0.08), rgba(7, 17, 23, 0.48));
+  pointer-events: none;
+}
+
+.my-game-picker-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.my-game-picker-card strong {
+  font-size: 1.14rem;
+  letter-spacing: 0.01em;
+}
+
+.my-game-picker-card p {
+  margin: 0;
+  font-size: 0.83rem;
+  color: rgba(246, 252, 255, 0.92);
+}
+
+.my-game-picker-card.active {
+  border-color: rgba(251, 223, 151, 0.96);
+  box-shadow: 0 0 0 2px rgba(248, 220, 157, 0.3);
+}
+
+.my-game-picker-card.disabled {
+  background:
+    radial-gradient(220px 130px at 78% 16%, rgba(255, 255, 255, 0.2), transparent 64%),
+    linear-gradient(135deg, #3f5361, #33424e 48%, #28353f);
+  opacity: 0.88;
+}
+
+.my-game-picker-badge {
+  justify-self: start;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 235, 184, 0.78);
+  background: rgba(93, 142, 53, 0.9);
+  padding: 1px 8px;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.my-room-picker-page {
+  grid-template-rows: auto 1fr;
+}
+
+.my-room-picker-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(40, 128, 160, 0.7);
+  background: linear-gradient(180deg, rgba(9, 88, 112, 0.9), rgba(7, 70, 89, 0.94));
+  padding: 8px;
+}
+
+.my-room-picker-tabs {
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 6px;
+}
+
+.my-room-picker-tab {
+  min-height: 32px;
+  border-radius: 6px;
+  border: 1px solid rgba(45, 132, 163, 0.74);
+  background: rgba(10, 82, 104, 0.88);
+  color: #d9f2ff;
+  padding: 0 12px;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.my-room-picker-tab.active {
+  border-color: rgba(248, 217, 147, 0.92);
+  background: linear-gradient(180deg, #c89832, #9f6d1b);
+  color: #fff9eb;
+}
+
+.my-room-picker-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.my-room-picker-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+
+.my-room-picker-card {
+  border-radius: 8px;
+  border: 1px solid rgba(16, 116, 143, 0.74);
+  background: linear-gradient(180deg, rgba(238, 245, 249, 0.97), rgba(219, 232, 239, 0.98));
+  color: #123f54;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.my-room-picker-card.active {
+  border-color: rgba(240, 188, 78, 0.94);
+  box-shadow: 0 0 0 2px rgba(232, 185, 82, 0.24) inset;
+}
+
+.my-room-picker-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.my-room-picker-card-head strong {
+  color: #0f3550;
+  font-size: 1rem;
+}
+
+.my-room-picker-card-head span {
+  border-radius: 999px;
+  border: 1px solid rgba(46, 128, 76, 0.72);
+  background: rgba(70, 154, 91, 0.2);
+  color: #205b33;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 8px;
+}
+
+.my-room-picker-card p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #18485f;
+}
+
+.my-room-picker-card-actions {
+  margin-top: 6px;
+}
+
 .my-lobby-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
@@ -1893,6 +2089,25 @@
 }
 
 @media (max-width: 920px) {
+  .my-entry-page {
+    margin: 6px;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .my-room-picker-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .my-room-picker-actions {
+    justify-content: stretch;
+  }
+
+  .my-room-picker-actions .my-action-btn {
+    flex: 1;
+  }
+
   .my-lobby-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
@@ -1981,6 +2196,45 @@
 }
 
 @media (max-width: 640px) {
+  .my-entry-page {
+    margin: 5px;
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .my-entry-head h2 {
+    font-size: 1.06rem;
+  }
+
+  .my-entry-head p {
+    font-size: 0.76rem;
+  }
+
+  .my-game-picker-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .my-game-picker-card {
+    min-height: 154px;
+    padding: 10px;
+  }
+
+  .my-room-picker-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: row;
+  }
+
+  .my-room-picker-tab {
+    min-height: 28px;
+    padding: 0 8px;
+    font-size: 0.72rem;
+  }
+
+  .my-room-picker-columns {
+    grid-template-columns: 1fr;
+  }
+
   .my-topbar {
     padding: 4px 8px;
     gap: 4px;

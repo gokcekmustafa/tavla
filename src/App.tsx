@@ -5,6 +5,7 @@ type GameMode = "local" | "bot";
 type Seat = "white" | "black";
 type RoomRole = "player" | "spectator";
 type ViewMode = "lobby" | "table";
+type GameId = "tavla";
 type AuthMode = "login" | "register";
 type MatchOutcome = "win" | "loss" | "resign";
 type MemberRole = "user" | "admin";
@@ -269,6 +270,7 @@ const GUEST_PROFILE_SESSION_KEY = "tavla.guest.profile.session.v1";
 const MEMBER_SESSION_KEY = "tavla.member.session.v1";
 const ACTIVE_LOBBY_ID_KEY = "tavla.active.lobby.id.v1";
 const ROOM_PICKER_SESSION_KEY = "tavla.room.picker.session.v1";
+const GAME_SELECTION_SESSION_KEY = "tavla.game.selection.session.v1";
 const LOBBY_STATE_KEY_PREFIX = "tavla.lobby.state.v3";
 const LOBBY_SYNC_CHANNEL_PREFIX = "tavla.lobby.sync.v3";
 const REALTIME_LOBBY_CHANNEL_PREFIX = "tavla-global-lobby-v2";
@@ -276,6 +278,7 @@ const REALTIME_HTTP_SYNC_PATH = "/api/lobby-sync";
 const ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_LOBBY_NAME = "Lobi 1";
 const DEFAULT_LOBBY_ID = "lobi-1";
+const DEFAULT_GAME_ID: GameId = "tavla";
 const SEAT_STALE_MS = 180_000;
 const PRESENCE_STALE_MS = 20_000;
 const HEARTBEAT_MS = 8_000;
@@ -1594,6 +1597,18 @@ function shouldOpenRoomPickerInitially(initialRoom: RoomSession | null) {
   return sessionState.identity !== identity;
 }
 
+function loadSelectedGameIdFromSession(): GameId | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.sessionStorage.getItem(GAME_SELECTION_SESSION_KEY);
+  if (raw === DEFAULT_GAME_ID) return DEFAULT_GAME_ID;
+  return null;
+}
+
+function saveSelectedGameIdToSession(gameId: GameId) {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(GAME_SELECTION_SESSION_KEY, gameId);
+}
+
 function getInitialGuestName() {
   if (typeof window === "undefined") return "Misafir";
   const params = new URLSearchParams(window.location.search);
@@ -1854,6 +1869,8 @@ function App() {
   ]));
   const [lobbyRoomsBusy, setLobbyRoomsBusy] = useState(false);
   const [lobbyRoomsError, setLobbyRoomsError] = useState("");
+  const [selectedGameId, setSelectedGameId] = useState<GameId>(() => loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID);
+  const [gamePickerOpen, setGamePickerOpen] = useState<boolean>(() => !loadSelectedGameIdFromSession());
   const [roomPickerOpen, setRoomPickerOpen] = useState<boolean>(() => shouldOpenRoomPickerInitially(initialRoom));
   const [adminLobbyNameDraft, setAdminLobbyNameDraft] = useState("");
   const [adminSelectedLobbyId, setAdminSelectedLobbyId] = useState("");
@@ -2039,7 +2056,8 @@ function App() {
   const activeLobbyStorageKey = useMemo(() => makeLobbyStateStorageKey(activeLobbyId), [activeLobbyId]);
   const activeLobbySyncChannel = useMemo(() => makeLobbySyncChannel(activeLobbyId), [activeLobbyId]);
   const activeRealtimeLobbyChannel = useMemo(() => makeRealtimeLobbyChannel(activeLobbyId), [activeLobbyId]);
-  const shouldShowLobbyPicker = roomPickerOpen && !isAdminWindow && !roomSession && viewMode === "lobby";
+  const showGamePicker = viewMode === "lobby" && !isAdminWindow && gamePickerOpen;
+  const showRoomPicker = viewMode === "lobby" && !isAdminWindow && !showGamePicker && roomPickerOpen && !roomSession;
   const activeLobbyStorageKeyRef = useRef(activeLobbyStorageKey);
   const activeRealtimeLobbyChannelRef = useRef(activeRealtimeLobbyChannel);
   const activeLobbyNameRef = useRef(activeLobbyName);
@@ -2126,6 +2144,24 @@ function App() {
   const openedTables = useMemo(() => {
     return sortTables(lobbyState.tables).filter((table) => Boolean(table.white || table.black));
   }, [lobbyState.tables]);
+
+  const roomPickerRows = useMemo(() => {
+    return lobbyRooms.map((room) => {
+      const roomName = sanitizeLobbyName(room.name);
+      const snapshot = loadLobbyState(makeLobbyStateStorageKey(room.id), roomName);
+      const activeTables = snapshot.tables.filter((table) => Boolean(table.white || table.black)).length;
+      const seatedPlayers = snapshot.tables.reduce(
+        (sum, table) => sum + Number(Boolean(table.white)) + Number(Boolean(table.black)),
+        0,
+      );
+      return {
+        id: room.id,
+        name: roomName,
+        activeTables,
+        seatedPlayers,
+      };
+    });
+  }, [lobbyRooms]);
 
   const myCurrentSeat = useMemo(() => findSessionSeat(lobbyState.tables, appSessionId), [lobbyState.tables, appSessionId]);
 
@@ -3640,20 +3676,20 @@ function App() {
     }
   }
 
+  function onSelectGame(gameId: GameId) {
+    setSelectedGameId(gameId);
+    saveSelectedGameIdToSession(gameId);
+    setGamePickerOpen(false);
+    setRoomPickerOpen(true);
+    setViewMode("lobby");
+    setLobbyNotice("Oda secerek oyuna devam et.");
+  }
+
   function rememberRoomPickerSelection(lobbyId: string) {
     const safeLobbyId = sanitizeLobbyId(lobbyId);
     if (!safeLobbyId) return;
     const identity = getRoomPickerIdentity(member?.id ?? "", guestId);
     saveRoomPickerSessionState(identity, safeLobbyId);
-  }
-
-  function confirmCurrentLobbyRoomSelection() {
-    const safeId = sanitizeLobbyId(activeLobbyId) || DEFAULT_LOBBY_ID;
-    rememberRoomPickerSelection(safeId);
-    setViewMode("lobby");
-    setRoomPickerOpen(false);
-    const roomName = lobbyRooms.find((room) => room.id === safeId)?.name || DEFAULT_LOBBY_NAME;
-    setLobbyNotice(`${sanitizeLobbyName(roomName)} odasina girildi.`);
   }
 
   function selectLobbyRoom(lobbyId: string) {
@@ -3665,6 +3701,7 @@ function App() {
     }
     setSelectedLobbyId(safeId);
     rememberRoomPickerSelection(safeId);
+    setGamePickerOpen(false);
     setViewMode("lobby");
     setRoomPickerOpen(false);
     const roomName = lobbyRooms.find((room) => room.id === safeId)?.name || DEFAULT_LOBBY_NAME;
@@ -6525,12 +6562,18 @@ function App() {
 
   return (
     <main className="my-shell">
-      {viewMode === "lobby" ? (
+      {viewMode === "lobby" && !showGamePicker && !showRoomPicker ? (
         <header className="my-topbar">
           <div className="my-topbar-left">
             {!roomSession ? (
               <>
-                <button className="my-top-btn my-btn-member-alt" onClick={() => setRoomPickerOpen(true)}>
+                <button
+                  className="my-top-btn my-btn-member-alt"
+                  onClick={() => {
+                    setGamePickerOpen(false);
+                    setRoomPickerOpen(true);
+                  }}
+                >
                   Oda Sec
                 </button>
                 <button className="my-top-btn my-btn-open" onClick={onOpenTable}>
@@ -6778,7 +6821,65 @@ function App() {
       ) : null}
 
       {viewMode === "lobby" ? (
-        <section className="my-lobby-layout">
+        showGamePicker ? (
+          <section className="my-entry-page my-game-picker-page">
+            <div className="my-entry-head">
+              <h2>Oyun Secimi</h2>
+              <p>Oynamak istedigin oyunu secerek devam et.</p>
+            </div>
+            <div className="my-game-picker-grid">
+              <button
+                type="button"
+                className={`my-game-picker-card ${selectedGameId === "tavla" ? "active" : ""}`}
+                onClick={() => onSelectGame("tavla")}
+              >
+                <span className="my-game-picker-badge">Hazir</span>
+                <strong>Klasik Tavla</strong>
+                <p>Online masa, bot modu ve mevcut sistemle devam et.</p>
+              </button>
+              <article className="my-game-picker-card disabled">
+                <span className="my-game-picker-badge">Yakinda</span>
+                <strong>Yeni Oyun</strong>
+                <p>Yeni oyunlar bu ekrana eklenecek.</p>
+              </article>
+            </div>
+          </section>
+        ) : showRoomPicker ? (
+          <section className="my-entry-page my-room-picker-page">
+            <div className="my-room-picker-topbar">
+              <div className="my-room-picker-tabs">
+                <button className="my-room-picker-tab active" type="button">Tum Odalar</button>
+                <button className="my-room-picker-tab" type="button" disabled>Hizli</button>
+                <button className="my-room-picker-tab" type="button" disabled>Kalabalik</button>
+              </div>
+              <div className="my-room-picker-actions">
+                <button className="my-action-btn" type="button" onClick={onQuickPlay}>Hemen Oyna</button>
+                <button className="my-action-btn soft" type="button" onClick={() => void loadLobbyRoomsFromService()} disabled={lobbyRoomsBusy}>
+                  {lobbyRoomsBusy ? "Yukleniyor..." : "Listeyi Yenile"}
+                </button>
+              </div>
+            </div>
+            <div className="my-room-picker-columns">
+              {roomPickerRows.map((room) => (
+                <article key={room.id} className={`my-room-picker-card ${activeLobbyId === room.id ? "active" : ""}`}>
+                  <div className="my-room-picker-card-head">
+                    <strong>{room.name}</strong>
+                    {activeLobbyId === room.id ? <span>Secili</span> : null}
+                  </div>
+                  <p>Masa: {room.activeTables}</p>
+                  <p>Oyuncu: {room.seatedPlayers}</p>
+                  <div className="my-room-picker-card-actions">
+                    <button className="my-action-btn" type="button" onClick={() => selectLobbyRoom(room.id)}>
+                      Odaya Gir
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+            {lobbyRoomsError ? <p className="my-error">{lobbyRoomsError}</p> : null}
+          </section>
+        ) : (
+          <section className="my-lobby-layout">
           <div className="my-lobby-main">
             <div className="my-lobby-header">
               <h2>{activeLobbyName}</h2>
@@ -7301,7 +7402,7 @@ function App() {
 
           </aside>
         </section>
-      ) : (
+      )) : (
         <section className={`my-room-view my-room-view-topless ${roomSession ? "in-room" : "local-mode"}`}>
           <header className="my-room-header-strip">
             {roomSession ? (
@@ -7640,36 +7741,6 @@ function App() {
           </section>
         </section>
       )}
-
-      {shouldShowLobbyPicker ? (
-        <section className="my-modal-backdrop" role="presentation">
-          <article className="my-modal-card my-lobby-picker-modal" role="dialog" aria-modal="true">
-            <h3>Oda Secimi</h3>
-            <p className="line">Bir odaya girerek oyuna devam et.</p>
-            <div className="my-lobby-picker-list">
-              {lobbyRooms.map((room) => (
-                <button
-                  key={room.id}
-                  className={`my-action-btn ${activeLobbyId === room.id ? "" : "soft"}`}
-                  onClick={() => selectLobbyRoom(room.id)}
-                  disabled={lobbyRoomsBusy}
-                >
-                  {room.name}
-                </button>
-              ))}
-            </div>
-            {lobbyRoomsError ? <p className="my-error">{lobbyRoomsError}</p> : null}
-            <div className="my-inline-actions">
-              <button className="my-action-btn soft" onClick={() => void loadLobbyRoomsFromService()} disabled={lobbyRoomsBusy}>
-                {lobbyRoomsBusy ? "Yukleniyor..." : "Listeyi Yenile"}
-              </button>
-              <button className="my-action-btn" onClick={confirmCurrentLobbyRoomSelection} disabled={lobbyRoomsBusy}>
-                Odaya Gir
-              </button>
-            </div>
-          </article>
-        </section>
-      ) : null}
 
       {invitePickerTable ? (
         <section className="my-modal-backdrop" role="presentation" onClick={closeInvitePicker}>
