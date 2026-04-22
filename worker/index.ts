@@ -41,6 +41,65 @@ type GameRules = {
   updatedAt: number;
 };
 
+type DesignTextKey =
+  | "lobbyOpenTable"
+  | "lobbyQuickPlay"
+  | "lobbyHome"
+  | "lobbyRoomSelect"
+  | "lobbyBotMode"
+  | "roomLeaveTable"
+  | "roomBackLobby"
+  | "roomInvite"
+  | "roomPrivateEnable"
+  | "roomPrivateDisable"
+  | "roomSpectatorEnable"
+  | "roomSpectatorDisable"
+  | "roomCopyInvite"
+  | "chatSend"
+  | "lobbyEmptyTitle"
+  | "lobbyEmptySub";
+
+type DesignTheme = {
+  shellFrom: string;
+  shellTo: string;
+  topbarFrom: string;
+  topbarTo: string;
+  lobbyPanelFrom: string;
+  lobbyPanelTo: string;
+  roomPanelFrom: string;
+  roomPanelTo: string;
+  accentFrom: string;
+  accentTo: string;
+  fontFamily: string;
+};
+
+type DesignLayout = {
+  lobbyHeaderActions: ("openTable" | "quickPlay")[];
+  lobbyTopButtons: ("home" | "roomSelect" | "botMode")[];
+  roomOwnerButtons: ("invite" | "private" | "spectator" | "copyLink")[];
+};
+
+type DesignSizing = {
+  buttonScalePct: number;
+  lobbyTableZoneHeight: number;
+  roomBoardMinHeight: number;
+};
+
+type DesignConfig = {
+  version: number;
+  updatedAt: number;
+  theme: DesignTheme;
+  texts: Partial<Record<DesignTextKey, string>>;
+  layout: DesignLayout;
+  sizing: DesignSizing;
+};
+
+type DesignSettings = {
+  published: DesignConfig;
+  history: DesignConfig[];
+  updatedAt: number;
+};
+
 type MemberPermissions = {
   lobbyChat: boolean;
   tableChat: boolean;
@@ -77,6 +136,8 @@ type StoredMemberUser = PublicMemberUser & {
 const AUTH_DO_NAME = "members-v1";
 const AUTH_RULES_KEY = "settings:rules";
 const AUTH_LOBBIES_KEY = "settings:lobbies";
+const AUTH_DESIGN_KEY = "settings:design";
+const DESIGN_HISTORY_LIMIT = 25;
 const DEFAULT_WIN_POINTS = 100;
 const DEFAULT_LOSS_POINTS = 0;
 const DEFAULT_RESIGN_PENALTY_POINTS = 50;
@@ -344,6 +405,207 @@ function normalizeGameRules(raw: unknown, fallback?: GameRules): GameRules {
     winPoints: sanitizeRuleNumber(candidate.winPoints, base.winPoints, -10_000, 10_000),
     lossPoints: sanitizeRuleNumber(candidate.lossPoints, base.lossPoints, -10_000, 10_000),
     resignPenaltyPoints: sanitizeRuleNumber(candidate.resignPenaltyPoints, base.resignPenaltyPoints, 0, 10_000),
+    updatedAt: Number.isFinite(candidate.updatedAt) ? Number(candidate.updatedAt) : base.updatedAt,
+  };
+}
+
+function sanitizeDesignTextKey(raw: unknown): DesignTextKey | null {
+  if (
+    raw === "lobbyOpenTable"
+    || raw === "lobbyQuickPlay"
+    || raw === "lobbyHome"
+    || raw === "lobbyRoomSelect"
+    || raw === "lobbyBotMode"
+    || raw === "roomLeaveTable"
+    || raw === "roomBackLobby"
+    || raw === "roomInvite"
+    || raw === "roomPrivateEnable"
+    || raw === "roomPrivateDisable"
+    || raw === "roomSpectatorEnable"
+    || raw === "roomSpectatorDisable"
+    || raw === "roomCopyInvite"
+    || raw === "chatSend"
+    || raw === "lobbyEmptyTitle"
+    || raw === "lobbyEmptySub"
+  ) {
+    return raw;
+  }
+  return null;
+}
+
+function sanitizeDesignColor(raw: unknown, fallback: string) {
+  if (typeof raw !== "string") return fallback;
+  const value = raw.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(value)) return value.toUpperCase();
+  return fallback;
+}
+
+function sanitizeDesignFontFamily(raw: unknown, fallback: string) {
+  if (typeof raw !== "string") return fallback;
+  const value = raw.trim().slice(0, 120);
+  if (!value) return fallback;
+  return value.replace(/[<>{}]/g, "");
+}
+
+function createDefaultDesignConfig(): DesignConfig {
+  return {
+    version: 1,
+    updatedAt: Date.now(),
+    theme: {
+      shellFrom: "#AF8119",
+      shellTo: "#765309",
+      topbarFrom: "#0C566D",
+      topbarTo: "#093F52",
+      lobbyPanelFrom: "#0C809E",
+      lobbyPanelTo: "#0B5F77",
+      roomPanelFrom: "#2C583B",
+      roomPanelTo: "#1A3D27",
+      accentFrom: "#D49A14",
+      accentTo: "#AB7A0F",
+      fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
+    },
+    texts: {},
+    layout: {
+      lobbyHeaderActions: ["openTable", "quickPlay"],
+      lobbyTopButtons: ["home", "roomSelect", "botMode"],
+      roomOwnerButtons: ["invite", "private", "spectator", "copyLink"],
+    },
+    sizing: {
+      buttonScalePct: 100,
+      lobbyTableZoneHeight: 520,
+      roomBoardMinHeight: 500,
+    },
+  };
+}
+
+function normalizeDesignLayout(raw: unknown, fallback: DesignLayout): DesignLayout {
+  const candidate = raw && typeof raw === "object" ? raw as Partial<DesignLayout> : {};
+  const actionsRaw = Array.isArray(candidate.lobbyHeaderActions) ? candidate.lobbyHeaderActions : fallback.lobbyHeaderActions;
+  const ordered: ("openTable" | "quickPlay")[] = [];
+  actionsRaw.forEach((item) => {
+    if (item === "openTable" || item === "quickPlay") {
+      if (!ordered.includes(item)) ordered.push(item);
+    }
+  });
+  if (!ordered.includes("openTable")) ordered.push("openTable");
+  if (!ordered.includes("quickPlay")) ordered.push("quickPlay");
+  const topRaw = Array.isArray(candidate.lobbyTopButtons) ? candidate.lobbyTopButtons : fallback.lobbyTopButtons;
+  const lobbyTopButtons: ("home" | "roomSelect" | "botMode")[] = [];
+  topRaw.forEach((item) => {
+    if (item === "home" || item === "roomSelect" || item === "botMode") {
+      if (!lobbyTopButtons.includes(item)) lobbyTopButtons.push(item);
+    }
+  });
+  if (!lobbyTopButtons.includes("home")) lobbyTopButtons.push("home");
+  if (!lobbyTopButtons.includes("roomSelect")) lobbyTopButtons.push("roomSelect");
+  if (!lobbyTopButtons.includes("botMode")) lobbyTopButtons.push("botMode");
+
+  const roomOwnerRaw = Array.isArray(candidate.roomOwnerButtons) ? candidate.roomOwnerButtons : fallback.roomOwnerButtons;
+  const roomOwnerButtons: ("invite" | "private" | "spectator" | "copyLink")[] = [];
+  roomOwnerRaw.forEach((item) => {
+    if (item === "invite" || item === "private" || item === "spectator" || item === "copyLink") {
+      if (!roomOwnerButtons.includes(item)) roomOwnerButtons.push(item);
+    }
+  });
+  if (!roomOwnerButtons.includes("invite")) roomOwnerButtons.push("invite");
+  if (!roomOwnerButtons.includes("private")) roomOwnerButtons.push("private");
+  if (!roomOwnerButtons.includes("spectator")) roomOwnerButtons.push("spectator");
+  if (!roomOwnerButtons.includes("copyLink")) roomOwnerButtons.push("copyLink");
+
+  return {
+    lobbyHeaderActions: ordered,
+    lobbyTopButtons,
+    roomOwnerButtons,
+  };
+}
+
+function normalizeDesignSizing(raw: unknown, fallback: DesignSizing): DesignSizing {
+  const candidate = raw && typeof raw === "object" ? raw as Partial<DesignSizing> : {};
+  return {
+    buttonScalePct: sanitizeRuleNumber(candidate.buttonScalePct, fallback.buttonScalePct, 80, 140),
+    lobbyTableZoneHeight: sanitizeRuleNumber(candidate.lobbyTableZoneHeight, fallback.lobbyTableZoneHeight, 360, 760),
+    roomBoardMinHeight: sanitizeRuleNumber(candidate.roomBoardMinHeight, fallback.roomBoardMinHeight, 420, 760),
+  };
+}
+
+function normalizeDesignTexts(raw: unknown, fallback: Partial<Record<DesignTextKey, string>>) {
+  const next: Partial<Record<DesignTextKey, string>> = {};
+  const seed = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+  Object.entries(seed).forEach(([keyRaw, valueRaw]) => {
+    const key = sanitizeDesignTextKey(keyRaw);
+    if (!key) return;
+    if (typeof valueRaw !== "string") return;
+    const cleaned = valueRaw.replace(/\s+/g, " ").trim().slice(0, 72);
+    if (!cleaned) return;
+    next[key] = cleaned;
+  });
+  Object.entries(fallback).forEach(([keyRaw, valueRaw]) => {
+    const key = sanitizeDesignTextKey(keyRaw);
+    if (!key || !valueRaw || next[key]) return;
+    next[key] = valueRaw;
+  });
+  return next;
+}
+
+function normalizeDesignTheme(raw: unknown, fallback: DesignTheme): DesignTheme {
+  const candidate = raw && typeof raw === "object" ? raw as Partial<DesignTheme> : {};
+  return {
+    shellFrom: sanitizeDesignColor(candidate.shellFrom, fallback.shellFrom),
+    shellTo: sanitizeDesignColor(candidate.shellTo, fallback.shellTo),
+    topbarFrom: sanitizeDesignColor(candidate.topbarFrom, fallback.topbarFrom),
+    topbarTo: sanitizeDesignColor(candidate.topbarTo, fallback.topbarTo),
+    lobbyPanelFrom: sanitizeDesignColor(candidate.lobbyPanelFrom, fallback.lobbyPanelFrom),
+    lobbyPanelTo: sanitizeDesignColor(candidate.lobbyPanelTo, fallback.lobbyPanelTo),
+    roomPanelFrom: sanitizeDesignColor(candidate.roomPanelFrom, fallback.roomPanelFrom),
+    roomPanelTo: sanitizeDesignColor(candidate.roomPanelTo, fallback.roomPanelTo),
+    accentFrom: sanitizeDesignColor(candidate.accentFrom, fallback.accentFrom),
+    accentTo: sanitizeDesignColor(candidate.accentTo, fallback.accentTo),
+    fontFamily: sanitizeDesignFontFamily(candidate.fontFamily, fallback.fontFamily),
+  };
+}
+
+function normalizeDesignConfig(raw: unknown, fallback?: DesignConfig): DesignConfig {
+  const base = fallback ?? createDefaultDesignConfig();
+  const candidate = raw && typeof raw === "object" ? raw as Partial<DesignConfig> : {};
+  return {
+    version: sanitizeRuleNumber(candidate.version, base.version, 1, 999_999),
+    updatedAt: Number.isFinite(candidate.updatedAt) ? Number(candidate.updatedAt) : base.updatedAt,
+    theme: normalizeDesignTheme(candidate.theme, base.theme),
+    texts: normalizeDesignTexts(candidate.texts, base.texts),
+    layout: normalizeDesignLayout(candidate.layout, base.layout),
+    sizing: normalizeDesignSizing(candidate.sizing, base.sizing),
+  };
+}
+
+function normalizeDesignHistory(raw: unknown): DesignConfig[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<number>();
+  const rows: DesignConfig[] = [];
+  raw.forEach((item) => {
+    const normalized = normalizeDesignConfig(item, createDefaultDesignConfig());
+    if (seen.has(normalized.version)) return;
+    seen.add(normalized.version);
+    rows.push(normalized);
+  });
+  rows.sort((a, b) => b.version - a.version);
+  return rows.slice(0, DESIGN_HISTORY_LIMIT);
+}
+
+function normalizeDesignSettings(raw: unknown, fallback?: DesignSettings): DesignSettings {
+  const base = fallback ?? {
+    published: createDefaultDesignConfig(),
+    history: [],
+    updatedAt: Date.now(),
+  };
+  if (!raw || typeof raw !== "object") return base;
+  const candidate = raw as Partial<DesignSettings>;
+  const published = normalizeDesignConfig(candidate.published, base.published);
+  const history = normalizeDesignHistory(candidate.history ?? base.history)
+    .filter((row) => row.version !== published.version)
+    .slice(0, DESIGN_HISTORY_LIMIT);
+  return {
+    published,
+    history,
     updatedAt: Number.isFinite(candidate.updatedAt) ? Number(candidate.updatedAt) : base.updatedAt,
   };
 }
@@ -645,6 +907,7 @@ export class AuthStore {
   private readonly transientMatchDedupe = new Set<string>();
   private transientRules: GameRules | null = null;
   private transientLobbies: LobbyRoomConfig[] | null = null;
+  private transientDesign: DesignSettings | null = null;
 
   constructor(ctx: DurableObjectState, _env: Env) {
     this.ctx = ctx;
@@ -660,6 +923,10 @@ export class AuthStore {
 
   private keyLobbies() {
     return AUTH_LOBBIES_KEY;
+  }
+
+  private keyDesign() {
+    return AUTH_DESIGN_KEY;
   }
 
   private listTransientUsers(): StoredMemberUser[] {
@@ -835,6 +1102,29 @@ export class AuthStore {
     return normalized;
   }
 
+  private async getDesignSettings(): Promise<DesignSettings> {
+    const fallback = this.transientDesign ?? {
+      published: createDefaultDesignConfig(),
+      history: [],
+      updatedAt: Date.now(),
+    };
+    const raw = await this.ctx.storage.get<unknown>(this.keyDesign());
+    const normalized = normalizeDesignSettings(raw, fallback);
+    this.transientDesign = normalized;
+    return normalized;
+  }
+
+  private async putDesignSettings(settings: DesignSettings): Promise<DesignSettings> {
+    const normalized = normalizeDesignSettings(settings, settings);
+    this.transientDesign = normalized;
+    try {
+      await this.ctx.storage.put(this.keyDesign(), normalized);
+    } catch (error) {
+      if (!isDoFreeTierWriteLimitError(error)) throw error;
+    }
+    return normalized;
+  }
+
   private async ensureBootstrapAdmin(user: StoredMemberUser): Promise<StoredMemberUser> {
     if (user.role === "admin") return user;
     if (isPrimaryAdminEmail(user.email)) {
@@ -919,6 +1209,9 @@ export class AuthStore {
     if (request.method === "GET" && pathname === "/api/auth/lobbies") {
       return this.handleLobbies();
     }
+    if (request.method === "GET" && pathname === "/api/auth/design") {
+      return this.handleDesign();
+    }
     if (request.method === "GET" && pathname === "/api/auth/me") {
       return this.handleMe(url);
     }
@@ -942,6 +1235,12 @@ export class AuthStore {
     }
     if (request.method === "POST" && pathname === "/api/auth/admin/lobbies") {
       return this.handleAdminLobbies(request);
+    }
+    if (request.method === "GET" && pathname === "/api/auth/admin/design") {
+      return this.handleAdminDesign(url);
+    }
+    if (request.method === "POST" && pathname === "/api/auth/admin/design") {
+      return this.handleAdminDesignUpdate(request);
     }
 
     return jsonResponse({ error: "Bulunamadi." }, 404);
@@ -1110,6 +1409,14 @@ export class AuthStore {
     return jsonResponse({ ok: true, lobbies }, 200);
   }
 
+  private async handleDesign(): Promise<Response> {
+    const settings = await this.getDesignSettings();
+    return jsonResponse({
+      ok: true,
+      design: settings.published,
+    }, 200);
+  }
+
   private async handleMe(url: URL): Promise<Response> {
     const userId = sanitizeMemberId(url.searchParams.get("userId"));
     if (!userId) {
@@ -1273,12 +1580,15 @@ export class AuthStore {
     const users = (await this.listUsers()).map((user) => toPublicUser(user));
     const rules = await this.getRules();
     const lobbies = await this.getLobbies();
+    const design = await this.getDesignSettings();
     return jsonResponse({
       ok: true,
       admin: toPublicUser(admin),
       users,
       rules,
       lobbies,
+      design: design.published,
+      designHistory: design.history,
     }, 200);
   }
 
@@ -1512,5 +1822,117 @@ export class AuthStore {
     }
 
     return jsonResponse({ error: "Bilinmeyen admin lobi islemi." }, 400);
+  }
+
+  private async handleAdminDesign(url: URL): Promise<Response> {
+    const admin = await this.requireAdmin(url.searchParams.get("userId"));
+    if (!admin) {
+      return jsonResponse({ error: "Admin yetkisi gerekli." }, 403);
+    }
+    const settings = await this.getDesignSettings();
+    return jsonResponse({
+      ok: true,
+      admin: toPublicUser(admin),
+      design: settings.published,
+      history: settings.history,
+    }, 200);
+  }
+
+  private async handleAdminDesignUpdate(request: Request): Promise<Response> {
+    const payload = await parseJsonBody(request);
+    if (!payload || typeof payload !== "object") {
+      return jsonResponse({ error: "Gecersiz istek." }, 400);
+    }
+    const body = payload as Record<string, unknown>;
+    const admin = await this.requireAdmin(body.adminUserId);
+    if (!admin) {
+      return jsonResponse({ error: "Admin yetkisi gerekli." }, 403);
+    }
+    const action = typeof body.action === "string" ? body.action : "";
+    const current = await this.getDesignSettings();
+
+    if (action === "publish") {
+      const draft = normalizeDesignConfig(body.design, current.published);
+      const nextVersion = current.published.version + 1;
+      const now = Date.now();
+      const published: DesignConfig = {
+        ...draft,
+        version: nextVersion,
+        updatedAt: now,
+      };
+      const history = [
+        current.published,
+        ...current.history.filter((row) => row.version !== current.published.version),
+      ].slice(0, DESIGN_HISTORY_LIMIT);
+      const next = await this.putDesignSettings({
+        published,
+        history,
+        updatedAt: now,
+      });
+      return jsonResponse({
+        ok: true,
+        admin: toPublicUser(admin),
+        design: next.published,
+        history: next.history,
+      }, 200);
+    }
+
+    if (action === "rollback") {
+      const targetVersion = sanitizeRuleNumber(body.version, 0, 0, 999_999);
+      if (targetVersion <= 0) {
+        return jsonResponse({ error: "Geri alinacak surum gecersiz." }, 400);
+      }
+      const source = [current.published, ...current.history].find((row) => row.version === targetVersion);
+      if (!source) {
+        return jsonResponse({ error: "Secilen surum bulunamadi." }, 404);
+      }
+      const now = Date.now();
+      const published: DesignConfig = {
+        ...source,
+        version: current.published.version + 1,
+        updatedAt: now,
+      };
+      const history = [
+        current.published,
+        ...current.history.filter((row) => row.version !== current.published.version && row.version !== source.version),
+      ].slice(0, DESIGN_HISTORY_LIMIT);
+      const next = await this.putDesignSettings({
+        published,
+        history,
+        updatedAt: now,
+      });
+      return jsonResponse({
+        ok: true,
+        admin: toPublicUser(admin),
+        design: next.published,
+        history: next.history,
+      }, 200);
+    }
+
+    if (action === "resetDefault") {
+      const now = Date.now();
+      const published: DesignConfig = {
+        ...createDefaultDesignConfig(),
+        version: current.published.version + 1,
+        updatedAt: now,
+      };
+      const history = [
+        current.published,
+        ...current.history.filter((row) => row.version !== current.published.version),
+      ].slice(0, DESIGN_HISTORY_LIMIT);
+      const next = await this.putDesignSettings({
+        published,
+        history,
+        updatedAt: now,
+      });
+      return jsonResponse({
+        ok: true,
+        admin: toPublicUser(admin),
+        design: next.published,
+        history: next.history,
+      }, 200);
+    }
+
+    return jsonResponse({ error: "Bilinmeyen tasarim islemi." }, 400);
   }
 }

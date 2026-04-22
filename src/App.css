@@ -1,11 +1,29 @@
+:root {
+  --design-shell-from: #af8119;
+  --design-shell-to: #765309;
+  --design-topbar-from: #0c566d;
+  --design-topbar-to: #093f52;
+  --design-lobby-panel-from: #0c809e;
+  --design-lobby-panel-to: #0b5f77;
+  --design-room-panel-from: #2c583b;
+  --design-room-panel-to: #1a3d27;
+  --design-accent-from: #d49a14;
+  --design-accent-to: #ab7a0f;
+  --design-font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  --design-button-scale: 1;
+  --design-lobby-table-zone-height: 520px;
+  --design-room-board-min-height: 500px;
+}
+
 .my-shell {
   min-height: 100svh;
   display: grid;
   grid-template-rows: auto 1fr;
+  font-family: var(--design-font-family);
   background:
     radial-gradient(1200px 560px at 8% 2%, rgba(250, 234, 184, 0.18), transparent 60%),
     radial-gradient(960px 520px at 92% 100%, rgba(125, 84, 18, 0.3), transparent 62%),
-    linear-gradient(180deg, #af8119 0%, #89620f 47%, #765309 100%);
+    linear-gradient(180deg, var(--design-shell-from) 0%, #89620f 47%, var(--design-shell-to) 100%);
   color: #f7f0d9;
 }
 
@@ -15,7 +33,7 @@
   justify-content: space-between;
   gap: 10px;
   padding: 8px 10px;
-  background: linear-gradient(180deg, #0c566d, #093f52);
+  background: linear-gradient(180deg, var(--design-topbar-from), var(--design-topbar-to));
   border-bottom: 2px solid rgba(9, 101, 128, 0.7);
 }
 
@@ -73,18 +91,18 @@
 }
 
 .my-top-btn {
-  min-height: 38px;
+  min-height: calc(38px * var(--design-button-scale));
   border-radius: 6px;
   border: 1px solid rgba(20, 44, 55, 0.7);
   color: #fff;
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--design-button-scale));
   font-weight: 800;
   padding: 0 12px;
   cursor: pointer;
 }
 
 .my-btn-open {
-  background: linear-gradient(180deg, #d49a14, #ab7a0f);
+  background: linear-gradient(180deg, var(--design-accent-from), var(--design-accent-to));
 }
 
 .my-btn-play {
@@ -398,7 +416,7 @@
   gap: 8px;
   border-radius: 9px;
   border: 2px solid rgba(8, 95, 121, 0.8);
-  background: linear-gradient(180deg, #0c809e, #0a6f8a 40%, #0b5f77);
+  background: linear-gradient(180deg, var(--design-lobby-panel-from), #0a6f8a 40%, var(--design-lobby-panel-to));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
   display: flex;
   flex-direction: column;
@@ -532,7 +550,7 @@
   border: 2px solid rgba(18, 128, 160, 0.72);
   background: linear-gradient(180deg, rgba(9, 102, 129, 0.92), rgba(7, 86, 109, 0.96));
   padding: 8px;
-  height: 520px;
+  height: var(--design-lobby-table-zone-height);
   overflow-y: auto;
 }
 
@@ -1105,7 +1123,7 @@
 }
 
 .my-action-btn {
-  min-height: 36px;
+  min-height: calc(36px * var(--design-button-scale));
   border-radius: 7px;
   border: 1px solid rgba(70, 34, 6, 0.64);
   background: linear-gradient(180deg, #ea7d18, #c15b0a);
@@ -1225,7 +1243,19 @@
 .my-side-card .line {
   margin: 0;
   color: #d9f2fc;
-  font-size: 0.86rem;
+  font-size: calc(0.86rem * var(--design-button-scale));
+}
+
+.my-design-label-btn {
+  position: relative;
+  font-size: 0 !important;
+}
+
+.my-design-label-btn::after {
+  content: attr(data-design-label);
+  font-size: calc(0.92rem * var(--design-button-scale));
+  font-weight: 800;
+  color: #fff;
 }
 
 .my-member-avatar-row {
@@ -1632,7 +1662,7 @@
 .my-room-card {
   border-color: rgba(112, 76, 19, 0.78);
   background:
-    linear-gradient(180deg, rgba(44, 88, 59, 0.87), rgba(26, 61, 39, 0.92)),
+    linear-gradient(180deg, var(--design-room-panel-from), var(--design-room-panel-to)),
     linear-gradient(180deg, rgba(130, 96, 36, 0.24), rgba(84, 56, 15, 0.2));
 }
 
@@ -1711,12 +1741,12 @@
 
 .my-room-board-frame iframe {
   height: calc(100svh - 268px);
-  min-height: 500px;
+  min-height: var(--design-room-board-min-height);
 }
 
 .my-room-view-topless .my-room-board-frame iframe {
   height: calc(100svh - 222px);
-  min-height: 540px;
+  min-height: var(--design-room-board-min-height);
 }
 
 .my-room-board-status {

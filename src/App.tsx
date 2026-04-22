@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import "./App.css";
 
 type GameMode = "local" | "bot";
@@ -80,6 +80,59 @@ type GameRules = {
   lossPoints: number;
   resignPenaltyPoints: number;
   updatedAt: number;
+};
+
+type DesignTextKey =
+  | "lobbyOpenTable"
+  | "lobbyQuickPlay"
+  | "lobbyHome"
+  | "lobbyRoomSelect"
+  | "lobbyBotMode"
+  | "roomLeaveTable"
+  | "roomBackLobby"
+  | "roomInvite"
+  | "roomPrivateEnable"
+  | "roomPrivateDisable"
+  | "roomSpectatorEnable"
+  | "roomSpectatorDisable"
+  | "roomCopyInvite"
+  | "chatSend"
+  | "lobbyEmptyTitle"
+  | "lobbyEmptySub";
+
+type DesignTheme = {
+  shellFrom: string;
+  shellTo: string;
+  topbarFrom: string;
+  topbarTo: string;
+  lobbyPanelFrom: string;
+  lobbyPanelTo: string;
+  roomPanelFrom: string;
+  roomPanelTo: string;
+  accentFrom: string;
+  accentTo: string;
+  fontFamily: string;
+};
+
+type DesignLayout = {
+  lobbyHeaderActions: ("openTable" | "quickPlay")[];
+  lobbyTopButtons: ("home" | "roomSelect" | "botMode")[];
+  roomOwnerButtons: ("invite" | "private" | "spectator" | "copyLink")[];
+};
+
+type DesignSizing = {
+  buttonScalePct: number;
+  lobbyTableZoneHeight: number;
+  roomBoardMinHeight: number;
+};
+
+type DesignConfig = {
+  version: number;
+  updatedAt: number;
+  theme: DesignTheme;
+  texts: Partial<Record<DesignTextKey, string>>;
+  layout: DesignLayout;
+  sizing: DesignSizing;
 };
 
 type GuestProfile = {
@@ -293,6 +346,7 @@ const HEARTBEAT_MS = 8_000;
 const DEFAULT_WIN_POINTS = 100;
 const DEFAULT_LOSS_POINTS = 0;
 const DEFAULT_RESIGN_PENALTY_POINTS = 50;
+const DEFAULT_DESIGN_FONT = "'Trebuchet MS', 'Segoe UI', sans-serif";
 const DEFAULT_TABLE_SET_COUNT = 1;
 const MIN_TABLE_SET_COUNT = 1;
 const MAX_TABLE_SET_COUNT = 5;
@@ -591,6 +645,173 @@ function normalizeGameRules(raw: unknown, fallback?: GameRules): GameRules {
     lossPoints: normalizeRuleNumber(candidate.lossPoints, base.lossPoints, -10_000, 10_000),
     resignPenaltyPoints: normalizeRuleNumber(candidate.resignPenaltyPoints, base.resignPenaltyPoints, 0, 10_000),
     updatedAt: Number.isFinite(candidate.updatedAt) ? Number(candidate.updatedAt) : base.updatedAt,
+  };
+}
+
+function sanitizeDesignTextKey(raw: unknown): DesignTextKey | null {
+  if (
+    raw === "lobbyOpenTable"
+    || raw === "lobbyQuickPlay"
+    || raw === "lobbyHome"
+    || raw === "lobbyRoomSelect"
+    || raw === "lobbyBotMode"
+    || raw === "roomLeaveTable"
+    || raw === "roomBackLobby"
+    || raw === "roomInvite"
+    || raw === "roomPrivateEnable"
+    || raw === "roomPrivateDisable"
+    || raw === "roomSpectatorEnable"
+    || raw === "roomSpectatorDisable"
+    || raw === "roomCopyInvite"
+    || raw === "chatSend"
+    || raw === "lobbyEmptyTitle"
+    || raw === "lobbyEmptySub"
+  ) {
+    return raw;
+  }
+  return null;
+}
+
+function sanitizeDesignColor(raw: unknown, fallback: string) {
+  if (typeof raw !== "string") return fallback;
+  const value = raw.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(value)) return value.toUpperCase();
+  return fallback;
+}
+
+function sanitizeDesignFontFamily(raw: unknown, fallback: string) {
+  if (typeof raw !== "string") return fallback;
+  const value = raw.trim().slice(0, 120);
+  if (!value) return fallback;
+  return value.replace(/[<>{}]/g, "");
+}
+
+function createDefaultDesignConfig(): DesignConfig {
+  return {
+    version: 1,
+    updatedAt: Date.now(),
+    theme: {
+      shellFrom: "#AF8119",
+      shellTo: "#765309",
+      topbarFrom: "#0C566D",
+      topbarTo: "#093F52",
+      lobbyPanelFrom: "#0C809E",
+      lobbyPanelTo: "#0B5F77",
+      roomPanelFrom: "#2C583B",
+      roomPanelTo: "#1A3D27",
+      accentFrom: "#D49A14",
+      accentTo: "#AB7A0F",
+      fontFamily: DEFAULT_DESIGN_FONT,
+    },
+    texts: {},
+    layout: {
+      lobbyHeaderActions: ["openTable", "quickPlay"],
+      lobbyTopButtons: ["home", "roomSelect", "botMode"],
+      roomOwnerButtons: ["invite", "private", "spectator", "copyLink"],
+    },
+    sizing: {
+      buttonScalePct: 100,
+      lobbyTableZoneHeight: 520,
+      roomBoardMinHeight: 500,
+    },
+  };
+}
+
+function normalizeDesignLayout(raw: unknown, fallback: DesignLayout): DesignLayout {
+  const candidate = raw && typeof raw === "object" ? raw as Partial<DesignLayout> : {};
+  const rows = Array.isArray(candidate.lobbyHeaderActions) ? candidate.lobbyHeaderActions : fallback.lobbyHeaderActions;
+  const out: ("openTable" | "quickPlay")[] = [];
+  rows.forEach((item) => {
+    if ((item === "openTable" || item === "quickPlay") && !out.includes(item)) {
+      out.push(item);
+    }
+  });
+  if (!out.includes("openTable")) out.push("openTable");
+  if (!out.includes("quickPlay")) out.push("quickPlay");
+  const topRows = Array.isArray(candidate.lobbyTopButtons) ? candidate.lobbyTopButtons : fallback.lobbyTopButtons;
+  const lobbyTopButtons: ("home" | "roomSelect" | "botMode")[] = [];
+  topRows.forEach((item) => {
+    if ((item === "home" || item === "roomSelect" || item === "botMode") && !lobbyTopButtons.includes(item)) {
+      lobbyTopButtons.push(item);
+    }
+  });
+  if (!lobbyTopButtons.includes("home")) lobbyTopButtons.push("home");
+  if (!lobbyTopButtons.includes("roomSelect")) lobbyTopButtons.push("roomSelect");
+  if (!lobbyTopButtons.includes("botMode")) lobbyTopButtons.push("botMode");
+
+  const ownerRows = Array.isArray(candidate.roomOwnerButtons) ? candidate.roomOwnerButtons : fallback.roomOwnerButtons;
+  const roomOwnerButtons: ("invite" | "private" | "spectator" | "copyLink")[] = [];
+  ownerRows.forEach((item) => {
+    if ((item === "invite" || item === "private" || item === "spectator" || item === "copyLink") && !roomOwnerButtons.includes(item)) {
+      roomOwnerButtons.push(item);
+    }
+  });
+  if (!roomOwnerButtons.includes("invite")) roomOwnerButtons.push("invite");
+  if (!roomOwnerButtons.includes("private")) roomOwnerButtons.push("private");
+  if (!roomOwnerButtons.includes("spectator")) roomOwnerButtons.push("spectator");
+  if (!roomOwnerButtons.includes("copyLink")) roomOwnerButtons.push("copyLink");
+
+  return {
+    lobbyHeaderActions: out,
+    lobbyTopButtons,
+    roomOwnerButtons,
+  };
+}
+
+function normalizeDesignSizing(raw: unknown, fallback: DesignSizing): DesignSizing {
+  const candidate = raw && typeof raw === "object" ? raw as Partial<DesignSizing> : {};
+  return {
+    buttonScalePct: normalizeRuleNumber(candidate.buttonScalePct, fallback.buttonScalePct, 80, 140),
+    lobbyTableZoneHeight: normalizeRuleNumber(candidate.lobbyTableZoneHeight, fallback.lobbyTableZoneHeight, 360, 760),
+    roomBoardMinHeight: normalizeRuleNumber(candidate.roomBoardMinHeight, fallback.roomBoardMinHeight, 420, 760),
+  };
+}
+
+function normalizeDesignTexts(raw: unknown, fallback: Partial<Record<DesignTextKey, string>>) {
+  const next: Partial<Record<DesignTextKey, string>> = {};
+  const candidate = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+  Object.entries(candidate).forEach(([keyRaw, valueRaw]) => {
+    const key = sanitizeDesignTextKey(keyRaw);
+    if (!key || typeof valueRaw !== "string") return;
+    const text = valueRaw.replace(/\s+/g, " ").trim().slice(0, 72);
+    if (!text) return;
+    next[key] = text;
+  });
+  Object.entries(fallback).forEach(([keyRaw, value]) => {
+    const key = sanitizeDesignTextKey(keyRaw);
+    if (!key || !value || next[key]) return;
+    next[key] = value;
+  });
+  return next;
+}
+
+function normalizeDesignTheme(raw: unknown, fallback: DesignTheme): DesignTheme {
+  const candidate = raw && typeof raw === "object" ? raw as Partial<DesignTheme> : {};
+  return {
+    shellFrom: sanitizeDesignColor(candidate.shellFrom, fallback.shellFrom),
+    shellTo: sanitizeDesignColor(candidate.shellTo, fallback.shellTo),
+    topbarFrom: sanitizeDesignColor(candidate.topbarFrom, fallback.topbarFrom),
+    topbarTo: sanitizeDesignColor(candidate.topbarTo, fallback.topbarTo),
+    lobbyPanelFrom: sanitizeDesignColor(candidate.lobbyPanelFrom, fallback.lobbyPanelFrom),
+    lobbyPanelTo: sanitizeDesignColor(candidate.lobbyPanelTo, fallback.lobbyPanelTo),
+    roomPanelFrom: sanitizeDesignColor(candidate.roomPanelFrom, fallback.roomPanelFrom),
+    roomPanelTo: sanitizeDesignColor(candidate.roomPanelTo, fallback.roomPanelTo),
+    accentFrom: sanitizeDesignColor(candidate.accentFrom, fallback.accentFrom),
+    accentTo: sanitizeDesignColor(candidate.accentTo, fallback.accentTo),
+    fontFamily: sanitizeDesignFontFamily(candidate.fontFamily, fallback.fontFamily),
+  };
+}
+
+function normalizeDesignConfig(raw: unknown, fallback?: DesignConfig): DesignConfig {
+  const base = fallback ?? createDefaultDesignConfig();
+  const candidate = raw && typeof raw === "object" ? raw as Partial<DesignConfig> : {};
+  return {
+    version: normalizeRuleNumber(candidate.version, base.version, 1, 999_999),
+    updatedAt: Number.isFinite(candidate.updatedAt) ? Number(candidate.updatedAt) : base.updatedAt,
+    theme: normalizeDesignTheme(candidate.theme, base.theme),
+    texts: normalizeDesignTexts(candidate.texts, base.texts),
+    layout: normalizeDesignLayout(candidate.layout, base.layout),
+    sizing: normalizeDesignSizing(candidate.sizing, base.sizing),
   };
 }
 
@@ -2023,6 +2244,17 @@ function App() {
   const [adminSort, setAdminSort] = useState<AdminSortKey>("points");
   const [adminPointDrafts, setAdminPointDrafts] = useState<Record<string, string>>({});
   const [adminDeltaDrafts, setAdminDeltaDrafts] = useState<Record<string, string>>({});
+  const [designPublished, setDesignPublished] = useState<DesignConfig>(() => createDefaultDesignConfig());
+  const [designDraft, setDesignDraft] = useState<DesignConfig>(() => createDefaultDesignConfig());
+  const [adminDesignHistory, setAdminDesignHistory] = useState<DesignConfig[]>([]);
+  const [adminDesignBusy, setAdminDesignBusy] = useState(false);
+  const [adminDesignError, setAdminDesignError] = useState("");
+  const [adminDesignNotice, setAdminDesignNotice] = useState("");
+  const [adminDesignPreview, setAdminDesignPreview] = useState(true);
+  const [adminDesignRollbackVersion, setAdminDesignRollbackVersion] = useState(0);
+  const [adminDesignDraggingAction, setAdminDesignDraggingAction] = useState<"openTable" | "quickPlay" | null>(null);
+  const [adminDesignDraggingTopButton, setAdminDesignDraggingTopButton] = useState<"home" | "roomSelect" | "botMode" | null>(null);
+  const [adminDesignDraggingRoomOwnerButton, setAdminDesignDraggingRoomOwnerButton] = useState<"invite" | "private" | "spectator" | "copyLink" | null>(null);
   const [syncHealthNow, setSyncHealthNow] = useState(() => Date.now());
   const [realtimeSocketReadyState, setRealtimeSocketReadyState] = useState<number>(
     typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED,
@@ -2566,6 +2798,59 @@ function App() {
     });
     return sorted;
   }, [adminUsers, adminQuery, adminRoleFilter, adminSort]);
+  const activeDesign = useMemo(() => {
+    if (isAdminWindow && member?.role === "admin" && adminDesignPreview) {
+      return normalizeDesignConfig(designDraft, designPublished);
+    }
+    return normalizeDesignConfig(designPublished, createDefaultDesignConfig());
+  }, [isAdminWindow, member?.role, adminDesignPreview, designDraft, designPublished]);
+  const designCssVars = useMemo<CSSProperties>(() => {
+    const theme = activeDesign.theme;
+    const sizing = activeDesign.sizing;
+    return {
+      "--design-shell-from": theme.shellFrom,
+      "--design-shell-to": theme.shellTo,
+      "--design-topbar-from": theme.topbarFrom,
+      "--design-topbar-to": theme.topbarTo,
+      "--design-lobby-panel-from": theme.lobbyPanelFrom,
+      "--design-lobby-panel-to": theme.lobbyPanelTo,
+      "--design-room-panel-from": theme.roomPanelFrom,
+      "--design-room-panel-to": theme.roomPanelTo,
+      "--design-accent-from": theme.accentFrom,
+      "--design-accent-to": theme.accentTo,
+      "--design-font-family": theme.fontFamily || DEFAULT_DESIGN_FONT,
+      "--design-button-scale": `${sizing.buttonScalePct / 100}`,
+      "--design-lobby-table-zone-height": `${sizing.lobbyTableZoneHeight}px`,
+      "--design-room-board-min-height": `${sizing.roomBoardMinHeight}px`,
+    } as CSSProperties;
+  }, [activeDesign]);
+  const lobbyHeaderActionOrder = useMemo(
+    () => normalizeDesignLayout(activeDesign.layout, createDefaultDesignConfig().layout).lobbyHeaderActions,
+    [activeDesign.layout],
+  );
+  const lobbyTopButtonOrder = useMemo(
+    () => normalizeDesignLayout(activeDesign.layout, createDefaultDesignConfig().layout).lobbyTopButtons,
+    [activeDesign.layout],
+  );
+  const roomOwnerButtonOrder = useMemo(
+    () => normalizeDesignLayout(activeDesign.layout, createDefaultDesignConfig().layout).roomOwnerButtons,
+    [activeDesign.layout],
+  );
+  const lobbyHeaderActionButtons = useMemo(() => {
+    return {
+      openTable: (
+        <button key="openTable" className="my-top-btn my-btn-open" onClick={onOpenTable}>
+          {activeDesign.texts.lobbyOpenTable || "Masa Aç"}
+        </button>
+      ),
+      quickPlay: (
+        <button key="quickPlay" className="my-top-btn my-btn-play" onClick={onQuickPlay}>
+          {activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}
+        </button>
+      ),
+    } satisfies Record<"openTable" | "quickPlay", JSX.Element>;
+  }, [activeDesign.texts.lobbyOpenTable, activeDesign.texts.lobbyQuickPlay, onOpenTable, onQuickPlay]);
+  void lobbyHeaderActionButtons;
 
   function clearOpponentIdleWatch() {
     opponentIdleWatchRef.current = null;
@@ -3711,6 +3996,21 @@ function App() {
     }
   }
 
+  async function refreshPublishedDesign() {
+    try {
+      const response = await fetch("/api/auth/design", { method: "GET" });
+      const data = (await response.json().catch(() => null)) as { design?: unknown } | null;
+      if (!response.ok) return;
+      const nextDesign = normalizeDesignConfig(data?.design, designPublished);
+      setDesignPublished(nextDesign);
+      if (!isAdminWindow || member?.role !== "admin") {
+        setDesignDraft(nextDesign);
+      }
+    } catch {
+      // Tasarım ayarı servisi yoksa mevcut tema ile devam.
+    }
+  }
+
   async function loadAdminState(adminUserId?: string) {
     const userId = sanitizeGuestId(adminUserId ?? member?.id ?? "");
     if (!userId) return;
@@ -3720,7 +4020,14 @@ function App() {
       const url = new URL("/api/auth/admin/state", window.location.origin);
       url.searchParams.set("userId", userId);
       const response = await fetch(url.toString(), { method: "GET" });
-      const data = (await response.json().catch(() => null)) as { users?: unknown; rules?: unknown; lobbies?: unknown; error?: unknown } | null;
+      const data = (await response.json().catch(() => null)) as {
+        users?: unknown;
+        rules?: unknown;
+        lobbies?: unknown;
+        design?: unknown;
+        designHistory?: unknown;
+        error?: unknown;
+      } | null;
       if (!response.ok) {
         const errorText = typeof data?.error === "string" ? data.error : "Admin verisi alinamadi.";
         setAdminError(errorText);
@@ -3733,6 +4040,14 @@ function App() {
       const nextRules = normalizeGameRules(data?.rules, gameRules);
       setGameRules(nextRules);
       setRuleDraft(nextRules);
+      const nextDesign = normalizeDesignConfig(data?.design, designPublished);
+      setDesignPublished(nextDesign);
+      setDesignDraft(nextDesign);
+      const historyRows = Array.isArray(data?.designHistory)
+        ? data?.designHistory.map((row) => normalizeDesignConfig(row, nextDesign)).sort((a, b) => b.version - a.version).slice(0, 25)
+        : [];
+      setAdminDesignHistory(historyRows.filter((row) => row.version !== nextDesign.version));
+      setAdminDesignRollbackVersion(historyRows[0]?.version ?? 0);
       setAdminSelectedUserId((prev) => (prev && users.some((u) => u.id === prev) ? prev : (users[0]?.id ?? "")));
       setAdminSelectedLobbyId((prev) => (prev && rooms.some((r) => r.id === prev) ? prev : (rooms[0]?.id ?? "")));
     } catch {
@@ -3987,6 +4302,213 @@ function App() {
       setAdminError("Kural servisine baglanilamadi.");
     } finally {
       setAdminBusy(false);
+    }
+  }
+
+  function updateDesignTheme<K extends keyof DesignTheme>(key: K, value: DesignTheme[K]) {
+    setDesignDraft((prev) => ({
+      ...prev,
+      theme: {
+        ...prev.theme,
+        [key]: value,
+      },
+    }));
+  }
+
+  function updateDesignSizing<K extends keyof DesignSizing>(key: K, value: number) {
+    setDesignDraft((prev) => ({
+      ...prev,
+      sizing: {
+        ...prev.sizing,
+        [key]: value,
+      },
+    }));
+  }
+
+  function updateDesignText(key: DesignTextKey, value: string) {
+    const clean = value.replace(/\s+/g, " ").trim().slice(0, 72);
+    setDesignDraft((prev) => ({
+      ...prev,
+      texts: clean
+        ? {
+          ...prev.texts,
+          [key]: clean,
+        }
+        : (() => {
+          const next = { ...prev.texts };
+          delete next[key];
+          return next;
+        })(),
+    }));
+  }
+
+  function moveDesignLobbyAction(targetAction: "openTable" | "quickPlay") {
+    if (!adminDesignDraggingAction || adminDesignDraggingAction === targetAction) return;
+    setDesignDraft((prev) => {
+      const order = [...normalizeDesignLayout(prev.layout, createDefaultDesignConfig().layout).lobbyHeaderActions];
+      const from = order.indexOf(adminDesignDraggingAction);
+      const to = order.indexOf(targetAction);
+      if (from < 0 || to < 0 || from === to) return prev;
+      order.splice(from, 1);
+      order.splice(to, 0, adminDesignDraggingAction);
+      return {
+        ...prev,
+        layout: {
+          ...prev.layout,
+          lobbyHeaderActions: order,
+        },
+      };
+    });
+  }
+
+  function moveDesignTopButton(targetAction: "home" | "roomSelect" | "botMode") {
+    if (!adminDesignDraggingTopButton || adminDesignDraggingTopButton === targetAction) return;
+    setDesignDraft((prev) => {
+      const layout = normalizeDesignLayout(prev.layout, createDefaultDesignConfig().layout);
+      const order = [...layout.lobbyTopButtons];
+      const from = order.indexOf(adminDesignDraggingTopButton);
+      const to = order.indexOf(targetAction);
+      if (from < 0 || to < 0 || from === to) return prev;
+      order.splice(from, 1);
+      order.splice(to, 0, adminDesignDraggingTopButton);
+      return {
+        ...prev,
+        layout: {
+          ...layout,
+          lobbyTopButtons: order,
+        },
+      };
+    });
+  }
+
+  function moveDesignRoomOwnerButton(targetAction: "invite" | "private" | "spectator" | "copyLink") {
+    if (!adminDesignDraggingRoomOwnerButton || adminDesignDraggingRoomOwnerButton === targetAction) return;
+    setDesignDraft((prev) => {
+      const layout = normalizeDesignLayout(prev.layout, createDefaultDesignConfig().layout);
+      const order = [...layout.roomOwnerButtons];
+      const from = order.indexOf(adminDesignDraggingRoomOwnerButton);
+      const to = order.indexOf(targetAction);
+      if (from < 0 || to < 0 || from === to) return prev;
+      order.splice(from, 1);
+      order.splice(to, 0, adminDesignDraggingRoomOwnerButton);
+      return {
+        ...prev,
+        layout: {
+          ...layout,
+          roomOwnerButtons: order,
+        },
+      };
+    });
+  }
+
+  async function publishDesignDraft() {
+    if (!member || member.role !== "admin") return;
+    setAdminDesignBusy(true);
+    setAdminDesignError("");
+    setAdminDesignNotice("");
+    try {
+      const response = await fetch("/api/auth/admin/design", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          adminUserId: member.id,
+          action: "publish",
+          design: normalizeDesignConfig(designDraft, designPublished),
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { design?: unknown; history?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const errorText = typeof data?.error === "string" ? data.error : "Tasarim yayinlanamadi.";
+        setAdminDesignError(errorText);
+        return;
+      }
+      const nextDesign = normalizeDesignConfig(data?.design, designDraft);
+      const historyRows = Array.isArray(data?.history)
+        ? data.history.map((row) => normalizeDesignConfig(row, nextDesign)).sort((a, b) => b.version - a.version).slice(0, 25)
+        : [];
+      setDesignPublished(nextDesign);
+      setDesignDraft(nextDesign);
+      setAdminDesignHistory(historyRows);
+      setAdminDesignRollbackVersion(historyRows[0]?.version ?? 0);
+      setAdminDesignNotice(`Tasarim yayinlandi (v${nextDesign.version}).`);
+    } catch {
+      setAdminDesignError("Tasarim servisine baglanilamadi.");
+    } finally {
+      setAdminDesignBusy(false);
+    }
+  }
+
+  async function rollbackDesignVersion() {
+    if (!member || member.role !== "admin") return;
+    if (!adminDesignRollbackVersion) return;
+    setAdminDesignBusy(true);
+    setAdminDesignError("");
+    setAdminDesignNotice("");
+    try {
+      const response = await fetch("/api/auth/admin/design", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          adminUserId: member.id,
+          action: "rollback",
+          version: adminDesignRollbackVersion,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { design?: unknown; history?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const errorText = typeof data?.error === "string" ? data.error : "Geri alma basarisiz.";
+        setAdminDesignError(errorText);
+        return;
+      }
+      const nextDesign = normalizeDesignConfig(data?.design, designPublished);
+      const historyRows = Array.isArray(data?.history)
+        ? data.history.map((row) => normalizeDesignConfig(row, nextDesign)).sort((a, b) => b.version - a.version).slice(0, 25)
+        : [];
+      setDesignPublished(nextDesign);
+      setDesignDraft(nextDesign);
+      setAdminDesignHistory(historyRows);
+      setAdminDesignRollbackVersion(historyRows[0]?.version ?? 0);
+      setAdminDesignNotice(`Tasarim geri alindi (v${nextDesign.version}).`);
+    } catch {
+      setAdminDesignError("Tasarim servisine baglanilamadi.");
+    } finally {
+      setAdminDesignBusy(false);
+    }
+  }
+
+  async function resetDesignToDefault() {
+    if (!member || member.role !== "admin") return;
+    setAdminDesignBusy(true);
+    setAdminDesignError("");
+    setAdminDesignNotice("");
+    try {
+      const response = await fetch("/api/auth/admin/design", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          adminUserId: member.id,
+          action: "resetDefault",
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { design?: unknown; history?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const errorText = typeof data?.error === "string" ? data.error : "Varsayilan tema yuklenemedi.";
+        setAdminDesignError(errorText);
+        return;
+      }
+      const nextDesign = normalizeDesignConfig(data?.design, createDefaultDesignConfig());
+      const historyRows = Array.isArray(data?.history)
+        ? data.history.map((row) => normalizeDesignConfig(row, nextDesign)).sort((a, b) => b.version - a.version).slice(0, 25)
+        : [];
+      setDesignPublished(nextDesign);
+      setDesignDraft(nextDesign);
+      setAdminDesignHistory(historyRows);
+      setAdminDesignRollbackVersion(historyRows[0]?.version ?? 0);
+      setAdminDesignNotice(`Varsayilan tema yuklendi (v${nextDesign.version}).`);
+    } catch {
+      setAdminDesignError("Tasarim servisine baglanilamadi.");
+    } finally {
+      setAdminDesignBusy(false);
     }
   }
 
@@ -6030,6 +6552,7 @@ function App() {
 
   useEffect(() => {
     void refreshGameRules();
+    void refreshPublishedDesign();
   }, []);
 
   useEffect(() => {
@@ -6043,6 +6566,11 @@ function App() {
     }
     void loadAdminState(member.id);
   }, [member?.id, member?.role]);
+
+  useEffect(() => {
+    if (isAdminWindow && member?.role === "admin") return;
+    setDesignDraft(designPublished);
+  }, [designPublished, isAdminWindow, member?.role]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -6701,7 +7229,7 @@ function App() {
 
   if (isAdminWindow) {
     return (
-      <main className="my-shell my-admin-window-page">
+      <main className="my-shell my-admin-window-page" style={designCssVars}>
         <header className="my-topbar">
           <div className="my-topbar-left">
             <button className="my-top-btn my-btn-member-alt" onClick={() => window.close()}>
@@ -6838,6 +7366,340 @@ function App() {
               {adminError ? <p className="my-error">{adminError}</p> : null}
             </section>
 
+            <section className="my-side-card">
+              <h3>Tasarim Modu</h3>
+              <p className="line">Bu panel sadece gorunumu degistirir, oyun mantigina dokunmaz.</p>
+
+              <div className="my-inline-actions">
+                <button
+                  className="my-action-btn soft"
+                  onClick={() => setAdminDesignPreview((prev) => !prev)}
+                  disabled={adminDesignBusy}
+                >
+                  {adminDesignPreview ? "Onizleme Acik" : "Onizleme Kapali"}
+                </button>
+                <button
+                  className="my-action-btn soft"
+                  onClick={() => setDesignDraft(normalizeDesignConfig(designPublished, designPublished))}
+                  disabled={adminDesignBusy}
+                >
+                  Taslagi Geri Al
+                </button>
+              </div>
+
+              <div className="my-field">
+                <span>Buton Sirasi (Surukle-Birak)</span>
+                <div className="my-admin-room-list">
+                  {normalizeDesignLayout(designDraft.layout, createDefaultDesignConfig().layout).lobbyHeaderActions.map((action) => (
+                    <button
+                      key={action}
+                      className="my-action-btn soft"
+                      draggable={!adminDesignBusy}
+                      onDragStart={() => setAdminDesignDraggingAction(action)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                      }}
+                      onDrop={() => {
+                        moveDesignLobbyAction(action);
+                        setAdminDesignDraggingAction(null);
+                      }}
+                      onDragEnd={() => setAdminDesignDraggingAction(null)}
+                      disabled={adminDesignBusy}
+                    >
+                      {action === "openTable" ? "Masa Ac" : "Hemen Oyna"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="my-field">
+                <span>Ust Bar Sirasi (Surukle-Birak)</span>
+                <div className="my-admin-room-list">
+                  {normalizeDesignLayout(designDraft.layout, createDefaultDesignConfig().layout).lobbyTopButtons.map((action) => (
+                    <button
+                      key={action}
+                      className="my-action-btn soft"
+                      draggable={!adminDesignBusy}
+                      onDragStart={() => setAdminDesignDraggingTopButton(action)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                      }}
+                      onDrop={() => {
+                        moveDesignTopButton(action);
+                        setAdminDesignDraggingTopButton(null);
+                      }}
+                      onDragEnd={() => setAdminDesignDraggingTopButton(null)}
+                      disabled={adminDesignBusy}
+                    >
+                      {action === "home" ? "Ana Sayfa" : action === "roomSelect" ? "Oda Sec" : "Bota Karsi"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="my-field">
+                <span>Masa Sahibi Buton Sirasi</span>
+                <div className="my-admin-room-list">
+                  {normalizeDesignLayout(designDraft.layout, createDefaultDesignConfig().layout).roomOwnerButtons.map((action) => (
+                    <button
+                      key={action}
+                      className="my-action-btn soft"
+                      draggable={!adminDesignBusy}
+                      onDragStart={() => setAdminDesignDraggingRoomOwnerButton(action)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                      }}
+                      onDrop={() => {
+                        moveDesignRoomOwnerButton(action);
+                        setAdminDesignDraggingRoomOwnerButton(null);
+                      }}
+                      onDragEnd={() => setAdminDesignDraggingRoomOwnerButton(null)}
+                      disabled={adminDesignBusy}
+                    >
+                      {action === "invite"
+                        ? "Davet Et"
+                        : action === "private"
+                          ? "Masa Ozel Yap/Kapat"
+                          : action === "spectator"
+                            ? "Izleyici Yazisi Ac/Kapat"
+                            : "Davet Linki Kopyala"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="my-admin-rules-grid">
+                <label className="my-field">
+                  <span>Buton Olcegi %</span>
+                  <input
+                    className="my-input"
+                    type="range"
+                    min={80}
+                    max={140}
+                    value={designDraft.sizing.buttonScalePct}
+                    onChange={(e) => updateDesignSizing("buttonScalePct", normalizeRuleNumber(e.target.value, designDraft.sizing.buttonScalePct, 80, 140))}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Lobi Masa Alani</span>
+                  <input
+                    className="my-input"
+                    type="number"
+                    min={360}
+                    max={760}
+                    value={designDraft.sizing.lobbyTableZoneHeight}
+                    onChange={(e) => updateDesignSizing("lobbyTableZoneHeight", normalizeRuleNumber(e.target.value, designDraft.sizing.lobbyTableZoneHeight, 360, 760))}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Tahta Min Yukseklik</span>
+                  <input
+                    className="my-input"
+                    type="number"
+                    min={420}
+                    max={760}
+                    value={designDraft.sizing.roomBoardMinHeight}
+                    onChange={(e) => updateDesignSizing("roomBoardMinHeight", normalizeRuleNumber(e.target.value, designDraft.sizing.roomBoardMinHeight, 420, 760))}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+              </div>
+
+              <div className="my-admin-rules-grid">
+                <label className="my-field">
+                  <span>Arkaplan Baslangic</span>
+                  <input className="my-input" type="color" value={designDraft.theme.shellFrom} onChange={(e) => updateDesignTheme("shellFrom", e.target.value)} disabled={adminDesignBusy} />
+                </label>
+                <label className="my-field">
+                  <span>Arkaplan Bitis</span>
+                  <input className="my-input" type="color" value={designDraft.theme.shellTo} onChange={(e) => updateDesignTheme("shellTo", e.target.value)} disabled={adminDesignBusy} />
+                </label>
+                <label className="my-field">
+                  <span>Topbar Baslangic</span>
+                  <input className="my-input" type="color" value={designDraft.theme.topbarFrom} onChange={(e) => updateDesignTheme("topbarFrom", e.target.value)} disabled={adminDesignBusy} />
+                </label>
+                <label className="my-field">
+                  <span>Topbar Bitis</span>
+                  <input className="my-input" type="color" value={designDraft.theme.topbarTo} onChange={(e) => updateDesignTheme("topbarTo", e.target.value)} disabled={adminDesignBusy} />
+                </label>
+                <label className="my-field">
+                  <span>Panel Font</span>
+                  <input className="my-input" value={designDraft.theme.fontFamily} onChange={(e) => updateDesignTheme("fontFamily", e.target.value)} disabled={adminDesignBusy} />
+                </label>
+              </div>
+
+              <div className="my-admin-rules-grid">
+                <label className="my-field">
+                  <span>Lobi Masa Ac</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.lobbyOpenTable ?? ""}
+                    onChange={(e) => updateDesignText("lobbyOpenTable", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Lobi Hemen Oyna</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.lobbyQuickPlay ?? ""}
+                    onChange={(e) => updateDesignText("lobbyQuickPlay", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Masadan Kalk</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.roomLeaveTable ?? ""}
+                    onChange={(e) => updateDesignText("roomLeaveTable", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Gonder Butonu</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.chatSend ?? ""}
+                    onChange={(e) => updateDesignText("chatSend", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+              </div>
+
+              <div className="my-admin-rules-grid">
+                <label className="my-field">
+                  <span>Ust Bar Ana Sayfa</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.lobbyHome ?? ""}
+                    onChange={(e) => updateDesignText("lobbyHome", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Ust Bar Oda Sec</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.lobbyRoomSelect ?? ""}
+                    onChange={(e) => updateDesignText("lobbyRoomSelect", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Ust Bar Bota Karsi</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.lobbyBotMode ?? ""}
+                    onChange={(e) => updateDesignText("lobbyBotMode", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Masa Menusu Lobiye Don</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.roomBackLobby ?? ""}
+                    onChange={(e) => updateDesignText("roomBackLobby", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Davet Et</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.roomInvite ?? ""}
+                    onChange={(e) => updateDesignText("roomInvite", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Masa Ozel Yap</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.roomPrivateEnable ?? ""}
+                    onChange={(e) => updateDesignText("roomPrivateEnable", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Ozeli Kapat</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.roomPrivateDisable ?? ""}
+                    onChange={(e) => updateDesignText("roomPrivateDisable", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Izleyici Yazisini Ac</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.roomSpectatorEnable ?? ""}
+                    onChange={(e) => updateDesignText("roomSpectatorEnable", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Izleyici Yazisini Kapat</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.roomSpectatorDisable ?? ""}
+                    onChange={(e) => updateDesignText("roomSpectatorDisable", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+                <label className="my-field">
+                  <span>Davet Linki Kopyala</span>
+                  <input
+                    className="my-input"
+                    value={designDraft.texts.roomCopyInvite ?? ""}
+                    onChange={(e) => updateDesignText("roomCopyInvite", e.target.value)}
+                    disabled={adminDesignBusy}
+                  />
+                </label>
+              </div>
+
+              <div className="my-inline-actions">
+                <button className="my-action-btn" onClick={publishDesignDraft} disabled={adminDesignBusy}>
+                  {adminDesignBusy ? "Yayinlaniyor..." : "Yayinla"}
+                </button>
+                <button className="my-action-btn soft" onClick={resetDesignToDefault} disabled={adminDesignBusy}>
+                  Varsayilan
+                </button>
+              </div>
+
+              <div className="my-inline-actions">
+                <select
+                  className="my-input"
+                  value={String(adminDesignRollbackVersion || "")}
+                  onChange={(e) => setAdminDesignRollbackVersion(Number.parseInt(e.target.value, 10) || 0)}
+                  disabled={adminDesignBusy || adminDesignHistory.length === 0}
+                >
+                  {adminDesignHistory.length === 0 ? (
+                    <option value="">Geri alinacak surum yok</option>
+                  ) : (
+                    adminDesignHistory.map((version) => (
+                      <option key={version.version} value={version.version}>
+                        v{version.version} - {new Date(version.updatedAt).toLocaleString("tr-TR")}
+                      </option>
+                    ))
+                  )}
+                </select>
+                <button
+                  className="my-action-btn soft"
+                  onClick={rollbackDesignVersion}
+                  disabled={adminDesignBusy || !adminDesignRollbackVersion}
+                >
+                  Geri Al
+                </button>
+              </div>
+              {adminDesignNotice ? <p className="my-notice my-notice-soft">{adminDesignNotice}</p> : null}
+              {adminDesignError ? <p className="my-error">{adminDesignError}</p> : null}
+            </section>
+
             <section className="my-side-card my-admin-users-panel">
               <h3>Kullanıcı Yönetimi</h3>
               <div className="my-admin-toolbar">
@@ -6944,39 +7806,44 @@ function App() {
   }
 
   return (
-    <main className="my-shell">
+    <main className="my-shell" style={designCssVars}>
       {viewMode === "lobby" && !showGamePicker && !showRoomPicker ? (
         <header className="my-topbar">
           <div className="my-topbar-left">
             {!roomSession ? (
               <>
-                <button className="my-top-btn my-btn-member-alt" onClick={goToGameSelection}>
-                  Ana Sayfa
+                <button className="my-top-btn my-btn-member-alt" style={{ order: lobbyTopButtonOrder.indexOf("home") }} onClick={goToGameSelection}>
+                  {activeDesign.texts.lobbyHome || "Ana Sayfa"}
                 </button>
                 <button
                   className="my-top-btn my-btn-member-alt"
+                  style={{ order: lobbyTopButtonOrder.indexOf("roomSelect") }}
                   onClick={() => {
                     setGamePickerOpen(false);
                     setRoomPickerOpen(true);
                     pushEntryScreenHistory("room");
                   }}
                 >
-                  Oda Sec
+                  {activeDesign.texts.lobbyRoomSelect || "Oda Sec"}
                 </button>
-                <button className="my-top-btn my-btn-open my-lobby-top-action-hidden" onClick={onOpenTable}>
+                <button
+                  className="my-top-btn my-btn-open my-lobby-top-action-hidden my-design-label-btn"
+                  data-design-label={activeDesign.texts.lobbyOpenTable || "Masa Aç"}
+                  onClick={onOpenTable}
+                >
                   Masa Aç
                 </button>
                 <button className="my-top-btn my-btn-play my-lobby-top-action-hidden" onClick={onQuickPlay}>
-                  Hemen Oyna
+                  {activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}
                 </button>
-                <button className="my-top-btn my-btn-bot" onClick={startBotGame}>
-                  Bota Karsi
+                <button className="my-top-btn my-btn-bot" style={{ order: lobbyTopButtonOrder.indexOf("botMode") }} onClick={startBotGame}>
+                  {activeDesign.texts.lobbyBotMode || "Bota Karsi"}
                 </button>
               </>
             ) : null}
             {roomSession ? (
               <button className="my-top-btn my-btn-danger" onClick={openLeaveActionModal}>
-                Masadan Kalk
+                {activeDesign.texts.roomLeaveTable || "Masadan Kalk"}
               </button>
             ) : null}
           </div>
@@ -7248,7 +8115,7 @@ function App() {
                 <button className="my-room-picker-tab" type="button" disabled>Kalabalik</button>
               </div>
               <div className="my-room-picker-actions">
-                <button className="my-action-btn" type="button" onClick={onQuickPlay}>Hemen Oyna</button>
+                <button className="my-action-btn" type="button" onClick={onQuickPlay}>{activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}</button>
                 <button className="my-action-btn soft" type="button" onClick={() => void loadLobbyRoomsFromService()} disabled={lobbyRoomsBusy}>
                   {lobbyRoomsBusy ? "Yukleniyor..." : "Listeyi Yenile"}
                 </button>
@@ -7283,11 +8150,16 @@ function App() {
               </div>
               {!roomSession ? (
                 <div className="my-lobby-header-actions">
-                  <button className="my-top-btn my-btn-open" onClick={onOpenTable}>
+                  <button
+                    className="my-top-btn my-btn-open my-design-label-btn"
+                    data-design-label={activeDesign.texts.lobbyOpenTable || "Masa Aç"}
+                    onClick={onOpenTable}
+                    style={{ order: lobbyHeaderActionOrder.indexOf("openTable") }}
+                  >
                     Masa Aç
                   </button>
-                  <button className="my-top-btn my-btn-play" onClick={onQuickPlay}>
-                    Hemen Oyna
+                  <button className="my-top-btn my-btn-play" onClick={onQuickPlay} style={{ order: lobbyHeaderActionOrder.indexOf("quickPlay") }}>
+                    {activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}
                   </button>
                 </div>
               ) : null}
@@ -7432,7 +8304,7 @@ function App() {
                   onClick={() => sendLobbyChat(lobbyChatInput)}
                   disabled={!canWriteLobbyChat || !lobbyDraft}
                 >
-                  Gonder
+                  {activeDesign.texts.chatSend || "Gönder"}
                 </button>
               </div>
 
@@ -7792,7 +8664,7 @@ function App() {
                 <h3>Masa Menusu</h3>
                 {roomSession ? (
                   <button className="my-action-btn danger my-room-main-leave" onClick={openLeaveActionModal}>
-                    Masadan Kalk
+                    {activeDesign.texts.roomLeaveTable || "Masadan Kalk"}
                   </button>
                 ) : null}
                 <label className="my-field">
@@ -7853,30 +8725,43 @@ function App() {
                     ) : null}
                     <button
                       className="my-action-btn soft"
+                      style={{ order: roomOwnerButtonOrder.indexOf("invite") }}
                       onClick={() => openInvitePicker(currentRoomTable)}
                       disabled={!currentRoomHasOpenSeat}
                     >
-                      Davet Et
+                      {activeDesign.texts.roomInvite || "Davet Et"}
                     </button>
                     <button
-                      className={`my-action-btn ${currentRoomTable.isPrivate ? "" : "soft"}`}
+                      className={`my-action-btn my-design-label-btn ${currentRoomTable.isPrivate ? "" : "soft"}`}
+                      style={{ order: roomOwnerButtonOrder.indexOf("private") }}
+                      data-design-label={
+                        currentRoomTable.isPrivate
+                          ? (activeDesign.texts.roomPrivateDisable || "Ozeli Kapat")
+                          : (activeDesign.texts.roomPrivateEnable || "Masa Ozel Yap")
+                      }
                       onClick={() => setTablePrivateMode(currentRoomTable.id, !currentRoomTable.isPrivate)}
                     >
                       {currentRoomTable.isPrivate ? "Özeli Kapat" : "Masa Özel Yap"}
                     </button>
                     <button
-                      className={`my-action-btn ${currentRoomTable.allowSpectatorChat === false ? "" : "soft"}`}
+                      className={`my-action-btn my-design-label-btn ${currentRoomTable.allowSpectatorChat === false ? "" : "soft"}`}
+                      style={{ order: roomOwnerButtonOrder.indexOf("spectator") }}
+                      data-design-label={
+                        currentRoomTable.allowSpectatorChat === false
+                          ? (activeDesign.texts.roomSpectatorEnable || "Izleyici Yazisini Ac")
+                          : (activeDesign.texts.roomSpectatorDisable || "Izleyici Yazisini Kapat")
+                      }
                       onClick={() => setSpectatorChatEnabled(currentRoomTable.id, currentRoomTable.allowSpectatorChat === false)}
                     >
                       {currentRoomTable.allowSpectatorChat === false ? "İzleyici Yazısını Aç" : "İzleyici Yazısını Kapat"}
                     </button>
-                    <button className="my-action-btn" onClick={onCopyInvite} disabled={!canCopyInviteLink}>
-                      {copied ? "Kopyalandi" : "Davet Linki Kopyala"}
+                    <button className="my-action-btn" style={{ order: roomOwnerButtonOrder.indexOf("copyLink") }} onClick={onCopyInvite} disabled={!canCopyInviteLink}>
+                      {copied ? "Kopyalandi" : (activeDesign.texts.roomCopyInvite || "Davet Linki Kopyala")}
                     </button>
                   </div>
                 ) : null}
                 <button className="my-action-btn soft" onClick={() => setViewMode("lobby")}>
-                  Lobiye Don
+                  {activeDesign.texts.roomBackLobby || "Lobiye Don"}
                 </button>
                 {lobbyNotice ? <p className="my-notice my-notice-soft">{lobbyNotice}</p> : null}
               </section>
@@ -7960,7 +8845,7 @@ function App() {
                     onClick={sendActiveRoomChat}
                     disabled={!canWriteRoomChat || !roomChatDraft}
                   >
-                    Gonder
+                    {activeDesign.texts.chatSend || "Gönder"}
                   </button>
                 </div>
 
