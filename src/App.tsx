@@ -815,6 +815,27 @@ function normalizeDesignConfig(raw: unknown, fallback?: DesignConfig): DesignCon
   };
 }
 
+function makeDesignCssVars(config: DesignConfig): CSSProperties {
+  const theme = config.theme;
+  const sizing = config.sizing;
+  return {
+    "--design-shell-from": theme.shellFrom,
+    "--design-shell-to": theme.shellTo,
+    "--design-topbar-from": theme.topbarFrom,
+    "--design-topbar-to": theme.topbarTo,
+    "--design-lobby-panel-from": theme.lobbyPanelFrom,
+    "--design-lobby-panel-to": theme.lobbyPanelTo,
+    "--design-room-panel-from": theme.roomPanelFrom,
+    "--design-room-panel-to": theme.roomPanelTo,
+    "--design-accent-from": theme.accentFrom,
+    "--design-accent-to": theme.accentTo,
+    "--design-font-family": theme.fontFamily || DEFAULT_DESIGN_FONT,
+    "--design-button-scale": `${sizing.buttonScalePct / 100}`,
+    "--design-lobby-table-zone-height": `${sizing.lobbyTableZoneHeight}px`,
+    "--design-room-board-min-height": `${sizing.roomBoardMinHeight}px`,
+  } as CSSProperties;
+}
+
 function sanitizeChatId(value: string) {
   return value.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
 }
@@ -2804,26 +2825,12 @@ function App() {
     }
     return normalizeDesignConfig(designPublished, createDefaultDesignConfig());
   }, [isAdminWindow, member?.role, adminDesignPreview, designDraft, designPublished]);
-  const designCssVars = useMemo<CSSProperties>(() => {
-    const theme = activeDesign.theme;
-    const sizing = activeDesign.sizing;
-    return {
-      "--design-shell-from": theme.shellFrom,
-      "--design-shell-to": theme.shellTo,
-      "--design-topbar-from": theme.topbarFrom,
-      "--design-topbar-to": theme.topbarTo,
-      "--design-lobby-panel-from": theme.lobbyPanelFrom,
-      "--design-lobby-panel-to": theme.lobbyPanelTo,
-      "--design-room-panel-from": theme.roomPanelFrom,
-      "--design-room-panel-to": theme.roomPanelTo,
-      "--design-accent-from": theme.accentFrom,
-      "--design-accent-to": theme.accentTo,
-      "--design-font-family": theme.fontFamily || DEFAULT_DESIGN_FONT,
-      "--design-button-scale": `${sizing.buttonScalePct / 100}`,
-      "--design-lobby-table-zone-height": `${sizing.lobbyTableZoneHeight}px`,
-      "--design-room-board-min-height": `${sizing.roomBoardMinHeight}px`,
-    } as CSSProperties;
-  }, [activeDesign]);
+  const designPreviewTarget = useMemo(
+    () => (adminDesignPreview ? normalizeDesignConfig(designDraft, designPublished) : normalizeDesignConfig(designPublished, createDefaultDesignConfig())),
+    [adminDesignPreview, designDraft, designPublished],
+  );
+  const designCssVars = useMemo<CSSProperties>(() => makeDesignCssVars(activeDesign), [activeDesign]);
+  const designPreviewCssVars = useMemo<CSSProperties>(() => makeDesignCssVars(designPreviewTarget), [designPreviewTarget]);
   const lobbyHeaderActionOrder = useMemo(
     () => normalizeDesignLayout(activeDesign.layout, createDefaultDesignConfig().layout).lobbyHeaderActions,
     [activeDesign.layout],
@@ -2835,6 +2842,10 @@ function App() {
   const roomOwnerButtonOrder = useMemo(
     () => normalizeDesignLayout(activeDesign.layout, createDefaultDesignConfig().layout).roomOwnerButtons,
     [activeDesign.layout],
+  );
+  const designPreviewLayout = useMemo(
+    () => normalizeDesignLayout(designPreviewTarget.layout, createDefaultDesignConfig().layout),
+    [designPreviewTarget.layout],
   );
   const lobbyHeaderActionButtons = useMemo(() => {
     return {
@@ -4399,6 +4410,23 @@ function App() {
         },
       };
     });
+  }
+
+  function resetDesignDraftToPublished(showNotice = false) {
+    setDesignDraft(normalizeDesignConfig(designPublished, designPublished));
+    setAdminDesignPreview(true);
+    setAdminDesignDraggingAction(null);
+    setAdminDesignDraggingTopButton(null);
+    setAdminDesignDraggingRoomOwnerButton(null);
+    setAdminDesignError("");
+    if (showNotice) {
+      setAdminDesignNotice("Taslak degisiklikler kaydedilmeden iptal edildi.");
+    }
+  }
+
+  function leaveAdminWithoutSaving() {
+    resetDesignDraftToPublished(false);
+    window.location.assign(window.location.pathname);
   }
 
   async function publishDesignDraft() {
@@ -7235,7 +7263,7 @@ function App() {
             <button className="my-top-btn my-btn-member-alt" onClick={() => window.close()}>
               Pencereyi Kapat
             </button>
-            <button className="my-top-btn my-btn-open" onClick={() => window.location.assign(window.location.pathname)}>
+            <button className="my-top-btn my-btn-open" onClick={leaveAdminWithoutSaving}>
               Oyuna Don
             </button>
           </div>
@@ -7380,10 +7408,17 @@ function App() {
                 </button>
                 <button
                   className="my-action-btn soft"
-                  onClick={() => setDesignDraft(normalizeDesignConfig(designPublished, designPublished))}
+                  onClick={() => resetDesignDraftToPublished(true)}
                   disabled={adminDesignBusy}
                 >
                   Taslagi Geri Al
+                </button>
+                <button
+                  className="my-action-btn danger"
+                  onClick={leaveAdminWithoutSaving}
+                  disabled={adminDesignBusy}
+                >
+                  Kaydetmeden Cik
                 </button>
               </div>
 
@@ -7698,6 +7733,69 @@ function App() {
               </div>
               {adminDesignNotice ? <p className="my-notice my-notice-soft">{adminDesignNotice}</p> : null}
               {adminDesignError ? <p className="my-error">{adminDesignError}</p> : null}
+            </section>
+
+            <section className="my-side-card my-admin-design-preview-card">
+              <h3>Tasarim Onizleme</h3>
+              <p className="line">
+                {adminDesignPreview
+                  ? "Onizleme acik: Asagida taslak degisiklikleri goruyorsun."
+                  : "Onizleme kapali: Asagida yayindaki son gorunum gosteriliyor."}
+              </p>
+              <div className="my-admin-design-preview-surface" style={designPreviewCssVars}>
+                <div className="my-admin-design-preview-topbar">
+                  {designPreviewLayout.lobbyTopButtons.map((action) => (
+                    <button key={`preview-top-${action}`} className="my-top-btn my-btn-member-alt" type="button">
+                      {action === "home"
+                        ? (designPreviewTarget.texts.lobbyHome || "Ana Sayfa")
+                        : action === "roomSelect"
+                          ? (designPreviewTarget.texts.lobbyRoomSelect || "Oda Sec")
+                          : (designPreviewTarget.texts.lobbyBotMode || "Bota Karsi")}
+                    </button>
+                  ))}
+                </div>
+                <div className="my-admin-design-preview-lobby">
+                  <div className="my-admin-design-preview-title">
+                    <strong>Lobi 1</strong>
+                    <span>{designPreviewTarget.texts.lobbyEmptyTitle ? "Acik masalar" : "Açık masalar"}</span>
+                  </div>
+                  <div className="my-admin-design-preview-actions">
+                    {designPreviewLayout.lobbyHeaderActions.map((action) => (
+                      <button key={`preview-head-${action}`} className={`my-top-btn ${action === "openTable" ? "my-btn-open" : "my-btn-play"}`} type="button">
+                        {action === "openTable"
+                          ? (designPreviewTarget.texts.lobbyOpenTable || "Masa Aç")
+                          : (designPreviewTarget.texts.lobbyQuickPlay || "Hemen Oyna")}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="my-admin-design-preview-owner">
+                    {designPreviewLayout.roomOwnerButtons.map((action) => (
+                      <button key={`preview-owner-${action}`} className="my-action-btn soft" type="button">
+                        {action === "invite"
+                          ? (designPreviewTarget.texts.roomInvite || "Davet Et")
+                          : action === "private"
+                            ? (designPreviewTarget.texts.roomPrivateEnable || "Masa Ozel Yap")
+                            : action === "spectator"
+                              ? (designPreviewTarget.texts.roomSpectatorDisable || "Izleyici Yazisini Kapat")
+                              : (designPreviewTarget.texts.roomCopyInvite || "Davet Linki Kopyala")}
+                      </button>
+                    ))}
+                    <button className="my-action-btn soft" type="button">
+                      {designPreviewTarget.texts.roomBackLobby || "Lobiye Don"}
+                    </button>
+                    <button className="my-action-btn danger" type="button">
+                      {designPreviewTarget.texts.roomLeaveTable || "Masadan Kalk"}
+                    </button>
+                  </div>
+                  <div className="my-admin-design-preview-chat">
+                    <span>ornek: Kullanici: Merhaba, bu bir onizleme mesajidir.</span>
+                    <button className="my-action-btn" type="button">
+                      {designPreviewTarget.texts.chatSend || "Gonder"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p className="line">Kaydetmeden ciktiginda tum taslak degisiklikler silinir, yayinlanan gorunum aynen kalir.</p>
             </section>
 
             <section className="my-side-card my-admin-users-panel">
