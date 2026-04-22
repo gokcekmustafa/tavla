@@ -1758,12 +1758,12 @@ function mergeSeatState(
   preferBase: boolean,
 ) {
   if (base && !incoming) {
-    if (incomingStateUpdatedAt > baseStateUpdatedAt) return null;
+    if (incomingStateUpdatedAt >= baseStateUpdatedAt) return null;
     if (incomingStateUpdatedAt - base.touchedAt > SEAT_STALE_MS) return null;
     return base;
   }
   if (!base && incoming) {
-    if (baseStateUpdatedAt > incomingStateUpdatedAt) return null;
+    if (baseStateUpdatedAt >= incomingStateUpdatedAt) return null;
     if (baseStateUpdatedAt - incoming.touchedAt > SEAT_STALE_MS) return null;
     return incoming;
   }
@@ -6508,16 +6508,15 @@ function App() {
     const requestUserId = sanitizeGuestId(currentRoomTable.leavePermissionRequestByUserId ?? "");
     const grantedUserId = sanitizeGuestId(currentRoomTable.leavePermissionGrantedToUserId ?? "");
     const mySeatUserId = sanitizeGuestId(mySeat?.userId ?? "");
-    const opponentUserId = sanitizeGuestId(opponentSeat?.userId ?? "");
+    const requesterIsOpponent = Boolean(requestUserId && requestUserId !== myUserId);
 
     const shouldClearIgnoredRequestKey = !requestUserId || grantedUserId === requestUserId;
     if (
       !mySeat
       || !mySeatUserId
       || mySeatUserId !== myUserId
-      || !opponentSeat
       || !requestUserId
-      || requestUserId !== opponentUserId
+      || !requesterIsOpponent
       || grantedUserId === requestUserId
     ) {
       leavePermissionPromptKeyRef.current = "";
@@ -6542,7 +6541,7 @@ function App() {
     leavePermissionPromptKeyRef.current = promptKey;
     leaveIncomingActiveKeyRef.current = promptKey;
 
-    const requesterName = opponentSeat.displayName || "Rakip";
+    const requesterName = opponentSeat?.displayName || "Rakip";
     setLeaveIncomingModal({
       open: true,
       requesterName,
