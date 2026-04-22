@@ -3396,6 +3396,7 @@ function App() {
     let cannotRejectOwnRequest = false;
     let notOpponent = false;
     let updated = false;
+    let rejectedRequestKey = "";
 
     const rejecterName = sanitizeGuestName(currentProfile.displayName) || "Rakip";
 
@@ -3423,6 +3424,7 @@ function App() {
         cannotRejectOwnRequest = true;
         return current;
       }
+      rejectedRequestKey = `${table.roomCode}:${requestUserId}`;
       tables[index] = normalizeTableAccess({
         ...table,
         leavePermissionRequestByUserId: null,
@@ -3456,18 +3458,19 @@ function App() {
       return;
     }
     if (updated) {
+      if (rejectedRequestKey) {
+        leaveIncomingIgnoredKeyRef.current = rejectedRequestKey;
+        leaveIncomingActiveKeyRef.current = "";
+      }
       setLeaveIncomingModal({ open: false, requesterName: "", requestKey: "" });
       setLobbyNotice("Puansiz ayrilma teklifi reddedildi.");
     }
   }
 
   function rejectLeaveOfferFromModal() {
-    const key = leaveIncomingActiveKeyRef.current || leaveIncomingModal.requestKey || getCurrentLeavePromptKey();
-    if (key) {
-      leaveIncomingIgnoredKeyRef.current = key;
-      leavePermissionPromptKeyRef.current = key;
-    }
-    closeLeaveIncomingModal(true);
+    leaveIncomingActiveKeyRef.current = "";
+    leavePermissionPromptKeyRef.current = "";
+    setLeaveIncomingModal({ open: false, requesterName: "", requestKey: "" });
     rejectLeaveWithoutPenalty();
   }
 
