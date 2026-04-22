@@ -6308,9 +6308,14 @@ function App() {
   }, [roomSession, appSessionId, currentProfile.userId, activeLobbyId, activeLobbyStorageKey]);
 
   useEffect(() => {
-    if (!roomSession || roomSession.role !== "player" || !currentRoomTable) {
+    if (!roomSession || roomSession.role !== "player") {
       leavePermissionPromptKeyRef.current = "";
       leaveIncomingIgnoredKeyRef.current = "";
+      leaveIncomingActiveKeyRef.current = "";
+      closeLeaveIncomingModal();
+      return;
+    }
+    if (!currentRoomTable) {
       leaveIncomingActiveKeyRef.current = "";
       closeLeaveIncomingModal();
       return;
@@ -6329,6 +6334,7 @@ function App() {
     const grantedUserId = sanitizeGuestId(currentRoomTable.leavePermissionGrantedToUserId ?? "");
     const opponentUserId = sanitizeGuestId(opponentSeat?.userId ?? "");
 
+    const shouldClearIgnoredRequestKey = !requestUserId || grantedUserId === requestUserId;
     if (
       !mySeat
       || !opponentSeat
@@ -6337,8 +6343,10 @@ function App() {
       || grantedUserId === requestUserId
     ) {
       leavePermissionPromptKeyRef.current = "";
-      leaveIncomingIgnoredKeyRef.current = "";
       leaveIncomingActiveKeyRef.current = "";
+      if (shouldClearIgnoredRequestKey) {
+        leaveIncomingIgnoredKeyRef.current = "";
+      }
       closeLeaveIncomingModal();
       return;
     }
