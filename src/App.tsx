@@ -3343,6 +3343,14 @@ function App() {
     requestLeaveWithoutPenalty();
   }
 
+  function getCurrentLeavePromptKey() {
+    if (!roomSession || roomSession.role !== "player" || !currentRoomTable) return "";
+    const opponentSeat = roomSession.seat === "white" ? currentRoomTable.black : currentRoomTable.white;
+    const requestUserId = sanitizeGuestId(opponentSeat?.userId ?? "");
+    if (!requestUserId) return "";
+    return `${currentRoomTable.roomCode}:${requestUserId}:${currentRoomTable.setPlayed}:${currentRoomTable.setResultTokens.length}`;
+  }
+
   async function leaveNowFromModal() {
     setLeaveActionModalOpen(false);
     await leaveRoomAndGoLobby(true);
@@ -3360,6 +3368,11 @@ function App() {
   }
 
   function acceptLeaveOfferFromModal() {
+    const key = getCurrentLeavePromptKey();
+    if (key) {
+      leaveIncomingIgnoredKeyRef.current = key;
+      leavePermissionPromptKeyRef.current = key;
+    }
     closeLeaveIncomingModal(true);
     leavePermissionPromptKeyRef.current = "";
     leaveIncomingIgnoredKeyRef.current = "";
@@ -3441,6 +3454,11 @@ function App() {
   }
 
   function rejectLeaveOfferFromModal() {
+    const key = getCurrentLeavePromptKey();
+    if (key) {
+      leaveIncomingIgnoredKeyRef.current = key;
+      leavePermissionPromptKeyRef.current = key;
+    }
     closeLeaveIncomingModal(true);
     rejectLeaveWithoutPenalty();
   }
@@ -6315,7 +6333,12 @@ function App() {
     }
 
     const promptKey = `${currentRoomTable.roomCode}:${requestUserId}:${currentRoomTable.setPlayed}:${currentRoomTable.setResultTokens.length}`;
-    if (leaveIncomingIgnoredKeyRef.current === promptKey) return;
+    if (leaveIncomingIgnoredKeyRef.current === promptKey) {
+      if (leaveIncomingModal.open) {
+        setLeaveIncomingModal({ open: false, requesterName: "" });
+      }
+      return;
+    }
     if (leavePermissionPromptKeyRef.current === promptKey) return;
     leavePermissionPromptKeyRef.current = promptKey;
 
