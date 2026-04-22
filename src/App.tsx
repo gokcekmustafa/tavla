@@ -6937,6 +6937,12 @@ function App() {
                 <strong>101 Okey</strong>
                 <p>101 Okey masasi yakinda bu ekrana eklenecek.</p>
               </article>
+              <article className="my-game-picker-card game-batak disabled">
+                <span className="my-game-picker-thumb" aria-hidden="true" />
+                <span className="my-game-picker-badge">Yakinda</span>
+                <strong>Batak</strong>
+                <p>Batak masasi yakinda bu ekrana eklenecek.</p>
+              </article>
             </div>
           </section>
         ) : showRoomPicker ? (

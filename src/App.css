@@ -167,21 +167,22 @@
 
 .my-game-picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 170px));
+  gap: 8px;
+  justify-content: start;
 }
 
 .my-game-picker-card {
   position: relative;
   border-radius: 10px;
   border: 2px solid rgba(18, 62, 81, 0.74);
-  padding: 10px;
-  min-height: 148px;
+  padding: 8px;
+  min-height: 96px;
   color: #fff;
   text-align: left;
   display: grid;
   align-content: end;
-  gap: 4px;
+  gap: 2px;
   overflow: hidden;
   cursor: pointer;
   background:
@@ -205,14 +206,15 @@
 }
 
 .my-game-picker-card strong {
-  font-size: 1.02rem;
+  font-size: 0.9rem;
   letter-spacing: 0.01em;
 }
 
 .my-game-picker-card p {
   margin: 0;
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   color: rgba(246, 252, 255, 0.92);
+  line-height: 1.16;
 }
 
 .my-game-picker-card.active {
@@ -240,8 +242,8 @@
 
 .my-game-picker-thumb {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 8px;
+  right: 8px;
   width: 118px;
   height: 74px;
   border-radius: 7px;
@@ -259,6 +261,10 @@
 
 .my-game-picker-card.game-okey .my-game-picker-thumb {
   background-image: url("/game-cards/okey-board.svg");
+}
+
+.my-game-picker-card.game-batak .my-game-picker-thumb {
+  background-image: url("/game-cards/batak-board.svg");
 }
 
 .my-game-picker-card.game-tavla:hover {
