@@ -1670,11 +1670,40 @@ function getInitialLobbyId() {
 function clearSessionFromTables(
   tables: LobbyTable[],
   sessionId: string,
+  options?: {
+    userId?: string;
+    tableNo?: number | null;
+    roomCode?: string;
+    seat?: Seat | null;
+  },
 ): { tables: LobbyTable[]; changed: boolean } {
+  const safeUserId = sanitizeGuestId(options?.userId ?? "");
+  const targetTableNo = Number.isFinite(options?.tableNo) ? Number(options?.tableNo) : null;
+  const targetRoomCode = sanitizeRoomCode(options?.roomCode ?? "");
+  const targetSeat = options?.seat ?? null;
   let changed = false;
   const next = tables.map((table) => {
-    const whiteOwned = Boolean(table.white?.sessionId === sessionId);
-    const blackOwned = Boolean(table.black?.sessionId === sessionId);
+    const matchesTargetTable = Boolean(
+      safeUserId
+      && (
+        (targetTableNo && table.id === targetTableNo)
+        || (targetRoomCode && table.roomCode === targetRoomCode)
+      ),
+    );
+    const whiteOwnedByTarget = Boolean(
+      matchesTargetTable
+      && table.white
+      && sanitizeGuestId(table.white.userId) === safeUserId
+      && (targetSeat === null || targetSeat === "white"),
+    );
+    const blackOwnedByTarget = Boolean(
+      matchesTargetTable
+      && table.black
+      && sanitizeGuestId(table.black.userId) === safeUserId
+      && (targetSeat === null || targetSeat === "black"),
+    );
+    const whiteOwned = Boolean(table.white?.sessionId === sessionId || whiteOwnedByTarget);
+    const blackOwned = Boolean(table.black?.sessionId === sessionId || blackOwnedByTarget);
     if (!whiteOwned && !blackOwned) return table;
     changed = true;
     return normalizeTableAccess(
@@ -1716,10 +1745,12 @@ function mergeSeatState(
   preferBase: boolean,
 ) {
   if (base && !incoming) {
+    if (incomingStateUpdatedAt >= baseStateUpdatedAt) return null;
     if (incomingStateUpdatedAt - base.touchedAt > SEAT_STALE_MS) return null;
     return base;
   }
   if (!base && incoming) {
+    if (baseStateUpdatedAt >= incomingStateUpdatedAt) return null;
     if (baseStateUpdatedAt - incoming.touchedAt > SEAT_STALE_MS) return null;
     return incoming;
   }
@@ -2927,9 +2958,17 @@ function App() {
   }
 
   function releaseSeatOnly() {
+    const clearOptions = roomSession && roomSession.role === "player"
+      ? {
+        userId: currentProfile.userId,
+        tableNo: roomSession.tableNo,
+        roomCode: roomSession.code,
+        seat: roomSession.seat,
+      }
+      : undefined;
     writeLobby((current) => {
       const cleaned = cleanupStaleAndPrune(current.tables).tables;
-      const cleared = clearSessionFromTables(cleaned, appSessionId);
+      const cleared = clearSessionFromTables(cleaned, appSessionId, clearOptions);
       const pruned = cleanupStaleAndPrune(cleared.tables).tables;
       const closedRoomCodes = cleared.tables
         .filter((table) => !table.white && !table.black)
@@ -6651,7 +6690,15 @@ function App() {
     const onBeforeUnload = () => {
       const latest = getCurrentLobbyState();
       const cleanedTables = cleanupStaleAndPrune(latest.tables).tables;
-      const cleared = clearSessionFromTables(cleanedTables, appSessionId);
+      const clearOptions = roomSession && roomSession.role === "player"
+        ? {
+          userId: currentProfile.userId,
+          tableNo: roomSession.tableNo,
+          roomCode: roomSession.code,
+          seat: roomSession.seat,
+        }
+        : undefined;
+      const cleared = clearSessionFromTables(cleanedTables, appSessionId, clearOptions);
       const prunedTables = cleanupStaleAndPrune(cleared.tables).tables;
       const closedRoomCodes = cleared.tables
         .filter((table) => !table.white && !table.black)
@@ -6674,7 +6721,7 @@ function App() {
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [appSessionId, currentProfile.userId, activeLobbyStorageKey]);
+  }, [appSessionId, currentProfile.userId, activeLobbyStorageKey, roomSession]);
 
   if (isAdminWindow) {
     return (
