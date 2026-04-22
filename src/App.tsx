@@ -1972,6 +1972,7 @@ function App() {
     title: "",
     message: "",
   });
+  const [leaveActionModalOpen, setLeaveActionModalOpen] = useState(false);
   const [matchLiveState, setMatchLiveState] = useState({
     matchToken: "",
     matchActive: false,
@@ -3316,7 +3317,7 @@ function App() {
     sitToTable(table.id, targetSeat, table.roomCode);
   }
 
-  async function leaveRoomAndGoLobby() {
+  async function leaveRoomAndGoLobby(skipPenaltyConfirm = false) {
     let penalized = false;
     let leftWithPermission = false;
     let penaltyWaivedBecauseOpponentLeft = false;
@@ -3324,11 +3325,13 @@ function App() {
       const activeTable = getActiveRoomTable();
       const leaveContext = resolveLeavePenaltyContext(activeTable);
       if (leaveContext.shouldPenalize && leaveContext.opponentSeat) {
-        const confirmed = await openLeaveConfirmModal(
-          "Masadan Çıkış Uyarısı",
-          `Set serisi tamamlanmadan masadan kalkarsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Rakibin galip sayilip ${gameRules.winPoints} puan kazanir.`,
-        );
-        if (!confirmed) return;
+        if (!skipPenaltyConfirm) {
+          const confirmed = await openLeaveConfirmModal(
+            "Masadan Cikis Uyarisi",
+            `Set serisi tamamlanmadan masadan kalkarsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Rakibin galip sayilip ${gameRules.winPoints} puan kazanir.`,
+          );
+          if (!confirmed) return;
+        }
         const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
         processedMatchTokensRef.current.add(`${token}:${currentProfile.userId}`);
         sendResignCommandToIframe(token);
@@ -3355,6 +3358,28 @@ function App() {
       return;
     }
     setLobbyNotice("Masadan ayrildin.");
+  }
+
+  function openLeaveActionModal() {
+    if (!roomSession || roomSession.role !== "player") {
+      void leaveRoomAndGoLobby();
+      return;
+    }
+    setLeaveActionModalOpen(true);
+  }
+
+  function closeLeaveActionModal() {
+    setLeaveActionModalOpen(false);
+  }
+
+  function offerLeaveWithoutPenaltyFromModal() {
+    setLeaveActionModalOpen(false);
+    requestLeaveWithoutPenalty();
+  }
+
+  async function leaveNowFromModal() {
+    setLeaveActionModalOpen(false);
+    await leaveRoomAndGoLobby(true);
   }
 
   async function startBotGame() {
@@ -6681,7 +6706,7 @@ function App() {
               </>
             ) : null}
             {roomSession ? (
-              <button className="my-top-btn my-btn-danger" onClick={leaveRoomAndGoLobby}>
+              <button className="my-top-btn my-btn-danger" onClick={openLeaveActionModal}>
                 Masadan Kalk
               </button>
             ) : null}
@@ -7522,7 +7547,7 @@ function App() {
               <section className="my-side-card my-room-card my-room-menu-card">
                 <h3>Masa Menusu</h3>
                 {roomSession ? (
-                  <button className="my-action-btn danger my-room-main-leave" onClick={leaveRoomAndGoLobby}>
+                  <button className="my-action-btn danger my-room-main-leave" onClick={openLeaveActionModal}>
                     Masadan Kalk
                   </button>
                 ) : null}
@@ -7608,21 +7633,13 @@ function App() {
                 ) : null}
                 {roomSession?.role === "player" && leavePermissionState.flowActive ? (
                   <div className="my-room-owner-inline">
-                    <button
-                      className="my-action-btn soft"
-                      onClick={requestLeaveWithoutPenalty}
-                      disabled={!leavePermissionState.canRequest}
-                    >
-                      {leavePermissionState.grantedToMe
-                        ? "Izin Verildi"
-                        : leavePermissionState.myRequestPending
-                          ? "Izin Talebin Gonderildi"
-                          : "Puansiz Ayrilma Izin Iste"}
-                    </button>
                     {leavePermissionState.canApprove ? (
                       <button className="my-action-btn soft" onClick={approveLeaveWithoutPenalty}>
                         Izin Veriyorum
                       </button>
+                    ) : null}
+                    {leavePermissionState.myRequestPending ? (
+                      <p className="line">Izin talebin gonderildi, rakip yaniti bekleniyor.</p>
                     ) : null}
                     {leavePermissionState.grantedToMe ? (
                       <p className="line">Rakibin puansiz ayrilmana izin verdi.</p>
@@ -7903,6 +7920,37 @@ function App() {
         </article>
       ) : null}
 
+      {leaveActionModalOpen ? (
+        <section className="my-modal-backdrop" role="presentation" onClick={closeLeaveActionModal}>
+          <article
+            className="my-modal-card my-leave-action-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Masadan cik"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="my-leave-action-close" type="button" onClick={closeLeaveActionModal} aria-label="Kapat">
+              x
+            </button>
+            <h3>Masadan Cik</h3>
+            <p className="my-leave-action-message">
+              Rakibe puan kaybetmeden terk etme teklif edilsin mi?
+            </p>
+            <div className="my-leave-action-buttons">
+              <button className="my-action-btn danger" type="button" onClick={() => void leaveNowFromModal()}>
+                Simdi Terket
+              </button>
+              <button className="my-action-btn" type="button" onClick={offerLeaveWithoutPenaltyFromModal}>
+                Teklif Et
+              </button>
+              <button className="my-action-btn soft" type="button" onClick={closeLeaveActionModal}>
+                Iptal Et
+              </button>
+            </div>
+          </article>
+        </section>
+      ) : null}
+
       {leaveConfirmModal.open ? (
         <section className="my-modal-backdrop" role="presentation" onClick={() => closeLeaveConfirmModal(false)}>
           <article
@@ -7912,14 +7960,14 @@ function App() {
             aria-label="Masadan cikis uyarisi"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3>{leaveConfirmModal.title || "Masadan Çıkış Uyarısı"}</h3>
+            <h3>{leaveConfirmModal.title || "Masadan Cikis Uyarisi"}</h3>
             <p className="line">{leaveConfirmModal.message}</p>
             <div className="my-leave-confirm-actions">
               <button className="my-action-btn danger" type="button" onClick={() => closeLeaveConfirmModal(true)}>
-                Çık
+                Cik
               </button>
               <button className="my-action-btn soft" type="button" onClick={() => closeLeaveConfirmModal(false)}>
-                İptal
+                Iptal
               </button>
             </div>
           </article>

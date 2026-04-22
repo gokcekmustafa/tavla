@@ -2545,7 +2545,7 @@ function createDiePips(value, size = "small") {
 
 function showWinnerPopup(player) {
   if (!dom.winnerModal || !dom.winnerText) return;
-  dom.winnerText.textContent = `${playerText(player)} oyuncusu oyunu kazandi. Tebrikler!`;
+  dom.winnerText.textContent = `Oyunu ${playerText(player)} kazandi!....`;
   dom.winnerModal.removeAttribute("hidden");
 }
 
