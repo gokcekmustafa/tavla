@@ -2056,6 +2056,7 @@ function App() {
   const leavePermissionPromptKeyRef = useRef("");
   const leavePermissionAutoLeavingRef = useRef(false);
   const leaveIncomingIgnoredKeyRef = useRef("");
+  const leaveIncomingActiveKeyRef = useRef("");
   const leaveRejectNoticeSeenKeyRef = useRef("");
   const leaveConfirmResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const roomMissingSinceRef = useRef<number | null>(null);
@@ -3357,9 +3358,10 @@ function App() {
   }
 
   function closeLeaveIncomingModal(ignoreCurrentRequest = false) {
-    if (ignoreCurrentRequest && leavePermissionPromptKeyRef.current) {
-      leaveIncomingIgnoredKeyRef.current = leavePermissionPromptKeyRef.current;
+    if (ignoreCurrentRequest && leaveIncomingActiveKeyRef.current) {
+      leaveIncomingIgnoredKeyRef.current = leaveIncomingActiveKeyRef.current;
     }
+    leaveIncomingActiveKeyRef.current = "";
     setLeaveIncomingModal((prev) => (prev.open ? { open: false, requesterName: "" } : prev));
   }
 
@@ -3368,7 +3370,7 @@ function App() {
   }
 
   function acceptLeaveOfferFromModal() {
-    const key = getCurrentLeavePromptKey();
+    const key = leaveIncomingActiveKeyRef.current || getCurrentLeavePromptKey();
     if (key) {
       leaveIncomingIgnoredKeyRef.current = key;
       leavePermissionPromptKeyRef.current = key;
@@ -3454,7 +3456,7 @@ function App() {
   }
 
   function rejectLeaveOfferFromModal() {
-    const key = getCurrentLeavePromptKey();
+    const key = leaveIncomingActiveKeyRef.current || getCurrentLeavePromptKey();
     if (key) {
       leaveIncomingIgnoredKeyRef.current = key;
       leavePermissionPromptKeyRef.current = key;
@@ -6303,6 +6305,7 @@ function App() {
     if (!roomSession || roomSession.role !== "player" || !currentRoomTable) {
       leavePermissionPromptKeyRef.current = "";
       leaveIncomingIgnoredKeyRef.current = "";
+      leaveIncomingActiveKeyRef.current = "";
       closeLeaveIncomingModal();
       return;
     }
@@ -6310,6 +6313,7 @@ function App() {
     if (!myUserId) {
       leavePermissionPromptKeyRef.current = "";
       leaveIncomingIgnoredKeyRef.current = "";
+      leaveIncomingActiveKeyRef.current = "";
       closeLeaveIncomingModal();
       return;
     }
@@ -6328,6 +6332,7 @@ function App() {
     ) {
       leavePermissionPromptKeyRef.current = "";
       leaveIncomingIgnoredKeyRef.current = "";
+      leaveIncomingActiveKeyRef.current = "";
       closeLeaveIncomingModal();
       return;
     }
@@ -6337,10 +6342,12 @@ function App() {
       if (leaveIncomingModal.open) {
         setLeaveIncomingModal({ open: false, requesterName: "" });
       }
+      leaveIncomingActiveKeyRef.current = "";
       return;
     }
     if (leavePermissionPromptKeyRef.current === promptKey) return;
     leavePermissionPromptKeyRef.current = promptKey;
+    leaveIncomingActiveKeyRef.current = promptKey;
 
     const requesterName = opponentSeat.displayName || "Rakip";
     setLeaveIncomingModal({
