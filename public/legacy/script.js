@@ -119,6 +119,8 @@ let tableChatRows = [];
 let roomStartGateActive = false;
 let roomStartGateBothSeated = true;
 let roomStartGateStarted = true;
+let pointerHintEl = null;
+let pointerHintTimer = null;
 
 const roomParams = parseRoomParamsSafe();
 const roomSenderCounters = new Map();
@@ -1435,7 +1437,14 @@ function onCheckerMouseDown(e) {
   const source = Number(e.currentTarget.dataset.source);
   if (!Number.isInteger(source)) return;
   const selectable = getSelectableSources();
-  if (!selectable.has(source)) return;
+  if (!selectable.has(source)) {
+    if (gameState.bar[currentPlayer] > 0) {
+      setStatus("Once kirik pulu girmelisiniz.");
+      showPointerHint("Once kirik pulu girmelisiniz.", e);
+      render();
+    }
+    return;
+  }
   e.preventDefault();
   e.stopPropagation();
 
@@ -1466,7 +1475,14 @@ function onCheckerTouchStart(e) {
   const source = Number(e.currentTarget.dataset.source);
   if (!Number.isInteger(source)) return;
   const selectable = getSelectableSources();
-  if (!selectable.has(source)) return;
+  if (!selectable.has(source)) {
+    if (gameState.bar[currentPlayer] > 0) {
+      setStatus("Once kirik pulu girmelisiniz.");
+      showPointerHint("Once kirik pulu girmelisiniz.", e);
+      render();
+    }
+    return;
+  }
   e.preventDefault();
   e.stopPropagation();
 
@@ -2643,6 +2659,49 @@ function addLog(text) {
 }
 
 function setStatus(text) { statusMessage = text; }
+
+function ensurePointerHintEl() {
+  if (pointerHintEl && pointerHintEl.isConnected) return pointerHintEl;
+  const el = document.createElement("div");
+  el.className = "cursor-warning-hint";
+  document.body.appendChild(el);
+  pointerHintEl = el;
+  return el;
+}
+
+function getPointerPosition(evt) {
+  if (evt && Number.isFinite(evt.clientX) && Number.isFinite(evt.clientY)) {
+    return { x: Number(evt.clientX), y: Number(evt.clientY) };
+  }
+  const touch = evt?.touches?.[0] || evt?.changedTouches?.[0];
+  if (touch && Number.isFinite(touch.clientX) && Number.isFinite(touch.clientY)) {
+    return { x: Number(touch.clientX), y: Number(touch.clientY) };
+  }
+  return {
+    x: window.innerWidth * 0.5,
+    y: window.innerHeight * 0.5,
+  };
+}
+
+function showPointerHint(message, evt) {
+  const text = typeof message === "string" ? message.trim() : "";
+  if (!text) return;
+  const el = ensurePointerHintEl();
+  const pos = getPointerPosition(evt);
+  el.textContent = text;
+  el.style.left = `${Math.round(pos.x)}px`;
+  el.style.top = `${Math.round(pos.y - 18)}px`;
+  el.classList.add("show");
+  if (pointerHintTimer !== null) {
+    window.clearTimeout(pointerHintTimer);
+  }
+  pointerHintTimer = window.setTimeout(() => {
+    pointerHintTimer = null;
+    if (pointerHintEl) {
+      pointerHintEl.classList.remove("show");
+    }
+  }, 1000);
+}
 
 function captureSnapshot() {
   return {
