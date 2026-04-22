@@ -1974,9 +1974,10 @@ function App() {
     message: "",
   });
   const [leaveActionModalOpen, setLeaveActionModalOpen] = useState(false);
-  const [leaveIncomingModal, setLeaveIncomingModal] = useState<{ open: boolean; requesterName: string }>({
+  const [leaveIncomingModal, setLeaveIncomingModal] = useState<{ open: boolean; requesterName: string; requestKey: string }>({
     open: false,
     requesterName: "",
+    requestKey: "",
   });
   const [leaveInfoModal, setLeaveInfoModal] = useState<{ open: boolean; title: string; message: string }>({
     open: false,
@@ -3349,7 +3350,7 @@ function App() {
     const opponentSeat = roomSession.seat === "white" ? currentRoomTable.black : currentRoomTable.white;
     const requestUserId = sanitizeGuestId(opponentSeat?.userId ?? "");
     if (!requestUserId) return "";
-    return `${currentRoomTable.roomCode}:${requestUserId}:${currentRoomTable.setPlayed}:${currentRoomTable.setResultTokens.length}`;
+    return `${currentRoomTable.roomCode}:${requestUserId}`;
   }
 
   async function leaveNowFromModal() {
@@ -3358,11 +3359,16 @@ function App() {
   }
 
   function closeLeaveIncomingModal(ignoreCurrentRequest = false) {
-    if (ignoreCurrentRequest && leaveIncomingActiveKeyRef.current) {
-      leaveIncomingIgnoredKeyRef.current = leaveIncomingActiveKeyRef.current;
+    const activeKey = leaveIncomingActiveKeyRef.current || leaveIncomingModal.requestKey;
+    if (ignoreCurrentRequest && activeKey) {
+      leaveIncomingIgnoredKeyRef.current = activeKey;
     }
     leaveIncomingActiveKeyRef.current = "";
-    setLeaveIncomingModal((prev) => (prev.open ? { open: false, requesterName: "" } : prev));
+    setLeaveIncomingModal((prev) => (prev.open || prev.requestKey ? {
+      open: false,
+      requesterName: "",
+      requestKey: "",
+    } : prev));
   }
 
   function closeLeaveInfoModal() {
@@ -3370,7 +3376,7 @@ function App() {
   }
 
   function acceptLeaveOfferFromModal() {
-    const key = leaveIncomingActiveKeyRef.current || getCurrentLeavePromptKey();
+    const key = leaveIncomingActiveKeyRef.current || leaveIncomingModal.requestKey || getCurrentLeavePromptKey();
     if (key) {
       leaveIncomingIgnoredKeyRef.current = key;
       leavePermissionPromptKeyRef.current = key;
@@ -3450,13 +3456,13 @@ function App() {
       return;
     }
     if (updated) {
-      setLeaveIncomingModal({ open: false, requesterName: "" });
+      setLeaveIncomingModal({ open: false, requesterName: "", requestKey: "" });
       setLobbyNotice("Puansiz ayrilma teklifi reddedildi.");
     }
   }
 
   function rejectLeaveOfferFromModal() {
-    const key = leaveIncomingActiveKeyRef.current || getCurrentLeavePromptKey();
+    const key = leaveIncomingActiveKeyRef.current || leaveIncomingModal.requestKey || getCurrentLeavePromptKey();
     if (key) {
       leaveIncomingIgnoredKeyRef.current = key;
       leavePermissionPromptKeyRef.current = key;
@@ -6337,10 +6343,10 @@ function App() {
       return;
     }
 
-    const promptKey = `${currentRoomTable.roomCode}:${requestUserId}:${currentRoomTable.setPlayed}:${currentRoomTable.setResultTokens.length}`;
+    const promptKey = `${currentRoomTable.roomCode}:${requestUserId}`;
     if (leaveIncomingIgnoredKeyRef.current === promptKey) {
       if (leaveIncomingModal.open) {
-        setLeaveIncomingModal({ open: false, requesterName: "" });
+        setLeaveIncomingModal({ open: false, requesterName: "", requestKey: "" });
       }
       leaveIncomingActiveKeyRef.current = "";
       return;
@@ -6353,6 +6359,7 @@ function App() {
     setLeaveIncomingModal({
       open: true,
       requesterName,
+      requestKey: promptKey,
     });
   }, [roomSession, currentRoomTable, currentProfile.userId]);
 
