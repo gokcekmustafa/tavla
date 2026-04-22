@@ -7315,7 +7315,7 @@ function App() {
               {openedTables.length === 0 ? (
                 <div className="my-empty-state my-empty-state-lobby">
                   <p className="my-empty-state-title">Henüz açık masa yok.</p>
-                  <p className="my-empty-state-sub">Masa Aç butonu ile ilk masayı açabilirsin.</p>
+                  <p className="my-empty-state-sub"><span className="my-empty-state-action">Masa Aç</span> butonu ile ilk masayı açabilirsin.</p>
                 </div>
               ) : (
                 <div className="my-table-grid">

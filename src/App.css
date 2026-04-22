@@ -590,7 +590,7 @@
 }
 
 .my-empty-state-lobby {
-  gap: 8px;
+  row-gap: 6px;
 }
 
 .my-empty-state-title {
@@ -607,6 +607,12 @@
   line-height: 1.25;
 }
 
+.my-empty-state-action {
+  font-size: 1.08em;
+  font-weight: 900;
+  color: #fff6cc;
+}
+
 .my-table-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -619,6 +625,9 @@
   min-height: calc(100% - 2px);
   display: grid;
   place-items: center;
+  align-content: center;
+  grid-auto-rows: max-content;
+  row-gap: 6px;
 }
 
 .my-chat-card {
