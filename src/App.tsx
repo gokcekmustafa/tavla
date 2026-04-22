@@ -2056,7 +2056,7 @@ function App() {
   const leavePermissionPromptKeyRef = useRef("");
   const leavePermissionAutoLeavingRef = useRef(false);
   const leaveIncomingIgnoredKeyRef = useRef("");
-  const leaveRejectNoticeSeenIdRef = useRef("");
+  const leaveRejectNoticeSeenKeyRef = useRef("");
   const leaveConfirmResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const roomMissingSinceRef = useRef<number | null>(null);
   const latestLegacyStateRef = useRef<{
@@ -3361,6 +3361,8 @@ function App() {
 
   function acceptLeaveOfferFromModal() {
     closeLeaveIncomingModal(true);
+    leavePermissionPromptKeyRef.current = "";
+    leaveIncomingIgnoredKeyRef.current = "";
     approveLeaveWithoutPenalty();
   }
 
@@ -3433,6 +3435,9 @@ function App() {
       return;
     }
     if (updated) {
+      leavePermissionPromptKeyRef.current = "";
+      leaveIncomingIgnoredKeyRef.current = "";
+      setLeaveIncomingModal({ open: false, requesterName: "" });
       setLobbyNotice("Puansiz ayrilma teklifi reddedildi.");
     }
   }
@@ -6313,7 +6318,7 @@ function App() {
 
     const promptKey = `${currentRoomTable.roomCode}:${requestUserId}:${currentRoomTable.setPlayed}:${currentRoomTable.setResultTokens.length}`;
     if (leaveIncomingIgnoredKeyRef.current === promptKey) return;
-    if (leavePermissionPromptKeyRef.current === promptKey && leaveIncomingModal.open) return;
+    if (leavePermissionPromptKeyRef.current === promptKey) return;
     leavePermissionPromptKeyRef.current = promptKey;
 
     const requesterName = opponentSeat.displayName || "Rakip";
@@ -6321,7 +6326,7 @@ function App() {
       open: true,
       requesterName,
     });
-  }, [roomSession, currentRoomTable, currentProfile.userId, leaveIncomingModal.open]);
+  }, [roomSession, currentRoomTable, currentProfile.userId]);
 
   useEffect(() => {
     if (!roomSession || roomSession.role !== "player" || !currentRoomTable) {
@@ -6356,11 +6361,13 @@ function App() {
     if (notices.length === 0) return;
     const latest = notices[notices.length - 1];
     const latestNoticeId = sanitizeChatId(latest.inviteNoticeId ?? "");
+    const latestNoticeText = latest.inviteNoticeText ?? "";
+    const noticeDedupKey = latestNoticeId || latestNoticeText;
     if (latest.inviteNoticeText) {
       if (latest.inviteNoticeText.startsWith(LEAVE_NOTICE_REJECT_PREFIX)) {
-        if (!latestNoticeId || leaveRejectNoticeSeenIdRef.current !== latestNoticeId) {
-          if (latestNoticeId) {
-            leaveRejectNoticeSeenIdRef.current = latestNoticeId;
+        if (!noticeDedupKey || leaveRejectNoticeSeenKeyRef.current !== noticeDedupKey) {
+          if (noticeDedupKey) {
+            leaveRejectNoticeSeenKeyRef.current = noticeDedupKey;
           }
           const message = latest.inviteNoticeText.slice(LEAVE_NOTICE_REJECT_PREFIX.length).trim();
           setLeaveInfoModal({
