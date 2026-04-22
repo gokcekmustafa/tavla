@@ -344,6 +344,27 @@ function getPerspectiveColor() {
   return isRoomMode() ? roomParams.seat : preferredPlayerColor;
 }
 
+function getDiceStageSideForPlayer(player) {
+  const rollingPlayer = normalizePlayerColor(player);
+  const perspective = getPerspectiveColor();
+  return rollingPlayer === perspective ? "right" : "left";
+}
+
+function positionCenterDiceStage(side) {
+  if (!dom.centerDiceStage || !dom.tableWrap || !dom.boardGrid) return;
+  const tableRect = dom.tableWrap.getBoundingClientRect();
+  const boardRect = dom.boardGrid.getBoundingClientRect();
+  if (!tableRect.width || !boardRect.width || !boardRect.height) return;
+
+  const xRatio = side === "left" ? 0.25 : 0.75;
+  const targetX = boardRect.left - tableRect.left + boardRect.width * xRatio;
+  const targetY = boardRect.top - tableRect.top + boardRect.height * 0.5;
+
+  dom.centerDiceStage.style.setProperty("--dice-stage-x", `${targetX.toFixed(2)}px`);
+  dom.centerDiceStage.style.setProperty("--dice-stage-y", `${targetY.toFixed(2)}px`);
+  dom.centerDiceStage.dataset.side = side;
+}
+
 function isBlackPerspective() {
   return getPerspectiveColor() === BLACK;
 }
@@ -946,6 +967,10 @@ function attachEvents() {
   window.addEventListener("resize", () => {
     syncCheckerSizeToBoard();
     renderGuideLines();
+    if (dom.centerDiceStage?.classList.contains("show")) {
+      const currentSide = dom.centerDiceStage.dataset.side === "left" ? "left" : "right";
+      positionCenterDiceStage(currentSide);
+    }
   });
   window.addEventListener("message", onHostMessage);
   dom.tableChatSendBtn?.addEventListener("click", () => sendTableChatToHost(dom.tableChatInput?.value || ""));
@@ -2316,12 +2341,13 @@ function showCenterDice(d1, d2, player) {
   dom.centerDiceStage.innerHTML = "";
   const wrap = document.createElement("div");
   const toneClass = player === WHITE ? "dice-white" : "dice-black";
+  const side = getDiceStageSideForPlayer(player);
   const values = [d1, d2];
   wrap.className = `center-dice-wrap ${toneClass}`;
   centerDiceVisibleUntil = Date.now() + DICE_ROLL_TOTAL_MS + DICE_ROLL_STAGGER_MS + DICE_RESULT_VISIBLE_MS;
-
-  dom.centerDiceStage.classList.remove("white-turn", "black-turn");
-  dom.centerDiceStage.classList.add(player === WHITE ? "white-turn" : "black-turn");
+  positionCenterDiceStage(side);
+  dom.centerDiceStage.classList.remove("white-turn", "black-turn", "side-left", "side-right");
+  dom.centerDiceStage.classList.add(side === "left" ? "side-left" : "side-right");
 
   values.forEach((val, i) => {
     const die = createCenterDie3D(val, toneClass, i);
@@ -2357,7 +2383,8 @@ function clearCenterDiceStage(force = false) {
   }
   centerDiceVisibleUntil = 0;
   dom.centerDiceStage.innerHTML = "";
-  dom.centerDiceStage.classList.remove("show", "white-turn", "black-turn");
+  dom.centerDiceStage.classList.remove("show", "white-turn", "black-turn", "side-left", "side-right");
+  delete dom.centerDiceStage.dataset.side;
 }
 
 function settleCenterDice(wrap, values, toneClass) {

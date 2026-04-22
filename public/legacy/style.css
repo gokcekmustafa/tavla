@@ -884,32 +884,22 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 .center-dice-stage {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   pointer-events: none;
   z-index: 450;
   opacity: 0;
   transition: opacity 0.22s ease;
+  --dice-stage-x: 50%;
+  --dice-stage-y: 50%;
 }
 
 .center-dice-stage.show { opacity: 1; }
 
-.center-dice-stage.white-turn {
-  align-items: flex-end;
-  justify-content: flex-end;
-  padding-right: var(--dice-stage-side-inset-x);
-  padding-bottom: var(--dice-stage-side-inset-y);
-}
-
-.center-dice-stage.black-turn {
-  align-items: flex-start;
-  justify-content: flex-start;
-  padding-left: var(--dice-stage-side-inset-x);
-  padding-top: var(--dice-stage-side-inset-y);
-}
-
 .center-dice-wrap {
+  position: absolute;
+  left: var(--dice-stage-x);
+  top: var(--dice-stage-y);
+  transform: translate(-50%, -50%);
   display: flex;
   gap: 12px;
   padding: 0;
