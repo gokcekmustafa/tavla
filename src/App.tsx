@@ -171,6 +171,11 @@ type OnlineRow = {
   tableNo: number | null;
 };
 
+type LobbyRoomCounts = {
+  activeTables: number;
+  seatedPlayers: number;
+};
+
 type ChatMessage = {
   id: string;
   at: number;
@@ -637,6 +642,15 @@ function tableChatKey(table: Pick<LobbyTable, "roomCode" | "id">) {
   const roomCode = sanitizeRoomCode(table.roomCode);
   if (roomCode) return roomCode;
   return `T${Math.max(1, table.id)}`;
+}
+
+function summarizeLobbyCounts(snapshot: LobbyState): LobbyRoomCounts {
+  const activeTables = snapshot.tables.filter((table) => Boolean(table.white || table.black)).length;
+  const seatedPlayers = snapshot.tables.reduce(
+    (sum, table) => sum + Number(Boolean(table.white)) + Number(Boolean(table.black)),
+    0,
+  );
+  return { activeTables, seatedPlayers };
 }
 
 function createChatMessageId(seed: string) {
@@ -1889,6 +1903,7 @@ function App() {
       createdByUserId: null,
     },
   ]));
+  const [roomPickerLiveCounts, setRoomPickerLiveCounts] = useState<Record<string, LobbyRoomCounts>>({});
   const [lobbyRoomsBusy, setLobbyRoomsBusy] = useState(false);
   const [lobbyRoomsError, setLobbyRoomsError] = useState("");
   const [selectedGameId, setSelectedGameId] = useState<GameId>(() => loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID);
@@ -2194,12 +2209,11 @@ function App() {
   const roomPickerRows = useMemo(() => {
     return lobbyRooms.map((room) => {
       const roomName = sanitizeLobbyName(room.name);
-      const snapshot = loadLobbyState(makeLobbyStateStorageKey(room.id), roomName);
-      const activeTables = snapshot.tables.filter((table) => Boolean(table.white || table.black)).length;
-      const seatedPlayers = snapshot.tables.reduce(
-        (sum, table) => sum + Number(Boolean(table.white)) + Number(Boolean(table.black)),
-        0,
-      );
+      const roomId = sanitizeLobbyId(room.id) || DEFAULT_LOBBY_ID;
+      const cached = roomPickerLiveCounts[roomId];
+      const fallback = summarizeLobbyCounts(loadLobbyState(makeLobbyStateStorageKey(room.id), roomName));
+      const activeTables = cached?.activeTables ?? fallback.activeTables;
+      const seatedPlayers = cached?.seatedPlayers ?? fallback.seatedPlayers;
       return {
         id: room.id,
         name: roomName,
@@ -2207,7 +2221,99 @@ function App() {
         seatedPlayers,
       };
     });
-  }, [lobbyRooms]);
+  }, [lobbyRooms, roomPickerLiveCounts]);
+
+  useEffect(() => {
+    const safeActiveLobbyId = sanitizeLobbyId(activeLobbyId) || DEFAULT_LOBBY_ID;
+    const counts = summarizeLobbyCounts(lobbyState);
+    setRoomPickerLiveCounts((prev) => {
+      const current = prev[safeActiveLobbyId];
+      if (
+        current
+        && current.activeTables === counts.activeTables
+        && current.seatedPlayers === counts.seatedPlayers
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [safeActiveLobbyId]: counts,
+      };
+    });
+  }, [activeLobbyId, lobbyState.tables]);
+
+  useEffect(() => {
+    if (!roomPickerOpen || lobbyRooms.length === 0) return;
+    let cancelled = false;
+
+    const refreshAllRoomCounts = async () => {
+      const next: Record<string, LobbyRoomCounts> = {};
+      const safeActiveLobbyId = sanitizeLobbyId(activeLobbyId) || DEFAULT_LOBBY_ID;
+
+      for (const room of lobbyRooms) {
+        const roomId = sanitizeLobbyId(room.id);
+        if (!roomId) continue;
+        if (roomId === safeActiveLobbyId) {
+          next[roomId] = summarizeLobbyCounts(lobbyState);
+          continue;
+        }
+
+        const roomName = sanitizeLobbyName(room.name);
+        let summary = summarizeLobbyCounts(loadLobbyState(makeLobbyStateStorageKey(roomId), roomName));
+        try {
+          const channel = makeRealtimeLobbyChannel(roomId);
+          const response = await fetch(buildRealtimeHttpSyncUrl(channel, `${appSessionId}-rooms`), { method: "GET" });
+          if (response.ok) {
+            const data = (await response.json().catch(() => null)) as { snapshot?: unknown } | null;
+            const incoming = normalizeRealtimeMessage(data?.snapshot);
+            if (incoming && incoming.kind === "snapshot" && incoming.channel === channel) {
+              summary = summarizeLobbyCounts(normalizeLobbyState(incoming.payload));
+            }
+          }
+        } catch {
+          // keep local fallback when remote read is unavailable
+        }
+        next[roomId] = summary;
+      }
+
+      if (cancelled) return;
+      setRoomPickerLiveCounts((prev) => {
+        const merged: Record<string, LobbyRoomCounts> = { ...prev };
+        const validIds = new Set(lobbyRooms.map((room) => sanitizeLobbyId(room.id)).filter(Boolean) as string[]);
+        let changed = false;
+
+        Object.keys(merged).forEach((roomId) => {
+          if (!validIds.has(roomId)) {
+            delete merged[roomId];
+            changed = true;
+          }
+        });
+
+        Object.entries(next).forEach(([roomId, summary]) => {
+          const current = merged[roomId];
+          if (
+            !current
+            || current.activeTables !== summary.activeTables
+            || current.seatedPlayers !== summary.seatedPlayers
+          ) {
+            merged[roomId] = summary;
+            changed = true;
+          }
+        });
+
+        return changed ? merged : prev;
+      });
+    };
+
+    void refreshAllRoomCounts();
+    const timer = window.setInterval(() => {
+      void refreshAllRoomCounts();
+    }, 4500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [roomPickerOpen, lobbyRooms, activeLobbyId, lobbyState.tables, appSessionId]);
 
   const myCurrentSeat = useMemo(() => findSessionSeat(lobbyState.tables, appSessionId), [lobbyState.tables, appSessionId]);
 
@@ -3474,9 +3580,10 @@ function App() {
       leavePermissionPromptKeyRef.current = key;
     }
     leaveIncomingActiveKeyRef.current = "";
-    leavePermissionPromptKeyRef.current = "";
     setLeaveIncomingModal({ open: false, requesterName: "", requestKey: "" });
-    rejectLeaveWithoutPenalty();
+    window.setTimeout(() => {
+      rejectLeaveWithoutPenalty();
+    }, 0);
   }
 
   async function startBotGame() {
