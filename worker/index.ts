@@ -77,7 +77,6 @@ type StoredMemberUser = PublicMemberUser & {
 const AUTH_DO_NAME = "members-v1";
 const AUTH_RULES_KEY = "settings:rules";
 const AUTH_LOBBIES_KEY = "settings:lobbies";
-const REALTIME_LOBBY_CHANNEL_PREFIX = "tavla-global-lobby-v2";
 const DEFAULT_WIN_POINTS = 100;
 const DEFAULT_LOSS_POINTS = 0;
 const DEFAULT_RESIGN_PENALTY_POINTS = 50;
@@ -458,28 +457,6 @@ function jsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
-function summarizeLobbyCountsFromSnapshotPayload(payload: unknown) {
-  if (!payload || typeof payload !== "object") {
-    return { activeTables: 0, seatedPlayers: 0 };
-  }
-  const candidate = payload as { tables?: unknown };
-  const tables = Array.isArray(candidate.tables) ? candidate.tables : [];
-  let activeTables = 0;
-  let seatedPlayers = 0;
-  tables.forEach((rawTable) => {
-    if (!rawTable || typeof rawTable !== "object") return;
-    const table = rawTable as { white?: unknown; black?: unknown };
-    const hasWhite = Boolean(table.white && typeof table.white === "object");
-    const hasBlack = Boolean(table.black && typeof table.black === "object");
-    if (hasWhite || hasBlack) {
-      activeTables += 1;
-    }
-    if (hasWhite) seatedPlayers += 1;
-    if (hasBlack) seatedPlayers += 1;
-  });
-  return { activeTables, seatedPlayers };
-}
-
 async function serveAssetWithSpaFallback(request: Request, env: Env): Promise<Response> {
   const primary = await env.ASSETS.fetch(request);
   if (primary.status !== 404) return primary;
@@ -498,60 +475,6 @@ export default {
 
     if (url.pathname === "/health") {
       return new Response("ok", { status: 200 });
-    }
-
-    if (request.method === "GET" && url.pathname === "/api/lobbies-summary") {
-      if (!env.AUTH || typeof env.AUTH.idFromName !== "function") {
-        return jsonResponse({ error: "Kimlik servisi baglantisi eksik (AUTH binding)." }, 503);
-      }
-      try {
-        const authId = env.AUTH.idFromName(AUTH_DO_NAME);
-        const auth = env.AUTH.get(authId);
-        const lobbiesResponse = await auth.fetch(new Request(`${url.origin}/api/auth/lobbies`, { method: "GET" }));
-        const lobbiesData = (await lobbiesResponse.json().catch(() => null)) as { lobbies?: unknown } | null;
-        const lobbies = normalizeLobbyRooms(lobbiesData?.lobbies);
-
-        const rooms = await Promise.all(lobbies.map(async (lobby) => {
-          const roomChannel = sanitizeChannel(`${REALTIME_LOBBY_CHANNEL_PREFIX}:${lobby.id}`);
-          if (!roomChannel) {
-            return {
-              id: lobby.id,
-              name: lobby.name,
-              activeTables: 0,
-              seatedPlayers: 0,
-            };
-          }
-
-          let activeTables = 0;
-          let seatedPlayers = 0;
-          try {
-            const roomId = env.ROOMS.idFromName(roomChannel);
-            const room = env.ROOMS.get(roomId);
-            const snapshotResponse = await room.fetch(new Request("https://realtime.internal/snapshot", { method: "GET" }));
-            const snapshotData = (await snapshotResponse.json().catch(() => null)) as { snapshot?: unknown } | null;
-            const snapshot = parseRealtimeMessage(JSON.stringify(snapshotData?.snapshot ?? null));
-            if (snapshot?.kind === "snapshot" && snapshot.channel === roomChannel) {
-              const summary = summarizeLobbyCountsFromSnapshotPayload(snapshot.payload);
-              activeTables = summary.activeTables;
-              seatedPlayers = summary.seatedPlayers;
-            }
-          } catch {
-            // keep zero summary on snapshot read failure
-          }
-
-          return {
-            id: lobby.id,
-            name: lobby.name,
-            activeTables,
-            seatedPlayers,
-          };
-        }));
-
-        return jsonResponse({ ok: true, rooms }, 200);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Bilinmeyen hata";
-        return jsonResponse({ error: `Oda ozeti alinamadi: ${message}` }, 500);
-      }
     }
 
     if (url.pathname.startsWith("/api/auth/")) {

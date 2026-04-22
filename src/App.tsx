@@ -1796,9 +1796,11 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
       ]),
       leavePermissionRequestByUserId:
         sanitizeGuestId(preferred.leavePermissionRequestByUserId ?? "")
+        || sanitizeGuestId(fallback.leavePermissionRequestByUserId ?? "")
         || null,
       leavePermissionGrantedToUserId:
         sanitizeGuestId(preferred.leavePermissionGrantedToUserId ?? "")
+        || sanitizeGuestId(fallback.leavePermissionGrantedToUserId ?? "")
         || null,
     };
     const normalizedMerged = normalizeTableAccess(normalizeTableStartGate(mergedTable));
@@ -2247,32 +2249,6 @@ function App() {
     const refreshAllRoomCounts = async () => {
       const next: Record<string, LobbyRoomCounts> = {};
       const safeActiveLobbyId = sanitizeLobbyId(activeLobbyId) || DEFAULT_LOBBY_ID;
-
-      try {
-        const summaryResponse = await fetch("/api/lobbies-summary", { method: "GET" });
-        if (summaryResponse.ok) {
-          const summaryData = (await summaryResponse.json().catch(() => null)) as {
-            rooms?: Array<{ id?: unknown; activeTables?: unknown; seatedPlayers?: unknown }>;
-          } | null;
-          const rows = Array.isArray(summaryData?.rooms) ? summaryData.rooms : [];
-          rows.forEach((row) => {
-            const roomId = sanitizeLobbyId(typeof row.id === "string" ? row.id : "");
-            if (!roomId) return;
-            next[roomId] = {
-              activeTables: Math.max(0, Math.trunc(Number(row.activeTables) || 0)),
-              seatedPlayers: Math.max(0, Math.trunc(Number(row.seatedPlayers) || 0)),
-            };
-          });
-          next[safeActiveLobbyId] = summarizeLobbyCounts(lobbyState);
-          if (Object.keys(next).length > 0) {
-            if (cancelled) return;
-            setRoomPickerLiveCounts((prev) => ({ ...prev, ...next }));
-            return;
-          }
-        }
-      } catch {
-        // fallback to per-room local/remote pull below
-      }
 
       for (const room of lobbyRooms) {
         const roomId = sanitizeLobbyId(room.id);
@@ -3420,13 +3396,8 @@ function App() {
     let leftWithPermission = false;
     let penaltyWaivedBecauseOpponentLeft = false;
     if (roomSession && roomSession.role === "player") {
-      let activeTable = getActiveRoomTable();
-      let leaveContext = resolveLeavePenaltyContext(activeTable);
-      if (leaveContext.shouldPenalize) {
-        await syncRealtimeViaHttp("leave-penalty-check");
-        activeTable = getActiveRoomTable();
-        leaveContext = resolveLeavePenaltyContext(activeTable);
-      }
+      const activeTable = getActiveRoomTable();
+      const leaveContext = resolveLeavePenaltyContext(activeTable);
       if (leaveContext.shouldPenalize && leaveContext.opponentSeat) {
         if (!skipPenaltyConfirm) {
           const confirmed = await openLeaveConfirmModal(
@@ -5081,18 +5052,18 @@ function App() {
     const opponentLooksDisconnected = Boolean(
       effectiveOpponentSeat && Date.now() - effectiveOpponentSeat.touchedAt > HEARTBEAT_MS * 2,
     );
-    const gameCurrentlyActive = Boolean(matchLiveState.matchActive && !matchLiveState.winner);
+    const localWonCurrentGame = Boolean(matchLiveState.winner && matchLiveState.winner === roomSession.seat);
     const setComplete = isTableSeriesComplete(activeTable);
     const seriesStarted = Boolean(activeTable.startedAt || activeTable.setPlayed > 0 || matchLiveState.matchActive);
     const shouldPenalize = Boolean(
       mySeat
       && effectiveOpponentSeat
       && seriesStarted
-      && gameCurrentlyActive
       && !setComplete
       && !permissionGranted
       && !timeoutWaiver
       && !opponentLooksDisconnected
+      && !localWonCurrentGame
     );
     return {
       opponentSeat: effectiveOpponentSeat,
