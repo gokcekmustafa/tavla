@@ -1794,14 +1794,9 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
         ...normalizeSeriesTokenList(existing.setResultTokens),
         ...normalizeSeriesTokenList(table.setResultTokens),
       ]),
-      leavePermissionRequestByUserId:
-        sanitizeGuestId(preferred.leavePermissionRequestByUserId ?? "")
-        || sanitizeGuestId(fallback.leavePermissionRequestByUserId ?? "")
-        || null,
-      leavePermissionGrantedToUserId:
-        sanitizeGuestId(preferred.leavePermissionGrantedToUserId ?? "")
-        || sanitizeGuestId(fallback.leavePermissionGrantedToUserId ?? "")
-        || null,
+      // Leave-offer state is ephemeral; never resurrect cleared values from older snapshots.
+      leavePermissionRequestByUserId: sanitizeGuestId(preferred.leavePermissionRequestByUserId ?? "") || null,
+      leavePermissionGrantedToUserId: sanitizeGuestId(preferred.leavePermissionGrantedToUserId ?? "") || null,
     };
     const normalizedMerged = normalizeTableAccess(normalizeTableStartGate(mergedTable));
     if (isTableSuppressedByCloseTombstone(normalizedMerged, closedTableRooms)) {
