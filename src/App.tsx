@@ -672,10 +672,10 @@ function formatSince(timestamp: number, now = Date.now()) {
 
 function websocketStateText(readyState: number) {
   if (typeof WebSocket === "undefined") return "destek yok";
-  if (readyState === WebSocket.OPEN) return "acik";
+  if (readyState === WebSocket.OPEN) return "açık";
   if (readyState === WebSocket.CONNECTING) return "baglaniyor";
   if (readyState === WebSocket.CLOSING) return "kapanis";
-  return "kapali";
+  return "kapalı";
 }
 
 function createEmptyStats(): PlayerStats {
@@ -855,7 +855,7 @@ function normalizeMemberUser(raw: unknown): MemberUser | null {
   const candidate = raw as Partial<MemberUser>;
   const id = typeof candidate.id === "string" ? candidate.id : "";
   const email = sanitizeEmail(typeof candidate.email === "string" ? candidate.email : "");
-  const displayName = sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Uye") || "Uye";
+  const displayName = sanitizeGuestName(typeof candidate.displayName === "string" ? candidate.displayName : "Üye") || "Üye";
   const username =
     sanitizeMemberUsername(typeof candidate.username === "string" ? candidate.username : "")
     || fallbackUsernameFromName(displayName);
@@ -921,7 +921,7 @@ function seatText(seat: Seat) {
 }
 
 function roomRoleText(role: RoomRole) {
-  return role === "spectator" ? "Izleyici" : "Oyuncu";
+  return role === "spectator" ? "İzleyici" : "Oyuncu";
 }
 
 function sortTables(tables: LobbyTable[]) {
@@ -1999,6 +1999,10 @@ function App() {
     title: "",
     message: "",
   });
+  const [opponentIdleModal, setOpponentIdleModal] = useState<{ open: boolean; matchToken: string }>({
+    open: false,
+    matchToken: "",
+  });
   const [matchLiveState, setMatchLiveState] = useState({
     matchToken: "",
     matchActive: false,
@@ -2511,12 +2515,12 @@ function App() {
   }, [currentRoomTable, roomSession]);
   const roomStartHint = useMemo(() => {
     if (!roomStartState) return "";
-    if (roomStartState.started) return "Oyun basladi.";
-    if (!roomStartState.bothSeated) return "Ikinci oyuncu bekleniyor.";
-    if (roomStartState.mineReady && roomStartState.opponentReady) return "Iki oyuncu da hazir. Oyunu baslatabilirsin.";
-    if (roomStartState.mineReady) return "Rakibin Oyuna Basla butonuna basmasi bekleniyor.";
-    if (roomStartState.opponentReady) return "Rakip hazir. Oyuna Basla butonuna bas.";
-    return "Oyuncularin 'Baslat' dugmesine basmalari bekleniyor...";
+    if (roomStartState.started) return "Oyun başladı.";
+    if (!roomStartState.bothSeated) return "İkinci oyuncu bekleniyor.";
+    if (roomStartState.mineReady && roomStartState.opponentReady) return "İki oyuncu da hazır. Oyunu başlatabilirsin.";
+    if (roomStartState.mineReady) return "Rakibin Oyuna Başla butonuna basması bekleniyor.";
+    if (roomStartState.opponentReady) return "Rakip hazır. Oyuna Başla butonuna bas.";
+    return "Oyuncuların 'Başlat' düğmesine basmaları bekleniyor...";
   }, [roomStartState]);
   const roomWhiteSeat = currentRoomTable?.white ?? null;
   const roomBlackSeat = currentRoomTable?.black ?? null;
@@ -2566,6 +2570,46 @@ function App() {
   function clearOpponentIdleWatch() {
     opponentIdleWatchRef.current = null;
     opponentIdlePromptRef.current = false;
+    setOpponentIdleModal((prev) => (prev.open || prev.matchToken ? { open: false, matchToken: "" } : prev));
+  }
+
+  function isWaitingForOpponentTurn() {
+    const latest = latestLegacyStateRef.current;
+    return Boolean(
+      latest.matchActive
+      && !latest.winner
+      && latest.localColor
+      && latest.turn
+      && latest.turn !== latest.localColor,
+    );
+  }
+
+  function acceptOpponentIdleWinOffer() {
+    const activeTracker = opponentIdleWatchRef.current;
+    const targetMatchToken = activeTracker?.matchToken || opponentIdleModal.matchToken || latestLegacyStateRef.current.matchToken;
+    opponentIdlePromptRef.current = false;
+    setOpponentIdleModal({ open: false, matchToken: "" });
+    if (!activeTracker || !isWaitingForOpponentTurn()) {
+      clearOpponentIdleWatch();
+      return;
+    }
+    claimTimeoutWinByInactivity(targetMatchToken);
+    clearOpponentIdleWatch();
+  }
+
+  function postponeOpponentIdleWinOffer() {
+    const activeTracker = opponentIdleWatchRef.current;
+    opponentIdlePromptRef.current = false;
+    setOpponentIdleModal({ open: false, matchToken: "" });
+    if (!activeTracker || !isWaitingForOpponentTurn()) {
+      clearOpponentIdleWatch();
+      return;
+    }
+    opponentIdleWatchRef.current = {
+      ...activeTracker,
+      deadlineAt: Date.now() + OPPONENT_MOVE_TIMEOUT_MS,
+    };
+    setLobbyNotice("Bekleme isteğin kaydedildi. Rakibe 1 dakika daha süre verildi.");
   }
 
   function broadcastLobbySync() {
@@ -2801,11 +2845,11 @@ function App() {
 
   function sendLobbyChat(rawText: string) {
     if (!member) {
-      setLobbyNotice("Lobi sohbetine yazmak icin uye girisi yapmalisin.");
+      setLobbyNotice("Lobi sohbetine yazmak için üye girişi yapmalısın.");
       return;
     }
     if (member.isBlocked || !member.permissions.lobbyChat) {
-      setLobbyNotice("Lobi sohbeti yetkiniz admin tarafindan kapatildi.");
+      setLobbyNotice("Lobi sohbeti yetkiniz admin tarafından kapatıldı.");
       return;
     }
     const message = createOutgoingChatMessage(rawText);
@@ -2821,15 +2865,15 @@ function App() {
   function sendTableChat(rawText: string) {
     if (!roomSession) return;
     if (roomSession.role === "player" && !member) {
-      setLobbyNotice("Masa sohbeti sadece uye oyuncular icin acik.");
+      setLobbyNotice("Masa sohbeti sadece üye oyuncular için açık.");
       return;
     }
     if (member && (member.isBlocked || !member.permissions.tableChat)) {
-      setLobbyNotice("Masa sohbeti yetkiniz admin tarafindan kapatildi.");
+      setLobbyNotice("Masa sohbeti yetkiniz admin tarafından kapatıldı.");
       return;
     }
     if (roomSession.role === "spectator" && member && !member.permissions.spectatorChat) {
-      setLobbyNotice("Izleyici sohbeti yetkiniz kapatildi.");
+      setLobbyNotice("İzleyici sohbeti yetkiniz kapatıldı.");
       return;
     }
     const message = createOutgoingChatMessage(rawText);
@@ -2869,15 +2913,15 @@ function App() {
     });
 
     if (tableMissing) {
-      setLobbyNotice("Masa bulunamadi, sohbet gonderilemedi.");
+      setLobbyNotice("Masa bulunamadı, sohbet gönderilemedi.");
       return;
     }
     if (blocked) {
-      setLobbyNotice("Masa sohbetini sadece masadaki oyuncular gonderebilir.");
+      setLobbyNotice("Masa sohbetini sadece masadaki oyuncular gönderebilir.");
       return;
     }
     if (spectatorChatBlocked) {
-      setLobbyNotice("Masa sahibi izleyici sohbetini kapatmis.");
+      setLobbyNotice("Masa sahibi izleyici sohbetini kapatmış.");
       return;
     }
   }
@@ -2984,7 +3028,7 @@ function App() {
       return;
     }
     if (table.isPrivate) {
-      setLobbyNotice("Ozel masaya izleyici giremez. Sadece davetli oyuncu katilabilir.");
+      setLobbyNotice("Özel masaya izleyici giremez. Sadece davetli oyuncu katılabilir.");
       return;
     }
     if (myCurrentSeat) {
@@ -3016,7 +3060,7 @@ function App() {
     setViewMode("table");
     setCopied(false);
     setInvitePickerTableId(null);
-    setLobbyNotice(`Masa ${table.id} izleyici modunda acildi.`);
+    setLobbyNotice(`Masa ${table.id} izleyici modunda açıldı.`);
     forceReloadBoard();
   }
 
@@ -3159,7 +3203,7 @@ function App() {
       : false;
 
     if (existing && !sameTable) {
-      setLobbyNotice(`Ayni anda sadece tek masada oturabilirsin. Once Masa ${existing.table.id} icin masadan kalkmalisin.`);
+      setLobbyNotice(`Aynı anda sadece tek masada oturabilirsin. Önce Masa ${existing.table.id} için masadan kalkmalısın.`);
       setViewMode("lobby");
       return null;
     }
@@ -3168,7 +3212,7 @@ function App() {
     const table = upserted.table;
     if (!table) {
       if (upserted.reason === "already-seated") {
-        setLobbyNotice(`Ayni anda sadece tek masada oturabilirsin. Once Masa ${existing?.table.id} icin masadan kalkmalisin.`);
+        setLobbyNotice(`Aynı anda sadece tek masada oturabilirsin. Önce Masa ${existing?.table.id} için masadan kalkmalısın.`);
       } else if (upserted.reason === "private") {
         setLobbyNotice("Bu masa ozeldir. Sadece masa sahibi veya davet edilen oyuncu oturabilir.");
       } else if (upserted.reason === "missing-owner") {
@@ -3202,7 +3246,7 @@ function App() {
       setMode("local");
       setViewMode("lobby");
       setCopied(false);
-      setLobbyNotice(`Masa ${table.id} acildi. Diger oyuncu bekleniyor.`);
+      setLobbyNotice(`Masa ${table.id} açıldı. Diğer oyuncu bekleniyor.`);
     }
     return table;
   }
@@ -3210,7 +3254,7 @@ function App() {
   function onRoomStartReady() {
     if (!roomSession) return;
     if (roomSession.role !== "player") {
-      setLobbyNotice("Izleyiciler oyunu baslatamaz.");
+      setLobbyNotice("İzleyiciler oyunu başlatamaz.");
       return;
     }
     let seatMissing = false;
@@ -3295,22 +3339,22 @@ function App() {
     syncRoomStartGateToIframe();
 
     if (seatMissing) {
-      setLobbyNotice("Masadaki koltugun bulunamadi. Lutfen tekrar masaya otur.");
+      setLobbyNotice("Masadaki koltuğun bulunamadı. Lütfen tekrar masaya otur.");
       return;
     }
     if (alreadyStarted) {
-      setLobbyNotice("Oyun zaten basladi.");
+      setLobbyNotice("Oyun zaten başladı.");
       return;
     }
     if (alreadyReady) {
-      setLobbyNotice("Hazir durumdasin. Rakibin Oyuna Basla butonuna basmasi bekleniyor.");
+      setLobbyNotice("Hazır durumdasın. Rakibin Oyuna Başla butonuna basması bekleniyor.");
       return;
     }
     if (startNow) {
-      setLobbyNotice("Iki oyuncu da hazirlandi. Oyun basladi.");
+      setLobbyNotice("İki oyuncu da hazırlandı. Oyun başladı.");
       return;
     }
-    setLobbyNotice("Hazir oldun. Rakibin de Oyuna Basla butonuna basmasi bekleniyor.");
+    setLobbyNotice("Hazır oldun. Rakibin de Oyuna Başla butonuna basması bekleniyor.");
   }
 
   function onOpenTable() {
@@ -3318,13 +3362,13 @@ function App() {
     const existing = findSessionSeat(latest.tables, appSessionId);
     if (existing) {
       goToTable(existing.table, existing.seat);
-      setLobbyNotice(`Masa ${existing.table.id} zaten acik. Masaya yonlendirildin.`);
+      setLobbyNotice(`Masa ${existing.table.id} zaten açık. Masaya yönlendirildin.`);
       return;
     }
     const tableId = getNextTableId(latest.tables);
     const opened = sitToTable(tableId, "white", createRoomCode(), true);
     if (opened) {
-      setLobbyNotice(`Masa ${opened.id} acildi. Diger oyuncu bekleniyor.`);
+      setLobbyNotice(`Masa ${opened.id} açıldı. Diğer oyuncu bekleniyor.`);
     }
   }
 
@@ -3367,7 +3411,7 @@ function App() {
     const latest = getCurrentLobbyState();
     const table = latest.tables.find((row) => row.roomCode === code);
     if (!table) {
-      setLobbyNotice("Bu kodda acik masa yok.");
+      setLobbyNotice("Bu kodda açık masa yok.");
       return;
     }
     if (isTablePrivateBlockedForUser(table, currentProfile.userId, appSessionId)) {
@@ -3385,7 +3429,7 @@ function App() {
         return;
       }
       targetSeat = altSeat;
-      setLobbyNotice("Secili koltuk dolu oldugu icin bos koltuga gectin.");
+      setLobbyNotice("Seçili koltuk dolu olduğu için boş koltuğa geçtin.");
     }
 
     sitToTable(table.id, targetSeat, table.roomCode);
@@ -3402,8 +3446,8 @@ function App() {
       if (leaveContext.shouldPenalize && leaveContext.opponentSeat) {
         if (!skipPenaltyConfirm) {
           const confirmed = await openLeaveConfirmModal(
-            "Masadan Cikis Uyarisi",
-            `Set serisi tamamlanmadan masadan kalkarsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Rakibin galip sayilip ${gameRules.winPoints} puan kazanir.`,
+            "Masadan Çıkış Uyarısı",
+            `Set serisi tamamlanmadan masadan kalkarsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Rakibin galip sayılıp ${gameRules.winPoints} puan kazanır.`,
           );
           if (!confirmed) return;
         }
@@ -3421,18 +3465,18 @@ function App() {
 
     closeRoomAndReturnLobby();
     if (penalized) {
-      setLobbyNotice(`Masadan ayrildin: -${gameRules.resignPenaltyPoints} puan. Rakibin +${gameRules.winPoints} puan kazandi.`);
+      setLobbyNotice(`Masadan ayrıldın: -${gameRules.resignPenaltyPoints} puan. Rakibin +${gameRules.winPoints} puan kazandı.`);
       return;
     }
     if (leftWithPermission) {
-      setLobbyNotice("Rakibin izin verdigi icin puan kaybetmeden masadan ayrildin.");
+      setLobbyNotice("Rakibin izin verdiği için puan kaybetmeden masadan ayrıldın.");
       return;
     }
     if (penaltyWaivedBecauseOpponentLeft) {
-      setLobbyNotice("Rakip masadan ayrildigi icin ceza uygulanmadi.");
+      setLobbyNotice("Rakip masadan ayrıldığı için ceza uygulanmadı.");
       return;
     }
-    setLobbyNotice("Masadan ayrildin.");
+    setLobbyNotice("Masadan ayrıldın.");
   }
 
   function openLeaveActionModal() {
@@ -3538,7 +3582,7 @@ function App() {
         leavePermissionGrantedToUserId: null,
         inviteNoticeId: createChatMessageId(`leave-reject-${table.id}-${requestUserId}`),
         inviteNoticeForUserId: requestUserId,
-        inviteNoticeText: `${LEAVE_NOTICE_REJECT_PREFIX}${rejecterName} oyuncusu puansiz ayrilma teklifinizi reddetti.`,
+        inviteNoticeText: `${LEAVE_NOTICE_REJECT_PREFIX}${rejecterName} oyuncusu puansız ayrılma teklifinizi reddetti.`,
       });
       updated = true;
       return {
@@ -3549,15 +3593,15 @@ function App() {
     });
 
     if (tableMissing) {
-      setLobbyNotice("Masa bulunamadi.");
+      setLobbyNotice("Masa bulunamadı.");
       return;
     }
     if (notOpponent) {
-      setLobbyNotice("Bu teklifi reddetmek icin masadaki rakip oyuncu olmalisin.");
+      setLobbyNotice("Bu teklifi reddetmek için masadaki rakip oyuncu olmalısın.");
       return;
     }
     if (noRequest) {
-      setLobbyNotice("Aktif bir puansiz ayrilma teklifi yok.");
+      setLobbyNotice("Aktif bir puansız ayrılma teklifi yok.");
       return;
     }
     if (cannotRejectOwnRequest) {
@@ -3570,7 +3614,7 @@ function App() {
         leaveIncomingActiveKeyRef.current = "";
       }
       setLeaveIncomingModal({ open: false, requesterName: "", requestKey: "" });
-      setLobbyNotice("Puansiz ayrilma teklifi reddedildi.");
+      setLobbyNotice("Puansız ayrılma teklifi reddedildi.");
     }
   }
 
@@ -3597,7 +3641,7 @@ function App() {
         const leaveContext = resolveLeavePenaltyContext(activeTable);
         if (leaveContext.shouldPenalize && leaveContext.opponentSeat) {
           const confirmed = window.confirm(
-            `Set serisi tamamlanmadan masadan ayrilirsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Bot moduna gecmek istiyor musun?`,
+            `Set serisi tamamlanmadan masadan ayrılırsan ${gameRules.resignPenaltyPoints} puan kaybedersin. Bot moduna geçmek istiyor musun?`,
           );
           if (!confirmed) return;
           const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
@@ -3622,11 +3666,11 @@ function App() {
     setCopied(false);
     setInvitePickerTableId(null);
     if (penalized) {
-      setLobbyNotice(`Bot modu aktif. Masadan ayrildigin icin -${gameRules.resignPenaltyPoints} puan uygulandi.`);
+      setLobbyNotice(`Bot modu aktif. Masadan ayrıldığın için -${gameRules.resignPenaltyPoints} puan uygulandı.`);
     } else if (leftWithPermission) {
-      setLobbyNotice("Bot modu aktif. Rakip izin verdigi icin puan kesilmedi.");
+      setLobbyNotice("Bot modu aktif. Rakip izin verdiği için puan kesilmedi.");
     } else if (penaltyWaivedBecauseOpponentLeft) {
-      setLobbyNotice("Bot modu aktif. Rakip masadan ayrildigi icin ceza uygulanmadi.");
+      setLobbyNotice("Bot modu aktif. Rakip masadan ayrıldığı için ceza uygulanmadı.");
     } else {
       setLobbyNotice("Bot modu aktif.");
     }
@@ -3989,7 +4033,7 @@ function App() {
     setRoomPickerOpen(false);
     pushEntryScreenHistory("lobby");
     const roomName = lobbyRooms.find((room) => room.id === safeId)?.name || DEFAULT_LOBBY_NAME;
-    setLobbyNotice(`${sanitizeLobbyName(roomName)} odasina girildi.`);
+    setLobbyNotice(`${sanitizeLobbyName(roomName)} odasına girildi.`);
   }
 
   function openAdminPanelWindow() {
@@ -4000,10 +4044,10 @@ function App() {
     url.searchParams.set("lobby", activeLobbyId);
     const opened = window.open(url.toString(), "_blank", "noopener,noreferrer");
     if (!opened) {
-      setLobbyNotice("Tarayici yeni pencereyi engelledi. Popup izni verip tekrar dene.");
+      setLobbyNotice("Tarayıcı yeni pencereyi engelledi. Popup izni verip tekrar dene.");
       return;
     }
-    setLobbyNotice("Admin paneli yeni pencerede acildi.");
+    setLobbyNotice("Admin paneli yeni pencerede açıldı.");
   }
 
   function openAccountMenu(mode: AuthMode) {
@@ -4023,11 +4067,11 @@ function App() {
 
   function openInvitePicker(table: LobbyTable) {
     if (!isTableOwnerForUser(table, currentProfile.userId)) {
-      setLobbyNotice("Davet listesini sadece masa sahibi acabilir.");
+      setLobbyNotice("Davet listesini sadece masa sahibi açabilir.");
       return;
     }
     if (!getOpenSeat(table)) {
-      setLobbyNotice("Masada iki oyuncu oldugu icin davet gonderilemez.");
+      setLobbyNotice("Masada iki oyuncu olduğu için davet gönderilemez.");
       return;
     }
     setInvitePickerTableId(table.id);
@@ -4073,18 +4117,18 @@ function App() {
     });
 
     if (tableMissing) {
-      setLobbyNotice("Masa bulunamadi.");
+      setLobbyNotice("Masa bulunamadı.");
       return;
     }
     if (notOwner) {
-      setLobbyNotice("Masa gizlilik ayarini sadece masa sahibi degistirebilir.");
+      setLobbyNotice("Masa gizlilik ayarını sadece masa sahibi değiştirebilir.");
       return;
     }
     if (updated) {
-      setLobbyNotice(nowPrivate ? "Masa ozel yapildi. Sadece davetliler oturabilir." : "Masa tekrar herkese acildi.");
+      setLobbyNotice(nowPrivate ? "Masa özel yapıldı. Sadece davetliler oturabilir." : "Masa tekrar herkese açıldı.");
       return;
     }
-    setLobbyNotice(nowPrivate ? "Masa zaten ozel." : "Masa zaten herkese acik.");
+    setLobbyNotice(nowPrivate ? "Masa zaten özel." : "Masa zaten herkese açık.");
   }
 
   function setSpectatorChatEnabled(tableId: number, enabled: boolean) {
@@ -4121,15 +4165,15 @@ function App() {
     });
 
     if (tableMissing) {
-      setLobbyNotice("Masa bulunamadi.");
+      setLobbyNotice("Masa bulunamadı.");
       return;
     }
     if (notOwner) {
-      setLobbyNotice("Izleyici sohbetini sadece masa sahibi ayarlayabilir.");
+      setLobbyNotice("İzleyici sohbetini sadece masa sahibi ayarlayabilir.");
       return;
     }
     if (updated) {
-      setLobbyNotice(enabled ? "Izleyici sohbeti acildi." : "Izleyici sohbeti kapatildi.");
+      setLobbyNotice(enabled ? "İzleyici sohbeti açıldı." : "İzleyici sohbeti kapatıldı.");
     }
   }
 
@@ -4197,24 +4241,24 @@ function App() {
     });
 
     if (tableMissing) {
-      setLobbyNotice("Masa bulunamadi.");
+      setLobbyNotice("Masa bulunamadı.");
       return;
     }
     if (notOwner) {
-      setLobbyNotice("Bu masaya davet gonderebilmek icin masa sahibi olmalisin.");
+      setLobbyNotice("Bu masaya davet gönderebilmek için masa sahibi olmalısın.");
       return;
     }
     if (targetBusy) {
-      setLobbyNotice("Secilen oyuncu su an baska bir masada.");
+      setLobbyNotice("Seçilen oyuncu şu an başka bir masada.");
       return;
     }
     if (tableFull) {
-      setLobbyNotice("Masa dolu oldugu icin davet gonderilemedi.");
+      setLobbyNotice("Masa dolu olduğu için davet gönderilemedi.");
       return;
     }
     if (invited) {
       closeInvitePicker();
-      setLobbyNotice(`${targetName} oyuncusuna masa daveti gonderildi.`);
+      setLobbyNotice(`${targetName} oyuncusuna masa daveti gönderildi.`);
     }
   }
 
@@ -4222,12 +4266,12 @@ function App() {
     const latest = getCurrentLobbyState();
     const table = latest.tables.find((row) => row.id === tableId);
     if (!table || table.invitedUserId !== currentProfile.userId) {
-      setLobbyNotice("Davet artik gecerli degil.");
+      setLobbyNotice("Davet artık geçerli değil.");
       return;
     }
     const targetSeat = getOpenSeat(table);
     if (!targetSeat) {
-      setLobbyNotice("Masa doldugu icin davet gecersiz oldu.");
+      setLobbyNotice("Masa dolduğu için davet geçersiz oldu.");
       writeLobby((current) => {
         const tables = current.tables.map((row) => {
           if (row.id !== tableId) return row;
@@ -4318,7 +4362,7 @@ function App() {
   async function onCopyInvite() {
     if (!roomSession || !currentRoomTable) return;
     if (roomSession.role !== "player") {
-      setLobbyNotice("Izleyici modunda davet linki kopyalanamaz.");
+      setLobbyNotice("İzleyici modunda davet linki kopyalanamaz.");
       return;
     }
     if (!currentRoomIsOwner) {
@@ -4326,7 +4370,7 @@ function App() {
       return;
     }
     if (!canCopyInviteLink) {
-      setLobbyNotice("Oyun basladiktan sonra davet linki kilitlenir.");
+      setLobbyNotice("Oyun başladıktan sonra davet linki kilitlenir.");
       return;
     }
     await copyInviteFromTable(currentRoomTable, roomSession.seat);
@@ -4356,12 +4400,12 @@ function App() {
     const avatarId = sanitizeAvatarId(authAvatarId, gender);
 
     if (!username || username.length < 3) {
-      setAuthError("Kullanici adi en az 3 karakter olmali (harf, rakam, alt cizgi).");
+      setAuthError("Kullanıcı adı en az 3 karakter olmalı (harf, rakam, alt çizgi).");
       return;
     }
 
     if (!displayName || displayName.length < 3) {
-      setAuthError("Uye adi en az 3 karakter olmali.");
+      setAuthError("Üye adı en az 3 karakter olmalı.");
       return;
     }
     if (!email.includes("@")) {
@@ -4369,7 +4413,7 @@ function App() {
       return;
     }
     if (password.length < 4) {
-      setAuthError("Sifre en az 4 karakter olmali.");
+      setAuthError("Şifre en az 4 karakter olmalı.");
       return;
     }
 
@@ -4382,13 +4426,13 @@ function App() {
         body: JSON.stringify({ username, displayName, email, gender, avatarId, password }),
       });
       if (!response.ok) {
-        setAuthError(await readApiError(response, "Uyelik acilamadi."));
+        setAuthError(await readApiError(response, "Üyelik açılamadı."));
         return;
       }
       const data = (await response.json().catch(() => null)) as { user?: unknown } | null;
       const user = normalizeMemberUser(data?.user);
       if (!user) {
-        setAuthError("Sunucu uyelik yaniti gecersiz.");
+        setAuthError("Sunucu üyelik yanıtı geçersiz.");
         return;
       }
 
@@ -4407,7 +4451,7 @@ function App() {
       clearRoomPickerSessionState();
       setViewMode("lobby");
       setRoomPickerOpen(true);
-      setLobbyNotice("Uyelik acildi.");
+      setLobbyNotice("Üyelik açıldı.");
       patchSeatByUserId(user.id, user.points, user.stats, user.displayName, user.username, user.gender, user.avatarId);
     } catch {
       setAuthError("Sunucuya baglanilamadi. Tekrar deneyin.");
@@ -4425,7 +4469,7 @@ function App() {
       return;
     }
     if (!password) {
-      setAuthError("Sifre girin.");
+      setAuthError("Şifre girin.");
       return;
     }
 
@@ -4438,13 +4482,13 @@ function App() {
         body: JSON.stringify({ identifier, password }),
       });
       if (!response.ok) {
-        setAuthError(await readApiError(response, "Kullanici adi/e-posta veya sifre yanlis."));
+        setAuthError(await readApiError(response, "Kullanıcı adı/e-posta veya şifre yanlış."));
         return;
       }
       const data = (await response.json().catch(() => null)) as { user?: unknown } | null;
       const user = normalizeMemberUser(data?.user);
       if (!user) {
-        setAuthError("Sunucu giris yaniti gecersiz.");
+        setAuthError("Sunucu giriş yanıtı geçersiz.");
         return;
       }
 
@@ -4472,11 +4516,11 @@ function App() {
     const email = sanitizeEmail(forgotEmail);
     const newPassword = forgotNewPassword.trim().slice(0, 64);
     if (!email.includes("@")) {
-      setAuthError("Sifre sifirlama icin gecerli e-posta girin.");
+      setAuthError("Şifre sıfırlama için geçerli e-posta girin.");
       return;
     }
     if (newPassword.length < 4) {
-      setAuthError("Yeni sifre en az 4 karakter olmali.");
+      setAuthError("Yeni şifre en az 4 karakter olmalı.");
       return;
     }
 
@@ -4489,13 +4533,13 @@ function App() {
         body: JSON.stringify({ email, newPassword }),
       });
       if (!response.ok) {
-        setAuthError(await readApiError(response, "Sifre sifirlanamadi."));
+        setAuthError(await readApiError(response, "Şifre sıfırlanamadı."));
         return;
       }
       setForgotNewPassword("");
-      setMemberNotice("Sifre sifirlandi. Yeni sifre ile giris yapabilirsin.");
+      setMemberNotice("Şifre sıfırlandı. Yeni şifre ile giriş yapabilirsin.");
     } catch {
-      setAuthError("Sifre sifirlama servisine baglanilamadi.");
+      setAuthError("Şifre sıfırlama servisine bağlanılamadı.");
     } finally {
       setForgotBusy(false);
     }
@@ -4510,7 +4554,7 @@ function App() {
       return;
     }
     if (newPassword.length < 4) {
-      setMemberNotice("Yeni sifre en az 4 karakter olmali.");
+      setMemberNotice("Yeni şifre en az 4 karakter olmalı.");
       return;
     }
 
@@ -4527,7 +4571,7 @@ function App() {
         }),
       });
       if (!response.ok) {
-        setMemberNotice(await readApiError(response, "Sifre degistirilemedi."));
+        setMemberNotice(await readApiError(response, "Şifre değiştirilemedi."));
         return;
       }
       const data = (await response.json().catch(() => null)) as { user?: unknown } | null;
@@ -4539,9 +4583,9 @@ function App() {
       }
       setMemberPasswordCurrent("");
       setMemberPasswordNext("");
-      setMemberNotice("Sifre basariyla degisti.");
+      setMemberNotice("Şifre başarıyla değişti.");
     } catch {
-      setMemberNotice("Sifre degistirme servisinde baglanti hatasi.");
+      setMemberNotice("Şifre değiştirme servisinde bağlantı hatası.");
     } finally {
       setMemberActionBusy(false);
     }
@@ -4604,7 +4648,7 @@ function App() {
     setViewMode("lobby");
     setRoomPickerOpen(true);
     setAccountMenuOpen(false);
-    setLobbyNotice("Uyelik oturumu kapatildi.");
+    setLobbyNotice("Üyelik oturumu kapatıldı.");
   }
 
   function patchSeatByUserId(
@@ -4814,15 +4858,15 @@ function App() {
     });
 
     if (tableMissing) {
-      setLobbyNotice("Masa bulunamadi.");
+      setLobbyNotice("Masa bulunamadı.");
       return;
     }
     if (notOwner) {
-      setLobbyNotice("Set sayisini sadece masa sahibi belirleyebilir.");
+      setLobbyNotice("Set sayısını sadece masa sahibi belirleyebilir.");
       return;
     }
     if (locked) {
-      setLobbyNotice("Set sayisi sadece seri baslamadan degistirilebilir.");
+      setLobbyNotice("Set sayısı sadece seri başlamadan değiştirilebilir.");
       return;
     }
     if (updated) {
@@ -4883,27 +4927,27 @@ function App() {
     });
 
     if (tableMissing) {
-      setLobbyNotice("Masa bulunamadi.");
+      setLobbyNotice("Masa bulunamadı.");
       return;
     }
     if (notSeated) {
-      setLobbyNotice("Bu istegi gonderebilmek icin masada oturuyor olmalisin.");
+      setLobbyNotice("Bu isteği gönderebilmek için masada oturuyor olmalısın.");
       return;
     }
     if (noOpponent) {
-      setLobbyNotice("Rakip olmadigi icin izin istemene gerek yok.");
+      setLobbyNotice("Rakip olmadığı için izin istemene gerek yok.");
       return;
     }
     if (alreadyGranted) {
-      setLobbyNotice("Rakibin zaten puansiz ayrilma izni verdi.");
+      setLobbyNotice("Rakibin zaten puansız ayrılma izni verdi.");
       return;
     }
     if (alreadyRequested) {
-      setLobbyNotice("Izin talebin rakibe gonderildi, cevap bekleniyor.");
+      setLobbyNotice("İzin talebin rakibe gönderildi, cevap bekleniyor.");
       return;
     }
     if (updated) {
-      setLobbyNotice("Rakibe puansiz ayrilma izni talebi gonderildi.");
+      setLobbyNotice("Rakibe puansız ayrılma izni talebi gönderildi.");
     }
   }
 
@@ -4960,7 +5004,7 @@ function App() {
     });
 
     if (tableMissing) {
-      setLobbyNotice("Masa bulunamadi.");
+      setLobbyNotice("Masa bulunamadı.");
       return;
     }
     if (noRequest) {
@@ -4968,7 +5012,7 @@ function App() {
       return;
     }
     if (cannotApproveOwnRequest) {
-      setLobbyNotice("Kendi izin talebini onaylayamazsin.");
+      setLobbyNotice("Kendi izin talebini onaylayamazsın.");
       return;
     }
     if (notOpponent) {
@@ -4976,13 +5020,13 @@ function App() {
       return;
     }
     if (updated) {
-      setLobbyNotice(`${requesterName} oyuncusuna puansiz ayrilma izni verildi.`);
+      setLobbyNotice(`${requesterName} oyuncusuna puansız ayrılma izni verildi.`);
     }
   }
 
   function adminCloseTable(tableId: number) {
     if (!member || member.role !== "admin") {
-      setLobbyNotice("Masayi kapatmak icin admin olmalisin.");
+      setLobbyNotice("Masayı kapatmak için admin olmalısın.");
       return;
     }
 
@@ -5014,14 +5058,14 @@ function App() {
     });
 
     if (!tableFound) {
-      setLobbyNotice("Kapatilacak masa bulunamadi.");
+      setLobbyNotice("Kapatılacak masa bulunamadı.");
       return;
     }
 
     if (invitePickerTableId === tableId) {
       setInvitePickerTableId(null);
     }
-    setLobbyNotice(`Masa ${tableId} admin tarafindan kapatildi.`);
+    setLobbyNotice(`Masa ${tableId} admin tarafından kapatıldı.`);
   }
 
   function resolveLeavePenaltyContext(activeTable: LobbyTable | null) {
@@ -5248,7 +5292,7 @@ function App() {
       matchToken: safeToken,
       userId: currentProfile.userId,
     };
-    setLobbyNotice("Rakibin 1 dakika hamle yapmadigi icin galip sayildin.");
+    setLobbyNotice("Rakibin 1 dakika hamle yapmadığı için galip sayıldın.");
   }
 
   function syncTableChatToIframe(targetWindow?: Window | null) {
@@ -5498,7 +5542,7 @@ function App() {
       if (blockedReason === "private") {
         setLobbyNotice("Bu masa ozel oldugu icin koltuk korunuyor.");
       } else if (blockedReason === "already-seated") {
-        setLobbyNotice("Ayni anda sadece tek masada oturabilirsin.");
+        setLobbyNotice("Aynı anda sadece tek masada oturabilirsin.");
       } else {
         setLobbyNotice(`${seatText(roomSession.seat)} koltugu dolu gorunuyor.`);
       }
@@ -5518,7 +5562,7 @@ function App() {
           disabled={seatLocked || privateBlocked}
           title={
             seatLocked
-              ? `Once Masa ${myCurrentSeat?.table.id} icin masadan kalk`
+              ? `Önce Masa ${myCurrentSeat?.table.id} için masadan kalk`
               : privateBlocked
                 ? "Bu masa ozel. Sadece masa sahibi veya davetliler oturabilir."
               : `${seatText(seat)} koltuguna otur`
@@ -5579,7 +5623,7 @@ function App() {
             : "loss";
       await applyOutcomeForUserId(currentProfile.userId, localOutcome, currentProfile.displayName, token);
       if (localOutcome === "win") {
-        setLobbyNotice(`Oyunu kazandin. +${gameRules.winPoints} puan eklendi.`);
+        setLobbyNotice(`Oyunu kazandın. +${gameRules.winPoints} puan eklendi.`);
       } else if (localOutcome === "resign") {
         setLobbyNotice(`Masadan kalktin. ${gameRules.resignPenaltyPoints} puan dusuldu.`);
       } else {
@@ -5611,7 +5655,7 @@ function App() {
     await applyOutcomeForUserId(currentProfile.userId, localOutcome, currentProfile.displayName, seriesResult.settleToken || token);
     if (localOutcome === "win") {
       setLobbyNotice(
-        `Set serisini kazandin (${seriesResult.whiteWins}-${seriesResult.blackWins}). +${gameRules.winPoints} puan eklendi.`,
+        `Set serisini kazandın (${seriesResult.whiteWins}-${seriesResult.blackWins}). +${gameRules.winPoints} puan eklendi.`,
       );
     } else {
       setLobbyNotice(
@@ -5779,7 +5823,7 @@ function App() {
           realtimeWsPreopenFailCountRef.current = nextFailCount;
           if (nextFailCount >= WS_PREOPEN_FAIL_DISABLE_THRESHOLD) {
             realtimeWsDisabledUntilRef.current = Date.now() + WS_DISABLE_DURATION_MS;
-            setSyncHealth((prev) => ({ ...prev, lastError: "ws gecici kapatildi, http senkron aktif" }));
+            setSyncHealth((prev) => ({ ...prev, lastError: "ws geçici kapatıldı, http senkron aktif" }));
           }
         } else {
           realtimeWsPreopenFailCountRef.current = 0;
@@ -5975,32 +6019,10 @@ function App() {
       if (Date.now() < tracker.deadlineAt) return;
 
       opponentIdlePromptRef.current = true;
-      const accepted = window.confirm(
-        "Rakibiniz 1 dakikadir hamle yapmiyor. Oyunu kazanmak istiyor musunuz?\nTamam: Kazan\nIptal: Beklemek istiyorum",
-      );
-      opponentIdlePromptRef.current = false;
-
-      const activeTracker = opponentIdleWatchRef.current;
-      const stillWaiting = latestLegacyStateRef.current.matchActive
-        && !latestLegacyStateRef.current.winner
-        && latestLegacyStateRef.current.localColor
-        && latestLegacyStateRef.current.turn
-        && latestLegacyStateRef.current.turn !== latestLegacyStateRef.current.localColor;
-      if (!activeTracker || !stillWaiting) {
-        clearOpponentIdleWatch();
-        return;
-      }
-
-      if (accepted) {
-        claimTimeoutWinByInactivity(activeTracker.matchToken || latestLegacyStateRef.current.matchToken);
-        clearOpponentIdleWatch();
-      } else {
-        opponentIdleWatchRef.current = {
-          ...activeTracker,
-          deadlineAt: Date.now() + OPPONENT_MOVE_TIMEOUT_MS,
-        };
-        setLobbyNotice("Bekleme istegin kaydedildi. Rakibe 1 dakika daha sure verildi.");
-      }
+      setOpponentIdleModal({
+        open: true,
+        matchToken: tracker.matchToken || latest.matchToken,
+      });
     }, 1000);
 
     return () => window.clearInterval(timer);
@@ -6534,8 +6556,8 @@ function App() {
           const message = latest.inviteNoticeText.slice(LEAVE_NOTICE_REJECT_PREFIX.length).trim();
           setLeaveInfoModal({
             open: true,
-            title: "Masadan Cik",
-            message: message || "Puansiz ayrilma teklifin reddedildi.",
+            title: "Masadan Çık",
+            message: message || "Puansız ayrılma teklifin reddedildi.",
           });
         }
       } else {
@@ -6567,7 +6589,7 @@ function App() {
     if (!roomSession || roomSession.role !== "spectator" || !currentRoomTable?.isPrivate) return;
     setRoomSession(null);
     setViewMode("lobby");
-    setLobbyNotice("Ozel masalara izleyici girisi kapali.");
+    setLobbyNotice("Özel masalara izleyici girişi kapalı.");
   }, [roomSession, currentRoomTable]);
 
   useEffect(() => {
@@ -6695,8 +6717,8 @@ function App() {
         </header>
         {!member || member.role !== "admin" ? (
           <section className="my-admin-window-blocked">
-            <h2>Admin girisi gerekli</h2>
-            <p className="line">Bu pencereyi kullanmak icin admin hesabi ile giris yapmalisin.</p>
+            <h2>Admin girişi gerekli</h2>
+            <p className="line">Bu pencereyi kullanmak için admin hesabı ile giriş yapmalısın.</p>
           </section>
         ) : (
           <section className="my-admin-window-layout">
@@ -6817,11 +6839,11 @@ function App() {
             </section>
 
             <section className="my-side-card my-admin-users-panel">
-              <h3>Kullanici Yonetimi</h3>
+              <h3>Kullanıcı Yönetimi</h3>
               <div className="my-admin-toolbar">
                 <input
                   className="my-input"
-                  placeholder="Kullanici ara"
+                  placeholder="Kullanıcı ara"
                   value={adminQuery}
                   onChange={(e) => setAdminQuery(e.target.value)}
                   disabled={adminBusy}
@@ -6834,7 +6856,7 @@ function App() {
                 >
                   <option value="all">Tum Roller</option>
                   <option value="admin">Sadece Admin</option>
-                  <option value="user">Sadece Uye</option>
+                  <option value="user">Sadece Üye</option>
                 </select>
               </div>
 
@@ -6857,7 +6879,7 @@ function App() {
                       <h4>{selectedAdminUser.displayName}</h4>
                       <p className="line">@{selectedAdminUser.username}</p>
                       <p className="line">{selectedAdminUser.email}</p>
-                      <p className="line">Rol: {selectedAdminUser.role === "admin" ? "Admin" : "Uye"}</p>
+                      <p className="line">Rol: {selectedAdminUser.role === "admin" ? "Admin" : "Üye"}</p>
                       <p className="line">Durum: {selectedAdminUser.isBlocked ? "Engelli" : "Aktif"}</p>
                       <p className="line">Puan: {selectedAdminUser.points}</p>
                       <p className="line">
@@ -6870,7 +6892,7 @@ function App() {
                           onClick={() => runAdminUserAction(selectedAdminUser.id, "setBlocked", { blocked: !selectedAdminUser.isBlocked })}
                           disabled={adminBusy || selectedAdminUser.id === member.id}
                         >
-                          {selectedAdminUser.isBlocked ? "Engeli Kaldir" : "Kullaniciyi Engelle"}
+                          {selectedAdminUser.isBlocked ? "Engeli Kaldır" : "Kullanıcıyı Engelle"}
                         </button>
                         <button
                           className={`my-action-btn ${selectedAdminUser.permissions.lobbyChat ? "soft" : ""}`}
@@ -6891,21 +6913,21 @@ function App() {
                           onClick={() => runAdminUserAction(selectedAdminUser.id, "setPermission", { permission: "spectatorChat", value: !selectedAdminUser.permissions.spectatorChat })}
                           disabled={adminBusy}
                         >
-                          Izleyici Mesaj: {selectedAdminUser.permissions.spectatorChat ? "Acik" : "Kapali"}
+                          İzleyici Mesaj: {selectedAdminUser.permissions.spectatorChat ? "Açık" : "Kapalı"}
                         </button>
                         <button
                           className="my-action-btn"
                           onClick={() => runAdminUserAction(selectedAdminUser.id, "setRole", { role: selectedAdminUser.role === "admin" ? "user" : "admin" })}
                           disabled={adminBusy}
                         >
-                          {selectedAdminUser.role === "admin" ? "Uyeye Cevir" : "Admin Yap"}
+                          {selectedAdminUser.role === "admin" ? "Üyeye Çevir" : "Admin Yap"}
                         </button>
                         <button
                           className="my-action-btn danger"
                           onClick={() => runAdminUserAction(selectedAdminUser.id, "deleteUser")}
                           disabled={adminBusy || selectedAdminUser.id === member.id}
                         >
-                          Kullaniciyi Sil
+                          Kullanıcıyı Sil
                         </button>
                       </div>
                     </>
@@ -6942,7 +6964,7 @@ function App() {
                   Oda Sec
                 </button>
                 <button className="my-top-btn my-btn-open" onClick={onOpenTable}>
-                  Masa Ac
+                  Masa Aç
                 </button>
                 <button className="my-top-btn my-btn-play" onClick={onQuickPlay}>
                   Hemen Oyna
@@ -6963,7 +6985,7 @@ function App() {
             <button
               className="my-account-trigger"
               onClick={() => setAccountMenuOpen((current) => !current)}
-              title={member ? "Profil ve ayarlar" : "Uyelik ve giris"}
+              title={member ? "Profil ve ayarlar" : "Üyelik ve giriş"}
             >
               <AvatarBadge avatarId={currentProfile.avatarId} gender={currentProfile.gender} size="sm" />
               <span>{member ? member.displayName : "Misafir"}</span>
@@ -6971,7 +6993,7 @@ function App() {
             {!member ? (
               <>
                 <button className="my-top-btn my-btn-member" onClick={() => openAccountMenu("register")}>
-                  Uye Ol
+                  Üye Ol
                 </button>
                 <button className="my-top-btn my-btn-member-alt" onClick={() => openAccountMenu("login")}>
                   Giris
@@ -6999,7 +7021,7 @@ function App() {
                         <p className="line">
                           <strong>{member.displayName}</strong>
                         </p>
-                        <p className="line">Kullanici: @{member.username}</p>
+                        <p className="line">Kullanıcı: @{member.username}</p>
                       </div>
                     </div>
                     <p className="line">Puan: {member.points}</p>
@@ -7043,13 +7065,13 @@ function App() {
                         disabled={memberActionBusy}
                       />
                       <button className="my-action-btn" onClick={onChangeMyPassword} disabled={memberActionBusy}>
-                        {memberActionBusy ? "Isleniyor..." : "Sifre Degistir"}
+                        {memberActionBusy ? "İşleniyor..." : "Şifre Değiştir"}
                       </button>
                     </div>
                     {memberNotice ? <p className="my-notice my-notice-soft">{memberNotice}</p> : null}
                     <div className="my-inline-actions">
                       <button className="my-action-btn soft" onClick={onLogoutMember}>
-                        Cikis
+                        Çıkış
                       </button>
                       {isAdmin ? <p className="line">Admin paneline ust menudeki <strong>Admin Paneli</strong> butonundan ulasabilirsin.</p> : null}
                     </div>
@@ -7065,7 +7087,7 @@ function App() {
                         }}
                         disabled={authBusy}
                       >
-                        Uye Ol
+                        Üye Ol
                       </button>
                       <button className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")} disabled={authBusy}>
                         Giris
@@ -7075,7 +7097,7 @@ function App() {
                       <>
                         <input
                           className="my-input"
-                          placeholder="Kullanici adi (or: gokcek34)"
+                          placeholder="Kullanıcı adı (or: gokcek34)"
                           value={authUsername}
                           onChange={(e) => setAuthUsername(e.target.value)}
                           disabled={authBusy}
@@ -7125,20 +7147,20 @@ function App() {
                         <input
                           className="my-input"
                           type="password"
-                          placeholder="Sifre"
+                          placeholder="Şifre"
                           value={authPassword}
                           onChange={(e) => setAuthPassword(e.target.value)}
                           disabled={authBusy}
                         />
                         <button className="my-action-btn" onClick={onRegisterMember} disabled={authBusy}>
-                          {authBusy ? "Isleniyor..." : "Uye Ol ve Basla"}
+                          {authBusy ? "İşleniyor..." : "Üye Ol ve Başla"}
                         </button>
                       </>
                     ) : (
                       <>
                         <input
                           className="my-input"
-                          placeholder="Kullanici adi veya E-posta"
+                          placeholder="Kullanıcı adı veya E-posta"
                           value={authEmail}
                           onChange={(e) => setAuthEmail(e.target.value)}
                           disabled={authBusy}
@@ -7146,7 +7168,7 @@ function App() {
                         <input
                           className="my-input"
                           type="password"
-                          placeholder="Sifre"
+                          placeholder="Şifre"
                           value={authPassword}
                           onChange={(e) => setAuthPassword(e.target.value)}
                           disabled={authBusy}
@@ -7154,7 +7176,7 @@ function App() {
                         <button className="my-action-btn" onClick={onLoginMember} disabled={authBusy}>
                           {authBusy ? "Isleniyor..." : "Giris Yap"}
                         </button>
-                        <p className="line">Sifremi unuttum</p>
+                        <p className="line">Şifremi unuttum</p>
                         <input
                           className="my-input"
                           placeholder="Kayitli e-posta"
@@ -7171,7 +7193,7 @@ function App() {
                           disabled={forgotBusy}
                         />
                         <button className="my-action-btn soft" onClick={onForgotPassword} disabled={forgotBusy}>
-                          {forgotBusy ? "Isleniyor..." : "E-posta ile Sifre Sifirla"}
+                          {forgotBusy ? "İşleniyor..." : "E-posta ile Şifre Sıfırla"}
                         </button>
                       </>
                     )}
@@ -7242,7 +7264,7 @@ function App() {
                 >
                   <div className="my-room-picker-card-head">
                     <strong>{room.name}</strong>
-                    {activeLobbyId === room.id ? <span>Secili</span> : null}
+                    {activeLobbyId === room.id ? <span>Seçili</span> : null}
                   </div>
                   <p>Masa: {room.activeTables}</p>
                   <p>Oyuncu: {room.seatedPlayers}</p>
@@ -7264,7 +7286,7 @@ function App() {
               <div className="my-invite-banner">
                 <p>
                   Masa {incomingInviteTable.id} icin davet aldin.
-                  {incomingInviteTable.isPrivate ? " (Ozel masa)" : ""}
+                  {incomingInviteTable.isPrivate ? " (Özel masa)" : ""}
                 </p>
                 <div className="my-invite-banner-actions">
                   <button className="my-action-btn" onClick={() => acceptTableInvite(incomingInviteTable.id)}>
@@ -7280,7 +7302,7 @@ function App() {
             <div className="my-lobby-table-zone">
               {openedTables.length === 0 ? (
                 <div className="my-empty-state">
-                  Henuz acik masa yok. <strong>Masa Ac</strong> ile ilk masayi acabilirsin.
+                  Henüz açık masa yok. <strong>Masa Aç</strong> ile ilk masayı açabilirsin.
                 </div>
               ) : (
                 <div className="my-table-grid">
@@ -7308,9 +7330,9 @@ function App() {
                           className="my-watch-eye-btn"
                           onClick={() => watchTableAsSpectator(table)}
                           disabled={!canWatchTable}
-                          title={canWatchTable ? "Masayi izleyici olarak ac" : table.isPrivate ? "Ozel masalar izleyiciye kapali" : "Izlemek icin masada oturmamalisin"}
+                          title={canWatchTable ? "Masayı izleyici olarak aç" : table.isPrivate ? "Özel masalar izleyiciye kapalı" : "İzlemek için masada oturmamalısın"}
                           style={showWatchEye ? undefined : { display: "none" }}
-                          aria-label="Masayi izle"
+                          aria-label="Masayı izle"
                         >
                           👁
                         </button>
@@ -7322,7 +7344,7 @@ function App() {
                         </div>
                         <div className="my-table-meta-row">
                           <span>Sahip: {tableOwnerName}</span>
-                          {table.isPrivate ? <span className="my-private-badge">Ozel</span> : null}
+                          {table.isPrivate ? <span className="my-private-badge">Özel</span> : null}
                         </div>
 
                         <div className="my-table-board">
@@ -7349,7 +7371,7 @@ function App() {
                                   className="my-action-btn soft"
                                   onClick={() => openInvitePicker(table)}
                                   disabled={!tableHasOpenSeat}
-                                  title={tableHasOpenSeat ? "Oyuncu davet et" : "Masa dolu oldugu icin davet kapali"}
+                                  title={tableHasOpenSeat ? "Oyuncu davet et" : "Masa dolu olduğu için davet kapalı"}
                                 >
                                   Davet Et
                                 </button>
@@ -7359,12 +7381,12 @@ function App() {
                                   className={`my-action-btn ${table.isPrivate ? "" : "soft"}`}
                                   onClick={() => setTablePrivateMode(table.id, !table.isPrivate)}
                                 >
-                                  {table.isPrivate ? "Ozeli Kapat" : "Ozel Yap"}
+                                  {table.isPrivate ? "Özeli Kapat" : "Özel Yap"}
                                 </button>
                               ) : null}
                               {canAdminClose ? (
                                 <button className="my-action-btn danger" onClick={() => adminCloseTable(table.id)}>
-                                  Masayi Kapat
+                                  Masayı Kapat
                                 </button>
                               ) : null}
                             </div>
@@ -7381,7 +7403,7 @@ function App() {
               <div className="my-chat-compose my-chat-compose-lobby">
                 <input
                   className="my-input"
-                  placeholder={canWriteLobbyChat ? "Lobiye mesaj yaz..." : "Yazmak icin uye girisi yap"}
+                  placeholder={canWriteLobbyChat ? "Lobiye mesaj yaz..." : "Yazmak için üye girişi yap"}
                   value={lobbyChatInput}
                   maxLength={CHAT_TEXT_MAX}
                   onChange={(e) => setLobbyChatInput(e.target.value)}
@@ -7432,7 +7454,7 @@ function App() {
                   ))
                 )}
               </div>
-              {!canWriteLobbyChat ? <p className="my-chat-hint">Lobiye sadece uye oyuncular yazabilir.</p> : null}
+              {!canWriteLobbyChat ? <p className="my-chat-hint">Lobiye sadece üye oyuncular yazabilir.</p> : null}
             </section>
           </div>
 
@@ -7528,7 +7550,7 @@ function App() {
                 <h3>Admin Paneli</h3>
                 <div className="my-admin-summary-grid">
                   <article className="my-admin-summary-card">
-                    <span>Toplam Uye</span>
+                    <span>Toplam Üye</span>
                     <strong>{adminSummary.totalUsers}</strong>
                   </article>
                   <article className="my-admin-summary-card">
@@ -7601,7 +7623,7 @@ function App() {
                 <div className="my-admin-toolbar">
                   <input
                     className="my-input"
-                    placeholder="Kullanici ara (ad, e-posta, id)"
+                    placeholder="Kullanıcı ara (ad, e-posta, id)"
                     value={adminQuery}
                     onChange={(e) => setAdminQuery(e.target.value)}
                     disabled={adminBusy}
@@ -7614,7 +7636,7 @@ function App() {
                   >
                     <option value="all">Tum Roller</option>
                     <option value="admin">Sadece Admin</option>
-                    <option value="user">Sadece Uye</option>
+                    <option value="user">Sadece Üye</option>
                   </select>
                   <select
                     className="my-input"
@@ -7627,7 +7649,7 @@ function App() {
                     <option value="wins">Kazanmaya Gore</option>
                     <option value="losses">Kaybetmeye Gore</option>
                     <option value="resigns">Kacisa Gore</option>
-                    <option value="createdAt">Yeni Uyeler</option>
+                    <option value="createdAt">Yeni Üyeler</option>
                     <option value="name">Ada Gore</option>
                   </select>
                 </div>
@@ -7639,7 +7661,7 @@ function App() {
                   {visibleAdminUsers.map((user) => (
                     <article key={user.id} className="my-admin-user-row">
                       <p className="line">
-                        <strong>{user.displayName}</strong> / {user.role === "admin" ? "Admin" : "Uye"}
+                        <strong>{user.displayName}</strong> / {user.role === "admin" ? "Admin" : "Üye"}
                       </p>
                       <p className="line">
                         {user.email} / Puan: {user.points} / Kayit: {new Date(user.createdAt).toLocaleDateString("tr-TR")}
@@ -7671,7 +7693,7 @@ function App() {
 
                       <div className="my-admin-points-row">
                         <label className="my-field">
-                          <span>Ozel Delta (+/-)</span>
+                          <span>Özel Delta (+/-)</span>
                           <input
                             className="my-input"
                             type="text"
@@ -7711,7 +7733,7 @@ function App() {
                           onClick={() => runAdminUserAction(user.id, "setRole", { role: user.role === "admin" ? "user" : "admin" })}
                           disabled={adminBusy}
                         >
-                          {user.role === "admin" ? "Uye Yap" : "Admin Yap"}
+                          {user.role === "admin" ? "Üye Yap" : "Admin Yap"}
                         </button>
                         <button
                           className="my-action-btn"
@@ -7730,7 +7752,7 @@ function App() {
                       </div>
                     </article>
                   ))}
-                  {visibleAdminUsers.length === 0 ? <p className="my-chat-empty">Filtreye uyan kullanici bulunamadi.</p> : null}
+                  {visibleAdminUsers.length === 0 ? <p className="my-chat-empty">Filtreye uyan kullanıcı bulunamadı.</p> : null}
                 </div>
               </section>
             ) : null}
@@ -7744,7 +7766,7 @@ function App() {
               <>
                 <strong>{roomSession.roomName}</strong>
                 <span>/ Masa {roomSession.tableNo}</span>
-                {roomStartState?.started ? <span className="my-room-start-indicator">Oyun basladi</span> : null}
+                {roomStartState?.started ? <span className="my-room-start-indicator">Oyun başladı</span> : null}
               </>
             ) : (
               <strong>{mode === "bot" ? "Bot Modu" : "Yerel Oyun"}</strong>
@@ -7772,12 +7794,12 @@ function App() {
                 </label>
                 {roomSession ? (
                   <p className="line">
-                    Oyun Modu: <code>Online Iki Oyuncu</code>
+                    Oyun Modu: <code>Online İki Oyuncu</code>
                   </p>
                 ) : (
                   <div className="my-seat-toggle">
                     <button className={`my-seat-btn ${mode === "local" ? "active" : ""}`} onClick={() => onSelectMode("local")}>
-                      Iki Oyuncu
+                      İki Oyuncu
                     </button>
                     <button className={`my-seat-btn ${mode === "bot" ? "active" : ""}`} onClick={() => onSelectMode("bot")}>
                       Bot
@@ -7827,13 +7849,13 @@ function App() {
                       className={`my-action-btn ${currentRoomTable.isPrivate ? "" : "soft"}`}
                       onClick={() => setTablePrivateMode(currentRoomTable.id, !currentRoomTable.isPrivate)}
                     >
-                      {currentRoomTable.isPrivate ? "Ozeli Kapat" : "Masa Ozel Yap"}
+                      {currentRoomTable.isPrivate ? "Özeli Kapat" : "Masa Özel Yap"}
                     </button>
                     <button
                       className={`my-action-btn ${currentRoomTable.allowSpectatorChat === false ? "" : "soft"}`}
                       onClick={() => setSpectatorChatEnabled(currentRoomTable.id, currentRoomTable.allowSpectatorChat === false)}
                     >
-                      {currentRoomTable.allowSpectatorChat === false ? "Izleyici Yazisini Ac" : "Izleyici Yazisini Kapat"}
+                      {currentRoomTable.allowSpectatorChat === false ? "İzleyici Yazısını Aç" : "İzleyici Yazısını Kapat"}
                     </button>
                     <button className="my-action-btn" onClick={onCopyInvite} disabled={!canCopyInviteLink}>
                       {copied ? "Kopyalandi" : "Davet Linki Kopyala"}
@@ -7901,8 +7923,8 @@ function App() {
                     className="my-input"
                     placeholder={
                       roomChatTab === "table"
-                        ? canWriteRoomChat ? "Masa sohbetine mesaj yaz..." : "Masa sohbeti icin uye girisi gerekli"
-                        : canWriteRoomChat ? "Lobiye mesaj yaz..." : "Lobiye yazmak icin uye girisi yap"
+                        ? canWriteRoomChat ? "Masa sohbetine mesaj yaz..." : "Masa sohbeti için üye girişi gerekli"
+                        : canWriteRoomChat ? "Lobiye mesaj yaz..." : "Lobiye yazmak için üye girişi yap"
                     }
                     value={roomChatTab === "table" ? roomTableChatInput : roomLobbyChatInput}
                     maxLength={CHAT_TEXT_MAX}
@@ -7951,7 +7973,7 @@ function App() {
                 </div>
                 {!canWriteRoomChat ? (
                   <p className="my-chat-hint">
-                    {roomChatTab === "table" ? "Masa sohbetine sadece uye oyuncular yazabilir." : "Lobiye sadece uye oyuncular yazabilir."}
+                    {roomChatTab === "table" ? "Masa sohbetine sadece üye oyuncular yazabilir." : "Lobiye sadece üye oyuncular yazabilir."}
                   </p>
                 ) : null}
               </section>
@@ -8094,8 +8116,8 @@ function App() {
             <p className="line">Profil yukleniyor...</p>
           ) : (
             <>
-              <p className="line">{profileModal.isMember ? "Uye Oyuncu" : "Misafir Oyuncu"}</p>
-              {profileModal.username ? <p className="line">Kullanici: @{profileModal.username}</p> : null}
+              <p className="line">{profileModal.isMember ? "Üye Oyuncu" : "Misafir Oyuncu"}</p>
+              {profileModal.username ? <p className="line">Kullanıcı: @{profileModal.username}</p> : null}
               <p className="line">Cinsiyet: {genderLabel(profileModal.gender)}</p>
               <p className="line">Puan: {profileModal.points}</p>
               <p className="line">Toplam Oyun: {profileModal.stats.gamesPlayed}</p>
@@ -8111,31 +8133,56 @@ function App() {
         </article>
       ) : null}
 
+      {opponentIdleModal.open ? (
+        <section className="my-modal-backdrop" role="presentation" onClick={postponeOpponentIdleWinOffer}>
+          <article
+            className="my-modal-card my-leave-action-modal my-leave-action-modal-compact"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Hamle süresi uyarısı"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>Hamle Bekleniyor</h3>
+            <p className="my-leave-action-message">
+              Rakibiniz 1 dakikadır hamle yapmıyor. Oyunu kazanmak istiyor musunuz?
+            </p>
+            <div className="my-leave-action-buttons my-leave-action-buttons-two">
+              <button className="my-action-btn" type="button" onClick={acceptOpponentIdleWinOffer}>
+                Kazan
+              </button>
+              <button className="my-action-btn soft" type="button" onClick={postponeOpponentIdleWinOffer}>
+                Beklemek İstiyorum
+              </button>
+            </div>
+          </article>
+        </section>
+      ) : null}
+
       {leaveActionModalOpen ? (
         <section className="my-modal-backdrop" role="presentation" onClick={closeLeaveActionModal}>
           <article
             className="my-modal-card my-leave-action-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Masadan cik"
+            aria-label="Masadan çık"
             onClick={(e) => e.stopPropagation()}
           >
             <button className="my-leave-action-close" type="button" onClick={closeLeaveActionModal} aria-label="Kapat">
               x
             </button>
-            <h3>Masadan Cik</h3>
+            <h3>Masadan Çık</h3>
             <p className="my-leave-action-message">
               Rakibe puan kaybetmeden terk etme teklif edilsin mi?
             </p>
             <div className="my-leave-action-buttons">
               <button className="my-action-btn danger" type="button" onClick={() => void leaveNowFromModal()}>
-                Simdi Terket
+                Şimdi Terket
               </button>
               <button className="my-action-btn" type="button" onClick={offerLeaveWithoutPenaltyFromModal}>
                 Teklif Et
               </button>
               <button className="my-action-btn soft" type="button" onClick={closeLeaveActionModal}>
-                Iptal Et
+                İptal Et
               </button>
             </div>
           </article>
@@ -8148,13 +8195,13 @@ function App() {
             className="my-modal-card my-leave-action-modal my-leave-action-modal-compact"
             role="dialog"
             aria-modal="true"
-            aria-label="Puansiz ayrilma teklifi"
+            aria-label="Puansız ayrılma teklifi"
             onClick={(e) => e.stopPropagation()}
           >
             <button className="my-leave-action-close" type="button" onClick={() => closeLeaveIncomingModal(true)} aria-label="Kapat">
               x
             </button>
-            <h3>Masadan Cik</h3>
+            <h3>Masadan Çık</h3>
             <p className="my-leave-action-message">
               {leaveIncomingModal.requesterName} puan kaybetmeden terk etme teklif ediyor. Kabul ediyor musun?
             </p>
@@ -8179,7 +8226,7 @@ function App() {
             aria-label="Teklif sonucu"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3>{leaveInfoModal.title || "Masadan Cik"}</h3>
+            <h3>{leaveInfoModal.title || "Masadan Çık"}</h3>
             <p className="my-leave-action-message">{leaveInfoModal.message}</p>
             <div className="my-leave-action-buttons my-leave-action-buttons-single">
               <button className="my-action-btn" type="button" onClick={closeLeaveInfoModal}>
@@ -8196,17 +8243,17 @@ function App() {
             className="my-modal-card my-leave-confirm-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Masadan cikis uyarisi"
+            aria-label="Masadan çıkış uyarısı"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3>{leaveConfirmModal.title || "Masadan Cikis Uyarisi"}</h3>
+            <h3>{leaveConfirmModal.title || "Masadan Çıkış Uyarısı"}</h3>
             <p className="line">{leaveConfirmModal.message}</p>
             <div className="my-leave-confirm-actions">
               <button className="my-action-btn danger" type="button" onClick={() => closeLeaveConfirmModal(true)}>
-                Cik
+                Çık
               </button>
               <button className="my-action-btn soft" type="button" onClick={() => closeLeaveConfirmModal(false)}>
-                Iptal
+                İptal
               </button>
             </div>
           </article>

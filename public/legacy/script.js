@@ -390,16 +390,16 @@ function isRoomStartLocked() {
 
 function getRoomStartLockedMessage() {
   if (!roomStartGateActive) return "";
-  if (!roomStartGateBothSeated) return "Ikinci oyuncu bekleniyor.";
-  return "Iki oyuncu da Oyuna Basla butonuna basmali.";
+  if (!roomStartGateBothSeated) return "İkinci oyuncu bekleniyor.";
+  return "İki oyuncu da Oyuna Başla butonuna basmalı.";
 }
 
 function getBootLogMessage() {
   if (isRoomMode()) {
     if (roomParams.observer) {
-      return `${roomParams.roomName} / Masa ${roomParams.tableNo} izleyici modunda acildi.`;
+      return `${roomParams.roomName} / Masa ${roomParams.tableNo} izleyici modunda açıldı.`;
     }
-    return `${roomParams.roomName} / Masa ${roomParams.tableNo} acildi. Sen ${playerText(roomParams.seat)} oyuncususun.`;
+    return `${roomParams.roomName} / Masa ${roomParams.tableNo} açıldı. Sen ${playerText(roomParams.seat)} oyuncususun.`;
   }
   return gameMode === "bot" ? "Bilgisayara karşı modda yeni oyun hazır." : "Yeni oyun hazır.";
 }
@@ -434,7 +434,7 @@ function initRoomMode() {
   }
   if (dom.roomMetaSeat) {
     dom.roomMetaSeat.textContent = roomParams.observer
-      ? `Masa: ${roomParams.tableNo} / Sen: Izleyici`
+      ? `Masa: ${roomParams.tableNo} / Sen: İzleyici`
       : `Masa: ${roomParams.tableNo} / Sen: ${playerText(roomParams.seat)}`;
   }
 
@@ -446,7 +446,7 @@ function initRoomChannel() {
   if (!isRoomMode()) return;
   const wsUrl = buildRoomSyncUrl();
   if (!wsUrl) {
-    addLog("Oda senkron adresi gecersiz.");
+    addLog("Oda senkron adresi geçersiz.");
     return;
   }
 
@@ -455,7 +455,7 @@ function initRoomChannel() {
   } catch (error) {
     roomSocket = null;
     roomChannel = null;
-    addLog("Oda senkronu acilamadi.");
+    addLog("Oda senkronu açılamadı.");
     scheduleRoomReconnect();
     return;
   }
@@ -497,12 +497,12 @@ function initRoomChannel() {
 
   roomSocket.addEventListener("close", () => {
     roomSocket = null;
-    addLog("Oda baglantisi koptu. Yeniden baglaniyor...");
+    addLog("Oda bağlantısı koptu. Yeniden bağlanıyor...");
     scheduleRoomReconnect();
   });
 
   roomSocket.addEventListener("error", () => {
-    addLog("Oda baglantisinda hata.");
+    addLog("Oda bağlantısında hata.");
   });
 }
 
@@ -619,12 +619,12 @@ function renderTableChat() {
   if (!tableChatCanView) {
     const empty = document.createElement("p");
     empty.className = "table-chat-empty";
-    empty.textContent = "Masa sohbetini sadece masadaki oyuncular gorebilir.";
+    empty.textContent = "Masa sohbetini sadece masadaki oyuncular görebilir.";
     dom.tableChatLog.appendChild(empty);
   } else if (!tableChatRows.length) {
     const empty = document.createElement("p");
     empty.className = "table-chat-empty";
-    empty.textContent = "Masa sohbeti henuz bos.";
+    empty.textContent = "Masa sohbeti henüz boş.";
     dom.tableChatLog.appendChild(empty);
   } else {
     tableChatRows.forEach((row) => {
@@ -651,7 +651,7 @@ function renderTableChat() {
   }
 
   dom.tableChatInput.disabled = !tableChatCanWrite;
-  dom.tableChatInput.placeholder = tableChatCanWrite ? "Masaya mesaj yaz..." : "Yazmak icin uye girisi yap";
+  dom.tableChatInput.placeholder = tableChatCanWrite ? "Masaya mesaj yaz..." : "Yazmak için üye girişi yap";
   dom.tableChatSendBtn.disabled = !tableChatCanWrite;
 
   if (dom.tableChatEmojiRow) {
@@ -663,8 +663,8 @@ function renderTableChat() {
 
   if (dom.tableChatHint) {
     dom.tableChatHint.textContent = tableChatCanWrite
-      ? "Son mesajlar altta gorunur."
-      : "Masa sohbetine sadece uye oyuncular yazabilir.";
+      ? "Son mesajlar altta görünür."
+      : "Masa sohbetine sadece üye oyuncular yazabilir.";
   }
 
   window.requestAnimationFrame(() => {
@@ -830,7 +830,7 @@ function applyRoomSnapshot(snapshot) {
 function canControlRoomAction() {
   if (!isRoomMode()) return true;
   if (roomParams.observer) {
-    setStatus("Izleyici modunda hamle yapamazsin.");
+    setStatus("İzleyici modunda hamle yapamazsın.");
     render();
     return false;
   }
@@ -1091,11 +1091,11 @@ function onHostMessage(event) {
   turnUndoStack = [];
   if (forceLocalWin) {
     const opponent = opponentOf(localColor);
-    setStatus(`${playerText(opponent)} 1 dakika hamle yapmadi. ${playerText(winner)} kazandi.`);
-    addLog(`${playerText(opponent)} sure asimi nedeniyle kaybetti.`);
+    setStatus(`${playerText(opponent)} 1 dakika hamle yapmadı. ${playerText(winner)} kazandı.`);
+    addLog(`${playerText(opponent)} süre aşımı nedeniyle kaybetti.`);
   } else {
-    setStatus(`${playerText(localColor)} masadan kalkti. ${playerText(winner)} kazandi.`);
-    addLog(`${playerText(localColor)} masadan ayrildi.`);
+    setStatus(`${playerText(localColor)} masadan kalktı. ${playerText(winner)} kazandı.`);
+    addLog(`${playerText(localColor)} masadan ayrıldı.`);
   }
   bumpHostActivity();
   showWinnerPopup(winner);
@@ -1106,12 +1106,12 @@ function onHostMessage(event) {
 function onNewGame() {
   ensureBoardPerspective();
   if (isRoomMode() && roomParams.observer) {
-    setStatus("Izleyici modunda yeni oyun baslatamazsin.");
+    setStatus("İzleyici modunda yeni oyun başlatamazsın.");
     render();
     return;
   }
   if (isRoomMode() && roomParams.seat !== WHITE) {
-    setStatus("Yeni oyunu Beyaz oyuncu baslatabilir.");
+    setStatus("Yeni oyunu Beyaz oyuncu başlatabilir.");
     render();
     return;
   }
@@ -1138,8 +1138,8 @@ function onNewGame() {
   lastDicePlayer    = startPlayer;
   diceRollSettledAt = 0;
   isAnimating       = false;
-  setStatus(`Yeni oyun basladi. ${playerText(currentPlayer)} zar atsin.`);
-  addLog("Yeni oyun basladi.");
+  setStatus(`Yeni oyun başladı. ${playerText(currentPlayer)} zar atsın.`);
+  addLog("Yeni oyun başladı.");
   hideWinnerPopup();
   clearCenterDiceStage(true);
   render();
@@ -1150,7 +1150,7 @@ function onNewGame() {
 function onModeChange() {
   if (isRoomMode()) {
     dom.modeSelect.value = "local";
-    setStatus("Oda modunda bot kapali.");
+    setStatus("Oda modunda bot kapalı.");
     render();
     return;
   }
@@ -1166,11 +1166,11 @@ function onModeChange() {
   dragSource        = null;
   pendingMoveChain  = [];
   if (gameMode === "bot") {
-    setStatus(`Bilgisayara karsi mod aktif (${getBotDifficultyLabel(botDifficulty)}).`);
-    addLog(`Mod: Bilgisayara karsi (${getBotDifficultyLabel(botDifficulty)}).`);
+    setStatus(`Bilgisayara karşı mod aktif (${getBotDifficultyLabel(botDifficulty)}).`);
+    addLog(`Mod: Bilgisayara karşı (${getBotDifficultyLabel(botDifficulty)}).`);
   } else {
-    setStatus("Iki oyunculu mod aktif.");
-    addLog("Mod: Iki oyuncu.");
+    setStatus("İki oyunculu mod aktif.");
+    addLog("Mod: İki oyuncu.");
   }
   render();
   maybeScheduleBotAction();
@@ -1193,7 +1193,7 @@ function onBotDifficultyChange() {
   botDifficulty = next;
   addLog(`Bot zorluk: ${getBotDifficultyLabel(botDifficulty)}.`);
   if (gameMode === "bot") {
-    setStatus(`Bot zorlugu ${getBotDifficultyLabel(botDifficulty)} olarak ayarlandi.`);
+    setStatus(`Bot zorluğu ${getBotDifficultyLabel(botDifficulty)} olarak ayarlandı.`);
     maybeScheduleBotAction(120);
   }
   render();
@@ -1252,14 +1252,14 @@ function onAutoRollChange(event) {
   if (isRoomMode() && !isLocalSeatTurn()) {
     autoRollEnabled = false;
     setAutoRollToggleState(false);
-    setStatus("Otomatik zar sadece kendi siranizda acilabilir.");
+    setStatus("Otomatik zar sadece kendi sıranızda açılabilir.");
     render();
     return;
   }
   setAutoRollToggleState(autoRollEnabled);
-  addLog(autoRollEnabled ? "Otomatik zar acildi." : "Otomatik zar kapatildi.");
+  addLog(autoRollEnabled ? "Otomatik zar açıldı." : "Otomatik zar kapatıldı.");
   if (autoRollEnabled && !winner && !hasRolled && !isBotTurn() && !isAnimating) {
-    setStatus("Otomatik zar aktif. Zar birazdan atilacak.");
+    setStatus("Otomatik zar aktif. Zar birazdan atılacak.");
     maybeScheduleAutoRoll();
   } else {
     render();
@@ -1277,7 +1277,7 @@ function onUndoMove() {
   clearPendingAutoRollTimer();
   const snapshot = turnUndoStack.pop();
   if (!snapshot) {
-    setStatus("Bu asamada geri alma kullanilamaz.");
+    setStatus("Bu aşamada geri alma kullanılamaz.");
     render();
     return;
   }
@@ -1285,7 +1285,7 @@ function onUndoMove() {
   turnUndoSnapshot = turnUndoStack.length ? turnUndoStack[turnUndoStack.length - 1] : null;
   dragSource        = null;
   pendingMoveChain  = [];
-  setStatus("Tur başına geri alındı. Devam edebilirsin.");
+  setStatus("Tür başına geri alındı. Devam edebilirsin.");
   render();
   maybeScheduleBotAction();
   maybeScheduleAutoRoll();
@@ -1344,8 +1344,8 @@ function onPointClick(e) {
   if (selectedSource === null) {
     const selectable = getSelectableSources();
     if (gameState.bar[currentPlayer] > 0 && !selectable.has(target)) {
-      setStatus("Once kirik pulu girmelisiniz.");
-      showPointerHint("Once kirik pulu girmelisiniz.", e);
+      setStatus("Önce kırık pulu girmelisiniz.");
+      showPointerHint("Önce kırık pulu girmelisiniz.", e);
       render();
       return;
     }
@@ -1414,7 +1414,7 @@ function onCheckerDoubleClick(e) {
 
   const move = getDoubleClickMove(source);
   if (!move) {
-    setStatus("Bu pul icin hamle yok.");
+    setStatus("Bu pul için hamle yok.");
     render();
     return;
   }
@@ -1449,8 +1449,8 @@ function onCheckerMouseDown(e) {
   const selectable = getSelectableSources();
   if (!selectable.has(source)) {
     if (gameState.bar[currentPlayer] > 0) {
-      setStatus("Once kirik pulu girmelisiniz.");
-      showPointerHint("Once kirik pulu girmelisiniz.", e);
+      setStatus("Önce kırık pulu girmelisiniz.");
+      showPointerHint("Önce kırık pulu girmelisiniz.", e);
       render();
     }
     return;
@@ -1461,7 +1461,7 @@ function onCheckerMouseDown(e) {
   if (e.detail >= 2) {
     const move = getDoubleClickMove(source);
     if (!move) {
-      setStatus("Bu pul icin hamle yok.");
+      setStatus("Bu pul için hamle yok.");
       render();
       return;
     }
@@ -1487,8 +1487,8 @@ function onCheckerTouchStart(e) {
   const selectable = getSelectableSources();
   if (!selectable.has(source)) {
     if (gameState.bar[currentPlayer] > 0) {
-      setStatus("Once kirik pulu girmelisiniz.");
-      showPointerHint("Once kirik pulu girmelisiniz.", e);
+      setStatus("Önce kırık pulu girmelisiniz.");
+      showPointerHint("Önce kırık pulu girmelisiniz.", e);
       render();
     }
     return;
@@ -1611,7 +1611,7 @@ function handleSourceOrDest(target) {
   if (selectedSource === null) {
     if (!sel.has(target)) {
       if (gameState.bar[currentPlayer] > 0 && target !== "bar") {
-        setStatus("Once kirik pulu girmelisiniz.");
+        setStatus("Önce kırık pulu girmelisiniz.");
       } else {
         setStatus("Bu taş için geçerli hamle yok.");
       }
@@ -1635,7 +1635,7 @@ function handleSourceOrDest(target) {
   if (sel.has(target)) { selectedSource = target; render(); return; }
 
   if (gameState.bar[currentPlayer] > 0 && selectedSource !== "bar") {
-    setStatus("Once kirik pulu girmelisiniz.");
+    setStatus("Önce kırık pulu girmelisiniz.");
   } else {
     setStatus("Bu hedefe gidemez.");
   }
@@ -1825,8 +1825,8 @@ function executeMove(move) {
     turnUndoSnapshot = null;
     turnUndoStack = [];
     turnRollMoveCount = 0;
-    setStatus(`${playerText(currentPlayer)} kazandi!`);
-    addLog(`${playerText(currentPlayer)} kazandi.`);
+    setStatus(`${playerText(currentPlayer)} kazandı!`);
+    addLog(`${playerText(currentPlayer)} kazandı.`);
     showWinnerPopup(currentPlayer);
     clearCenterDiceStage(true);
     render();
@@ -2029,8 +2029,8 @@ function renderTurnInfo() {
   }
   if (dom.roomMetaSeat && isRoomMode()) {
     dom.roomMetaSeat.textContent = roomParams.observer
-      ? `Masa: ${roomParams.tableNo} / Sen: Izleyici / Sira: ${playerText(currentPlayer)}`
-      : `Masa: ${roomParams.tableNo} / Sen: ${playerText(roomParams.seat)} / Sira: ${playerText(currentPlayer)}`;
+      ? `Masa: ${roomParams.tableNo} / Sen: İzleyici / Sıra: ${playerText(currentPlayer)}`
+      : `Masa: ${roomParams.tableNo} / Sen: ${playerText(roomParams.seat)} / Sıra: ${playerText(currentPlayer)}`;
   }
   renderRoomHeader();
 }
@@ -2060,9 +2060,9 @@ function renderRoomHeader() {
 
   const titleSub = isRoomMode()
     ? roomParams.observer
-      ? `Masa ${roomParams.tableNo} - Sen: Izleyici`
+      ? `Masa ${roomParams.tableNo} - Sen: İzleyici`
       : `Masa ${roomParams.tableNo} - Sen: ${playerText(roomParams.seat)}`
-    : `Masa ${roomParams.tableNo} - Secili: ${playerText(preferredPlayerColor)}`;
+    : `Masa ${roomParams.tableNo} - Seçili: ${playerText(preferredPlayerColor)}`;
 
   dom.roomTitleMain.textContent = titleMain;
   dom.roomTitleSub.textContent = titleSub;
@@ -2109,7 +2109,8 @@ function renderDice() {
 
 function renderBoardState() {
   const sel   = getSelectableSources();
-  const canDrag = hasRolled && !winner && !isBotTurn() && !isAnimating && (!isRoomMode() || isLocalSeatTurn());
+  const canControl = hasRolled && !winner && !isBotTurn() && !isAnimating && (!isRoomMode() || isLocalSeatTurn());
+  const canDrag = canControl;
 
   for (let pt = 1; pt <= POINT_COUNT; pt++) {
     const ps    = gameState.points[pt - 1];
@@ -2126,16 +2127,20 @@ function renderBoardState() {
       if (pt === selectedSource && ps.owner === currentPlayer) {
         ch.classList.add("selected-checker");
       }
-      const canDragThis = canDrag && sel.has(pt) && ps.owner === currentPlayer;
+      const isOwnChecker = ps.owner === currentPlayer;
+      const canSelectThis = canControl && isOwnChecker;
+      const canDragThis = canDrag && sel.has(pt) && isOwnChecker;
       ch.draggable = canDragThis;
-      if (canDragThis) {
-        ch.classList.add("draggable-checker");
+      if (canSelectThis) {
         ch.dataset.source = String(pt);
         ch.addEventListener("mousedown", onCheckerMouseDown);
         ch.addEventListener("touchstart", onCheckerTouchStart, { passive: false });
+        ch.addEventListener("dblclick",  onCheckerDoubleClick);
+      }
+      if (canDragThis) {
+        ch.classList.add("draggable-checker");
         ch.addEventListener("dragstart", onDragStartFromChecker);
         ch.addEventListener("dragend",   onDragEnd);
-        ch.addEventListener("dblclick",  onCheckerDoubleClick);
       }
       stack.appendChild(ch);
     }
@@ -2652,7 +2657,7 @@ function createDiePips(value, size = "small") {
 
 function showWinnerPopup(player) {
   if (!dom.winnerModal || !dom.winnerText) return;
-  dom.winnerText.textContent = `Oyunu ${playerText(player)} kazandi!....`;
+  dom.winnerText.textContent = `Oyunu ${playerText(player)} kazandı!....`;
   dom.winnerModal.removeAttribute("hidden");
 }
 
