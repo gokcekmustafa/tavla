@@ -398,10 +398,54 @@ const DEFAULT_AVATAR_BY_GENDER: Record<MemberGender, AvatarId> = {
   unknown: "neutral_01",
 };
 
+const FALLBACK_CLOUD_API_BASE = "https://tavla.gokcek.workers.dev";
+
+function normalizeHttpOrigin(rawValue: string | undefined) {
+  const trimmed = rawValue?.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return null;
+  }
+}
+
+function resolveRuntimeApiBase() {
+  const envBase = normalizeHttpOrigin(import.meta.env.VITE_API_BASE_URL as string | undefined);
+  if (typeof window === "undefined") return envBase ?? FALLBACK_CLOUD_API_BASE;
+  const protocol = window.location.protocol.toLowerCase();
+  if (protocol === "http:" || protocol === "https:") {
+    return window.location.origin;
+  }
+  return envBase ?? FALLBACK_CLOUD_API_BASE;
+}
+
+const RUNTIME_API_BASE_URL = resolveRuntimeApiBase();
+
+function buildApiUrl(path: string) {
+  return new URL(path, `${RUNTIME_API_BASE_URL}/`).toString();
+}
+
+function apiFetch(path: string, init?: RequestInit) {
+  return fetch(buildApiUrl(path), init);
+}
+
 function getDefaultRealtimeWsBase() {
-  if (typeof window === "undefined") return "ws://127.0.0.1:8787/realtime";
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.host}/realtime`;
+  const apiBase = resolveRuntimeApiBase();
+  try {
+    const url = new URL(apiBase);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    url.pathname = "/realtime";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    if (typeof window === "undefined") return "ws://127.0.0.1:8787/realtime";
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}/realtime`;
+  }
 }
 
 function normalizeRealtimeWsBase(rawValue: string | undefined) {
@@ -427,8 +471,7 @@ function buildRealtimeChannelUrl(base: string, channel: string, clientId: string
 }
 
 function buildRealtimeHttpSyncUrl(channel: string, clientId: string) {
-  const base = typeof window === "undefined" ? "http://localhost" : window.location.origin;
-  const url = new URL(REALTIME_HTTP_SYNC_PATH, base);
+  const url = new URL(REALTIME_HTTP_SYNC_PATH, `${RUNTIME_API_BASE_URL}/`);
   url.searchParams.set("channel", channel);
   url.searchParams.set("client", clientId);
   return url.toString();
@@ -4096,7 +4139,7 @@ function App() {
 
   async function refreshGameRules() {
     try {
-      const response = await fetch("/api/auth/rules", { method: "GET" });
+      const response = await apiFetch("/api/auth/rules", { method: "GET" });
       const data = (await response.json().catch(() => null)) as { rules?: unknown } | null;
       if (!response.ok) return;
       const nextRules = normalizeGameRules(data?.rules, gameRules);
@@ -4109,7 +4152,7 @@ function App() {
 
   async function refreshPublishedDesign() {
     try {
-      const response = await fetch("/api/auth/design", { method: "GET" });
+      const response = await apiFetch("/api/auth/design", { method: "GET" });
       const data = (await response.json().catch(() => null)) as { design?: unknown } | null;
       if (!response.ok) return;
       const nextDesign = normalizeDesignConfig(data?.design, designPublished);
@@ -4128,7 +4171,7 @@ function App() {
     setAdminBusy(true);
     setAdminError("");
     try {
-      const url = new URL("/api/auth/admin/state", window.location.origin);
+      const url = new URL("/api/auth/admin/state", `${RUNTIME_API_BASE_URL}/`);
       url.searchParams.set("userId", userId);
       const response = await fetch(url.toString(), { method: "GET" });
       const data = (await response.json().catch(() => null)) as {
@@ -4180,7 +4223,7 @@ function App() {
     setAdminError("");
     setAdminNotice("");
     try {
-      const response = await fetch("/api/auth/admin/user", {
+      const response = await apiFetch("/api/auth/admin/user", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -4238,7 +4281,7 @@ function App() {
     setLobbyRoomsBusy(true);
     setLobbyRoomsError("");
     try {
-      const response = await fetch("/api/auth/lobbies", { method: "GET" });
+      const response = await apiFetch("/api/auth/lobbies", { method: "GET" });
       const data = (await response.json().catch(() => null)) as { lobbies?: unknown; error?: unknown } | null;
       if (!response.ok) {
         const err = typeof data?.error === "string" ? data.error : "Lobi listesi alinamadi.";
@@ -4273,7 +4316,7 @@ function App() {
     setAdminError("");
     setAdminNotice("");
     try {
-      const response = await fetch("/api/auth/admin/lobbies", {
+      const response = await apiFetch("/api/auth/admin/lobbies", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -4391,7 +4434,7 @@ function App() {
     setAdminNotice("");
     try {
       const normalizedDraft = normalizeGameRules(ruleDraft, gameRules);
-      const response = await fetch("/api/auth/admin/rules", {
+      const response = await apiFetch("/api/auth/admin/rules", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -4535,7 +4578,7 @@ function App() {
     setAdminDesignError("");
     setAdminDesignNotice("");
     try {
-      const response = await fetch("/api/auth/admin/design", {
+      const response = await apiFetch("/api/auth/admin/design", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -4573,7 +4616,7 @@ function App() {
     setAdminDesignError("");
     setAdminDesignNotice("");
     try {
-      const response = await fetch("/api/auth/admin/design", {
+      const response = await apiFetch("/api/auth/admin/design", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -4610,7 +4653,7 @@ function App() {
     setAdminDesignError("");
     setAdminDesignNotice("");
     try {
-      const response = await fetch("/api/auth/admin/design", {
+      const response = await apiFetch("/api/auth/admin/design", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -4999,7 +5042,7 @@ function App() {
   async function loadMemberFromSession(session: MemberSession | null) {
     if (!session?.userId) return null;
     try {
-      const url = new URL("/api/auth/me", window.location.origin);
+      const url = new URL("/api/auth/me", `${RUNTIME_API_BASE_URL}/`);
       url.searchParams.set("userId", session.userId);
       const response = await fetch(url.toString(), { method: "GET" });
       if (!response.ok) return null;
@@ -5040,7 +5083,7 @@ function App() {
     setAuthBusy(true);
     setAuthError("");
     try {
-      const response = await fetch("/api/auth/register", {
+      const response = await apiFetch("/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ username, displayName, email, gender, avatarId, password }),
@@ -5096,7 +5139,7 @@ function App() {
     setAuthBusy(true);
     setAuthError("");
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await apiFetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ identifier, password }),
@@ -5147,7 +5190,7 @@ function App() {
     setForgotBusy(true);
     setAuthError("");
     try {
-      const response = await fetch("/api/auth/password/forgot", {
+      const response = await apiFetch("/api/auth/password/forgot", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email, newPassword }),
@@ -5181,7 +5224,7 @@ function App() {
     setMemberActionBusy(true);
     setMemberNotice("");
     try {
-      const response = await fetch("/api/auth/password/change", {
+      const response = await apiFetch("/api/auth/password/change", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -5222,7 +5265,7 @@ function App() {
     setMemberActionBusy(true);
     setMemberNotice("");
     try {
-      const response = await fetch("/api/auth/profile/update", {
+      const response = await apiFetch("/api/auth/profile/update", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -5349,7 +5392,7 @@ function App() {
 
   async function submitMemberMatchOutcome(userId: string, outcome: MatchOutcome, matchToken = "") {
     try {
-      const response = await fetch("/api/auth/match", {
+      const response = await apiFetch("/api/auth/match", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -6011,7 +6054,7 @@ function App() {
 
     setProfileModal({ ...baseState, loading: true });
     try {
-      const url = new URL("/api/auth/profile", window.location.origin);
+      const url = new URL("/api/auth/profile", `${RUNTIME_API_BASE_URL}/`);
       url.searchParams.set("userId", userId);
       const response = await fetch(url.toString(), { method: "GET" });
       const data = (await response.json().catch(() => null)) as { user?: unknown; error?: unknown } | null;

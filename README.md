@@ -23,6 +23,43 @@ npm run dev
 npm run build
 ```
 
+## Mobil Hazirlik (Capacitor)
+
+Bu proje tek kod tabaniyla Android ve iOS'a hazirlanabilir.
+
+1. Capacitor paketlerini kur:
+
+```bash
+npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/ios
+```
+
+2. Platform projelerini olustur:
+
+```bash
+npm run cap:add:android
+npm run cap:add:ios
+```
+
+3. React build + mobil senkron:
+
+```bash
+npm run cap:sync
+```
+
+4. Native IDE ile ac:
+
+```bash
+npm run cap:open:android
+npm run cap:open:ios
+```
+
+Mobil app icinden API cagrilari icin:
+
+```env
+VITE_API_BASE_URL=https://tavla.gokcek.workers.dev
+VITE_REALTIME_WS_URL=wss://tavla.gokcek.workers.dev/realtime
+```
+
 ## Uretim Deploy (Tek Worker)
 
 Bu proje tek Cloudflare Worker olarak deploy edilir:
