@@ -364,6 +364,8 @@ const ACTIVITY_CLOCK_SKEW_LIMIT_MS = 24 * 60 * 60 * 1000;
 const ENABLE_WS_DEBUG_LOGS = false;
 const WS_PREOPEN_FAIL_DISABLE_THRESHOLD = 3;
 const WS_DISABLE_DURATION_MS = 2 * 60 * 1000;
+const HTTP_SYNC_TIMEOUT_MS = 8_000;
+const HTTP_SYNC_THROTTLE_MS = 900;
 const PROFILE_POPOVER_WIDTH_PX = 300;
 const PROFILE_POPOVER_MIN_HEIGHT_PX = 220;
 const PROFILE_POPOVER_GAP_PX = 6;
@@ -2310,6 +2312,7 @@ function App() {
   const realtimeHttpPullInFlightRef = useRef(false);
   const realtimeLastPullAtRef = useRef(0);
   const realtimeLastPushAtRef = useRef(0);
+  const realtimeHttpNextAllowedAtRef = useRef(0);
   const appSessionId = useMemo(() => createSessionId(), []);
   const guestId = useMemo(() => getOrCreateGuestId(), []);
   const [realtimeStatus, setRealtimeStatus] = useState<"offline" | "connecting" | "online">("offline");
@@ -2979,9 +2982,19 @@ function App() {
   }
 
   async function syncRealtimeViaHttp(reason: string) {
+    const throttleable = reason === "lobby-update-mirror" || reason === "lobby-update-drain";
+    const now = Date.now();
+    if (throttleable && now < realtimeHttpNextAllowedAtRef.current) {
+      return;
+    }
     if (realtimeHttpSyncInFlightRef.current) return;
     realtimeHttpSyncInFlightRef.current = true;
+    if (throttleable) {
+      realtimeHttpNextAllowedAtRef.current = now + HTTP_SYNC_THROTTLE_MS;
+    }
     let shouldDrainQueue = false;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), HTTP_SYNC_TIMEOUT_MS);
     try {
       const pendingAtStart = realtimePendingSnapshotRef.current;
       const payload = pendingAtStart ?? getCurrentLobbyState();
@@ -2999,6 +3012,7 @@ function App() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(outgoing),
+        signal: controller.signal,
       });
       if (!response.ok) {
         setSyncHealth((prev) => ({ ...prev, lastError: `http push hata (${response.status})` }));
@@ -3037,11 +3051,12 @@ function App() {
     } catch {
       setRealtimeStatus("offline");
     } finally {
+      window.clearTimeout(timeoutId);
       realtimeHttpSyncInFlightRef.current = false;
       if (shouldDrainQueue && realtimePendingSnapshotRef.current) {
         window.setTimeout(() => {
           void syncRealtimeViaHttp("lobby-update-drain");
-        }, 0);
+        }, 350);
       }
     }
   }
@@ -3050,10 +3065,13 @@ function App() {
     void reason;
     if (realtimeHttpPullInFlightRef.current) return;
     realtimeHttpPullInFlightRef.current = true;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), HTTP_SYNC_TIMEOUT_MS);
     try {
       const response = await fetch(buildRealtimeHttpSyncUrl(activeRealtimeLobbyChannel, appSessionId), {
         method: "GET",
         headers: { "cache-control": "no-store" },
+        signal: controller.signal,
       });
       if (!response.ok) {
         setSyncHealth((prev) => ({ ...prev, lastError: `http pull hata (${response.status})` }));
@@ -3085,6 +3103,7 @@ function App() {
     } catch {
       setRealtimeStatus("offline");
     } finally {
+      window.clearTimeout(timeoutId);
       realtimeHttpPullInFlightRef.current = false;
     }
   }
