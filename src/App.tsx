@@ -3943,7 +3943,14 @@ function App() {
       void leaveRoomAndGoLobby();
       return;
     }
-    setLeaveActionModalOpen(true);
+    const activeTable = getActiveRoomTable();
+    const bothPlayersSeated = Boolean(activeTable?.white && activeTable?.black);
+    const firstRollPlayed = Boolean(matchLiveState.matchActive || (activeTable?.setPlayed ?? 0) > 0);
+    if (bothPlayersSeated && firstRollPlayed) {
+      setLeaveActionModalOpen(true);
+      return;
+    }
+    void leaveRoomAndGoLobby();
   }
 
   function closeLeaveActionModal() {
@@ -5781,7 +5788,7 @@ function App() {
     );
     const localWonCurrentGame = Boolean(matchLiveState.winner && matchLiveState.winner === roomSession.seat);
     const setComplete = isTableSeriesComplete(activeTable);
-    const seriesStarted = Boolean(activeTable.startedAt || activeTable.setPlayed > 0 || matchLiveState.matchActive);
+    const seriesStarted = Boolean(activeTable.setPlayed > 0 || matchLiveState.matchActive);
     const shouldPenalize = Boolean(
       mySeat
       && effectiveOpponentSeat
