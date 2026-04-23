@@ -6416,7 +6416,7 @@ function App() {
       closeSocket();
       setRealtimeStatus("offline");
     };
-  }, [appSessionId, activeRealtimeLobbyChannel, activeLobbyStorageKey, activeLobbyName]);
+  }, [appSessionId, activeRealtimeLobbyChannel]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
