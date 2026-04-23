@@ -370,6 +370,11 @@ const HTTP_SYNC_MIRROR_MIN_INTERVAL_MS = 8_000;
 const HTTP_SYNC_RUN_INTERVAL_MS = 4_000;
 const HTTP_SYNC_ERROR_BACKOFF_MIN_MS = 1_500;
 const HTTP_SYNC_ERROR_BACKOFF_MAX_MS = 30_000;
+const ROOM_PICKER_REFRESH_INTERVAL_MS = 10_000;
+const ROOM_PICKER_REMOTE_REFRESH_MIN_MS = 30_000;
+const ROOM_PICKER_REMOTE_FETCH_TIMEOUT_MS = 4_000;
+const ROOM_PICKER_REMOTE_ERROR_BACKOFF_MIN_MS = 6_000;
+const ROOM_PICKER_REMOTE_ERROR_BACKOFF_MAX_MS = 90_000;
 const PROFILE_POPOVER_WIDTH_PX = 300;
 const PROFILE_POPOVER_MIN_HEIGHT_PX = 220;
 const PROFILE_POPOVER_GAP_PX = 6;
@@ -2318,6 +2323,9 @@ function App() {
   const realtimeHttpNextAllowedAtRef = useRef(0);
   const realtimeHttpFailCountRef = useRef(0);
   const realtimeHttpDisabledUntilRef = useRef(0);
+  const roomPickerRefreshInFlightRef = useRef(false);
+  const roomPickerRemoteNextAllowedAtRef = useRef(0);
+  const roomPickerRemoteFailCountRef = useRef(0);
   const appSessionId = useMemo(() => createSessionId(), []);
   const guestId = useMemo(() => getOrCreateGuestId(), []);
   const [realtimeStatus, setRealtimeStatus] = useState<"offline" | "connecting" | "online">("offline");
@@ -2523,73 +2531,110 @@ function App() {
     let cancelled = false;
 
     const refreshAllRoomCounts = async () => {
+      if (roomPickerRefreshInFlightRef.current) return;
+      roomPickerRefreshInFlightRef.current = true;
+      const now = Date.now();
+      const allowRemote = now >= roomPickerRemoteNextAllowedAtRef.current;
+      let remoteError = false;
       const next: Record<string, LobbyRoomCounts> = {};
       const safeActiveLobbyId = sanitizeLobbyId(activeLobbyId) || DEFAULT_LOBBY_ID;
 
-      for (const room of lobbyRooms) {
-        const roomId = sanitizeLobbyId(room.id);
-        if (!roomId) continue;
-        if (roomId === safeActiveLobbyId) {
-          next[roomId] = summarizeLobbyCounts(lobbyState);
-          continue;
-        }
+      try {
+        for (const room of lobbyRooms) {
+          const roomId = sanitizeLobbyId(room.id);
+          if (!roomId) continue;
 
-        const roomName = sanitizeLobbyName(room.name);
-        let summary = summarizeLobbyCounts(loadLobbyState(makeLobbyStateStorageKey(roomId), roomName));
-        try {
-          const channel = makeRealtimeLobbyChannel(roomId);
-          const response = await fetch(buildRealtimeHttpSyncUrl(channel, `${appSessionId}-rooms`), { method: "GET" });
-          if (response.ok) {
-            const data = (await response.json().catch(() => null)) as { snapshot?: unknown } | null;
-            const incoming = normalizeRealtimeMessage(data?.snapshot);
-            if (incoming && incoming.kind === "snapshot" && incoming.channel === channel) {
-              summary = summarizeLobbyCounts(normalizeLobbyState(incoming.payload));
+          const roomName = sanitizeLobbyName(room.name);
+          let summary = summarizeLobbyCounts(loadLobbyState(makeLobbyStateStorageKey(roomId), roomName));
+
+          if (allowRemote && roomId !== safeActiveLobbyId) {
+            try {
+              const channel = makeRealtimeLobbyChannel(roomId);
+              const controller = new AbortController();
+              const timeoutId = window.setTimeout(() => controller.abort(), ROOM_PICKER_REMOTE_FETCH_TIMEOUT_MS);
+              let response: Response;
+              try {
+                response = await fetch(buildRealtimeHttpSyncUrl(channel, `${appSessionId}-rooms`), {
+                  method: "GET",
+                  headers: { "cache-control": "no-store" },
+                  signal: controller.signal,
+                });
+              } finally {
+                window.clearTimeout(timeoutId);
+              }
+              if (!response.ok) {
+                remoteError = true;
+              } else {
+                const data = (await response.json().catch(() => null)) as { snapshot?: unknown } | null;
+                const incoming = normalizeRealtimeMessage(data?.snapshot);
+                if (incoming && incoming.kind === "snapshot" && incoming.channel === channel) {
+                  summary = summarizeLobbyCounts(normalizeLobbyState(incoming.payload));
+                }
+              }
+            } catch {
+              remoteError = true;
             }
           }
-        } catch {
-          // keep local fallback when remote read is unavailable
+
+          next[roomId] = summary;
         }
-        next[roomId] = summary;
+
+        if (allowRemote) {
+          if (remoteError) {
+            const nextFail = Math.min(roomPickerRemoteFailCountRef.current + 1, 5);
+            roomPickerRemoteFailCountRef.current = nextFail;
+            const waitMs = Math.min(
+              ROOM_PICKER_REMOTE_ERROR_BACKOFF_MAX_MS,
+              ROOM_PICKER_REMOTE_ERROR_BACKOFF_MIN_MS * (2 ** Math.max(0, nextFail - 1)),
+            );
+            roomPickerRemoteNextAllowedAtRef.current = now + waitMs;
+          } else {
+            roomPickerRemoteFailCountRef.current = 0;
+            roomPickerRemoteNextAllowedAtRef.current = now + ROOM_PICKER_REMOTE_REFRESH_MIN_MS;
+          }
+        }
+
+        if (cancelled) return;
+        setRoomPickerLiveCounts((prev) => {
+          const merged: Record<string, LobbyRoomCounts> = { ...prev };
+          const validIds = new Set(lobbyRooms.map((room) => sanitizeLobbyId(room.id)).filter(Boolean) as string[]);
+          let changed = false;
+
+          Object.keys(merged).forEach((roomId) => {
+            if (!validIds.has(roomId)) {
+              delete merged[roomId];
+              changed = true;
+            }
+          });
+
+          Object.entries(next).forEach(([roomId, summary]) => {
+            const current = merged[roomId];
+            if (
+              !current
+              || current.activeTables !== summary.activeTables
+              || current.seatedPlayers !== summary.seatedPlayers
+            ) {
+              merged[roomId] = summary;
+              changed = true;
+            }
+          });
+
+          return changed ? merged : prev;
+        });
+      } finally {
+        roomPickerRefreshInFlightRef.current = false;
       }
-
-      if (cancelled) return;
-      setRoomPickerLiveCounts((prev) => {
-        const merged: Record<string, LobbyRoomCounts> = { ...prev };
-        const validIds = new Set(lobbyRooms.map((room) => sanitizeLobbyId(room.id)).filter(Boolean) as string[]);
-        let changed = false;
-
-        Object.keys(merged).forEach((roomId) => {
-          if (!validIds.has(roomId)) {
-            delete merged[roomId];
-            changed = true;
-          }
-        });
-
-        Object.entries(next).forEach(([roomId, summary]) => {
-          const current = merged[roomId];
-          if (
-            !current
-            || current.activeTables !== summary.activeTables
-            || current.seatedPlayers !== summary.seatedPlayers
-          ) {
-            merged[roomId] = summary;
-            changed = true;
-          }
-        });
-
-        return changed ? merged : prev;
-      });
     };
 
     void refreshAllRoomCounts();
     const timer = window.setInterval(() => {
       void refreshAllRoomCounts();
-    }, 4500);
+    }, ROOM_PICKER_REFRESH_INTERVAL_MS);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [roomPickerOpen, lobbyRooms, activeLobbyId, lobbyState.tables, appSessionId]);
+  }, [roomPickerOpen, lobbyRooms, activeLobbyId, appSessionId]);
 
   const myCurrentSeat = useMemo(() => findSessionSeat(lobbyState.tables, appSessionId), [lobbyState.tables, appSessionId]);
 
