@@ -2013,10 +2013,18 @@ function mergeSeatState(
   preferBase: boolean,
 ) {
   if (base && !incoming) {
+    if (incomingStateUpdatedAt >= baseStateUpdatedAt) {
+      if (base.touchedAt > incomingStateUpdatedAt + SEAT_NULL_MERGE_GRACE_MS) return base;
+      return null;
+    }
     if (incomingStateUpdatedAt - base.touchedAt > SEAT_NULL_MERGE_GRACE_MS) return null;
     return base;
   }
   if (!base && incoming) {
+    if (baseStateUpdatedAt >= incomingStateUpdatedAt) {
+      if (incoming.touchedAt > baseStateUpdatedAt + SEAT_NULL_MERGE_GRACE_MS) return incoming;
+      return null;
+    }
     if (baseStateUpdatedAt - incoming.touchedAt > SEAT_NULL_MERGE_GRACE_MS) return null;
     return incoming;
   }
