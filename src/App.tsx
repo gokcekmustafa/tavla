@@ -366,6 +366,10 @@ const WS_PREOPEN_FAIL_DISABLE_THRESHOLD = 3;
 const WS_DISABLE_DURATION_MS = 2 * 60 * 1000;
 const HTTP_SYNC_TIMEOUT_MS = 8_000;
 const HTTP_SYNC_THROTTLE_MS = 900;
+const HTTP_SYNC_MIRROR_MIN_INTERVAL_MS = 8_000;
+const HTTP_SYNC_RUN_INTERVAL_MS = 4_000;
+const HTTP_SYNC_ERROR_BACKOFF_MIN_MS = 1_500;
+const HTTP_SYNC_ERROR_BACKOFF_MAX_MS = 30_000;
 const PROFILE_POPOVER_WIDTH_PX = 300;
 const PROFILE_POPOVER_MIN_HEIGHT_PX = 220;
 const PROFILE_POPOVER_GAP_PX = 6;
@@ -2313,6 +2317,8 @@ function App() {
   const realtimeLastPullAtRef = useRef(0);
   const realtimeLastPushAtRef = useRef(0);
   const realtimeHttpNextAllowedAtRef = useRef(0);
+  const realtimeHttpFailCountRef = useRef(0);
+  const realtimeHttpDisabledUntilRef = useRef(0);
   const appSessionId = useMemo(() => createSessionId(), []);
   const guestId = useMemo(() => getOrCreateGuestId(), []);
   const [realtimeStatus, setRealtimeStatus] = useState<"offline" | "connecting" | "online">("offline");
@@ -2981,9 +2987,30 @@ function App() {
     }
   }
 
+  function clearHttpSyncFailureState() {
+    realtimeHttpFailCountRef.current = 0;
+    realtimeHttpDisabledUntilRef.current = 0;
+  }
+
+  function registerHttpSyncFailure(errorText: string) {
+    const nextCount = Math.min(realtimeHttpFailCountRef.current + 1, 8);
+    realtimeHttpFailCountRef.current = nextCount;
+    const waitMs = Math.min(
+      HTTP_SYNC_ERROR_BACKOFF_MAX_MS,
+      HTTP_SYNC_ERROR_BACKOFF_MIN_MS * (2 ** Math.max(0, nextCount - 1)),
+    );
+    realtimeHttpDisabledUntilRef.current = Date.now() + waitMs;
+    setSyncHealth((prev) => ({
+      ...prev,
+      lastError: `${errorText} (${Math.ceil(waitMs / 1000)} sn bekleme)`,
+    }));
+  }
+
   async function syncRealtimeViaHttp(reason: string) {
-    const throttleable = reason === "lobby-update-mirror" || reason === "lobby-update-drain";
+    const disabledUntil = realtimeHttpDisabledUntilRef.current;
     const now = Date.now();
+    if (disabledUntil > now) return;
+    const throttleable = reason === "lobby-update-mirror" || reason === "lobby-update-drain";
     if (throttleable && now < realtimeHttpNextAllowedAtRef.current) {
       return;
     }
@@ -3015,20 +3042,20 @@ function App() {
         signal: controller.signal,
       });
       if (!response.ok) {
-        setSyncHealth((prev) => ({ ...prev, lastError: `http push hata (${response.status})` }));
+        registerHttpSyncFailure(`http push hata (${response.status})`);
         setRealtimeStatus("offline");
         return;
       }
       const contentType = (response.headers.get("content-type") || "").toLowerCase();
       if (!contentType.includes("application/json")) {
-        setSyncHealth((prev) => ({ ...prev, lastError: "http push json degil" }));
+        registerHttpSyncFailure("http push json degil");
         setRealtimeStatus("offline");
         return;
       }
       const data = (await response.json().catch(() => null)) as { snapshot?: unknown } | null;
       const incoming = normalizeRealtimeMessage(data?.snapshot);
       if (!incoming || incoming.kind !== "snapshot" || incoming.channel !== activeRealtimeLobbyChannel) {
-        setSyncHealth((prev) => ({ ...prev, lastError: "http push snapshot gecersiz" }));
+        registerHttpSyncFailure("http push snapshot gecersiz");
         setRealtimeStatus("offline");
         return;
       }
@@ -3040,6 +3067,7 @@ function App() {
         lastHttpPushReason: reason,
         lastError: "",
       }));
+      clearHttpSyncFailureState();
       const latestPending = realtimePendingSnapshotRef.current;
       if (!latestPending || sameLobbySnapshot(latestPending, payload)) {
         realtimePendingSnapshotRef.current = null;
@@ -3049,6 +3077,7 @@ function App() {
       applyIncomingRealtimeSnapshot(incoming);
       setRealtimeStatus("online");
     } catch {
+      registerHttpSyncFailure("http push baglanti hatasi");
       setRealtimeStatus("offline");
     } finally {
       window.clearTimeout(timeoutId);
@@ -3063,6 +3092,9 @@ function App() {
 
   async function pullRealtimeViaHttp(reason: string) {
     void reason;
+    const disabledUntil = realtimeHttpDisabledUntilRef.current;
+    const now = Date.now();
+    if (disabledUntil > now) return;
     if (realtimeHttpPullInFlightRef.current) return;
     realtimeHttpPullInFlightRef.current = true;
     const controller = new AbortController();
@@ -3074,13 +3106,13 @@ function App() {
         signal: controller.signal,
       });
       if (!response.ok) {
-        setSyncHealth((prev) => ({ ...prev, lastError: `http pull hata (${response.status})` }));
+        registerHttpSyncFailure(`http pull hata (${response.status})`);
         setRealtimeStatus("offline");
         return;
       }
       const contentType = (response.headers.get("content-type") || "").toLowerCase();
       if (!contentType.includes("application/json")) {
-        setSyncHealth((prev) => ({ ...prev, lastError: "http pull json degil" }));
+        registerHttpSyncFailure("http pull json degil");
         setRealtimeStatus("offline");
         return;
       }
@@ -3097,10 +3129,12 @@ function App() {
         lastHttpPullReason: reason,
         lastError: "",
       }));
+      clearHttpSyncFailureState();
       if (realtimeStatus !== "online") {
         setRealtimeStatus("online");
       }
     } catch {
+      registerHttpSyncFailure("http pull baglanti hatasi");
       setRealtimeStatus("offline");
     } finally {
       window.clearTimeout(timeoutId);
@@ -3120,7 +3154,11 @@ function App() {
     saveJson(activeLobbyStorageKey, normalized);
     setLobbyState(normalized);
     const sent = sendRealtimeSnapshot(normalized, "lobby-update");
-    void syncRealtimeViaHttp(sent ? "lobby-update-mirror" : "lobby-update-fallback");
+    if (!sent) {
+      void syncRealtimeViaHttp("lobby-update-fallback");
+    } else if (Date.now() - realtimeLastPushAtRef.current >= HTTP_SYNC_MIRROR_MIN_INTERVAL_MS) {
+      void syncRealtimeViaHttp("lobby-update-mirror");
+    }
     broadcastLobbySync();
   }
 
@@ -6439,11 +6477,11 @@ function App() {
       const pending = realtimePendingSnapshotRef.current;
       if (socket && socket.readyState === WebSocket.OPEN && !pending) {
         const now = Date.now();
-        if (now - realtimeLastPushAtRef.current >= 6000) {
+        if (now - realtimeLastPushAtRef.current >= 12_000) {
           await syncRealtimeViaHttp("http-write-heartbeat");
           return;
         }
-        if (now - realtimeLastPullAtRef.current >= 4000) {
+        if (now - realtimeLastPullAtRef.current >= 10_000) {
           await pullRealtimeViaHttp("http-read-backup");
         }
         return;
@@ -6454,7 +6492,7 @@ function App() {
     void run();
     const timer = window.setInterval(() => {
       void run();
-    }, 2500);
+    }, HTTP_SYNC_RUN_INTERVAL_MS);
 
     return () => {
       cancelled = true;
