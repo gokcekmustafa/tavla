@@ -343,6 +343,7 @@ const DEFAULT_GAME_ID: GameId = "tavla";
 const SEAT_STALE_MS = 180_000;
 const PRESENCE_STALE_MS = 20_000;
 const HEARTBEAT_MS = 8_000;
+const SEAT_NULL_MERGE_GRACE_MS = (HEARTBEAT_MS * 2) + 1_000;
 const DEFAULT_WIN_POINTS = 100;
 const DEFAULT_LOSS_POINTS = 0;
 const DEFAULT_RESIGN_PENALTY_POINTS = 50;
@@ -2012,11 +2013,11 @@ function mergeSeatState(
   preferBase: boolean,
 ) {
   if (base && !incoming) {
-    if (incomingStateUpdatedAt - base.touchedAt > SEAT_STALE_MS) return null;
+    if (incomingStateUpdatedAt - base.touchedAt > SEAT_NULL_MERGE_GRACE_MS) return null;
     return base;
   }
   if (!base && incoming) {
-    if (baseStateUpdatedAt - incoming.touchedAt > SEAT_STALE_MS) return null;
+    if (baseStateUpdatedAt - incoming.touchedAt > SEAT_NULL_MERGE_GRACE_MS) return null;
     return incoming;
   }
   if (!base && !incoming) return null;
