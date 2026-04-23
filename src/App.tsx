@@ -2417,6 +2417,7 @@ function App() {
   const leaveRejectNoticeSeenKeyRef = useRef("");
   const leaveConfirmResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const roomMissingSinceRef = useRef<number | null>(null);
+  const previousLobbyIdRef = useRef<string>("");
   const latestLegacyStateRef = useRef<{
     matchToken: string;
     matchActive: boolean;
@@ -2469,6 +2470,15 @@ function App() {
     activeRealtimeLobbyChannelRef.current = activeRealtimeLobbyChannel;
     activeLobbyNameRef.current = activeLobbyName;
   }, [activeLobbyStorageKey, activeRealtimeLobbyChannel, activeLobbyName]);
+
+  useEffect(() => {
+    const currentLobbyId = sanitizeLobbyId(activeLobbyId);
+    const previousLobbyId = sanitizeLobbyId(previousLobbyIdRef.current);
+    if (previousLobbyId && currentLobbyId && previousLobbyId !== currentLobbyId) {
+      void clearSessionPresenceFromLobby(previousLobbyId, appSessionId, "lobby-change-presence-cleanup");
+    }
+    previousLobbyIdRef.current = currentLobbyId || "";
+  }, [activeLobbyId, appSessionId]);
 
   useEffect(() => {
     setRoomSession((current) => {
@@ -4550,6 +4560,74 @@ function App() {
     });
   }
 
+  async function clearSessionPresenceFromLobby(lobbyId: string, sessionId: string, reason = "lobby-switch-cleanup") {
+    const safeLobbyId = sanitizeLobbyId(lobbyId);
+    const safeSessionId = sanitizeGuestId(sessionId);
+    if (!safeLobbyId || !safeSessionId) return;
+
+    const roomName = sanitizeLobbyName(lobbyRooms.find((room) => room.id === safeLobbyId)?.name || DEFAULT_LOBBY_NAME);
+    const storageKey = makeLobbyStateStorageKey(safeLobbyId);
+    const channel = makeRealtimeLobbyChannel(safeLobbyId);
+    let snapshot = loadLobbyState(storageKey, roomName);
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), HTTP_SYNC_TIMEOUT_MS);
+      let response: Response;
+      try {
+        response = await fetch(buildRealtimeHttpSyncUrl(channel, `${safeSessionId}-cleanup`), {
+          method: "GET",
+          headers: { "cache-control": "no-store" },
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+
+      if (response.ok) {
+        const data = (await response.json().catch(() => null)) as { snapshot?: unknown } | null;
+        const incoming = normalizeRealtimeMessage(data?.snapshot);
+        if (incoming && incoming.kind === "snapshot" && incoming.channel === channel) {
+          snapshot = mergeLobbyStates(snapshot, normalizeLobbyState(incoming.payload));
+        }
+      }
+    } catch {
+      // Oda degisimi sirasinda temizlik icin ag hatalarini yoksay.
+    }
+
+    const cleanedPresence = cleanupPresenceRows(snapshot.presence).presence;
+    const nextPresence = cleanedPresence.filter((entry) => entry.sessionId !== safeSessionId);
+    const shouldUpdate = cleanedPresence.length !== snapshot.presence.length || nextPresence.length !== cleanedPresence.length;
+    if (!shouldUpdate) return;
+
+    const nextState = normalizeLobbyState({
+      ...snapshot,
+      presence: nextPresence,
+      updatedAt: Date.now(),
+    });
+    saveJson(storageKey, nextState);
+
+    try {
+      realtimeSyncCounterRef.current += 1;
+      const outgoing: RealtimeMessage = {
+        kind: "snapshot",
+        channel,
+        sender: safeSessionId,
+        counter: realtimeSyncCounterRef.current,
+        at: Date.now(),
+        payload: nextState,
+        reason,
+      };
+      await fetch(buildRealtimeHttpSyncUrl(channel, safeSessionId), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(outgoing),
+      });
+    } catch {
+      // Sunucuya push basarisiz olsa da yerel temizlik yapilmis olur.
+    }
+  }
+
   function moveDesignTopButton(targetAction: "home" | "roomSelect" | "botMode") {
     if (!adminDesignDraggingTopButton || adminDesignDraggingTopButton === targetAction) return;
     setDesignDraft((prev) => {
@@ -4738,6 +4816,16 @@ function App() {
     setGamePickerOpen(true);
     setLobbyNotice("Anasayfaya donuldu.");
     pushEntryScreenHistory("game");
+  }
+
+  function openAllRoomsPicker() {
+    if (roomSession) {
+      setLobbyNotice("Tum odalari acmak icin once masadan kalkmalisin.");
+      return;
+    }
+    setGamePickerOpen(false);
+    setRoomPickerOpen(true);
+    pushEntryScreenHistory("room");
   }
 
   function rememberRoomPickerSelection(lobbyId: string) {
@@ -7622,7 +7710,7 @@ function App() {
                       onDragEnd={() => setAdminDesignDraggingTopButton(null)}
                       disabled={adminDesignBusy}
                     >
-                      {action === "home" ? "Ana Sayfa" : action === "roomSelect" ? "Oda Sec" : "Bota Karsi"}
+                      {action === "home" ? "Ana Sayfa" : action === "roomSelect" ? "Tum Odalar" : "Bota Karsi"}
                     </button>
                   ))}
                 </div>
@@ -7777,7 +7865,7 @@ function App() {
                   />
                 </label>
                 <label className="my-field">
-                  <span>Ust Bar Oda Sec</span>
+                  <span>Ust Bar Tum Odalar</span>
                   <input
                     className="my-input"
                     value={designDraft.texts.lobbyRoomSelect ?? ""}
@@ -7915,7 +8003,7 @@ function App() {
                       {action === "home"
                         ? (designPreviewTarget.texts.lobbyHome || "Ana Sayfa")
                         : action === "roomSelect"
-                          ? (designPreviewTarget.texts.lobbyRoomSelect || "Oda Sec")
+                          ? (designPreviewTarget.texts.lobbyRoomSelect || "Tum Odalar")
                           : (designPreviewTarget.texts.lobbyBotMode || "Bota Karsi")}
                     </button>
                   ))}
@@ -8083,13 +8171,9 @@ function App() {
                 <button
                   className="my-top-btn my-btn-member-alt"
                   style={{ order: lobbyTopButtonOrder.indexOf("roomSelect") }}
-                  onClick={() => {
-                    setGamePickerOpen(false);
-                    setRoomPickerOpen(true);
-                    pushEntryScreenHistory("room");
-                  }}
+                  onClick={openAllRoomsPicker}
                 >
-                  {activeDesign.texts.lobbyRoomSelect || "Oda Sec"}
+                  {activeDesign.texts.lobbyRoomSelect || "Tum Odalar"}
                 </button>
                 <button
                   className="my-top-btn my-btn-open my-lobby-top-action-hidden my-design-label-btn"
