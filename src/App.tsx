@@ -1967,11 +1967,26 @@ function getInitialLobbyId() {
 function clearSessionFromTables(
   tables: LobbyTable[],
   sessionId: string,
+  fallbackUserId = "",
+  scopeRoomCode = "",
+  scopeTableId = 0,
 ): { tables: LobbyTable[]; changed: boolean } {
+  const safeFallbackUserId = sanitizeGuestId(fallbackUserId);
+  const safeScopeRoomCode = sanitizeRoomCode(scopeRoomCode);
+  const safeScopeTableId = Number.isInteger(scopeTableId) && scopeTableId > 0 ? scopeTableId : 0;
   let changed = false;
   const next = tables.map((table) => {
-    const whiteOwned = Boolean(table.white?.sessionId === sessionId);
-    const blackOwned = Boolean(table.black?.sessionId === sessionId);
+    const inScope = safeScopeTableId || safeScopeRoomCode
+      ? table.id === safeScopeTableId || (safeScopeRoomCode && table.roomCode === safeScopeRoomCode)
+      : true;
+    const whiteOwned = Boolean(
+      table.white?.sessionId === sessionId
+      || (inScope && safeFallbackUserId && sanitizeGuestId(table.white?.userId ?? "") === safeFallbackUserId),
+    );
+    const blackOwned = Boolean(
+      table.black?.sessionId === sessionId
+      || (inScope && safeFallbackUserId && sanitizeGuestId(table.black?.userId ?? "") === safeFallbackUserId),
+    );
     if (!whiteOwned && !blackOwned) return table;
     changed = true;
     return normalizeTableAccess(
@@ -2013,18 +2028,10 @@ function mergeSeatState(
   preferBase: boolean,
 ) {
   if (base && !incoming) {
-    if (incomingStateUpdatedAt >= baseStateUpdatedAt) {
-      if (base.touchedAt > incomingStateUpdatedAt + SEAT_NULL_MERGE_GRACE_MS) return base;
-      return null;
-    }
     if (incomingStateUpdatedAt - base.touchedAt > SEAT_NULL_MERGE_GRACE_MS) return null;
     return base;
   }
   if (!base && incoming) {
-    if (baseStateUpdatedAt >= incomingStateUpdatedAt) {
-      if (incoming.touchedAt > baseStateUpdatedAt + SEAT_NULL_MERGE_GRACE_MS) return incoming;
-      return null;
-    }
     if (baseStateUpdatedAt - incoming.touchedAt > SEAT_NULL_MERGE_GRACE_MS) return null;
     return incoming;
   }
@@ -3425,7 +3432,10 @@ function App() {
   function releaseSeatOnly() {
     writeLobby((current) => {
       const cleaned = cleanupStaleAndPrune(current.tables).tables;
-      const cleared = clearSessionFromTables(cleaned, appSessionId);
+      const scopedUserId = roomSession && roomSession.role === "player" ? sanitizeGuestId(currentProfile.userId) : "";
+      const scopedRoomCode = roomSession && roomSession.role === "player" ? sanitizeRoomCode(roomSession.code) : "";
+      const scopedTableId = roomSession && roomSession.role === "player" ? Math.max(1, roomSession.tableNo) : 0;
+      const cleared = clearSessionFromTables(cleaned, appSessionId, scopedUserId, scopedRoomCode, scopedTableId);
       const pruned = cleanupStaleAndPrune(cleared.tables).tables;
       const closedRoomCodes = cleared.tables
         .filter((table) => !table.white && !table.black)
@@ -7355,7 +7365,10 @@ function App() {
     const onBeforeUnload = () => {
       const latest = getCurrentLobbyState();
       const cleanedTables = cleanupStaleAndPrune(latest.tables).tables;
-      const cleared = clearSessionFromTables(cleanedTables, appSessionId);
+      const scopedUserId = roomSession && roomSession.role === "player" ? sanitizeGuestId(currentProfile.userId) : "";
+      const scopedRoomCode = roomSession && roomSession.role === "player" ? sanitizeRoomCode(roomSession.code) : "";
+      const scopedTableId = roomSession && roomSession.role === "player" ? Math.max(1, roomSession.tableNo) : 0;
+      const cleared = clearSessionFromTables(cleanedTables, appSessionId, scopedUserId, scopedRoomCode, scopedTableId);
       const prunedTables = cleanupStaleAndPrune(cleared.tables).tables;
       const closedRoomCodes = cleared.tables
         .filter((table) => !table.white && !table.black)
@@ -7378,7 +7391,7 @@ function App() {
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [appSessionId, currentProfile.userId, activeLobbyStorageKey]);
+  }, [appSessionId, currentProfile.userId, activeLobbyStorageKey, roomSession]);
 
   if (isAdminWindow) {
     return (
