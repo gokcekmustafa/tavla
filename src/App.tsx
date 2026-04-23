@@ -9024,6 +9024,12 @@ function App() {
                 ) : null}
               </div>
 
+              {roomSession ? (
+                <button className="my-action-btn danger my-room-main-leave my-room-mobile-leave" onClick={openLeaveActionModal}>
+                  {activeDesign.texts.roomLeaveTable || "Masadan Kalk"}
+                </button>
+              ) : null}
+
               <section className="my-chat-card my-room-chat-card">
                 <div className="my-room-chat-tabs">
                   <button

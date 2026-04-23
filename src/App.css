@@ -1779,6 +1779,10 @@
   font-size: 0.95rem;
 }
 
+.my-room-mobile-leave {
+  display: none;
+}
+
 .my-room-card .my-action-btn {
   min-height: 33px;
 }
@@ -2523,6 +2527,17 @@
 
   .my-room-menu-card {
     grid-column: 1 / -1;
+  }
+
+  .my-room-menu-card .my-room-main-leave {
+    display: none;
+  }
+
+  .my-room-mobile-leave {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
   }
 
   .my-room-board-frame iframe {
