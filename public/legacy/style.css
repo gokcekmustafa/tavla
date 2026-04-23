@@ -1233,6 +1233,13 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     padding-bottom: 72px;
   }
 
+  /* Room/Bot modunda iframe ici zorunlu 100dvh, tahta altinda bos alan olusturuyordu */
+  body.room-mode .app-shell,
+  body.bot-mode .app-shell {
+    min-height: auto;
+    padding-bottom: 8px;
+  }
+
   .play-zone {
     grid-template-columns: 1fr;
     gap: 8px;
@@ -2213,12 +2220,17 @@ body.bot-mode .activity-wrap {
   }
 
   /* Mobilde tahta daha dolgun gorunsun: yan raylar ve padding kompakt */
-body.room-mode .table-wrap,
-body.bot-mode .table-wrap {
+  body.room-mode .table-wrap,
+  body.bot-mode .table-wrap {
     max-width: 100%;
     padding: 4px;
     gap: 4px;
     overflow: hidden;
+  }
+
+  body.room-mode .board-grid,
+  body.bot-mode .board-grid {
+    aspect-ratio: 572 / 410;
   }
 
   body.room-mode .off-area,
