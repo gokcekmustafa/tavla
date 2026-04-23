@@ -7394,9 +7394,9 @@ function App() {
               {adminError ? <p className="my-error">{adminError}</p> : null}
             </section>
 
-            <section className="my-side-card">
+            <section className="my-side-card my-admin-design-editor-card">
               <h3>Tasarim Modu</h3>
-              <p className="line">Bu panel sadece gorunumu degistirir, oyun mantigina dokunmaz.</p>
+              <p className="line">Soldan duzenle, sagdaki onizleme alaninda canli olarak gor. Oyun mantigi degismez.</p>
 
               <div className="my-inline-actions">
                 <button
@@ -7422,6 +7422,8 @@ function App() {
                 </button>
               </div>
 
+              <details className="my-admin-design-group" open>
+                <summary>Yerlesim ve Buton Siralari</summary>
               <div className="my-field">
                 <span>Buton Sirasi (Surukle-Birak)</span>
                 <div className="my-admin-room-list">
@@ -7502,7 +7504,10 @@ function App() {
                   ))}
                 </div>
               </div>
+              </details>
 
+              <details className="my-admin-design-group">
+                <summary>Renk ve Boyut</summary>
               <div className="my-admin-rules-grid">
                 <label className="my-field">
                   <span>Buton Olcegi %</span>
@@ -7564,7 +7569,10 @@ function App() {
                   <input className="my-input" value={designDraft.theme.fontFamily} onChange={(e) => updateDesignTheme("fontFamily", e.target.value)} disabled={adminDesignBusy} />
                 </label>
               </div>
+              </details>
 
+              <details className="my-admin-design-group">
+                <summary>Metinler</summary>
               <div className="my-admin-rules-grid">
                 <label className="my-field">
                   <span>Lobi Masa Ac</span>
@@ -7696,7 +7704,10 @@ function App() {
                   />
                 </label>
               </div>
+              </details>
 
+              <details className="my-admin-design-group">
+                <summary>Yayin ve Geri Alma</summary>
               <div className="my-inline-actions">
                 <button className="my-action-btn" onClick={publishDesignDraft} disabled={adminDesignBusy}>
                   {adminDesignBusy ? "Yayinlaniyor..." : "Yayinla"}
@@ -7731,6 +7742,7 @@ function App() {
                   Geri Al
                 </button>
               </div>
+              </details>
               {adminDesignNotice ? <p className="my-notice my-notice-soft">{adminDesignNotice}</p> : null}
               {adminDesignError ? <p className="my-error">{adminDesignError}</p> : null}
             </section>
@@ -7757,13 +7769,14 @@ function App() {
                 <div className="my-admin-design-preview-lobby">
                   <div className="my-admin-design-preview-title">
                     <strong>Lobi 1</strong>
-                    <span>{designPreviewTarget.texts.lobbyEmptyTitle ? "Acik masalar" : "Açık masalar"}</span>
+                    <span>{designPreviewTarget.texts.lobbyEmptyTitle || "Acik masalar"}</span>
                   </div>
+                  <p className="line">{designPreviewTarget.texts.lobbyEmptySub || "Masa ve sohbet alanini burada canli gorursun."}</p>
                   <div className="my-admin-design-preview-actions">
                     {designPreviewLayout.lobbyHeaderActions.map((action) => (
                       <button key={`preview-head-${action}`} className={`my-top-btn ${action === "openTable" ? "my-btn-open" : "my-btn-play"}`} type="button">
                         {action === "openTable"
-                          ? (designPreviewTarget.texts.lobbyOpenTable || "Masa Aç")
+                          ? (designPreviewTarget.texts.lobbyOpenTable || "Masa Ac")
                           : (designPreviewTarget.texts.lobbyQuickPlay || "Hemen Oyna")}
                       </button>
                     ))}

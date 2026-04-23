@@ -1417,8 +1417,31 @@
   gap: 6px;
 }
 
+.my-admin-design-editor-card {
+  grid-column: 1 / 2;
+}
+
+.my-admin-design-group {
+  border-radius: 8px;
+  border: 1px solid rgba(95, 173, 198, 0.42);
+  background: rgba(4, 57, 74, 0.46);
+  padding: 8px;
+  display: grid;
+  gap: 7px;
+}
+
+.my-admin-design-group summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #d9f4ff;
+}
+
 .my-admin-design-preview-card {
-  grid-column: 1 / -1;
+  grid-column: 2 / 3;
+  align-self: start;
+  position: sticky;
+  top: 10px;
 }
 
 .my-admin-design-preview-surface {
@@ -2378,6 +2401,16 @@
 
   .my-admin-window-layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .my-admin-design-editor-card,
+  .my-admin-design-preview-card {
+    grid-column: 1 / -1;
+  }
+
+  .my-admin-design-preview-card {
+    position: static;
+    top: auto;
   }
 
   .my-admin-user-split {
