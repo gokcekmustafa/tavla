@@ -941,8 +941,38 @@ function tableChatKey(table: Pick<LobbyTable, "roomCode" | "id">) {
   return `T${Math.max(1, table.id)}`;
 }
 
+function isTableScopedToLobby(table: LobbyTable, presenceRows: LobbyPresenceState[], lobbyId: string) {
+  const safeLobbyId = sanitizeLobbyId(lobbyId);
+  if (!safeLobbyId) return true;
+  const seats = [table.white, table.black].filter((seat): seat is LobbySeatState => Boolean(seat));
+  if (seats.length === 0) return false;
+
+  let matchedAnyScopedPresence = false;
+
+  for (const row of presenceRows) {
+    const rowLobbyId = sanitizeLobbyId(row.lobbyId ?? "");
+    if (!rowLobbyId) continue;
+    const matchesSeat = seats.some(
+      (seat) => row.sessionId === seat.sessionId || sanitizeGuestId(row.userId) === sanitizeGuestId(seat.userId),
+    );
+    if (!matchesSeat) continue;
+    matchedAnyScopedPresence = true;
+    if (rowLobbyId === safeLobbyId) return true;
+  }
+
+  if (matchedAnyScopedPresence) return false;
+  return true;
+}
+
+function filterTablesByLobbyScope(tables: LobbyTable[], presenceRows: LobbyPresenceState[], lobbyId: string) {
+  const safeLobbyId = sanitizeLobbyId(lobbyId);
+  if (!safeLobbyId) return sortTables(tables);
+  return sortTables(tables).filter((table) => isTableScopedToLobby(table, presenceRows, safeLobbyId));
+}
+
 function summarizeLobbyCounts(snapshot: LobbyState, lobbyId = ""): LobbyRoomCounts {
-  const activeTables = snapshot.tables.filter((table) => Boolean(table.white || table.black)).length;
+  const scopedTables = filterTablesByLobbyScope(snapshot.tables, snapshot.presence, lobbyId);
+  const activeTables = scopedTables.filter((table) => Boolean(table.white || table.black)).length;
   const safeLobbyId = sanitizeLobbyId(lobbyId);
   const cleanedPresence = cleanupPresenceRows(snapshot.presence).presence;
   const uniquePlayers = new Set<string>();
@@ -2564,9 +2594,14 @@ function App() {
     return `/legacy/index.html?${qp.toString()}`;
   }, [mode, iframeKey, roomSession, safeGuestName, isRoomMode, member]);
 
+  const scopedLobbyTables = useMemo(
+    () => filterTablesByLobbyScope(lobbyState.tables, lobbyState.presence, activeLobbyId),
+    [lobbyState.tables, lobbyState.presence, activeLobbyId],
+  );
+
   const openedTables = useMemo(() => {
-    return sortTables(lobbyState.tables).filter((table) => Boolean(table.white || table.black));
-  }, [lobbyState.tables]);
+    return scopedLobbyTables.filter((table) => Boolean(table.white || table.black));
+  }, [scopedLobbyTables]);
 
   const roomPickerRows = useMemo(() => {
     return lobbyRooms.map((room) => {
@@ -2602,7 +2637,7 @@ function App() {
         [safeActiveLobbyId]: counts,
       };
     });
-  }, [activeLobbyId, lobbyState.tables]);
+  }, [activeLobbyId, lobbyState.tables, lobbyState.presence]);
 
   useEffect(() => {
     if (!roomPickerOpen || lobbyRooms.length === 0) return;
@@ -2714,7 +2749,7 @@ function App() {
     };
   }, [roomPickerOpen, lobbyRooms, activeLobbyId, appSessionId]);
 
-  const myCurrentSeat = useMemo(() => findSessionSeat(lobbyState.tables, appSessionId), [lobbyState.tables, appSessionId]);
+  const myCurrentSeat = useMemo(() => findSessionSeat(scopedLobbyTables, appSessionId), [scopedLobbyTables, appSessionId]);
 
   const onlineRows = useMemo<OnlineRow[]>(() => {
     const tableBySession = new Map<string, number>();
@@ -2786,8 +2821,8 @@ function App() {
 
   const currentRoomTable = useMemo(() => {
     if (!roomSession) return null;
-    return lobbyState.tables.find((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code) ?? null;
-  }, [lobbyState.tables, roomSession]);
+    return scopedLobbyTables.find((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code) ?? null;
+  }, [scopedLobbyTables, roomSession]);
 
   const roomStartState = useMemo(() => {
     if (!roomSession || !currentRoomTable) return null;
