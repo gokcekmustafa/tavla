@@ -941,12 +941,21 @@ function tableChatKey(table: Pick<LobbyTable, "roomCode" | "id">) {
   return `T${Math.max(1, table.id)}`;
 }
 
-function summarizeLobbyCounts(snapshot: LobbyState): LobbyRoomCounts {
+function summarizeLobbyCounts(snapshot: LobbyState, lobbyId = ""): LobbyRoomCounts {
   const activeTables = snapshot.tables.filter((table) => Boolean(table.white || table.black)).length;
-  const seatedPlayers = snapshot.tables.reduce(
-    (sum, table) => sum + Number(Boolean(table.white)) + Number(Boolean(table.black)),
-    0,
-  );
+  const safeLobbyId = sanitizeLobbyId(lobbyId);
+  const cleanedPresence = cleanupPresenceRows(snapshot.presence).presence;
+  const uniquePlayers = new Set<string>();
+
+  cleanedPresence.forEach((row) => {
+    const rowLobbyId = sanitizeLobbyId(row.lobbyId ?? "");
+    if (safeLobbyId && rowLobbyId && rowLobbyId !== safeLobbyId) return;
+    const key = sanitizeGuestId(row.userId) || `session:${row.sessionId}`;
+    if (!key) return;
+    uniquePlayers.add(key);
+  });
+
+  const seatedPlayers = uniquePlayers.size;
   return { activeTables, seatedPlayers };
 }
 
@@ -2554,7 +2563,7 @@ function App() {
       const roomName = sanitizeLobbyName(room.name);
       const roomId = sanitizeLobbyId(room.id) || DEFAULT_LOBBY_ID;
       const cached = roomPickerLiveCounts[roomId];
-      const fallback = summarizeLobbyCounts(loadLobbyState(makeLobbyStateStorageKey(room.id), roomName));
+      const fallback = summarizeLobbyCounts(loadLobbyState(makeLobbyStateStorageKey(room.id), roomName), roomId);
       const activeTables = cached?.activeTables ?? fallback.activeTables;
       const seatedPlayers = cached?.seatedPlayers ?? fallback.seatedPlayers;
       return {
@@ -2568,7 +2577,7 @@ function App() {
 
   useEffect(() => {
     const safeActiveLobbyId = sanitizeLobbyId(activeLobbyId) || DEFAULT_LOBBY_ID;
-    const counts = summarizeLobbyCounts(lobbyState);
+    const counts = summarizeLobbyCounts(lobbyState, safeActiveLobbyId);
     setRoomPickerLiveCounts((prev) => {
       const current = prev[safeActiveLobbyId];
       if (
@@ -2604,7 +2613,7 @@ function App() {
           if (!roomId) continue;
 
           const roomName = sanitizeLobbyName(room.name);
-          let summary = summarizeLobbyCounts(loadLobbyState(makeLobbyStateStorageKey(roomId), roomName));
+          let summary = summarizeLobbyCounts(loadLobbyState(makeLobbyStateStorageKey(roomId), roomName), roomId);
 
           if (allowRemote && roomId !== safeActiveLobbyId) {
             try {
@@ -2627,7 +2636,7 @@ function App() {
                 const data = (await response.json().catch(() => null)) as { snapshot?: unknown } | null;
                 const incoming = normalizeRealtimeMessage(data?.snapshot);
                 if (incoming && incoming.kind === "snapshot" && incoming.channel === channel) {
-                  summary = summarizeLobbyCounts(normalizeLobbyState(incoming.payload));
+                  summary = summarizeLobbyCounts(normalizeLobbyState(incoming.payload), roomId);
                 }
               }
             } catch {
