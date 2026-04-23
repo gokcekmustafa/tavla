@@ -4818,6 +4818,22 @@ function App() {
     pushEntryScreenHistory("game");
   }
 
+  function goToLobbyFromTableView() {
+    if (!roomSession) return;
+    setViewMode("lobby");
+    setRoomPickerOpen(false);
+    setGamePickerOpen(false);
+    setLobbyNotice("Lobiye gecildi. Masaya donerek oyuna devam edebilirsin.");
+  }
+
+  function returnToActiveTableView() {
+    if (!roomSession) return;
+    setViewMode("table");
+    setRoomPickerOpen(false);
+    setGamePickerOpen(false);
+    setLobbyNotice("Masaya geri donuldu.");
+  }
+
   function openAllRoomsPicker() {
     if (roomSession) {
       setLobbyNotice("Tum odalari acmak icin once masadan kalkmalisin.");
@@ -8191,9 +8207,14 @@ function App() {
               </>
             ) : null}
             {roomSession ? (
-              <button className="my-top-btn my-btn-danger" onClick={openLeaveActionModal}>
-                {activeDesign.texts.roomLeaveTable || "Masadan Kalk"}
-              </button>
+              <>
+                <button className="my-top-btn my-btn-member-alt" onClick={returnToActiveTableView}>
+                  Masaya Don
+                </button>
+                <button className="my-top-btn my-btn-danger" onClick={openLeaveActionModal}>
+                  {activeDesign.texts.roomLeaveTable || "Masadan Kalk"}
+                </button>
+              </>
             ) : null}
           </div>
 
@@ -8703,9 +8724,9 @@ function App() {
                 <span className="my-online-sr-only">Durum</span>
               </div>
               <div className="my-online-list">
-                {onlineRows.map((row) => (
+                {onlineRows.map((row, index) => (
                   <div key={row.key} className="my-online-row">
-                    <AvatarBadge avatarId={row.avatarId} gender={row.gender} size="sm" className="my-online-avatar" />
+                    <span className={`my-online-dot my-online-dot-palette-${index % 6}`} aria-hidden="true" />
                     <button
                       type="button"
                       className="my-name-link name"
@@ -9107,7 +9128,7 @@ function App() {
                     </button>
                   </div>
                 ) : null}
-                <button className="my-action-btn soft" onClick={() => setViewMode("lobby")}>
+                <button className="my-action-btn soft" onClick={goToLobbyFromTableView}>
                   {activeDesign.texts.roomBackLobby || "Lobiye Don"}
                 </button>
                 {lobbyNotice ? <p className="my-notice my-notice-soft">{lobbyNotice}</p> : null}
