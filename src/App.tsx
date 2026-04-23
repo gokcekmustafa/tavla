@@ -2181,7 +2181,6 @@ function App() {
   const [roomSession, setRoomSession] = useState<RoomSession | null>(initialRoom);
   const [joinCodeInput, setJoinCodeInput] = useState(() => initialRoom?.code ?? "");
   const [joinSeat, setJoinSeat] = useState<Seat>(() => initialRoom?.seat ?? "black");
-  const [copied, setCopied] = useState(false);
   const [lobbyNotice, setLobbyNotice] = useState("");
   const [invitePickerTableId, setInvitePickerTableId] = useState<number | null>(null);
   const [lobbyState, setLobbyState] = useState<LobbyState>(() => {
@@ -2394,6 +2393,17 @@ function App() {
     activeRealtimeLobbyChannelRef.current = activeRealtimeLobbyChannel;
     activeLobbyNameRef.current = activeLobbyName;
   }, [activeLobbyStorageKey, activeRealtimeLobbyChannel, activeLobbyName]);
+
+  useEffect(() => {
+    setRoomSession((current) => {
+      if (!current) return current;
+      if (current.sessionId === appSessionId) return current;
+      return {
+        ...current,
+        sessionId: appSessionId,
+      };
+    });
+  }, [appSessionId]);
 
   useEffect(() => {
     realtimeSenderCountersRef.current = new Map();
@@ -2705,14 +2715,6 @@ function App() {
     if (myCurrentSeat) return null;
     return sortTables(lobbyState.tables).find((table) => table.invitedUserId === currentProfile.userId) ?? null;
   }, [lobbyState.tables, currentProfile.userId, myCurrentSeat]);
-
-  const canCopyInviteLink = useMemo(() => {
-    if (!roomSession || !currentRoomTable || !currentRoomIsOwner) return false;
-    if (roomSession.role !== "player") return false;
-    if (roomStartState?.started) return false;
-    if (matchLiveState.matchActive) return false;
-    return true;
-  }, [roomSession, currentRoomTable, currentRoomIsOwner, roomStartState?.started, matchLiveState.matchActive]);
 
   const canEditCurrentRoomSetCount = useMemo(() => {
     if (!roomSession || roomSession.role !== "player") return false;
@@ -3369,7 +3371,6 @@ function App() {
     setJoinSeat(seat === "white" ? "black" : "white");
     setMode("local");
     setViewMode("table");
-    setCopied(false);
     setInvitePickerTableId(null);
     setLobbyNotice("");
     forceReloadBoard();
@@ -3411,7 +3412,6 @@ function App() {
     setJoinCodeInput(table.roomCode);
     setMode("local");
     setViewMode("table");
-    setCopied(false);
     setInvitePickerTableId(null);
     setLobbyNotice(`Masa ${table.id} izleyici modunda açıldı.`);
     forceReloadBoard();
@@ -3598,7 +3598,6 @@ function App() {
       setJoinSeat(seat === "white" ? "black" : "white");
       setMode("local");
       setViewMode("lobby");
-      setCopied(false);
       setLobbyNotice(`Masa ${table.id} açıldı. Diğer oyuncu bekleniyor.`);
     }
     return table;
@@ -4016,7 +4015,6 @@ function App() {
     leavePermissionPromptKeyRef.current = "";
     leavePermissionAutoLeavingRef.current = false;
     setMode("bot");
-    setCopied(false);
     setInvitePickerTableId(null);
     if (penalized) {
       setLobbyNotice(`Bot modu aktif. Masadan ayrıldığın için -${gameRules.resignPenaltyPoints} puan uygulandı.`);
@@ -4953,36 +4951,6 @@ function App() {
     setLobbyNotice(`Masa ${tableId} daveti reddedildi.`);
   }
 
-  async function copyInviteFromTable(table: LobbyTable, seat: Seat) {
-    const inviteSeat: Seat = seat === "white" ? "black" : "white";
-    const url = new URL(window.location.href);
-    url.searchParams.set("room", table.roomCode);
-    url.searchParams.set("seat", inviteSeat);
-    url.searchParams.set("name", safeGuestName);
-    url.searchParams.set("room_name", activeLobbyName);
-    url.searchParams.set("table", String(table.id));
-    await navigator.clipboard.writeText(url.toString());
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1300);
-  }
-
-  async function onCopyInvite() {
-    if (!roomSession || !currentRoomTable) return;
-    if (roomSession.role !== "player") {
-      setLobbyNotice("İzleyici modunda davet linki kopyalanamaz.");
-      return;
-    }
-    if (!currentRoomIsOwner) {
-      setLobbyNotice("Davet linkini sadece masa sahibi kopyalayabilir.");
-      return;
-    }
-    if (!canCopyInviteLink) {
-      setLobbyNotice("Oyun başladıktan sonra davet linki kilitlenir.");
-      return;
-    }
-    await copyInviteFromTable(currentRoomTable, roomSession.seat);
-  }
-
   async function loadMemberFromSession(session: MemberSession | null) {
     if (!session?.userId) return null;
     try {
@@ -5849,7 +5817,6 @@ function App() {
   function closeRoomAndReturnLobby() {
     releaseSeatOnly();
     setRoomSession(null);
-    setCopied(false);
     setInvitePickerTableId(null);
     setViewMode("lobby");
     clearOpponentIdleWatch();
@@ -6108,7 +6075,11 @@ function App() {
       }
 
       const occupied = roomSession.seat === "white" ? table.white : table.black;
-      const occupiedByDifferentSession = Boolean(occupied && occupied.sessionId !== appSessionId);
+      const occupiedByDifferentSession = Boolean(
+        occupied
+        && occupied.sessionId !== appSessionId
+        && sanitizeGuestId(occupied.userId) !== sanitizeGuestId(currentProfile.userId),
+      );
       if (occupiedByDifferentSession) {
         blocked = true;
         blockedReason = "occupied";
@@ -8865,7 +8836,7 @@ function App() {
                       <strong>Masa Oturumu</strong>
                     </p>
                     <p className="line">
-                      Oda: <code>{roomSession.roomName}</code> ({roomSession.code})
+                      Oda: <code>{roomSession.roomName}</code>
                     </p>
                     <p className="line">
                       Masa: <code>{roomSession.tableNo}</code> / Sen:{" "}
@@ -8922,9 +8893,6 @@ function App() {
                       onClick={() => setSpectatorChatEnabled(currentRoomTable.id, currentRoomTable.allowSpectatorChat === false)}
                     >
                       {currentRoomTable.allowSpectatorChat === false ? "İzleyici Yazısını Aç" : "İzleyici Yazısını Kapat"}
-                    </button>
-                    <button className="my-action-btn" style={{ order: roomOwnerButtonOrder.indexOf("copyLink") }} onClick={onCopyInvite} disabled={!canCopyInviteLink}>
-                      {copied ? "Kopyalandi" : (activeDesign.texts.roomCopyInvite || "Davet Linki Kopyala")}
                     </button>
                   </div>
                 ) : null}
