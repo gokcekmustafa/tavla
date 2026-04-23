@@ -2283,7 +2283,7 @@ body.bot-mode .activity-wrap {
 
   body.room-mode .board-grid,
   body.bot-mode .board-grid {
-    aspect-ratio: 572 / 420;
+    aspect-ratio: 572 / 460;
   }
 }
 

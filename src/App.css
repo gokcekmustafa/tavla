@@ -2541,13 +2541,13 @@
   }
 
   .my-room-board-frame iframe {
-    height: min(62svh, 500px);
-    min-height: 330px;
+    height: min(56svh, 440px);
+    min-height: 300px;
   }
 
   .my-room-view-topless .my-room-board-frame iframe {
-    height: min(68svh, 560px);
-    min-height: 380px;
+    height: min(60svh, 480px);
+    min-height: 330px;
   }
 }
 
@@ -2786,13 +2786,13 @@
   }
 
   .my-room-board-frame iframe {
-    height: clamp(320px, 58svh, 460px);
-    min-height: 320px;
+    height: clamp(300px, 54svh, 420px);
+    min-height: 280px;
   }
 
   .my-room-view-topless .my-room-board-frame iframe {
-    height: clamp(330px, 60svh, 480px);
-    min-height: 330px;
+    height: clamp(310px, 56svh, 440px);
+    min-height: 290px;
   }
 
   .my-room-main-leave {
