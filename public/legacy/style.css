@@ -535,6 +535,20 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   filter: blur(0.5px);
 }
 
+#off-white .off-stack {
+  order: 1;
+  margin-top: 0;
+  margin-bottom: auto;
+}
+
+#off-white .off-title {
+  order: 2;
+}
+
+#off-white .off-count {
+  order: 3;
+}
+
 .off-chip {
   --stack-index: 0;
   width: 34px;
@@ -2199,8 +2213,8 @@ body.bot-mode .activity-wrap {
   }
 
   /* Mobilde tahta daha dolgun gorunsun: yan raylar ve padding kompakt */
-  body.room-mode .table-wrap,
-  body.bot-mode .table-wrap {
+body.room-mode .table-wrap,
+body.bot-mode .table-wrap {
     max-width: 100%;
     padding: 4px;
     gap: 4px;
@@ -2225,6 +2239,13 @@ body.bot-mode .activity-wrap {
     height: 9px;
     bottom: calc(3px + (var(--stack-index) * 5px));
   }
+}
+
+body.room-mode .game-top,
+body.room-mode .room-bar,
+body.bot-mode .game-top,
+body.bot-mode .room-bar {
+  display: none;
 }
 
 @media (max-width: 640px) {
