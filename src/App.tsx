@@ -8459,6 +8459,7 @@ function App() {
           <section className="my-entry-page my-room-picker-page">
             <div className="my-room-picker-topbar">
               <div className="my-room-picker-tabs">
+                <button className="my-room-picker-tab" type="button" onClick={goToGameSelection}>Anasayfa</button>
                 <button className="my-room-picker-tab active" type="button">Tum Odalar</button>
                 <button className="my-room-picker-tab" type="button" disabled>Hizli</button>
                 <button className="my-room-picker-tab" type="button" disabled>Kalabalik</button>
