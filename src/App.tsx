@@ -6842,7 +6842,6 @@ function App() {
 
       if (payload.type === "table-chat-ready") {
         syncTableChatToIframe();
-        syncRoomStartGateToIframe();
         return;
       }
 
