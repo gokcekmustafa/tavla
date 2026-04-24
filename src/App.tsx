@@ -2879,8 +2879,19 @@ function App() {
 
   const currentRoomTable = useMemo(() => {
     if (!roomSession) return null;
-    return scopedLobbyTables.find((table) => table.id === roomSession.tableNo || table.roomCode === roomSession.code) ?? null;
-  }, [scopedLobbyTables, roomSession]);
+    const targetRoomCode = sanitizeRoomCode(roomSession.code);
+    const matchesRoom = (table: LobbyTable) => {
+      if (targetRoomCode) {
+        return sanitizeRoomCode(table.roomCode) === targetRoomCode;
+      }
+      return table.id === roomSession.tableNo;
+    };
+    return (
+      scopedLobbyTables.find(matchesRoom)
+      ?? lobbyState.tables.find(matchesRoom)
+      ?? null
+    );
+  }, [scopedLobbyTables, lobbyState.tables, roomSession]);
 
   const roomStartState = useMemo(() => {
     if (!roomSession || !currentRoomTable) return null;
