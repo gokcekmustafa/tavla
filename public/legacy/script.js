@@ -1854,10 +1854,13 @@ function getOffStackTargetPosition(player, currentOffCount) {
 
   const slot = Math.min(currentOffCount, 9);
   const step = Math.max(8, rect.height / 12);
+  const stackFromTop = Boolean(stackEl && stackEl.classList.contains("stack-from-top"));
 
   return {
     x: rect.left + rect.width / 2,
-    y: rect.bottom - (slot + 1) * step,
+    y: stackFromTop
+      ? rect.top + (slot + 1) * step
+      : rect.bottom - (slot + 1) * step,
   };
 }
 
@@ -2298,6 +2301,9 @@ function renderBar(player, selectableSources) {
 function renderOffStack(player) {
   const stackEl = player === WHITE ? dom.offWhiteStack : dom.offBlackStack;
   if (!stackEl) return;
+  const perspective = getPerspectiveColor();
+  const stackFromTop = player !== perspective;
+  stackEl.classList.toggle("stack-from-top", stackFromTop);
 
   const count = gameState.borneOff[player];
   stackEl.innerHTML = "";
