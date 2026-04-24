@@ -2832,8 +2832,23 @@ function showPointerHint(message, evt) {
   const el = ensurePointerHintEl();
   const pos = getPointerPosition(evt);
   el.textContent = text;
-  el.style.left = `${Math.round(pos.x)}px`;
-  el.style.top = `${Math.round(pos.y - 18)}px`;
+  const viewportW = Math.max(1, window.innerWidth || document.documentElement?.clientWidth || 0);
+  const viewportH = Math.max(1, window.innerHeight || document.documentElement?.clientHeight || 0);
+  const margin = 8;
+  const gap = 10;
+  const hintW = Math.max(1, el.offsetWidth || 160);
+  const hintH = Math.max(1, el.offsetHeight || 28);
+
+  let left = pos.x - (hintW / 2);
+  left = Math.max(margin, Math.min(left, viewportW - hintW - margin));
+
+  const topAbove = pos.y - hintH - gap;
+  const topBelow = pos.y + gap;
+  let top = topAbove >= margin ? topAbove : topBelow;
+  top = Math.max(margin, Math.min(top, viewportH - hintH - margin));
+
+  el.style.left = `${Math.round(left)}px`;
+  el.style.top = `${Math.round(top)}px`;
   el.classList.add("show");
   if (pointerHintTimer !== null) {
     window.clearTimeout(pointerHintTimer);
