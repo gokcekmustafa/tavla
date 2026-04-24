@@ -344,7 +344,9 @@ const DEFAULT_GAME_ID: GameId = "tavla";
 const SEAT_STALE_MS = 180_000;
 const PRESENCE_STALE_MS = 20_000;
 const HEARTBEAT_MS = 8_000;
-const SEAT_NULL_MERGE_GRACE_MS = (HEARTBEAT_MS * 2) + 1_000;
+// Cihaz saatleri arasındaki fark (özellikle mobil/masaüstü) seat-null merge sırasında
+// koltuğun yanlışlıkla düşmesine neden olabiliyor. Daha geniş tolerans kullanıyoruz.
+const SEAT_NULL_MERGE_GRACE_MS = 15 * 60 * 1000;
 const DEFAULT_WIN_POINTS = 100;
 const DEFAULT_LOSS_POINTS = 0;
 const DEFAULT_RESIGN_PENALTY_POINTS = 50;
