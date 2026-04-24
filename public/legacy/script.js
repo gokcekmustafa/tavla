@@ -128,6 +128,7 @@ let tableChatRows = [];
 let roomStartGateActive = false;
 let roomStartGateBothSeated = true;
 let roomStartGateStarted = true;
+let roomStartGatePeerSeen = false;
 let pointerHintEl = null;
 let pointerHintTimer = null;
 let lastTouchTapSource = null;
@@ -396,6 +397,7 @@ function isLocalSeatTurn() {
 
 function isRoomStartLocked() {
   if (!roomStartGateActive) return false;
+  if (roomStartGatePeerSeen) return false;
   return !roomStartGateBothSeated || !roomStartGateStarted;
 }
 
@@ -720,9 +722,11 @@ function onRoomChannelMessage(event) {
   const expectedChannel = `${ROOM_CHANNEL_PREFIX}${roomParams.code}`;
   const sameRoom = msg && (msg.roomCode === roomParams.code || msg.channel === expectedChannel);
   if (!sameRoom || msg.sender === roomParams.session) return;
+  roomStartGatePeerSeen = true;
 
   if (msg.kind === "hello") {
     publishRoomSnapshot("hello-reply");
+    render();
     return;
   }
 
