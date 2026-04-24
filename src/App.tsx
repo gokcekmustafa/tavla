@@ -3369,13 +3369,7 @@ function App() {
   }
 
   function persistLobbyState(next: LobbyState) {
-    const normalizedBase = normalizeLobbyState(next);
-    const previous =
-      realtimeRemoteStateRef.current
-      ?? loadLobbyState(activeLobbyStorageKey, activeLobbyName);
-    const normalized = normalizedBase.updatedAt <= previous.updatedAt
-      ? { ...normalizedBase, updatedAt: previous.updatedAt + 1 }
-      : normalizedBase;
+    const normalized = normalizeLobbyState(next);
     realtimeRemoteStateRef.current = normalized;
     realtimeReceivedSnapshotRef.current = true;
     realtimePendingSnapshotRef.current = normalized;
