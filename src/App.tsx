@@ -1661,6 +1661,15 @@ function normalizeTableStartGate(table: LobbyTable): LobbyTable {
     blackReadyAt = null;
     startedAt = null;
   } else {
+    // Auto-start modelinde iki koltuk doluysa, eksik hazirlik damgalarini
+    // koltuk aktivite zamanindan tamamla. Bu sayede cihaz farklarinda
+    // startedAt kaybolsa bile oyun kilidi acilabilir.
+    if (!whiteReadyAt) {
+      whiteReadyAt = parseReadyStamp(table.white.touchedAt);
+    }
+    if (!blackReadyAt) {
+      blackReadyAt = parseReadyStamp(table.black.touchedAt);
+    }
     if (startedAt) {
       startedAt = Math.max(startedAt, whiteReadyAt ?? 0, blackReadyAt ?? 0);
     } else if (whiteReadyAt && blackReadyAt) {
