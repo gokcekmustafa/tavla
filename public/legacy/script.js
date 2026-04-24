@@ -1658,9 +1658,14 @@ function handleSourceOrDest(target) {
 
 function getQuickBearOffMove(source) {
   if (!Number.isInteger(source)) return null;
-  if (availableMoves.some((m) => m.to !== "off")) return null;
   const offMoves = availableMoves.filter((m) => m.from === source && m.to === "off");
   if (!offMoves.length) return null;
+
+  const sourceDistanceToOff = currentPlayer === WHITE ? source : 25 - source;
+  const oversizeDieOffMoves = offMoves.filter((m) => m.die > sourceDistanceToOff);
+  if (oversizeDieOffMoves.length) return pickPreferred(oversizeDieOffMoves);
+
+  if (availableMoves.some((m) => m.to !== "off")) return null;
   return pickPreferred(offMoves);
 }
 
