@@ -131,6 +131,8 @@ type PublicMemberUser = {
 
 type StoredMemberUser = PublicMemberUser & {
   password: string;
+  activeSessionKey: string;
+  activeSessionAt: number;
 };
 
 const AUTH_DO_NAME = "members-v1";
@@ -204,6 +206,11 @@ function sanitizeMemberPassword(raw: unknown) {
 function sanitizeMemberId(raw: unknown) {
   if (typeof raw !== "string") return "";
   return raw.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+}
+
+function sanitizeMemberSessionKey(raw: unknown) {
+  if (typeof raw !== "string") return "";
+  return raw.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 96);
 }
 
 function sanitizeMemberRole(raw: unknown): MemberRole {
@@ -614,6 +621,10 @@ function createMemberId() {
   return sanitizeMemberId(`m${Date.now().toString(36)}${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`);
 }
 
+function createMemberSessionKey() {
+  return sanitizeMemberSessionKey(`s${Date.now().toString(36)}${crypto.randomUUID().replace(/-/g, "")}`);
+}
+
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   return String(error ?? "Bilinmeyen hata");
@@ -655,6 +666,7 @@ function normalizeStoredMemberUser(raw: unknown): StoredMemberUser | null {
     || sanitizeMemberUsername(`u${id.slice(-10)}`)
     || `u${Date.now().toString(36).slice(-6)}`;
   const gender = sanitizeMemberGender(candidate.gender);
+  const activeSessionKey = sanitizeMemberSessionKey(candidate.activeSessionKey);
   return {
     id,
     username,
@@ -669,6 +681,8 @@ function normalizeStoredMemberUser(raw: unknown): StoredMemberUser | null {
     role: sanitizeMemberRole(candidate.role),
     isBlocked: sanitizeBoolean(candidate.isBlocked, false),
     permissions: normalizeMemberPermissions(candidate.permissions),
+    activeSessionKey,
+    activeSessionAt: Number.isFinite(candidate.activeSessionAt) ? Number(candidate.activeSessionAt) : 0,
   };
 }
 
@@ -1155,6 +1169,8 @@ export class AuthStore {
       isBlocked: sanitizeBoolean(user.isBlocked, false),
       permissions: normalizeMemberPermissions(user.permissions),
       stats: normalizeMemberStats(user.stats),
+      activeSessionKey: sanitizeMemberSessionKey(user.activeSessionKey),
+      activeSessionAt: Number.isFinite(user.activeSessionAt) ? Number(user.activeSessionAt) : 0,
     };
     this.transientUsersById.set(normalized.id, normalized);
     try {
@@ -1185,6 +1201,17 @@ export class AuthStore {
     const normalized = await this.ensureBootstrapAdmin(user);
     if (normalized.role !== "admin") return null;
     return normalized;
+  }
+
+  private async requireActiveSession(userIdRaw: unknown, sessionKeyRaw: unknown): Promise<StoredMemberUser | null> {
+    const userId = sanitizeMemberId(userIdRaw);
+    const sessionKey = sanitizeMemberSessionKey(sessionKeyRaw);
+    if (!userId || !sessionKey) return null;
+    const user = await this.getById(userId);
+    if (!user) return null;
+    const activeSessionKey = sanitizeMemberSessionKey(user.activeSessionKey);
+    if (!activeSessionKey || activeSessionKey !== sessionKey) return null;
+    return user;
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -1290,6 +1317,7 @@ export class AuthStore {
     }
 
     const role: MemberRole = isPrimaryAdminEmail(email) || (await this.countAdmins()) === 0 ? "admin" : "user";
+    const sessionKey = createMemberSessionKey();
     const user: StoredMemberUser = {
       id: createMemberId(),
       username,
@@ -1304,10 +1332,12 @@ export class AuthStore {
       role,
       isBlocked: false,
       permissions: createDefaultMemberPermissions(),
+      activeSessionKey: sessionKey,
+      activeSessionAt: Date.now(),
     };
 
     await this.putUser(user);
-    return jsonResponse({ ok: true, user: toPublicUser(user) }, 201);
+    return jsonResponse({ ok: true, user: toPublicUser(user), sessionKey }, 201);
   }
 
   private async handleLogin(request: Request): Promise<Response> {
@@ -1334,7 +1364,14 @@ export class AuthStore {
     }
 
     const normalized = await this.ensureBootstrapAdmin(user);
-    return jsonResponse({ ok: true, user: toPublicUser(normalized) }, 200);
+    const sessionKey = createMemberSessionKey();
+    const updated: StoredMemberUser = {
+      ...normalized,
+      activeSessionKey: sessionKey,
+      activeSessionAt: Date.now(),
+    };
+    await this.putUser(updated, normalized);
+    return jsonResponse({ ok: true, user: toPublicUser(updated), sessionKey }, 200);
   }
 
   private async handleForgotPassword(request: Request): Promise<Response> {
@@ -1361,6 +1398,8 @@ export class AuthStore {
     const updated: StoredMemberUser = {
       ...user,
       password: newPassword,
+      activeSessionKey: "",
+      activeSessionAt: 0,
     };
     await this.putUser(updated, user);
     return jsonResponse({ ok: true, message: "Sifre sifirlandi." }, 200);
@@ -1374,18 +1413,19 @@ export class AuthStore {
 
     const body = payload as Record<string, unknown>;
     const userId = sanitizeMemberId(body.userId);
+    const sessionKey = sanitizeMemberSessionKey(body.sessionKey);
     const currentPassword = sanitizeMemberPassword(body.currentPassword);
     const newPassword = sanitizeMemberPassword(body.newPassword);
-    if (!userId || !currentPassword || !newPassword) {
+    if (!userId || !sessionKey || !currentPassword || !newPassword) {
       return jsonResponse({ error: "Kullanici veya sifre bilgisi eksik." }, 400);
     }
     if (newPassword.length < 4) {
       return jsonResponse({ error: "Yeni sifre en az 4 karakter olmali." }, 400);
     }
 
-    const user = await this.getById(userId);
+    const user = await this.requireActiveSession(userId, sessionKey);
     if (!user) {
-      return jsonResponse({ error: "Kullanici bulunamadi." }, 404);
+      return jsonResponse({ error: "Oturum gecersiz. Lutfen tekrar giris yapin." }, 401);
     }
     if (user.password !== currentPassword) {
       return jsonResponse({ error: "Mevcut sifre hatali." }, 401);
@@ -1419,13 +1459,14 @@ export class AuthStore {
 
   private async handleMe(url: URL): Promise<Response> {
     const userId = sanitizeMemberId(url.searchParams.get("userId"));
-    if (!userId) {
+    const sessionKey = sanitizeMemberSessionKey(url.searchParams.get("sessionKey"));
+    if (!userId || !sessionKey) {
       return jsonResponse({ error: "Gecersiz oturum." }, 400);
     }
 
-    const user = await this.getById(userId);
+    const user = await this.requireActiveSession(userId, sessionKey);
     if (!user) {
-      return jsonResponse({ error: "Oturum bulunamadi." }, 404);
+      return jsonResponse({ error: "Oturum baska bir cihazda acildi. Lutfen tekrar giris yapin." }, 401);
     }
 
     const normalized = await this.ensureBootstrapAdmin(user);
@@ -1454,13 +1495,14 @@ export class AuthStore {
     }
     const body = payload as Record<string, unknown>;
     const userId = sanitizeMemberId(body.userId);
-    if (!userId) {
+    const sessionKey = sanitizeMemberSessionKey(body.sessionKey);
+    if (!userId || !sessionKey) {
       return jsonResponse({ error: "Gecersiz kullanici." }, 400);
     }
 
-    const user = await this.getById(userId);
+    const user = await this.requireActiveSession(userId, sessionKey);
     if (!user) {
-      return jsonResponse({ error: "Kullanici bulunamadi." }, 404);
+      return jsonResponse({ error: "Oturum gecersiz. Lutfen tekrar giris yapin." }, 401);
     }
 
     const nextGender = sanitizeMemberGender(body.gender ?? user.gender);

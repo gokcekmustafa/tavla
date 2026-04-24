@@ -146,6 +146,7 @@ type GuestProfile = {
 
 type MemberSession = {
   userId: string;
+  sessionKey: string;
 };
 
 type LobbySeatState = {
@@ -305,7 +306,7 @@ type CleanupResult = {
 
 type UpsertSeatResult = {
   table: LobbyTable | null;
-  reason: "occupied" | "already-seated" | "private" | "missing-owner" | null;
+  reason: "occupied" | "already-seated" | "private" | "missing-owner" | "duplicate-user" | null;
 };
 
 type RealtimeMessage = {
@@ -376,6 +377,7 @@ const ROOM_PICKER_REMOTE_REFRESH_MIN_MS = 12_000;
 const ROOM_PICKER_REMOTE_FETCH_TIMEOUT_MS = 4_000;
 const ROOM_PICKER_REMOTE_ERROR_BACKOFF_MIN_MS = 6_000;
 const ROOM_PICKER_REMOTE_ERROR_BACKOFF_MAX_MS = 90_000;
+const MEMBER_SESSION_REVALIDATE_INTERVAL_MS = 10_000;
 const PROFILE_POPOVER_WIDTH_PX = 300;
 const PROFILE_POPOVER_MIN_HEIGHT_PX = 220;
 const PROFILE_POPOVER_GAP_PX = 6;
@@ -580,6 +582,10 @@ function sanitizeEmail(value: string) {
 
 function sanitizeMemberUsername(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 20);
+}
+
+function sanitizeMemberSessionKey(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 96);
 }
 
 function fallbackUsernameFromName(name: string) {
@@ -1920,8 +1926,10 @@ function loadMemberSession() {
   const raw = loadJson<unknown>(MEMBER_SESSION_KEY, null);
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Partial<MemberSession>;
-  if (!candidate.userId) return null;
-  return { userId: String(candidate.userId) } satisfies MemberSession;
+  const userId = sanitizeGuestId(typeof candidate.userId === "string" ? candidate.userId : "");
+  const sessionKey = sanitizeMemberSessionKey(typeof candidate.sessionKey === "string" ? candidate.sessionKey : "");
+  if (!userId || !sessionKey) return null;
+  return { userId, sessionKey } satisfies MemberSession;
 }
 
 function getRoomPickerIdentity(memberUserId: string | null | undefined, guestId: string) {
@@ -2070,6 +2078,20 @@ function findSessionSeat(tables: LobbyTable[], sessionId: string) {
   for (const table of tables) {
     if (table.white?.sessionId === sessionId) return { table, seat: "white" as const };
     if (table.black?.sessionId === sessionId) return { table, seat: "black" as const };
+  }
+  return null;
+}
+
+function findUserSeat(tables: LobbyTable[], userId: string) {
+  const safeUserId = sanitizeGuestId(userId);
+  if (!safeUserId) return null;
+  for (const table of tables) {
+    if (table.white && sanitizeGuestId(table.white.userId) === safeUserId) {
+      return { table, seat: "white" as const, sessionId: table.white.sessionId };
+    }
+    if (table.black && sanitizeGuestId(table.black.userId) === safeUserId) {
+      return { table, seat: "black" as const, sessionId: table.black.sessionId };
+    }
   }
   return null;
 }
@@ -3657,6 +3679,16 @@ function App() {
       const isSameTable = existingSeat
         ? existingSeat.table.id === table.id || (code && existingSeat.table.roomCode === code)
         : false;
+      const existingUserSeat = findUserSeat(cleaned, currentProfile.userId);
+      const userSeatedInAnotherSession = Boolean(
+        existingUserSeat
+        && existingUserSeat.sessionId !== appSessionId,
+      );
+      if (userSeatedInAnotherSession) {
+        seatBlocked = true;
+        blockReason = "duplicate-user";
+        return current;
+      }
       if (existingSeat && !isSameTable) {
         seatBlocked = true;
         blockReason = "already-seated";
@@ -3752,7 +3784,9 @@ function App() {
     const upserted = upsertMySeat(tableId, seat, explicitRoomCode);
     const table = upserted.table;
     if (!table) {
-      if (upserted.reason === "already-seated") {
+      if (upserted.reason === "duplicate-user") {
+        setLobbyNotice("Bu hesap baska bir tarayicida aktif. Diger oturumu kapatip tekrar deneyin.");
+      } else if (upserted.reason === "already-seated") {
         setLobbyNotice(`Aynı anda sadece tek masada oturabilirsin. Önce Masa ${existing?.table.id} için masadan kalkmalısın.`);
       } else if (upserted.reason === "private") {
         setLobbyNotice("Bu masa ozeldir. Sadece masa sahibi veya davet edilen oyuncu oturabilir.");
@@ -5244,10 +5278,11 @@ function App() {
   }
 
   async function loadMemberFromSession(session: MemberSession | null) {
-    if (!session?.userId) return null;
+    if (!session?.userId || !session?.sessionKey) return null;
     try {
       const url = new URL("/api/auth/me", `${RUNTIME_API_BASE_URL}/`);
       url.searchParams.set("userId", session.userId);
+      url.searchParams.set("sessionKey", session.sessionKey);
       const response = await fetch(url.toString(), { method: "GET" });
       if (!response.ok) return null;
       const data = (await response.json().catch(() => null)) as { user?: unknown } | null;
@@ -5296,14 +5331,19 @@ function App() {
         setAuthError(await readApiError(response, "Üyelik açılamadı."));
         return;
       }
-      const data = (await response.json().catch(() => null)) as { user?: unknown } | null;
+      const data = (await response.json().catch(() => null)) as { user?: unknown; sessionKey?: unknown } | null;
       const user = normalizeMemberUser(data?.user);
+      const sessionKey = sanitizeMemberSessionKey(typeof data?.sessionKey === "string" ? data.sessionKey : "");
       if (!user) {
         setAuthError("Sunucu üyelik yanıtı geçersiz.");
         return;
       }
 
-      saveJson(MEMBER_SESSION_KEY, { userId: user.id } satisfies MemberSession);
+      if (!sessionKey) {
+        setAuthError("Sunucu oturum yaniti gecersiz.");
+        return;
+      }
+      saveJson(MEMBER_SESSION_KEY, { userId: user.id, sessionKey } satisfies MemberSession);
       setMember(user);
       setMemberAvatarDraft(user.avatarId);
       setGuestName(user.displayName);
@@ -5352,16 +5392,21 @@ function App() {
         setAuthError(await readApiError(response, "Kullanıcı adı/e-posta veya şifre yanlış."));
         return;
       }
-      const data = (await response.json().catch(() => null)) as { user?: unknown } | null;
+      const data = (await response.json().catch(() => null)) as { user?: unknown; sessionKey?: unknown } | null;
       const user = normalizeMemberUser(data?.user);
+      const sessionKey = sanitizeMemberSessionKey(typeof data?.sessionKey === "string" ? data.sessionKey : "");
       if (!user) {
         setAuthError("Sunucu giriş yanıtı geçersiz.");
         return;
       }
 
+      if (!sessionKey) {
+        setAuthError("Sunucu oturum yaniti gecersiz.");
+        return;
+      }
       setMember(user);
       setMemberAvatarDraft(user.avatarId);
-      saveJson(MEMBER_SESSION_KEY, { userId: user.id } satisfies MemberSession);
+      saveJson(MEMBER_SESSION_KEY, { userId: user.id, sessionKey } satisfies MemberSession);
       setGuestName(user.displayName);
       setAuthPassword("");
       setAuthError("");
@@ -5414,6 +5459,12 @@ function App() {
 
   async function onChangeMyPassword() {
     if (!member || memberActionBusy) return;
+    const memberSession = loadMemberSession();
+    if (!memberSession || memberSession.userId !== member.id) {
+      setMemberNotice("Oturum gecersiz. Lutfen tekrar giris yap.");
+      onLogoutMember();
+      return;
+    }
     const currentPassword = memberPasswordCurrent.trim().slice(0, 64);
     const newPassword = memberPasswordNext.trim().slice(0, 64);
     if (!currentPassword) {
@@ -5433,6 +5484,7 @@ function App() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           userId: member.id,
+          sessionKey: memberSession.sessionKey,
           currentPassword,
           newPassword,
         }),
@@ -5460,6 +5512,12 @@ function App() {
 
   async function onChangeMyAvatar() {
     if (!member || memberActionBusy) return;
+    const memberSession = loadMemberSession();
+    if (!memberSession || memberSession.userId !== member.id) {
+      setMemberNotice("Oturum gecersiz. Lutfen tekrar giris yap.");
+      onLogoutMember();
+      return;
+    }
     const nextAvatarId = sanitizeAvatarId(memberAvatarDraft, member.gender);
     if (nextAvatarId === member.avatarId) {
       setMemberNotice("Avatar zaten secili.");
@@ -5474,6 +5532,7 @@ function App() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           userId: member.id,
+          sessionKey: memberSession.sessionKey,
           avatarId: nextAvatarId,
         }),
       });
@@ -6298,7 +6357,7 @@ function App() {
     if (!roomSession) return;
     if (roomSession.role !== "player") return;
     let blocked = false;
-    let blockedReason: "occupied" | "private" | "already-seated" | null = null;
+    let blockedReason: "occupied" | "private" | "already-seated" | "duplicate-user" | null = null;
 
     writeLobby((current) => {
       const cleaned = cleanupStaleAndPrune(current.tables).tables;
@@ -6346,6 +6405,16 @@ function App() {
       const isSameTable = existingSeat
         ? existingSeat.table.id === table.id || existingSeat.table.roomCode === roomCode
         : false;
+      const existingUserSeat = findUserSeat(cleaned, currentProfile.userId);
+      const userSeatedInAnotherSession = Boolean(
+        existingUserSeat
+        && existingUserSeat.sessionId !== appSessionId,
+      );
+      if (userSeatedInAnotherSession) {
+        blocked = true;
+        blockedReason = "duplicate-user";
+        return current;
+      }
       if (existingSeat && !isSameTable) {
         blocked = true;
         blockedReason = "already-seated";
@@ -6369,8 +6438,7 @@ function App() {
       const occupied = roomSession.seat === "white" ? table.white : table.black;
       const occupiedByDifferentSession = Boolean(
         occupied
-        && occupied.sessionId !== appSessionId
-        && sanitizeGuestId(occupied.userId) !== sanitizeGuestId(currentProfile.userId),
+        && occupied.sessionId !== appSessionId,
       );
       if (occupiedByDifferentSession) {
         blocked = true;
@@ -6411,6 +6479,8 @@ function App() {
     if (blocked) {
       if (blockedReason === "private") {
         setLobbyNotice("Bu masa ozel oldugu icin koltuk korunuyor.");
+      } else if (blockedReason === "duplicate-user") {
+        setLobbyNotice("Bu hesap baska bir tarayicida aktif. Diger oturumu kapatip tekrar deneyin.");
       } else if (blockedReason === "already-seated") {
         setLobbyNotice("Aynı anda sadece tek masada oturabilirsin.");
       } else {
@@ -7006,6 +7076,37 @@ function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!member) return;
+    let cancelled = false;
+    const validateMemberSession = async () => {
+      const session = loadMemberSession();
+      if (!session || session.userId !== member.id) return;
+      const user = await loadMemberFromSession(session);
+      if (cancelled || user) return;
+      safeStorageRemoveItem(window.localStorage, MEMBER_SESSION_KEY);
+      setMember(null);
+      setMemberAvatarDraft(DEFAULT_AVATAR_BY_GENDER.unknown);
+      setMemberNotice("Bu hesap baska bir tarayicida acildigi icin oturum kapatildi.");
+      setLobbyNotice("Bu hesap baska bir tarayicida acildigi icin oturum kapatildi.");
+    };
+    void validateMemberSession();
+    const timer = window.setInterval(() => {
+      void validateMemberSession();
+    }, MEMBER_SESSION_REVALIDATE_INTERVAL_MS);
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        void validateMemberSession();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [member?.id]);
 
   useEffect(() => {
     if (member) return;
