@@ -733,16 +733,31 @@ function jsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
+function withNoStoreHtml(response: Response): Response {
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.toLowerCase().includes("text/html")) return response;
+  const headers = new Headers(response.headers);
+  headers.set("cache-control", "no-store, no-cache, must-revalidate, max-age=0");
+  headers.set("pragma", "no-cache");
+  headers.set("expires", "0");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 async function serveAssetWithSpaFallback(request: Request, env: Env): Promise<Response> {
   const primary = await env.ASSETS.fetch(request);
-  if (primary.status !== 404) return primary;
+  if (primary.status !== 404) return withNoStoreHtml(primary);
   if (request.method !== "GET") return primary;
   const accept = request.headers.get("accept") || "";
   if (!accept.includes("text/html")) return primary;
 
   const url = new URL(request.url);
   url.pathname = "/index.html";
-  return env.ASSETS.fetch(new Request(url.toString(), request));
+  const fallback = await env.ASSETS.fetch(new Request(url.toString(), request));
+  return withNoStoreHtml(fallback);
 }
 
 export default {

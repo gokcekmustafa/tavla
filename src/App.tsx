@@ -6679,12 +6679,23 @@ function App() {
 
     const connectSocket = () => {
       if (cancelled) return;
+      let wsFallbackScheduled = false;
+      const scheduleHttpFallbackFromWs = () => {
+        if (wsFallbackScheduled || cancelled) return;
+        wsFallbackScheduled = true;
+        window.setTimeout(() => {
+          if (cancelled) return;
+          void syncRealtimeViaHttp("ws-close-fallback");
+          void pullRealtimeViaHttp("ws-close-fallback");
+        }, 80);
+      };
       const now = Date.now();
       const wsDisabledUntil = realtimeWsDisabledUntilRef.current;
       if (wsDisabledUntil > now) {
         const remaining = wsDisabledUntil - now;
         setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
         setRealtimeStatus("offline");
+        scheduleHttpFallbackFromWs();
         scheduleReconnect(Math.min(Math.max(remaining + 120, 600), WS_DISABLE_DURATION_MS));
         return;
       }
@@ -6709,6 +6720,7 @@ function App() {
       } catch {
         setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
         setRealtimeStatus("offline");
+        scheduleHttpFallbackFromWs();
         scheduleReconnect();
         return;
       }
@@ -6784,6 +6796,7 @@ function App() {
         if (activeRealtimeLobbyChannelRef.current !== channelForConnection) return;
         setSyncHealth((prev) => ({ ...prev, lastError: "ws baglanti hatasi" }));
         setRealtimeStatus("offline");
+        scheduleHttpFallbackFromWs();
       });
 
       socket.addEventListener("close", () => {
@@ -6806,6 +6819,7 @@ function App() {
         realtimeSocketRef.current = null;
         setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
         setRealtimeStatus("offline");
+        scheduleHttpFallbackFromWs();
         if (realtimeWsDisabledUntilRef.current > Date.now()) {
           scheduleReconnect(Math.min(Math.max(realtimeWsDisabledUntilRef.current - Date.now() + 120, 600), WS_DISABLE_DURATION_MS));
           return;
