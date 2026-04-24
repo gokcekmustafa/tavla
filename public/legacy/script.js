@@ -26,7 +26,7 @@ const DICE_ROLL_TOTAL_MS = 1750;
 const DICE_ROLL_STAGGER_MS = 120;
 const DICE_RESULT_VISIBLE_MS = 1200;
 const DICE_PASS_AFTER_REVEAL_MS = 420;
-const SHOW_MOVE_PATH_GUIDES = false;
+const SHOW_MOVE_PATH_GUIDES = true;
 const CHECKER_SIZE_MIN = 16;
 const CHECKER_SIZE_MAX = 48;
 const CHECKER_VISIBLE_PER_POINT = 6;
@@ -1465,7 +1465,11 @@ function onCheckerMouseDown(e) {
     }
     return;
   }
-  e.preventDefault();
+  // Draggable pullarda native dragstart'in tetiklenmesini engellememek için
+  // mousedown'da default davranışı koruyoruz.
+  if (!e.currentTarget.draggable) {
+    e.preventDefault();
+  }
   e.stopPropagation();
 
   if (e.detail >= 2) {
