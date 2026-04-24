@@ -179,6 +179,8 @@ type LobbyTable = {
   roomCode: string;
   white: LobbySeatState | null;
   black: LobbySeatState | null;
+  whiteClearToken: string | null;
+  blackClearToken: string | null;
   allowSpectatorChat: boolean;
   ownerUserId: string;
   isPrivate: boolean;
@@ -929,6 +931,27 @@ function sanitizeChatId(value: string) {
   return value.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
 }
 
+function sanitizeSeatClearToken(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.replace(/[^a-zA-Z0-9:_-]/g, "").slice(0, 96);
+}
+
+function createSeatClearToken(seed = "") {
+  const nowPart = Date.now().toString(36);
+  const seedPart = sanitizeGuestId(seed) || "seat";
+  const randPart = Math.random().toString(36).slice(2, 8);
+  return sanitizeSeatClearToken(`${nowPart}:${seedPart}:${randPart}`);
+}
+
+function parseSeatClearTokenTime(token: string) {
+  const safeToken = sanitizeSeatClearToken(token);
+  if (!safeToken) return 0;
+  const [timePart] = safeToken.split(":");
+  const parsed = Number.parseInt(timePart || "", 36);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return parsed;
+}
+
 function sanitizeChatText(value: string) {
   return value.replace(/\s+/g, " ").trim().slice(0, CHAT_TEXT_MAX);
 }
@@ -1332,6 +1355,14 @@ function getOpenSeat(table: LobbyTable): Seat | null {
 function normalizeTableAccess(table: LobbyTable): LobbyTable {
   const allowSpectatorChat = table.allowSpectatorChat !== false;
   const seatUsers = getSeatUserIds(table);
+  let whiteClearToken = sanitizeSeatClearToken(table.whiteClearToken ?? "");
+  let blackClearToken = sanitizeSeatClearToken(table.blackClearToken ?? "");
+  if (table.white) {
+    whiteClearToken = "";
+  }
+  if (table.black) {
+    blackClearToken = "";
+  }
   const rawOwnerUserId = sanitizeGuestId(table.ownerUserId ?? "");
   let ownerUserId = rawOwnerUserId;
   if (!ownerUserId || !seatUsers.includes(ownerUserId)) {
@@ -1456,6 +1487,8 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
     && table.setWhiteWins === setWhiteWins
     && table.setBlackWins === setBlackWins
     && JSON.stringify(table.setResultTokens) === JSON.stringify(setResultTokens)
+    && (table.whiteClearToken ?? null) === (whiteClearToken || null)
+    && (table.blackClearToken ?? null) === (blackClearToken || null)
     && (table.leavePermissionRequestByUserId ?? null) === (leavePermissionRequestByUserId || null)
     && (table.leavePermissionGrantedToUserId ?? null) === (leavePermissionGrantedToUserId || null)
   ) {
@@ -1478,6 +1511,8 @@ function normalizeTableAccess(table: LobbyTable): LobbyTable {
     setWhiteWins,
     setBlackWins,
     setResultTokens,
+    whiteClearToken: whiteClearToken || null,
+    blackClearToken: blackClearToken || null,
     leavePermissionRequestByUserId: leavePermissionRequestByUserId || null,
     leavePermissionGrantedToUserId: leavePermissionGrantedToUserId || null,
   };
@@ -1701,6 +1736,8 @@ function normalizeTable(raw: unknown, index: number): LobbyTable | null {
     roomCode,
     white,
     black,
+    whiteClearToken: sanitizeSeatClearToken(candidate.whiteClearToken ?? "") || null,
+    blackClearToken: sanitizeSeatClearToken(candidate.blackClearToken ?? "") || null,
     allowSpectatorChat: candidate.allowSpectatorChat !== false,
     ownerUserId: sanitizeGuestId(candidate.ownerUserId ?? ""),
     isPrivate: Boolean(candidate.isPrivate),
@@ -1740,12 +1777,18 @@ function cleanupStaleAndPrune(tables: LobbyTable[]): CleanupResult {
     const blackExpired = table.black ? now - blackTouchedAt > SEAT_STALE_MS : false;
     const white = whiteExpired ? null : table.white;
     const black = blackExpired ? null : table.black;
+    const whiteClearToken = whiteExpired
+      ? createSeatClearToken(table.white?.sessionId || table.white?.userId || "white-stale")
+      : table.whiteClearToken;
+    const blackClearToken = blackExpired
+      ? createSeatClearToken(table.black?.sessionId || table.black?.userId || "black-stale")
+      : table.blackClearToken;
     if (whiteExpired || blackExpired) changed = true;
     if (!white && !black) {
       changed = true;
       return;
     }
-    let nextTable: LobbyTable = { ...table, white, black };
+    let nextTable: LobbyTable = { ...table, white, black, whiteClearToken, blackClearToken };
     if (white !== table.white || black !== table.black) {
       changed = true;
       nextTable = resetTableSeriesProgress(resetTableStartGate(nextTable));
@@ -2065,11 +2108,19 @@ function clearSessionFromTables(
     );
     if (!whiteOwned && !blackOwned) return table;
     changed = true;
+    const whiteClearToken = whiteOwned
+      ? createSeatClearToken(table.white?.sessionId || table.white?.userId || sessionId || safeFallbackUserId || "white")
+      : table.whiteClearToken;
+    const blackClearToken = blackOwned
+      ? createSeatClearToken(table.black?.sessionId || table.black?.userId || sessionId || safeFallbackUserId || "black")
+      : table.blackClearToken;
     return normalizeTableAccess(
       resetTableSeriesProgress(resetTableStartGate({
         ...table,
         white: whiteOwned ? null : table.white,
         black: blackOwned ? null : table.black,
+        whiteClearToken,
+        blackClearToken,
       })),
     );
   });
@@ -2133,6 +2184,57 @@ function mergeSeatState(
   return incoming.touchedAt > base.touchedAt ? incoming : base;
 }
 
+function mergeSeatWithClear(
+  baseSeat: LobbySeatState | null,
+  incomingSeat: LobbySeatState | null,
+  baseClearToken: string | null,
+  incomingClearToken: string | null,
+  baseStateUpdatedAt: number,
+  incomingStateUpdatedAt: number,
+  preferBase: boolean,
+) {
+  const safeBaseClearToken = !baseSeat ? sanitizeSeatClearToken(baseClearToken ?? "") : "";
+  const safeIncomingClearToken = !incomingSeat ? sanitizeSeatClearToken(incomingClearToken ?? "") : "";
+  const baseClearedAt = parseSeatClearTokenTime(safeBaseClearToken);
+  const incomingClearedAt = parseSeatClearTokenTime(safeIncomingClearToken);
+
+  if (safeIncomingClearToken && !incomingSeat && baseSeat) {
+    if (!baseSeat.touchedAt || baseSeat.touchedAt <= incomingClearedAt || !incomingClearedAt) {
+      return { seat: null, clearToken: safeIncomingClearToken || null };
+    }
+  }
+
+  if (safeBaseClearToken && !baseSeat && incomingSeat) {
+    if (!incomingSeat.touchedAt || incomingSeat.touchedAt <= baseClearedAt || !baseClearedAt) {
+      return { seat: null, clearToken: safeBaseClearToken || null };
+    }
+  }
+
+  if (!baseSeat && !incomingSeat) {
+    const clearToken = safeBaseClearToken && safeIncomingClearToken
+      ? (preferBase ? safeBaseClearToken : safeIncomingClearToken)
+      : (safeBaseClearToken || safeIncomingClearToken || "");
+    return { seat: null, clearToken: clearToken || null };
+  }
+
+  const mergedSeat = mergeSeatState(
+    baseSeat,
+    incomingSeat,
+    baseStateUpdatedAt,
+    incomingStateUpdatedAt,
+    preferBase,
+  );
+
+  if (mergedSeat) {
+    return { seat: mergedSeat, clearToken: null };
+  }
+
+  const fallbackToken = safeBaseClearToken && safeIncomingClearToken
+    ? (preferBase ? safeBaseClearToken : safeIncomingClearToken)
+    : (safeBaseClearToken || safeIncomingClearToken || "");
+  return { seat: null, clearToken: fallbackToken || null };
+}
+
 function mergeReadyStamp(base: number | null, incoming: number | null) {
   if (!base) return incoming;
   if (!incoming) return base;
@@ -2170,12 +2272,32 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     } else if (fallbackPrivateChangedAt === preferredPrivateChangedAt && preferredPrivateChangedAt === 0) {
       mergedIsPrivate = Boolean(preferred.isPrivate || fallback.isPrivate);
     }
+    const mergedWhite = mergeSeatWithClear(
+      existing.white,
+      table.white,
+      existing.whiteClearToken,
+      table.whiteClearToken,
+      remote.updatedAt,
+      local.updatedAt,
+      preferRemote,
+    );
+    const mergedBlack = mergeSeatWithClear(
+      existing.black,
+      table.black,
+      existing.blackClearToken,
+      table.blackClearToken,
+      remote.updatedAt,
+      local.updatedAt,
+      preferRemote,
+    );
 
     const mergedTable: LobbyTable = {
       id: Math.min(existing.id, table.id),
       roomCode: sanitizeRoomCode(existing.roomCode) || sanitizeRoomCode(table.roomCode) || createRoomCode(),
-      white: mergeSeatState(existing.white, table.white, remote.updatedAt, local.updatedAt, preferRemote),
-      black: mergeSeatState(existing.black, table.black, remote.updatedAt, local.updatedAt, preferRemote),
+      white: mergedWhite.seat,
+      black: mergedBlack.seat,
+      whiteClearToken: mergedWhite.clearToken,
+      blackClearToken: mergedBlack.clearToken,
       allowSpectatorChat: preferred.allowSpectatorChat !== false,
       ownerUserId: sanitizeGuestId(preferred.ownerUserId) || sanitizeGuestId(fallback.ownerUserId) || "",
       isPrivate: mergedIsPrivate,
@@ -3649,6 +3771,8 @@ function App() {
           roomCode: code || createRoomCode(),
           white: null,
           black: null,
+          whiteClearToken: null,
+          blackClearToken: null,
           allowSpectatorChat: true,
           ownerUserId: sanitizeGuestId(currentProfile.userId),
           isPrivate: false,
@@ -3701,8 +3825,8 @@ function App() {
 
       if (existingSeat && isSameTable && existingSeat.seat !== seat) {
         table = existingSeat.seat === "white"
-          ? { ...table, white: null }
-          : { ...table, black: null };
+          ? { ...table, white: null, whiteClearToken: createSeatClearToken(appSessionId || "white-switch") }
+          : { ...table, black: null, blackClearToken: createSeatClearToken(appSessionId || "black-switch") };
         gateShouldReset = true;
       }
 
@@ -3744,8 +3868,18 @@ function App() {
 
       const patched =
         seat === "white"
-          ? { ...table, white: seatState, ownerUserId: table.ownerUserId || sanitizeGuestId(currentProfile.userId) }
-          : { ...table, black: seatState, ownerUserId: table.ownerUserId || sanitizeGuestId(currentProfile.userId) };
+          ? {
+            ...table,
+            white: seatState,
+            whiteClearToken: null,
+            ownerUserId: table.ownerUserId || sanitizeGuestId(currentProfile.userId),
+          }
+          : {
+            ...table,
+            black: seatState,
+            blackClearToken: null,
+            ownerUserId: table.ownerUserId || sanitizeGuestId(currentProfile.userId),
+          };
 
       const started = autoStartTableWhenBothSeated(patched, now);
       tables[index] = normalizeTableAccess(normalizeTableStartGate(started));
@@ -6378,6 +6512,8 @@ function App() {
           roomCode,
           white: null,
           black: null,
+          whiteClearToken: null,
+          blackClearToken: null,
           allowSpectatorChat: true,
           ownerUserId: sanitizeGuestId(currentProfile.userId),
           isPrivate: false,
@@ -6426,8 +6562,8 @@ function App() {
       let gateShouldReset = false;
       if (existingSeat && isSameTable && existingSeat.seat !== roomSession.seat) {
         table = existingSeat.seat === "white"
-          ? { ...table, white: null }
-          : { ...table, black: null };
+          ? { ...table, white: null, whiteClearToken: createSeatClearToken(appSessionId || "white-heartbeat-switch") }
+          : { ...table, black: null, blackClearToken: createSeatClearToken(appSessionId || "black-heartbeat-switch") };
         gateShouldReset = true;
       }
 
@@ -6465,8 +6601,18 @@ function App() {
 
       const patched =
         roomSession.seat === "white"
-          ? { ...table, white: seatState, ownerUserId: table.ownerUserId || sanitizeGuestId(currentProfile.userId) }
-          : { ...table, black: seatState, ownerUserId: table.ownerUserId || sanitizeGuestId(currentProfile.userId) };
+          ? {
+            ...table,
+            white: seatState,
+            whiteClearToken: null,
+            ownerUserId: table.ownerUserId || sanitizeGuestId(currentProfile.userId),
+          }
+          : {
+            ...table,
+            black: seatState,
+            blackClearToken: null,
+            ownerUserId: table.ownerUserId || sanitizeGuestId(currentProfile.userId),
+          };
 
       const started = autoStartTableWhenBothSeated(patched, now);
       tables[index] = normalizeTableAccess(normalizeTableStartGate(started));
