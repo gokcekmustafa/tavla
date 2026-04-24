@@ -21,9 +21,11 @@ const DICE_SPRITE_COLUMNS = 15;
 const DICE_SPRITE_ROWS = 7;
 const DICE_SPRITE_PATH = "./assets/theme/dice-roll-sprite.png";
 const DICE_SPRITE_ALPHA_THRESHOLD = 16;
+const DICE_SPRITE_RANDOM_FRAME_COUNT = 24;
 const DICE_ROLL_TOTAL_MS = 1750;
 const DICE_ROLL_STAGGER_MS = 120;
 const DICE_RESULT_VISIBLE_MS = 1200;
+const DICE_PASS_AFTER_REVEAL_MS = 420;
 const SHOW_MOVE_PATH_GUIDES = false;
 const CHECKER_SIZE_MIN = 16;
 const CHECKER_SIZE_MAX = 48;
@@ -88,6 +90,7 @@ let botDifficulty     = normalizeBotDifficulty(window.__BOOT_BOT_DIFFICULTY__);
 let moveLog           = [];
 let pendingBotTimer   = null;
 let pendingAutoRollTimer = null;
+let pendingFinishTurnTimer = null;
 let pendingCheckerSelectTimer = null;
 let turnUndoSnapshot  = null;
 let turnUndoStack     = [];
@@ -110,6 +113,8 @@ let diceRollSettledAt = 0;
 let boardPerspectiveColor = null;
 let diceSpriteSheetPromise = null;
 let diceSpriteSheet = null;
+const diceSpriteCanvasState = new WeakMap();
+const diceSpriteSheetMeta = new WeakMap();
 let centerDiceVisibleUntil = 0;
 let centerDiceClearTimer = null;
 let matchToken = createMatchToken();
@@ -763,6 +768,7 @@ function applyRoomSnapshot(snapshot) {
   isApplyingRemoteState = true;
   clearPendingBotTimer();
   clearPendingAutoRollTimer();
+  clearPendingFinishTurnTimer();
   const prevDiceRollSettledAt = diceRollSettledAt;
   const prevLastRolledDice = [...lastRolledDice];
   const prevLastDicePlayer = lastDicePlayer;
@@ -1078,6 +1084,7 @@ function onHostMessage(event) {
 
   clearPendingBotTimer();
   clearPendingAutoRollTimer();
+  clearPendingFinishTurnTimer();
   winner = forceLocalWin ? localColor : opponentOf(localColor);
   hasRolled = false;
   remainingDice = [];
@@ -1117,6 +1124,7 @@ function onNewGame() {
   }
   clearPendingBotTimer();
   clearPendingAutoRollTimer();
+  clearPendingFinishTurnTimer();
   const startPlayer = isRoomMode() ? WHITE : normalizePlayerColor(preferredPlayerColor);
   gameState         = createInitialState();
   matchToken        = createMatchToken();
@@ -1159,6 +1167,7 @@ function onModeChange() {
   gameMode = next;
   clearPendingBotTimer();
   clearPendingAutoRollTimer();
+  clearPendingFinishTurnTimer();
   turnUndoSnapshot  = null;
   turnUndoStack     = [];
   movesMadeThisTurn = 0;
@@ -1295,6 +1304,7 @@ function onUndoMove() {
 function onRollDice(arg) {
   const fromBot = Boolean(arg && arg.fromBot);
   clearPendingAutoRollTimer();
+  clearPendingFinishTurnTimer();
   if (winner) return;
   if (!fromBot && !canControlRoomAction()) return;
   if (isRoomStartLocked()) { setStatus(getRoomStartLockedMessage()); render(); return; }
@@ -1326,7 +1336,7 @@ function onRollDice(arg) {
     turnRollMoveCount = 0;
     render();
     publishRoomSnapshot("roll-no-move");
-    window.setTimeout(finishTurn, 1300);
+    scheduleFinishTurnAfterDiceReveal(1300);
     return;
   }
 
@@ -1876,6 +1886,7 @@ function executeMove(move) {
 }
 
 function finishTurn() {
+  clearPendingFinishTurnTimer();
   clearPendingAutoRollTimer();
   pendingMoveChain  = [];
   hasRolled         = false;
@@ -1938,6 +1949,30 @@ function clearPendingBotTimer() {
   if (pendingBotTimer === null) return;
   clearTimeout(pendingBotTimer);
   pendingBotTimer = null;
+}
+
+function clearPendingFinishTurnTimer() {
+  if (pendingFinishTurnTimer === null) return;
+  clearTimeout(pendingFinishTurnTimer);
+  pendingFinishTurnTimer = null;
+}
+
+function scheduleFinishTurnAfterDiceReveal(minDelayMs = 0) {
+  clearPendingFinishTurnTimer();
+  const minDelay = Number.isFinite(minDelayMs) ? Math.max(0, Number(minDelayMs)) : 0;
+  const now = Date.now();
+  const diceRevealWaitMs = hasRolled
+    ? Math.max(0, diceRollSettledAt - now + DICE_PASS_AFTER_REVEAL_MS)
+    : 0;
+  const delayMs = Math.max(minDelay, diceRevealWaitMs);
+  if (delayMs <= 0) {
+    finishTurn();
+    return;
+  }
+  pendingFinishTurnTimer = window.setTimeout(() => {
+    pendingFinishTurnTimer = null;
+    finishTurn();
+  }, delayMs);
 }
 
 function maybeScheduleAutoRoll() {
@@ -2467,6 +2502,7 @@ function animateDiceSprite(spriteEl, value, index) {
   let lastFrame = -1;
   const startAt = performance.now() + delayMs;
   let preparedSheet = diceSpriteSheet;
+  primeDiceSpriteCanvas(spriteEl);
 
   if (!preparedSheet) {
     void preloadDiceSpriteSheet().then((sheet) => {
@@ -2485,10 +2521,9 @@ function animateDiceSprite(spriteEl, value, index) {
 
     const elapsed = now - startAt;
     const progress = Math.min(1, elapsed / DICE_ROLL_TOTAL_MS);
-    const eased = 1 - Math.pow(1 - progress, 3);
     const frameIndex = Math.min(
       frameSequence.length - 1,
-      Math.floor(eased * (frameSequence.length - 1))
+      Math.floor(progress * (frameSequence.length - 1))
     );
 
     if (frameIndex !== lastFrame) {
@@ -2504,11 +2539,16 @@ function animateDiceSprite(spriteEl, value, index) {
 
 function buildDiceFrameSequence(value) {
   const randomFrames = [];
-  const randomCount = 28;
+  const randomCount = DICE_SPRITE_RANDOM_FRAME_COUNT;
+  const startRow = Math.floor(Math.random() * DICE_SPRITE_ROWS);
+  const startCol = Math.floor(Math.random() * DICE_SPRITE_COLUMNS);
+  const stride = 1 + Math.floor(Math.random() * 3);
+  const rowBumpEvery = 4 + Math.floor(Math.random() * 3);
 
   for (let i = 0; i < randomCount; i++) {
-    const row = Math.floor(Math.random() * DICE_SPRITE_ROWS);
-    const col = Math.floor(Math.random() * DICE_SPRITE_COLUMNS);
+    const col = (startCol + i * stride) % DICE_SPRITE_COLUMNS;
+    const rowShift = Math.floor(i / rowBumpEvery);
+    const row = (startRow + rowShift) % DICE_SPRITE_ROWS;
     randomFrames.push(row * DICE_SPRITE_COLUMNS + col);
   }
 
@@ -2571,31 +2611,58 @@ function setDiceSpriteFrame(spriteEl, frameIndex, preparedSheet = null) {
   setDiceSpriteFrameLegacy(spriteEl, frameIndex);
 }
 
-function drawDiceSpriteFrameCanvas(spriteEl, frameIndex, sheet) {
-  if (!(spriteEl instanceof HTMLCanvasElement)) return false;
-  const ctx = spriteEl.getContext("2d");
-  if (!ctx) return false;
-
-  const safeIndex = Math.max(0, Math.min(DICE_SPRITE_COLUMNS * DICE_SPRITE_ROWS - 1, frameIndex));
-  const col = safeIndex % DICE_SPRITE_COLUMNS;
-  const row = Math.floor(safeIndex / DICE_SPRITE_COLUMNS);
-
-  const drawSize = Math.max(1, Math.round(spriteEl.clientWidth || spriteEl.parentElement?.clientWidth || 52));
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const pixelSize = Math.max(1, Math.round(drawSize * dpr));
-  if (spriteEl.width !== pixelSize || spriteEl.height !== pixelSize) {
-    spriteEl.width = pixelSize;
-    spriteEl.height = pixelSize;
+function primeDiceSpriteCanvas(spriteEl) {
+  if (!(spriteEl instanceof HTMLCanvasElement)) return null;
+  let state = diceSpriteCanvasState.get(spriteEl);
+  if (!state) {
+    const ctx = spriteEl.getContext("2d", { alpha: true, desynchronized: true }) || spriteEl.getContext("2d");
+    if (!ctx) return null;
+    state = { ctx, pixelSize: 0 };
+    diceSpriteCanvasState.set(spriteEl, state);
   }
 
-  const srcW = Math.floor(sheet.width / DICE_SPRITE_COLUMNS) || 1;
-  const srcH = Math.floor(sheet.height / DICE_SPRITE_ROWS) || 1;
-  const srcX = col * srcW;
-  const srcY = row * srcH;
+  const drawSize = Math.max(1, Math.round(spriteEl.clientWidth || spriteEl.parentElement?.clientWidth || 52));
+  const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  const pixelSize = Math.max(1, Math.round(drawSize * dpr));
+  if (state.pixelSize !== pixelSize || spriteEl.width !== pixelSize || spriteEl.height !== pixelSize) {
+    spriteEl.width = pixelSize;
+    spriteEl.height = pixelSize;
+    state.pixelSize = pixelSize;
+  }
+  return state;
+}
 
-  ctx.clearRect(0, 0, spriteEl.width, spriteEl.height);
-  ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(sheet, srcX, srcY, srcW, srcH, 0, 0, spriteEl.width, spriteEl.height);
+function getDiceSpriteSheetMeta(sheet) {
+  let meta = diceSpriteSheetMeta.get(sheet);
+  if (meta) return meta;
+
+  meta = {
+    srcW: Math.floor(sheet.width / DICE_SPRITE_COLUMNS) || 1,
+    srcH: Math.floor(sheet.height / DICE_SPRITE_ROWS) || 1,
+    maxIndex: DICE_SPRITE_COLUMNS * DICE_SPRITE_ROWS - 1,
+  };
+  diceSpriteSheetMeta.set(sheet, meta);
+  return meta;
+}
+
+function drawDiceSpriteFrameCanvas(spriteEl, frameIndex, sheet) {
+  if (!(spriteEl instanceof HTMLCanvasElement)) return false;
+  const state = diceSpriteCanvasState.get(spriteEl) || primeDiceSpriteCanvas(spriteEl);
+  if (!state?.ctx) return false;
+  const meta = getDiceSpriteSheetMeta(sheet);
+  const safeIndex = Math.max(0, Math.min(meta.maxIndex, frameIndex));
+  const col = safeIndex % DICE_SPRITE_COLUMNS;
+  const row = Math.floor(safeIndex / DICE_SPRITE_COLUMNS);
+  const srcX = col * meta.srcW;
+  const srcY = row * meta.srcH;
+  const pixelSize = state.pixelSize || spriteEl.width || 52;
+
+  state.ctx.clearRect(0, 0, pixelSize, pixelSize);
+  if (!state.smoothingReady) {
+    state.ctx.imageSmoothingEnabled = true;
+    state.smoothingReady = true;
+  }
+  state.ctx.drawImage(sheet, srcX, srcY, meta.srcW, meta.srcH, 0, 0, pixelSize, pixelSize);
   return true;
 }
 
