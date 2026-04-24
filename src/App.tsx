@@ -2927,64 +2927,6 @@ function App() {
     roomStartStateRef.current = roomStartState;
   }, [roomStartState]);
 
-  useEffect(() => {
-    if (!roomSession || roomSession.role !== "player") return;
-    if (!currentRoomTable || !currentRoomTable.white || !currentRoomTable.black) return;
-    if (currentRoomTable.startedAt && currentRoomTable.whiteReadyAt && currentRoomTable.blackReadyAt) return;
-
-    const targetTableId = roomSession.tableNo;
-    const targetRoomCode = sanitizeRoomCode(roomSession.code);
-
-    writeLobby((current) => {
-      const cleaned = cleanupStaleAndPrune(current.tables).tables;
-      const tables = [...cleaned];
-      const index = tables.findIndex((table) => {
-        if (targetRoomCode) return sanitizeRoomCode(table.roomCode) === targetRoomCode;
-        return table.id === targetTableId;
-      });
-      if (index < 0) return current;
-      const table = tables[index];
-      if (!table.white || !table.black) return current;
-      if (table.startedAt && table.whiteReadyAt && table.blackReadyAt) return current;
-
-      const now = Date.now();
-      const whiteReadyAt = table.whiteReadyAt ?? parseReadyStamp(table.white.touchedAt) ?? now;
-      const blackReadyAt = table.blackReadyAt ?? parseReadyStamp(table.black.touchedAt) ?? now;
-      const startedAt = table.startedAt ?? Math.max(now, whiteReadyAt, blackReadyAt);
-
-      const nextTable = normalizeTableAccess(normalizeTableStartGate({
-        ...table,
-        whiteReadyAt,
-        blackReadyAt,
-        startedAt,
-      }));
-
-      if (
-        nextTable.whiteReadyAt === table.whiteReadyAt
-        && nextTable.blackReadyAt === table.blackReadyAt
-        && nextTable.startedAt === table.startedAt
-      ) {
-        return current;
-      }
-
-      tables[index] = nextTable;
-      return {
-        ...current,
-        tables: sortTables(tables),
-        updatedAt: now,
-      };
-    });
-  }, [
-    roomSession,
-    currentRoomTable?.id,
-    currentRoomTable?.roomCode,
-    currentRoomTable?.white?.sessionId,
-    currentRoomTable?.black?.sessionId,
-    currentRoomTable?.whiteReadyAt,
-    currentRoomTable?.blackReadyAt,
-    currentRoomTable?.startedAt,
-  ]);
-
   const currentRoomIsOwner = useMemo(
     () => isTableOwnerForUser(currentRoomTable, currentProfile.userId),
     [currentRoomTable, currentProfile.userId],
