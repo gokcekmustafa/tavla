@@ -1661,6 +1661,15 @@ function normalizeTableStartGate(table: LobbyTable): LobbyTable {
     blackReadyAt = null;
     startedAt = null;
   } else {
+    // Auto-start modelinde iki koltuk doluysa, eksik hazirlik damgalarini
+    // koltuk aktivite zamanindan tamamla. Bu sayede cihaz farklarinda
+    // startedAt kaybolsa bile oyun kilidi acilabilir.
+    if (!whiteReadyAt) {
+      whiteReadyAt = parseReadyStamp(table.white.touchedAt);
+    }
+    if (!blackReadyAt) {
+      blackReadyAt = parseReadyStamp(table.black.touchedAt);
+    }
     if (startedAt) {
       startedAt = Math.max(startedAt, whiteReadyAt ?? 0, blackReadyAt ?? 0);
     } else if (whiteReadyAt && blackReadyAt) {
@@ -2901,8 +2910,7 @@ function App() {
     const mineReady = roomSession.seat === "white" ? Boolean(currentRoomTable.whiteReadyAt) : Boolean(currentRoomTable.blackReadyAt);
     const opponentReady = roomSession.seat === "white" ? Boolean(currentRoomTable.blackReadyAt) : Boolean(currentRoomTable.whiteReadyAt);
     const bothSeated = Boolean(currentRoomTable.white && currentRoomTable.black);
-    // Oto-baslat modelinde iki koltuk dolunca oyun baslamis kabul edilir.
-    const started = bothSeated;
+    const started = Boolean(bothSeated && (currentRoomTable.startedAt || (currentRoomTable.whiteReadyAt && currentRoomTable.blackReadyAt)));
 
     return {
       mine,
@@ -2918,6 +2926,64 @@ function App() {
   useEffect(() => {
     roomStartStateRef.current = roomStartState;
   }, [roomStartState]);
+
+  useEffect(() => {
+    if (!roomSession || roomSession.role !== "player") return;
+    if (!currentRoomTable || !currentRoomTable.white || !currentRoomTable.black) return;
+    if (currentRoomTable.startedAt && currentRoomTable.whiteReadyAt && currentRoomTable.blackReadyAt) return;
+
+    const targetTableId = roomSession.tableNo;
+    const targetRoomCode = sanitizeRoomCode(roomSession.code);
+
+    writeLobby((current) => {
+      const cleaned = cleanupStaleAndPrune(current.tables).tables;
+      const tables = [...cleaned];
+      const index = tables.findIndex((table) => {
+        if (targetRoomCode) return sanitizeRoomCode(table.roomCode) === targetRoomCode;
+        return table.id === targetTableId;
+      });
+      if (index < 0) return current;
+      const table = tables[index];
+      if (!table.white || !table.black) return current;
+      if (table.startedAt && table.whiteReadyAt && table.blackReadyAt) return current;
+
+      const now = Date.now();
+      const whiteReadyAt = table.whiteReadyAt ?? parseReadyStamp(table.white.touchedAt) ?? now;
+      const blackReadyAt = table.blackReadyAt ?? parseReadyStamp(table.black.touchedAt) ?? now;
+      const startedAt = table.startedAt ?? Math.max(now, whiteReadyAt, blackReadyAt);
+
+      const nextTable = normalizeTableAccess(normalizeTableStartGate({
+        ...table,
+        whiteReadyAt,
+        blackReadyAt,
+        startedAt,
+      }));
+
+      if (
+        nextTable.whiteReadyAt === table.whiteReadyAt
+        && nextTable.blackReadyAt === table.blackReadyAt
+        && nextTable.startedAt === table.startedAt
+      ) {
+        return current;
+      }
+
+      tables[index] = nextTable;
+      return {
+        ...current,
+        tables: sortTables(tables),
+        updatedAt: now,
+      };
+    });
+  }, [
+    roomSession,
+    currentRoomTable?.id,
+    currentRoomTable?.roomCode,
+    currentRoomTable?.white?.sessionId,
+    currentRoomTable?.black?.sessionId,
+    currentRoomTable?.whiteReadyAt,
+    currentRoomTable?.blackReadyAt,
+    currentRoomTable?.startedAt,
+  ]);
 
   const currentRoomIsOwner = useMemo(
     () => isTableOwnerForUser(currentRoomTable, currentProfile.userId),
@@ -6265,23 +6331,14 @@ function App() {
     const frameWindow = targetWindow ?? iframeRef.current?.contentWindow;
     if (!frameWindow) return;
     const gateActive = Boolean(roomSession && roomSession.role === "player" && mode === "local");
-    let liveBothSeated = false;
-    if (gateActive && roomSession) {
-      const latest = getCurrentLobbyState();
-      const targetRoomCode = sanitizeRoomCode(roomSession.code);
-      const liveTable = latest.tables.find((table) => {
-        if (targetRoomCode) return sanitizeRoomCode(table.roomCode) === targetRoomCode;
-        return table.id === roomSession.tableNo;
-      }) ?? null;
-      liveBothSeated = Boolean(liveTable?.white && liveTable?.black);
-    }
+    const latestStartState = roomStartStateRef.current ?? roomStartState;
     frameWindow.postMessage(
       {
         source: "tavla-host",
         type: "room-start-gate",
         active: gateActive,
-        bothSeated: gateActive ? liveBothSeated : true,
-        started: gateActive ? liveBothSeated : true,
+        bothSeated: gateActive ? Boolean(latestStartState?.bothSeated) : true,
+        started: gateActive ? Boolean(latestStartState?.started) : true,
       },
       window.location.origin,
     );
