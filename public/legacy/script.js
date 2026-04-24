@@ -16,7 +16,10 @@ const BOT_DICE_OUTCOMES = buildBotDiceOutcomes();
 const LOG_LIMIT = 140;
 const ANIM_MS = 380;
 const AUTO_ROLL_DELAY_MS = 520;
+const TOUCH_DOUBLE_TAP_WINDOW_MS = 320;
 const ROOM_CHANNEL_PREFIX = "tavla-room-";
+const ROOM_RECONNECT_BASE_MS = 1200;
+const ROOM_RECONNECT_MAX_MS = 10000;
 const DICE_SPRITE_COLUMNS = 15;
 const DICE_SPRITE_ROWS = 7;
 const DICE_SPRITE_PATH = "./assets/theme/dice-roll-sprite.png";
@@ -106,6 +109,7 @@ let isApplyingRemoteState = false;
 let roomChannel       = null;
 let roomSocket        = null;
 let roomReconnectTimer = null;
+let roomReconnectDelayMs = ROOM_RECONNECT_BASE_MS;
 let roomSyncCounter   = 0;
 const roomPendingMessages = [];
 let preferredPlayerColor = WHITE;
@@ -126,6 +130,8 @@ let roomStartGateBothSeated = true;
 let roomStartGateStarted = true;
 let pointerHintEl = null;
 let pointerHintTimer = null;
+let lastTouchTapSource = null;
+let lastTouchTapAt = 0;
 
 const roomParams = parseRoomParamsSafe();
 const roomSenderCounters = new Map();
@@ -485,6 +491,7 @@ function initRoomChannel() {
 
   roomSocket.addEventListener("open", () => {
     clearRoomReconnectTimer();
+    roomReconnectDelayMs = ROOM_RECONNECT_BASE_MS;
     flushRoomPendingMessages();
     sendRoomMessage("hello");
   });
@@ -541,10 +548,18 @@ function clearRoomReconnectTimer() {
 function scheduleRoomReconnect() {
   if (!isRoomMode()) return;
   if (roomReconnectTimer !== null) return;
+  const delayMs = Math.max(
+    ROOM_RECONNECT_BASE_MS,
+    Math.min(ROOM_RECONNECT_MAX_MS, roomReconnectDelayMs || ROOM_RECONNECT_BASE_MS)
+  );
   roomReconnectTimer = window.setTimeout(() => {
     roomReconnectTimer = null;
     initRoomChannel();
-  }, 1200);
+  }, delayMs);
+  roomReconnectDelayMs = Math.min(
+    ROOM_RECONNECT_MAX_MS,
+    Math.max(ROOM_RECONNECT_BASE_MS, Math.floor(delayMs * 1.7))
+  );
 }
 
 function announceRoomJoin() {
@@ -1384,6 +1399,18 @@ function onBarChipTouchStart(e) {
   if (!canControlRoomAction()) return;
   e.preventDefault();
   e.stopPropagation();
+
+  if (consumeTouchDoubleTap("bar")) {
+    const options = availableMoves.filter((m) => m.from === "bar");
+    if (options.length !== 1) {
+      handleSourceOrDest("bar");
+      return;
+    }
+    pendingMoveChain = [];
+    playMove(options[0]);
+    return;
+  }
+
   handleSourceOrDest("bar");
 }
 
@@ -1510,6 +1537,18 @@ function onCheckerTouchStart(e) {
   e.preventDefault();
   e.stopPropagation();
 
+  if (consumeTouchDoubleTap(`point-${source}`)) {
+    const move = getDoubleClickMove(source);
+    if (!move) {
+      setStatus("Bu pul için hamle yok.");
+      render();
+      return;
+    }
+    pendingMoveChain = [];
+    playMove(move);
+    return;
+  }
+
   if (selectedSource === source) {
     selectedSource = null;
     queueCheckerSelectionRender(source);
@@ -1525,6 +1564,19 @@ function getDoubleClickMove(source) {
   const maxDie = Math.max(...options.map((m) => m.die));
   const best = options.filter((m) => m.die === maxDie);
   return pickPreferred(best);
+}
+
+function consumeTouchDoubleTap(sourceKey) {
+  const now = Date.now();
+  const isDouble = lastTouchTapSource === sourceKey && (now - lastTouchTapAt) <= TOUCH_DOUBLE_TAP_WINDOW_MS;
+  if (isDouble) {
+    lastTouchTapSource = null;
+    lastTouchTapAt = 0;
+    return true;
+  }
+  lastTouchTapSource = sourceKey;
+  lastTouchTapAt = now;
+  return false;
 }
 
 // ── Drag & Drop ──────────────────────────────────────────────────

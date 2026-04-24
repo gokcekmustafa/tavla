@@ -499,9 +499,35 @@ function normalizeRealtimeMessage(raw: unknown): RealtimeMessage | null {
 
 const REALTIME_WS_BASE_URL = normalizeRealtimeWsBase(import.meta.env.VITE_REALTIME_WS_URL as string | undefined);
 
+function safeStorageGetItem(storage: Storage | null | undefined, key: string) {
+  try {
+    return storage?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSetItem(storage: Storage | null | undefined, key: string, value: string) {
+  try {
+    storage?.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function safeStorageRemoveItem(storage: Storage | null | undefined, key: string) {
+  try {
+    storage?.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function loadJson<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
+  const raw = safeStorageGetItem(window.localStorage, key);
   if (!raw) return fallback;
   try {
     return JSON.parse(raw) as T;
@@ -512,7 +538,7 @@ function loadJson<T>(key: string, fallback: T): T {
 
 function saveJson<T>(key: string, value: T) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
+  safeStorageSetItem(window.localStorage, key, JSON.stringify(value));
 }
 
 async function readApiError(response: Response, fallback: string) {
@@ -1237,10 +1263,10 @@ function createRoomCode() {
 
 function getOrCreateGuestId() {
   if (typeof window === "undefined") return `guest-${createSessionId()}`;
-  const existing = sanitizeGuestId(window.localStorage.getItem(GUEST_ID_STORAGE_KEY) ?? "");
+  const existing = sanitizeGuestId(safeStorageGetItem(window.localStorage, GUEST_ID_STORAGE_KEY) ?? "");
   if (existing) return existing;
   const next = sanitizeGuestId(`g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`) || "guest1";
-  window.localStorage.setItem(GUEST_ID_STORAGE_KEY, next);
+  safeStorageSetItem(window.localStorage, GUEST_ID_STORAGE_KEY, next);
   return next;
 }
 
@@ -1907,7 +1933,7 @@ function getRoomPickerIdentity(memberUserId: string | null | undefined, guestId:
 
 function loadRoomPickerSessionState(): RoomPickerSessionState | null {
   if (typeof window === "undefined") return null;
-  const raw = window.sessionStorage.getItem(ROOM_PICKER_SESSION_KEY);
+  const raw = safeStorageGetItem(window.sessionStorage, ROOM_PICKER_SESSION_KEY);
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<RoomPickerSessionState>;
@@ -1930,7 +1956,8 @@ function saveRoomPickerSessionState(identity: string, lobbyId: string) {
   const safeIdentity = identity.trim().slice(0, 80);
   const safeLobbyId = sanitizeLobbyId(lobbyId);
   if (!safeIdentity || !safeLobbyId) return;
-  window.sessionStorage.setItem(
+  safeStorageSetItem(
+    window.sessionStorage,
     ROOM_PICKER_SESSION_KEY,
     JSON.stringify({
       identity: safeIdentity,
@@ -1942,7 +1969,7 @@ function saveRoomPickerSessionState(identity: string, lobbyId: string) {
 
 function clearRoomPickerSessionState() {
   if (typeof window === "undefined") return;
-  window.sessionStorage.removeItem(ROOM_PICKER_SESSION_KEY);
+  safeStorageRemoveItem(window.sessionStorage, ROOM_PICKER_SESSION_KEY);
 }
 
 function shouldOpenRoomPickerInitially(initialRoom: RoomSession | null) {
@@ -1956,14 +1983,14 @@ function shouldOpenRoomPickerInitially(initialRoom: RoomSession | null) {
 
 function loadSelectedGameIdFromSession(): GameId | null {
   if (typeof window === "undefined") return null;
-  const raw = window.sessionStorage.getItem(GAME_SELECTION_SESSION_KEY);
+  const raw = safeStorageGetItem(window.sessionStorage, GAME_SELECTION_SESSION_KEY);
   if (raw === DEFAULT_GAME_ID) return DEFAULT_GAME_ID;
   return null;
 }
 
 function saveSelectedGameIdToSession(gameId: GameId) {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(GAME_SELECTION_SESSION_KEY, gameId);
+  safeStorageSetItem(window.sessionStorage, GAME_SELECTION_SESSION_KEY, gameId);
 }
 
 function readEntryScreenFromUrl(): EntryScreen | null {
@@ -1986,7 +2013,7 @@ function getInitialGuestName() {
   const params = new URLSearchParams(window.location.search);
   const fromUrl = sanitizeGuestName(params.get("name") ?? params.get("guest") ?? "");
   if (fromUrl) return fromUrl;
-  const fromStorage = sanitizeGuestName(window.localStorage.getItem(GUEST_STORAGE_KEY) ?? "");
+  const fromStorage = sanitizeGuestName(safeStorageGetItem(window.localStorage, GUEST_STORAGE_KEY) ?? "");
   return fromStorage || "Misafir";
 }
 
@@ -1999,7 +2026,7 @@ function getInitialLobbyId() {
   const params = new URLSearchParams(window.location.search);
   const fromUrl = sanitizeLobbyId(params.get("lobby") ?? "");
   if (fromUrl) return fromUrl;
-  const fromStorage = sanitizeLobbyId(window.localStorage.getItem(ACTIVE_LOBBY_ID_KEY) ?? "");
+  const fromStorage = sanitizeLobbyId(safeStorageGetItem(window.localStorage, ACTIVE_LOBBY_ID_KEY) ?? "");
   return fromStorage;
 }
 
@@ -4854,11 +4881,14 @@ function App() {
   }
 
   function goToLobbyFromTableView() {
-    if (!roomSession) return;
     setViewMode("lobby");
     setRoomPickerOpen(false);
     setGamePickerOpen(false);
-    setLobbyNotice("Lobiye gecildi. Masaya donerek oyuna devam edebilirsin.");
+    if (roomSession) {
+      setLobbyNotice("Lobiye gecildi. Masaya donerek oyuna devam edebilirsin.");
+      return;
+    }
+    setLobbyNotice("Lobiye gecildi.");
   }
 
   function returnToActiveTableView() {
@@ -5470,7 +5500,7 @@ function App() {
   }
 
   function onLogoutMember() {
-    window.localStorage.removeItem(MEMBER_SESSION_KEY);
+    safeStorageRemoveItem(window.localStorage, MEMBER_SESSION_KEY);
     clearRoomPickerSessionState();
     setMember(null);
     setMemberAvatarDraft(DEFAULT_AVATAR_BY_GENDER.unknown);
@@ -6925,7 +6955,7 @@ function App() {
   useEffect(() => {
     const safeLobbyId = sanitizeLobbyId(activeLobbyId) || DEFAULT_LOBBY_ID;
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(ACTIVE_LOBBY_ID_KEY, safeLobbyId);
+      safeStorageSetItem(window.localStorage, ACTIVE_LOBBY_ID_KEY, safeLobbyId);
     }
     const loaded = loadLobbyState(makeLobbyStateStorageKey(safeLobbyId), activeLobbyName);
     const next = loaded.lobbyName === activeLobbyName
@@ -6962,7 +6992,7 @@ function App() {
       const user = await loadMemberFromSession(session);
       if (cancelled) return;
       if (!user) {
-        window.localStorage.removeItem(MEMBER_SESSION_KEY);
+        safeStorageRemoveItem(window.localStorage, MEMBER_SESSION_KEY);
         setMember(null);
         setMemberAvatarDraft(DEFAULT_AVATAR_BY_GENDER.unknown);
         return;
@@ -7035,7 +7065,7 @@ function App() {
   }, [member, guestId, guestName, realtimeStatus, lobbyState.guestCounter, lobbyState.guestLabels]);
 
   useEffect(() => {
-    window.localStorage.setItem(GUEST_STORAGE_KEY, safeGuestName);
+    safeStorageSetItem(window.localStorage, GUEST_STORAGE_KEY, safeGuestName);
   }, [safeGuestName]);
 
   useEffect(() => {
@@ -7219,7 +7249,7 @@ function App() {
           }
           const user = await loadMemberFromSession(session);
           if (!user) {
-            window.localStorage.removeItem(MEMBER_SESSION_KEY);
+            safeStorageRemoveItem(window.localStorage, MEMBER_SESSION_KEY);
             setMember(null);
             setMemberAvatarDraft(DEFAULT_AVATAR_BY_GENDER.unknown);
             return;
