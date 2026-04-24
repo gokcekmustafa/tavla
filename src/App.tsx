@@ -2512,15 +2512,6 @@ function App() {
     turn: null,
     activityTick: 0,
   });
-  const roomStartStateRef = useRef<{
-    mine: LobbySeatState | null;
-    opponent: LobbySeatState | null;
-    mineReady: boolean;
-    opponentReady: boolean;
-    bothSeated: boolean;
-    started: boolean;
-    readyCount: number;
-  } | null>(null);
   const timeoutWinWaiverRef = useRef<{
     tableCode: string;
     matchToken: string;
@@ -2902,10 +2893,6 @@ function App() {
       readyCount: Number(Boolean(currentRoomTable.whiteReadyAt)) + Number(Boolean(currentRoomTable.blackReadyAt)),
     };
   }, [roomSession, currentRoomTable]);
-
-  useEffect(() => {
-    roomStartStateRef.current = roomStartState;
-  }, [roomStartState]);
 
   const currentRoomIsOwner = useMemo(
     () => isTableOwnerForUser(currentRoomTable, currentProfile.userId),
@@ -6253,14 +6240,13 @@ function App() {
     const frameWindow = targetWindow ?? iframeRef.current?.contentWindow;
     if (!frameWindow) return;
     const gateActive = Boolean(roomSession && roomSession.role === "player" && mode === "local");
-    const latestStartState = roomStartStateRef.current ?? roomStartState;
     frameWindow.postMessage(
       {
         source: "tavla-host",
         type: "room-start-gate",
         active: gateActive,
-        bothSeated: gateActive ? Boolean(latestStartState?.bothSeated) : true,
-        started: gateActive ? Boolean(latestStartState?.started) : true,
+        bothSeated: gateActive ? Boolean(roomStartState?.bothSeated) : true,
+        started: gateActive ? Boolean(roomStartState?.started) : true,
       },
       window.location.origin,
     );
