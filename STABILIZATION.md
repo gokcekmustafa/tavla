@@ -59,6 +59,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-chat-scope.mjs` eklendi,
    - lobi/masa sohbetinin oturum zamanina gore filtrelenmesi ve rol/izin kurallarinin baglantilari kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+14. Anasayfa/oda secimi oturum smoke kontrolu:
+   - `scripts/smoke-entry-room-session.mjs` eklendi,
+   - oyun secimi + oda secimi session persistence ve masadayken gecis engelleri kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
