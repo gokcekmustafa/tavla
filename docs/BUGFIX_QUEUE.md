@@ -23,7 +23,7 @@ Sablon: `docs/BUGFIX_TRIAGE_TEMPLATE.md`
 
 | ID | Oncelik | Durum | Alan | Ozet | Sonraki Aksiyon |
 | --- | --- | --- | --- | --- | --- |
-| BQ-001 | P2 | verifying | Tooling | BQ kaydinda Turkce karakter kodlama duzeltmesi tamamlandi (`docs/bugs/BQ-001.md`) | Son manuel kontrolu tamamlayip kaydi done'a al |
+| BQ-001 | P2 | done | Tooling | BQ kaydindaki kodlama bozulmasi kapatildi (`docs/bugs/BQ-001.md`) | Yeni bug geldiginde BQ-002 ile yeni tur ac |
 
 ## Triage Notu (Her Bug Icin Zorunlu)
 

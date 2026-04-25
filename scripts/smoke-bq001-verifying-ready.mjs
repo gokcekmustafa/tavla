@@ -16,12 +16,21 @@ const ticket = readFileSync(ticketPath, "utf8");
 
 const errors = [];
 
-if (!queue.includes("| BQ-001 | P2 | verifying | Tooling |")) {
-  errors.push("Kuyrukta BQ-001 satiri verifying/P2/Tooling olarak bekleniyor.");
+const queueRow = queue.match(/\|\s*BQ-001\s*\|\s*P2\s*\|\s*([a-z_]+)\s*\|\s*Tooling\s*\|/);
+const queueStatus = queueRow?.[1] ?? "";
+if (!queueRow) {
+  errors.push("Kuyrukta BQ-001 satiri P2/Tooling formatinda bulunamadi.");
+} else if (!["verifying", "done"].includes(queueStatus)) {
+  errors.push(`Kuyrukta BQ-001 durumu verifying/done olmali. Bulunan: '${queueStatus}'`);
 }
 
-if (!ticket.includes("Durum: `verifying`")) {
-  errors.push("BQ-001 dosyasinda durum verifying olmali.");
+const ticketStatus = ticket.match(/Durum:\s*`([^`]+)`/)?.[1] ?? "";
+if (!["verifying", "done"].includes(ticketStatus)) {
+  errors.push(`BQ-001 dosyasinda durum verifying/done olmali. Bulunan: '${ticketStatus || "(bos)"}'`);
+}
+
+if (queueStatus && ticketStatus && queueStatus !== ticketStatus) {
+  errors.push(`Kuyruk durumu '${queueStatus}' ile dosya durumu '${ticketStatus}' ayni olmali.`);
 }
 
 if (ticket.includes("Kapatista doldurulacak")) {

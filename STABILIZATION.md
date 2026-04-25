@@ -153,7 +153,11 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `docs/BUGFIX_QUEUE.md` ve `docs/bugs/BQ-001.md` durumlari `verifying` olarak guncellendi,
    - BQ-001 kapanis notu placeholder metinlerden arindirilarak dolduruldu,
    - `scripts/smoke-bq001-verifying-ready.mjs` ile BQ-001 verifying durumu + kapanis notu dolulugu otomatik kontrol edilerek `check:safe` zincirine baglandi.
+38. BQ-001 done kapanis kilidi:
+   - `docs/BUGFIX_QUEUE.md` ve `docs/bugs/BQ-001.md` durumlari `done` olarak guncellendi,
+   - `scripts/smoke-bq001-verifying-ready.mjs` verifying/done durumlarini kapsayacak sekilde genellendi,
+   - `scripts/smoke-bq001-done-closed.mjs` ile done kaydinda placeholder kalmadigi ve kapanis notu dolulugu otomatik kontrol edilerek `check:safe` zincirine baglandi.
 
 ## Sonraki adimlar
 
-1. BQ-001 icin son manuel kontrolu tamamlayip kaydi `done` durumuna almak.
+1. Yeni runtime bug geldigi anda BQ-002 kaydini acip tek-bug turunu baslatmak.
