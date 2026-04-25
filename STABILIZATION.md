@@ -35,6 +35,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-room-flow.mjs` eklendi,
    - masa acma/oturma/baslatma/cikis zinciri ve kritik cagri baglantilari kontrol ediliyor,
    - `check:safe` icine dahil edildi.
+8. Canli senkron dayanıklılık smoke kontrolu:
+   - `scripts/smoke-realtime-resilience.mjs` eklendi,
+   - WS/HTTP fallback/backoff, timeout ve start-gate re-sync korumalari kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
