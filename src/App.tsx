@@ -5128,23 +5128,6 @@ function App() {
     setAccountMenuOpen(true);
   }
 
-  function openProfileFromRoomPicker() {
-    setGamePickerOpen(false);
-    setRoomPickerOpen(false);
-    setViewMode("lobby");
-    setAuthError("");
-    setMemberNotice("");
-    setAccountMenuOpen(true);
-    pushEntryScreenHistory("lobby");
-  }
-
-  function openAuthFromRoomPicker(mode: AuthMode) {
-    setGamePickerOpen(false);
-    setRoomPickerOpen(false);
-    pushEntryScreenHistory("lobby");
-    openAccountMenu(mode);
-  }
-
   function closeInvitePicker() {
     setInvitePickerTableId(null);
   }
@@ -8507,21 +8490,28 @@ function App() {
 
   return (
     <main className="my-shell" style={designCssVars}>
-      {viewMode === "lobby" && !showGamePicker && !showRoomPicker ? (
+      {viewMode === "lobby" ? (
         <header className="my-topbar">
           <div className="my-topbar-left">
             {!roomSession ? (
               <>
-                <button className="my-top-btn my-btn-member-alt" style={{ order: lobbyTopButtonOrder.indexOf("home") }} onClick={goToGameSelection}>
+                <button
+                  className="my-top-btn my-btn-member-alt"
+                  style={{ order: lobbyTopButtonOrder.indexOf("home") }}
+                  onClick={goToGameSelection}
+                  disabled={showGamePicker}
+                >
                   {activeDesign.texts.lobbyHome || "Ana Sayfa"}
                 </button>
                 <button
                   className="my-top-btn my-btn-member-alt"
                   style={{ order: lobbyTopButtonOrder.indexOf("roomSelect") }}
                   onClick={openAllRoomsPicker}
+                  disabled={showRoomPicker}
                 >
                   {activeDesign.texts.lobbyRoomSelect || "Tum Odalar"}
                 </button>
+                {!showGamePicker && !showRoomPicker ? (<>
                 <button
                   className="my-top-btn my-btn-open my-lobby-top-action-hidden my-design-label-btn"
                   data-design-label={activeDesign.texts.lobbyOpenTable || "Masa Aç"}
@@ -8535,6 +8525,8 @@ function App() {
                 <button className="my-top-btn my-btn-bot" style={{ order: lobbyTopButtonOrder.indexOf("botMode") }} onClick={startBotGame}>
                   {activeDesign.texts.lobbyBotMode || "Bota Karsi"}
                 </button>
+                  </>
+                ) : null}
               </>
             ) : null}
             {roomSession ? (
@@ -8815,15 +8807,6 @@ function App() {
                 <button className="my-room-picker-tab active" type="button">Tum Odalar</button>
                 <button className="my-room-picker-tab" type="button" disabled>Hizli</button>
                 <button className="my-room-picker-tab" type="button" disabled>Kalabalik</button>
-              </div>
-              <div className="my-room-picker-account">
-                <button className="my-room-picker-tab" type="button" onClick={openProfileFromRoomPicker}>Profil</button>
-                {!member ? (
-                  <>
-                    <button className="my-room-picker-tab" type="button" onClick={() => openAuthFromRoomPicker("register")}>Uye Ol</button>
-                    <button className="my-room-picker-tab" type="button" onClick={() => openAuthFromRoomPicker("login")}>Giris</button>
-                  </>
-                ) : null}
               </div>
               <div className="my-room-picker-actions">
                 <button className="my-action-btn" type="button" onClick={onQuickPlay}>{activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}</button>

@@ -333,13 +333,6 @@
   gap: 6px;
 }
 
-.my-room-picker-account {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
 .my-room-picker-columns {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -2497,14 +2490,6 @@
 
   .my-room-picker-actions {
     justify-content: stretch;
-  }
-
-  .my-room-picker-account {
-    justify-content: stretch;
-  }
-
-  .my-room-picker-account .my-room-picker-tab {
-    flex: 1;
   }
 
   .my-room-picker-actions .my-action-btn {
