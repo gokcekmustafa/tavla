@@ -134,6 +134,9 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `docs/bugs/BQ-001.md` olusturuldu (tek bug kaydi acildi),
    - `scripts/smoke-bq001-triage-ready.mjs` eklendi,
    - kuyrukta BQ-001 satiri + detay kaydi baglantisi ve zorunlu triage basliklari otomatik kontrol edilerek `check:safe` zincirine baglandi.
+33. Bug queue/ticket durum senkron kilidi:
+   - `scripts/smoke-bug-ticket-sync.mjs` eklendi,
+   - `docs/BUGFIX_QUEUE.md` satirindaki her BQ kaydinin `docs/bugs/BQ-xxx.md` dosyasiyla durum/oncelik tutarliligi otomatik kontrol edilerek `check:safe` zincirine baglandi.
 
 ## Sonraki adimlar
 
