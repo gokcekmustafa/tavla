@@ -66,6 +66,16 @@ const checks = [
       source.includes("\"seat.release\"")
       && source.includes("appendFlowEvent(\"table.leave\""),
   },
+  {
+    label: "Diagnostik mod depolama ve okuma fonksiyonu mevcut",
+    test: () =>
+      source.includes("DIAGNOSTICS_MODE_STORAGE_KEY")
+      && source.includes("function readDiagnosticsEnabled()"),
+  },
+  {
+    label: "Senkron paneli diagnostics modu ile aciliyor",
+    test: () => source.includes("{diagnosticsEnabled ? ("),
+  },
 ];
 
 const failed = checks.filter((check) => !check.test());

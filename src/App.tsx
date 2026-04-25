@@ -374,7 +374,6 @@ const LOBBY_CHAT_LIMIT = 120;
 const TABLE_CHAT_LIMIT = 80;
 const LOBBY_CHAT_AUTO_SCROLL_THRESHOLD = 24;
 const OPPONENT_MOVE_TIMEOUT_MS = 60_000;
-const SHOW_SYNC_HEALTH_PANEL = false;
 const ROOM_MISSING_CHECK_DELAY_MS = 2_200;
 const ROOM_MISSING_CLOSE_GRACE_MS = 9_000;
 const ACTIVITY_CLOCK_SKEW_LIMIT_MS = 24 * 60 * 60 * 1000;
@@ -392,6 +391,7 @@ const ROOM_START_GATE_RESYNC_DELAY_MS = 700;
 const FLOW_EVENT_LOG_LIMIT = 120;
 const FLOW_EVENT_DEDUPE_DEFAULT_MS = 2_500;
 const ENABLE_FLOW_DEBUG_LOGS = false;
+const DIAGNOSTICS_MODE_STORAGE_KEY = "tavla.diag.mode.v1";
 const ROOM_PICKER_REFRESH_INTERVAL_MS = 6_000;
 const ROOM_PICKER_REMOTE_REFRESH_MIN_MS = 12_000;
 const ROOM_PICKER_REMOTE_FETCH_TIMEOUT_MS = 4_000;
@@ -545,6 +545,21 @@ function safeStorageRemoveItem(storage: Storage | null | undefined, key: string)
   } catch {
     return false;
   }
+}
+
+function readDiagnosticsEnabled() {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  const rawParam = (params.get("diag") || "").trim().toLowerCase();
+  if (rawParam === "1" || rawParam === "true" || rawParam === "on") {
+    safeStorageSetItem(window.localStorage, DIAGNOSTICS_MODE_STORAGE_KEY, "1");
+    return true;
+  }
+  if (rawParam === "0" || rawParam === "false" || rawParam === "off") {
+    safeStorageRemoveItem(window.localStorage, DIAGNOSTICS_MODE_STORAGE_KEY);
+    return false;
+  }
+  return safeStorageGetItem(window.localStorage, DIAGNOSTICS_MODE_STORAGE_KEY) === "1";
 }
 
 function loadJson<T>(key: string, fallback: T): T {
@@ -2577,6 +2592,7 @@ function App() {
   const [realtimeSocketReadyState, setRealtimeSocketReadyState] = useState<number>(
     typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED,
   );
+  const [diagnosticsEnabled] = useState(() => readDiagnosticsEnabled());
   const [syncHealth, setSyncHealth] = useState({
     lastIncomingAt: 0,
     lastIncomingServerAt: 0,
@@ -2587,9 +2603,14 @@ function App() {
     lastHttpPullAt: 0,
     lastHttpPullReason: "",
     lastWsOpenAt: 0,
+    wsOpenCount: 0,
+    wsCloseCount: 0,
+    wsErrorCount: 0,
     lastWsMessageAt: 0,
     lastWsSendAt: 0,
     lastWsSendReason: "",
+    httpPushCount: 0,
+    httpPullCount: 0,
     lastError: "",
   });
   const [flowEvents, setFlowEvents] = useState<FlowEvent[]>([]);
@@ -3464,6 +3485,7 @@ function App() {
         ...prev,
         lastHttpPushAt: now,
         lastHttpPushReason: reason,
+        httpPushCount: prev.httpPushCount + 1,
         lastError: "",
       }));
       clearHttpSyncFailureState();
@@ -3526,6 +3548,7 @@ function App() {
         ...prev,
         lastHttpPullAt: now,
         lastHttpPullReason: reason,
+        httpPullCount: prev.httpPullCount + 1,
         lastError: "",
       }));
       clearHttpSyncFailureState();
@@ -7027,7 +7050,12 @@ function App() {
           console.debug("[WS] opened", { session: appSessionId, url: socket.url });
         }
         setRealtimeSocketReadyState(socket.readyState);
-        setSyncHealth((prev) => ({ ...prev, lastWsOpenAt: Date.now(), lastError: "" }));
+        setSyncHealth((prev) => ({
+          ...prev,
+          lastWsOpenAt: Date.now(),
+          wsOpenCount: prev.wsOpenCount + 1,
+          lastError: "",
+        }));
         setRealtimeStatus("online");
         const helloMessage: RealtimeMessage = {
           kind: "hello",
@@ -7066,7 +7094,11 @@ function App() {
       socket.addEventListener("error", () => {
         if (cancelled || realtimeSocketRef.current !== socket) return;
         if (activeRealtimeLobbyChannelRef.current !== channelForConnection) return;
-        setSyncHealth((prev) => ({ ...prev, lastError: "ws baglanti hatasi" }));
+        setSyncHealth((prev) => ({
+          ...prev,
+          wsErrorCount: prev.wsErrorCount + 1,
+          lastError: "ws baglanti hatasi",
+        }));
         setRealtimeStatus("offline");
       });
 
@@ -7089,6 +7121,10 @@ function App() {
         }
         realtimeSocketRef.current = null;
         setRealtimeSocketReadyState(typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED);
+        setSyncHealth((prev) => ({
+          ...prev,
+          wsCloseCount: prev.wsCloseCount + 1,
+        }));
         setRealtimeStatus("offline");
         if (realtimeWsDisabledUntilRef.current > Date.now()) {
           scheduleReconnect(Math.min(Math.max(realtimeWsDisabledUntilRef.current - Date.now() + 120, 600), WS_DISABLE_DURATION_MS));
@@ -9257,7 +9293,7 @@ function App() {
               </div>
             </section>
 
-            {SHOW_SYNC_HEALTH_PANEL ? (
+            {diagnosticsEnabled ? (
               <section className="my-side-card my-side-card-sync">
                 <h3>Canli Senkron</h3>
                 <div className="my-sync-grid">
@@ -9268,6 +9304,10 @@ function App() {
                   <div className="my-sync-row">
                     <span>WebSocket</span>
                     <strong>{websocketStateText(realtimeSocketReadyState)}</strong>
+                  </div>
+                  <div className="my-sync-row">
+                    <span>WS Ac/Kapa/Hata</span>
+                    <strong>{syncHealth.wsOpenCount} / {syncHealth.wsCloseCount} / {syncHealth.wsErrorCount}</strong>
                   </div>
                   <div className="my-sync-row">
                     <span>Session</span>
@@ -9304,6 +9344,10 @@ function App() {
                   <div className="my-sync-row">
                     <span>Pull Sebebi</span>
                     <strong>{syncHealth.lastHttpPullReason || "-"}</strong>
+                  </div>
+                  <div className="my-sync-row">
+                    <span>HTTP Push/Pull Sayisi</span>
+                    <strong>{syncHealth.httpPushCount} / {syncHealth.httpPullCount}</strong>
                   </div>
                 </div>
                 <div className="my-sync-flow-log">

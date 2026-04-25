@@ -27,6 +27,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - masadan ayrilma/lobiye donme,
    - otomatik baslatma (iki koltuk dolunca) olaylari kaydediliyor.
    - panel acik oldugunda son akis olaylari izlenebiliyor.
+6. Guvenli diagnostik modu:
+   - varsayilan kapali, oyun davranisini etkilemez,
+   - `?diag=1` ile acilabilir (kalici saklanir),
+   - WS ac/kapa/hata ve HTTP push/pull sayaçlari panelde izlenebilir.
 
 ## Sonraki adimlar
 
