@@ -50,6 +50,22 @@ const checks = [
       source.includes("leavePermissionRequestByUserId: string | null;")
       && source.includes("leavePermissionGrantedToUserId: string | null;"),
   },
+  {
+    label: "Akis log fonksiyonu mevcut",
+    test: () => source.includes("function appendFlowEvent("),
+  },
+  {
+    label: "Masaya oturma akis loglari mevcut",
+    test: () =>
+      source.includes("appendFlowEvent(\"seat.joined\"")
+      && source.includes("appendFlowEvent(\"seat.blocked\""),
+  },
+  {
+    label: "Masadan ayrilma akis loglari mevcut",
+    test: () =>
+      source.includes("\"seat.release\"")
+      && source.includes("appendFlowEvent(\"table.leave\""),
+  },
 ];
 
 const failed = checks.filter((check) => !check.test());

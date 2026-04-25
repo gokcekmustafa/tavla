@@ -22,6 +22,11 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
 4. Oyun baslangici iframe senkronu icin guvenlik takviyesi:
    - `table-chat-ready` mesajinda `room-start-gate` yeniden senkron ediliyor,
    - iframe `onLoad` sonrasinda kisa gecikmeli bir ek `room-start-gate` senkronu yapiliyor.
+5. Hafif akis log katmani eklendi:
+   - masaya oturma/engellenme,
+   - masadan ayrilma/lobiye donme,
+   - otomatik baslatma (iki koltuk dolunca) olaylari kaydediliyor.
+   - panel acik oldugunda son akis olaylari izlenebiliyor.
 
 ## Sonraki adimlar
 

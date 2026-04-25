@@ -232,6 +232,17 @@ type LobbyRoomCounts = {
   seatedPlayers: number;
 };
 
+type FlowEvent = {
+  id: string;
+  at: number;
+  kind: string;
+  detail: string;
+  lobbyId: string;
+  tableId: number;
+  roomCode: string;
+  seat: Seat | null;
+};
+
 type ChatMessage = {
   id: string;
   at: number;
@@ -378,6 +389,9 @@ const HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS = 10_000;
 const HTTP_SYNC_ERROR_BACKOFF_MIN_MS = 1_500;
 const HTTP_SYNC_ERROR_BACKOFF_MAX_MS = 30_000;
 const ROOM_START_GATE_RESYNC_DELAY_MS = 700;
+const FLOW_EVENT_LOG_LIMIT = 120;
+const FLOW_EVENT_DEDUPE_DEFAULT_MS = 2_500;
+const ENABLE_FLOW_DEBUG_LOGS = false;
 const ROOM_PICKER_REFRESH_INTERVAL_MS = 6_000;
 const ROOM_PICKER_REMOTE_REFRESH_MIN_MS = 12_000;
 const ROOM_PICKER_REMOTE_FETCH_TIMEOUT_MS = 4_000;
@@ -2578,6 +2592,7 @@ function App() {
     lastWsSendReason: "",
     lastError: "",
   });
+  const [flowEvents, setFlowEvents] = useState<FlowEvent[]>([]);
 
   const lobbyChannelRef = useRef<BroadcastChannel | null>(null);
   const realtimeSocketRef = useRef<WebSocket | null>(null);
@@ -2622,6 +2637,8 @@ function App() {
   const leaveRejectNoticeSeenKeyRef = useRef("");
   const leaveConfirmResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const roomMissingSinceRef = useRef<number | null>(null);
+  const flowEventSeqRef = useRef(0);
+  const flowEventLastSeenRef = useRef<Map<string, number>>(new Map());
   const previousLobbyIdRef = useRef<string>("");
   const latestLegacyStateRef = useRef<{
     matchToken: string;
@@ -2727,6 +2744,53 @@ function App() {
     leaveConfirmResolverRef.current = null;
     if (resolver) resolver(false);
   }, []);
+
+  function appendFlowEvent(
+    kind: string,
+    detail: string,
+    payload?: {
+      lobbyId?: string;
+      tableId?: number;
+      roomCode?: string;
+      seat?: Seat | null;
+      dedupeKey?: string;
+      dedupeMs?: number;
+    },
+  ) {
+    const now = Date.now();
+    const dedupeKey = payload?.dedupeKey ? `${kind}:${payload.dedupeKey}` : "";
+    const dedupeMs = Number.isFinite(payload?.dedupeMs) ? Math.max(0, Math.trunc(Number(payload?.dedupeMs))) : FLOW_EVENT_DEDUPE_DEFAULT_MS;
+    if (dedupeKey && dedupeMs > 0) {
+      const previousAt = flowEventLastSeenRef.current.get(dedupeKey) ?? 0;
+      if (previousAt > 0 && now - previousAt < dedupeMs) {
+        return;
+      }
+      flowEventLastSeenRef.current.set(dedupeKey, now);
+    }
+    flowEventSeqRef.current += 1;
+    const entry: FlowEvent = {
+      id: `${now.toString(36)}-${flowEventSeqRef.current.toString(36)}`,
+      at: now,
+      kind: sanitizeChatId(kind).slice(0, 48) || "flow",
+      detail: sanitizeChatText(detail).slice(0, 180) || "-",
+      lobbyId: sanitizeLobbyId(payload?.lobbyId ?? activeLobbyId) || activeLobbyId,
+      tableId: Number.isFinite(payload?.tableId) ? Math.max(0, Math.trunc(Number(payload?.tableId))) : 0,
+      roomCode: sanitizeRoomCode(payload?.roomCode ?? ""),
+      seat: payload?.seat === "white" || payload?.seat === "black" ? payload.seat : null,
+    };
+    setFlowEvents((previous) => {
+      const next = [...previous, entry];
+      return next.length > FLOW_EVENT_LOG_LIMIT ? next.slice(next.length - FLOW_EVENT_LOG_LIMIT) : next;
+    });
+    if (ENABLE_FLOW_DEBUG_LOGS) {
+      console.debug("[FLOW]", entry.kind, entry.detail, {
+        lobbyId: entry.lobbyId,
+        tableId: entry.tableId,
+        roomCode: entry.roomCode,
+        seat: entry.seat,
+      });
+    }
+  }
 
   const safeGuestName = useMemo(() => {
     const memberName = member ? sanitizeGuestName(member.displayName) : "";
@@ -3659,20 +3723,32 @@ function App() {
   }
 
   function releaseSeatOnly() {
+    let changed = false;
+    let closedCount = 0;
+    let targetTableId = 0;
+    let targetRoomCode = "";
+    let targetSeat: Seat | null = null;
+
     writeLobby((current) => {
       const cleaned = cleanupStaleAndPrune(current.tables).tables;
       const scopedUserId = roomSession && roomSession.role === "player" ? sanitizeGuestId(currentProfile.userId) : "";
       const scopedRoomCode = roomSession && roomSession.role === "player" ? sanitizeRoomCode(roomSession.code) : "";
       const scopedTableId = roomSession && roomSession.role === "player" ? Math.max(1, roomSession.tableNo) : 0;
+      const mySeatBefore = findSessionSeat(cleaned, appSessionId);
+      targetTableId = mySeatBefore?.table.id ?? scopedTableId;
+      targetRoomCode = mySeatBefore?.table.roomCode ?? scopedRoomCode;
+      targetSeat = mySeatBefore?.seat ?? null;
       const cleared = clearSessionFromTables(cleaned, appSessionId, scopedUserId, scopedRoomCode, scopedTableId);
       const pruned = cleanupStaleAndPrune(cleared.tables).tables;
       const closedRoomCodes = cleared.tables
         .filter((table) => !table.white && !table.black)
         .map((table) => table.roomCode);
+      closedCount = closedRoomCodes.length;
       const nextClosedTableRooms = markClosedTableRooms(current.closedTableRooms, closedRoomCodes);
       const tablesSame = JSON.stringify(pruned) === JSON.stringify(cleaned);
       const closedSame = JSON.stringify(nextClosedTableRooms) === JSON.stringify(current.closedTableRooms);
       if (!cleared.changed && tablesSame && closedSame) return current;
+      changed = true;
       return {
         ...current,
         tables: pruned,
@@ -3680,6 +3756,19 @@ function App() {
         updatedAt: Date.now(),
       };
     });
+
+    if (changed) {
+      appendFlowEvent(
+        "seat.release",
+        closedCount > 0 ? "Masadan cikildi, bosalan masa kapatildi." : "Masadan cikildi.",
+        {
+          tableId: targetTableId,
+          roomCode: targetRoomCode,
+          seat: targetSeat,
+          dedupeKey: `${targetRoomCode || targetTableId}-release`,
+        },
+      );
+    }
   }
 
   function goToTable(table: LobbyTable, seat: Seat) {
@@ -3709,6 +3798,13 @@ function App() {
     setViewMode("table");
     setInvitePickerTableId(null);
     setLobbyNotice("");
+    appendFlowEvent("table.enter", "Masa gorunumu acildi.", {
+      tableId: table.id,
+      roomCode: table.roomCode,
+      seat,
+      dedupeKey: `${table.roomCode}-${seat}-enter`,
+      dedupeMs: 1_000,
+    });
     forceReloadBoard();
   }
 
@@ -3757,6 +3853,8 @@ function App() {
     let seatBlocked = false;
     let blockReason: UpsertSeatResult["reason"] = null;
     let resolvedTable: LobbyTable | null = null;
+    let autoStarted = false;
+    let autoStartedRoomCode = "";
 
     const next = writeLobby((current) => {
       const cleaned = cleanupStaleAndPrune(current.tables).tables;
@@ -3884,6 +3982,10 @@ function App() {
           };
 
       const started = autoStartTableWhenBothSeated(patched, now);
+      if (!patched.startedAt && Boolean(started.startedAt)) {
+        autoStarted = true;
+        autoStartedRoomCode = started.roomCode;
+      }
       tables[index] = normalizeTableAccess(normalizeTableStartGate(started));
       const nextTables = sortTables(tables);
       resolvedTable = nextTables.find((row) => row.id === patched.id) ?? normalizeTableAccess(normalizeTableStartGate(started));
@@ -3897,6 +3999,15 @@ function App() {
 
     if (!next || seatBlocked) {
       return { table: null, reason: blockReason };
+    }
+    if (autoStarted) {
+      appendFlowEvent("table.autostart", "Iki koltuk doldugu icin oyun otomatik basladi.", {
+        tableId,
+        roomCode: autoStartedRoomCode || sanitizeRoomCode(explicitRoomCode ?? ""),
+        seat,
+        dedupeKey: `${autoStartedRoomCode || tableId}-autostart`,
+        dedupeMs: 1_000,
+      });
     }
     if (resolvedTable) return { table: resolvedTable, reason: null };
     return {
@@ -3914,6 +4025,12 @@ function App() {
       : false;
 
     if (existing && !sameTable) {
+      appendFlowEvent("seat.blocked", "Oyuncu ayni anda ikinci masaya oturmaya calisti.", {
+        tableId,
+        roomCode: roomCode || existing.table.roomCode,
+        seat,
+        dedupeKey: `already-seated-${tableId}-${seat}`,
+      });
       setLobbyNotice(`Aynı anda sadece tek masada oturabilirsin. Önce Masa ${existing.table.id} için masadan kalkmalısın.`);
       setViewMode("lobby");
       return null;
@@ -3922,6 +4039,12 @@ function App() {
     const upserted = upsertMySeat(tableId, seat, explicitRoomCode);
     const table = upserted.table;
     if (!table) {
+      appendFlowEvent("seat.blocked", `Koltuga oturma engellendi: ${upserted.reason || "occupied"}.`, {
+        tableId,
+        roomCode: roomCode || "",
+        seat,
+        dedupeKey: `${upserted.reason || "occupied"}-${tableId}-${seat}`,
+      });
       if (upserted.reason === "duplicate-user") {
         setLobbyNotice("Bu hesap baska bir tarayicida aktif. Diger oturumu kapatip tekrar deneyin.");
       } else if (upserted.reason === "already-seated") {
@@ -3935,6 +4058,13 @@ function App() {
       }
       return null;
     }
+    appendFlowEvent("seat.joined", "Oyuncu masaya oturdu.", {
+      tableId: table.id,
+      roomCode: table.roomCode,
+      seat,
+      dedupeKey: `${table.roomCode}-${seat}-joined`,
+      dedupeMs: 900,
+    });
     if (openGameView) {
       goToTable(table, seat);
     } else {
@@ -4176,6 +4306,13 @@ function App() {
     }
 
     closeRoomAndReturnLobby();
+    appendFlowEvent("table.leave", "Oyuncu masadan ayrildi.", {
+      tableId: roomSession?.tableNo ?? 0,
+      roomCode: roomSession?.code ?? "",
+      seat: roomSession?.role === "player" ? roomSession.seat : null,
+      dedupeKey: `${roomSession?.code || roomSession?.tableNo || "x"}-leave`,
+      dedupeMs: 900,
+    });
     if (penalized) {
       setLobbyNotice(`Masadan ayrıldın: -${gameRules.resignPenaltyPoints} puan. Rakibin +${gameRules.winPoints} puan kazandı.`);
       return;
@@ -6304,6 +6441,9 @@ function App() {
   }
 
   function closeRoomAndReturnLobby() {
+    const leavingTableId = roomSession?.tableNo ?? 0;
+    const leavingRoomCode = roomSession?.code ?? "";
+    const leavingSeat = roomSession?.role === "player" ? roomSession.seat : null;
     releaseSeatOnly();
     setRoomSession(null);
     setInvitePickerTableId(null);
@@ -6317,6 +6457,13 @@ function App() {
       matchActive: false,
       winner: null,
       localColor: null,
+    });
+    appendFlowEvent("view.lobby", "Masa gorunumunden lobiye donuldu.", {
+      tableId: leavingTableId,
+      roomCode: leavingRoomCode,
+      seat: leavingSeat,
+      dedupeKey: `${leavingRoomCode || leavingTableId}-lobby`,
+      dedupeMs: 900,
     });
     forceReloadBoard();
   }
@@ -6496,6 +6643,8 @@ function App() {
     if (roomSession.role !== "player") return;
     let blocked = false;
     let blockedReason: "occupied" | "private" | "already-seated" | "duplicate-user" | null = null;
+    let autoStarted = false;
+    let resolvedRoomCode = "";
 
     writeLobby((current) => {
       const cleaned = cleanupStaleAndPrune(current.tables).tables;
@@ -6541,6 +6690,7 @@ function App() {
       }
 
       table = { ...table, roomCode };
+      resolvedRoomCode = table.roomCode;
       const existingSeat = findSessionSeat(cleaned, appSessionId);
       const isSameTable = existingSeat
         ? existingSeat.table.id === table.id || existingSeat.table.roomCode === roomCode
@@ -6617,6 +6767,9 @@ function App() {
           };
 
       const started = autoStartTableWhenBothSeated(patched, now);
+      if (!patched.startedAt && Boolean(started.startedAt)) {
+        autoStarted = true;
+      }
       tables[index] = normalizeTableAccess(normalizeTableStartGate(started));
       return {
         ...current,
@@ -6627,6 +6780,12 @@ function App() {
     });
 
     if (blocked) {
+      appendFlowEvent("seat.heartbeat-blocked", `Koltuk kalp atisi engellendi: ${blockedReason || "occupied"}.`, {
+        tableId: roomSession.tableNo,
+        roomCode: resolvedRoomCode || roomSession.code,
+        seat: roomSession.seat,
+        dedupeKey: `${resolvedRoomCode || roomSession.code}-${roomSession.seat}-${blockedReason || "occupied"}`,
+      });
       if (blockedReason === "private") {
         setLobbyNotice("Bu masa ozel oldugu icin koltuk korunuyor.");
       } else if (blockedReason === "duplicate-user") {
@@ -6636,6 +6795,16 @@ function App() {
       } else {
         setLobbyNotice(`${seatText(roomSession.seat)} koltugu dolu gorunuyor.`);
       }
+      return;
+    }
+    if (autoStarted) {
+      appendFlowEvent("table.autostart", "Kalp atisinda iki koltuk dolu goruldu, oyun otomatik baslatildi.", {
+        tableId: roomSession.tableNo,
+        roomCode: resolvedRoomCode || roomSession.code,
+        seat: roomSession.seat,
+        dedupeKey: `${resolvedRoomCode || roomSession.code}-heartbeat-autostart`,
+        dedupeMs: 1_000,
+      });
     }
   }
 
@@ -9135,6 +9304,20 @@ function App() {
                   <div className="my-sync-row">
                     <span>Pull Sebebi</span>
                     <strong>{syncHealth.lastHttpPullReason || "-"}</strong>
+                  </div>
+                </div>
+                <div className="my-sync-flow-log">
+                  <p className="line">Akis Olaylari ({flowEvents.length})</p>
+                  <div className="my-sync-flow-list">
+                    {flowEvents.length === 0 ? (
+                      <p className="my-chat-empty">Henuz akis olayi yok.</p>
+                    ) : (
+                      flowEvents.slice(-8).reverse().map((entry) => (
+                        <p key={entry.id} className="my-sync-flow-item">
+                          <strong>{entry.kind}</strong> - {entry.detail}
+                        </p>
+                      ))
+                    )}
                   </div>
                 </div>
                 <button className="my-action-btn soft" onClick={() => void runRealtimeHealthProbe()}>

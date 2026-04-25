@@ -1275,6 +1275,32 @@
   font-size: 0.76rem;
 }
 
+.my-sync-flow-log {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.my-sync-flow-list {
+  max-height: 110px;
+  overflow: auto;
+  border: 1px solid rgba(173, 223, 242, 0.25);
+  border-radius: 8px;
+  padding: 6px;
+  background: rgba(0, 22, 34, 0.32);
+}
+
+.my-sync-flow-item {
+  margin: 0;
+  font-size: 0.73rem;
+  line-height: 1.26;
+  color: #dff5ff;
+}
+
+.my-sync-flow-item + .my-sync-flow-item {
+  margin-top: 4px;
+}
+
 .my-member-card .line,
 .my-side-card .line {
   margin: 0;
