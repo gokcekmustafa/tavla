@@ -2173,11 +2173,19 @@ function getInitialRoomSession(): RoomSession | null {
   return null;
 }
 
-function getInitialLobbyId() {
+function getActiveLobbyStorageKey(gameId: GameId) {
+  return `${ACTIVE_LOBBY_ID_KEY}.${gameId}`;
+}
+
+function getInitialLobbyId(gameId: GameId = DEFAULT_GAME_ID) {
   if (typeof window === "undefined") return "";
   const params = new URLSearchParams(window.location.search);
   const fromUrl = sanitizeLobbyId(params.get("lobby") ?? "");
   if (fromUrl) return fromUrl;
+  const fromScopedStorage = sanitizeLobbyId(
+    safeStorageGetItem(window.localStorage, getActiveLobbyStorageKey(gameId)) ?? "",
+  );
+  if (fromScopedStorage) return fromScopedStorage;
   const fromStorage = sanitizeLobbyId(safeStorageGetItem(window.localStorage, ACTIVE_LOBBY_ID_KEY) ?? "");
   return fromStorage;
 }
@@ -2515,7 +2523,8 @@ function App() {
   const [selectedLobbyId, setSelectedLobbyId] = useState<string>(() => {
     const fromRoom = sanitizeLobbyId(initialRoom?.lobbyId ?? "");
     if (fromRoom) return fromRoom;
-    return sanitizeLobbyId(getInitialLobbyId()) || DEFAULT_LOBBY_ID;
+    const initialGameId = readGameIdFromUrl() ?? loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID;
+    return sanitizeLobbyId(getInitialLobbyId(initialGameId)) || DEFAULT_LOBBY_ID;
   });
   const [lobbyRooms, setLobbyRooms] = useState<LobbyRoom[]>(() => normalizeLobbyRooms([
     {
@@ -2562,7 +2571,7 @@ function App() {
   const normalizedLobbyNotice = useMemo(() => normalizeTurkishDisplayText(lobbyNotice), [lobbyNotice]);
   const [invitePickerTableId, setInvitePickerTableId] = useState<number | null>(null);
   const [lobbyState, setLobbyState] = useState<LobbyState>(() => {
-    const initialLobbyId = sanitizeLobbyId(initialRoom?.lobbyId ?? "") || sanitizeLobbyId(getInitialLobbyId()) || DEFAULT_LOBBY_ID;
+    const initialLobbyId = sanitizeLobbyId(initialRoom?.lobbyId ?? "") || sanitizeLobbyId(getInitialLobbyId(selectedGameId)) || DEFAULT_LOBBY_ID;
     const roomName = sanitizeLobbyName(initialRoom?.roomName ?? DEFAULT_LOBBY_NAME);
     const loaded = loadLobbyState(makeLobbyStateStorageKey(initialLobbyId), roomName);
     if (loaded.lobbyName === roomName) return loaded;
@@ -7479,7 +7488,11 @@ function App() {
   useEffect(() => {
     const safeLobbyId = sanitizeLobbyId(activeLobbyId) || DEFAULT_LOBBY_ID;
     if (typeof window !== "undefined") {
-      safeStorageSetItem(window.localStorage, ACTIVE_LOBBY_ID_KEY, safeLobbyId);
+      safeStorageSetItem(window.localStorage, getActiveLobbyStorageKey(selectedGameId), safeLobbyId);
+      if (selectedGameId === DEFAULT_GAME_ID) {
+        // Tavla için eski storage anahtarını da güncel tutuyoruz.
+        safeStorageSetItem(window.localStorage, ACTIVE_LOBBY_ID_KEY, safeLobbyId);
+      }
     }
     const loaded = loadLobbyState(makeLobbyStateStorageKey(safeLobbyId), activeLobbyName);
     const next = loaded.lobbyName === activeLobbyName
@@ -7500,7 +7513,7 @@ function App() {
       setViewMode("lobby");
       setLobbyNotice(`${activeLobbyName} odasina gecildi.`);
     }
-  }, [activeLobbyId, activeLobbyName]);
+  }, [activeLobbyId, activeLobbyName, selectedGameId]);
 
   useEffect(() => {
     let cancelled = false;
