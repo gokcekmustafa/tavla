@@ -95,9 +95,13 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-mobile-drag-fallback.mjs` eklendi,
    - touch/cift dokunma, drag kaynak fallback, pointer hint ve kirik pul uyari baglantilari kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+23. Kritik akis olaylari gozlenebilirlik smoke kontrolu:
+   - `scripts/smoke-flow-event-observability.mjs` eklendi,
+   - `appendFlowEvent` dedupe/log-limit, kritik event baglantilari ve diagnostik panelde akis listelemesi kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
-1. Oyuncu/masa gecislerinde kritik olaylari (oturma, ayrilma, oyun baslangici) hafif event log ile izlemek.
+1. Coklu browser refresh + room summary sayac tutarliligi icin regress smoke adimi eklemek.
 2. Coklu browser refresh + room summary sayaç tutarliligi icin regress smoke adimi eklemek.
 3. Masa/sync hata durumlarinda kullaniciya gosterilen kritik notice metinleri icin guard adimi eklemek.
