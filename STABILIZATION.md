@@ -130,7 +130,11 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `docs/GIT_PUSH_CREDENTIALS_WINDOWS.md` eklendi,
    - `scripts/smoke-git-push-credentials.mjs` eklendi,
    - Windows repoda `http.sslBackend=openssl` ve `credential.helper=manager-core` ayarlari otomatik kontrol edilerek `check:safe` zincirine baglandi.
+32. BQ-001 triage baslangic kilidi:
+   - `docs/bugs/BQ-001.md` olusturuldu (tek bug kaydi acildi),
+   - `scripts/smoke-bq001-triage-ready.mjs` eklendi,
+   - kuyrukta BQ-001 satiri + detay kaydi baglantisi ve zorunlu triage basliklari otomatik kontrol edilerek `check:safe` zincirine baglandi.
 
 ## Sonraki adimlar
 
-1. BQ-001 icin canli bug triage'ini baslatip tek bugfix turuna gecmek.
+1. BQ-001'e ilk dogrulanabilir canli bug'i isleyip `triaged` durumuna almak.

@@ -23,7 +23,7 @@ Sablon: `docs/BUGFIX_TRIAGE_TEMPLATE.md`
 
 | ID | Oncelik | Durum | Alan | Ozet | Sonraki Aksiyon |
 | --- | --- | --- | --- | --- | --- |
-| BQ-001 | P1 | new | Runtime | Ilk canli bug bekleniyor | Kullanicidan gelen ilk dogrulanabilir bug ile triage baslat |
+| BQ-001 | P1 | new | Runtime | Ilk canli bug bekleniyor (`docs/bugs/BQ-001.md`) | Kullanicidan gelen ilk dogrulanabilir bug ile triage baslat |
 
 ## Triage Notu (Her Bug Icin Zorunlu)
 
