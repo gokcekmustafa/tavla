@@ -87,9 +87,13 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-room-transition-close.mjs` eklendi,
    - oda degisimi engelleri, seat release, room-missing grace kapanisi, beforeunload temizligi ve closed-table baglantilari kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+21. Masadan cikis ceza/izin kurali unit kontrolu:
+   - `scripts/unit-leave-penalty-rules.mjs` eklendi,
+   - ceza karar mantigi (izin, timeout waiver, rakip baglantisi, seri durumu) senaryo bazli unit seviyede dogrulaniyor,
+   - App.tsx ile kaynak baglanti (guard) kontrolleri ile birlikte `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
 1. Oyuncu/masa gecislerinde kritik olaylari (oturma, ayrilma, oyun baslangici) hafif event log ile izlemek.
-2. Masadan cikis/izin akisi icin birim seviyesinde saf fonksiyon testleri yazmak.
-3. Mobil secim hassasiyeti + drag/drop fallback akisi icin odakli regress smoke adimi eklemek.
+2. Mobil secim hassasiyeti + drag/drop fallback akisi icin odakli regress smoke adimi eklemek.
+3. Coklu browser refresh + room summary sayaç tutarliligi icin regress smoke adimi eklemek.
