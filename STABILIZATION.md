@@ -83,9 +83,13 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-two-client-start.mjs` eklendi,
    - auto-start, heartbeat yedegi, WS/HTTP snapshot yayin-alim ve room-start-gate baglantilari birlikte kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+20. Oda gecisi + masa kapanis regress smoke kontrolu:
+   - `scripts/smoke-room-transition-close.mjs` eklendi,
+   - oda degisimi engelleri, seat release, room-missing grace kapanisi, beforeunload temizligi ve closed-table baglantilari kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
 1. Oyuncu/masa gecislerinde kritik olaylari (oturma, ayrilma, oyun baslangici) hafif event log ile izlemek.
 2. Masadan cikis/izin akisi icin birim seviyesinde saf fonksiyon testleri yazmak.
-3. Oda degisimi + masa kapanisi gecisleri icin odakli regress smoke adimi eklemek.
+3. Mobil secim hassasiyeti + drag/drop fallback akisi icin odakli regress smoke adimi eklemek.
