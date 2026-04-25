@@ -335,6 +335,7 @@ type RealtimeMessage = {
 type RoomPickerSessionState = {
   identity: string;
   lobbyId: string;
+  gameId: GameId;
   confirmedAt: number;
 };
 
@@ -2046,19 +2047,29 @@ function getRoomPickerIdentity(memberUserId: string | null | undefined, guestId:
   return `guest:${safeGuestId || "guest"}`;
 }
 
-function loadRoomPickerSessionState(): RoomPickerSessionState | null {
+function getRoomPickerSessionStorageKey(gameId: GameId) {
+  return `${ROOM_PICKER_SESSION_KEY}.${gameId}`;
+}
+
+function loadRoomPickerSessionState(gameId: GameId = DEFAULT_GAME_ID): RoomPickerSessionState | null {
   if (typeof window === "undefined") return null;
-  const raw = safeStorageGetItem(window.sessionStorage, ROOM_PICKER_SESSION_KEY);
+  const scopedKey = getRoomPickerSessionStorageKey(gameId);
+  let raw = safeStorageGetItem(window.sessionStorage, scopedKey);
+  if (!raw && gameId === DEFAULT_GAME_ID) {
+    raw = safeStorageGetItem(window.sessionStorage, ROOM_PICKER_SESSION_KEY);
+  }
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<RoomPickerSessionState>;
     const identity = typeof parsed.identity === "string" ? parsed.identity.trim().slice(0, 80) : "";
     const lobbyId = sanitizeLobbyId(typeof parsed.lobbyId === "string" ? parsed.lobbyId : "");
-    if (!identity || !lobbyId) return null;
+    const storedGameId: GameId = parsed.gameId === "okey101" ? "okey101" : DEFAULT_GAME_ID;
+    if (!identity || !lobbyId || storedGameId !== gameId) return null;
     const confirmedAt = Number.isFinite(parsed.confirmedAt) ? Number(parsed.confirmedAt) : Date.now();
     return {
       identity,
       lobbyId,
+      gameId: storedGameId,
       confirmedAt,
     };
   } catch {
@@ -2066,32 +2077,47 @@ function loadRoomPickerSessionState(): RoomPickerSessionState | null {
   }
 }
 
-function saveRoomPickerSessionState(identity: string, lobbyId: string) {
+function saveRoomPickerSessionState(identity: string, lobbyId: string, gameId: GameId = DEFAULT_GAME_ID) {
   if (typeof window === "undefined") return;
   const safeIdentity = identity.trim().slice(0, 80);
   const safeLobbyId = sanitizeLobbyId(lobbyId);
   if (!safeIdentity || !safeLobbyId) return;
+  const payload = JSON.stringify({
+    identity: safeIdentity,
+    lobbyId: safeLobbyId,
+    gameId,
+    confirmedAt: Date.now(),
+  } satisfies RoomPickerSessionState);
   safeStorageSetItem(
     window.sessionStorage,
-    ROOM_PICKER_SESSION_KEY,
-    JSON.stringify({
-      identity: safeIdentity,
-      lobbyId: safeLobbyId,
-      confirmedAt: Date.now(),
-    } satisfies RoomPickerSessionState),
+    getRoomPickerSessionStorageKey(gameId),
+    payload,
   );
+  if (gameId === DEFAULT_GAME_ID) {
+    // Legacy key'i yazarak mevcut tavla istemcileriyle uyumlulugu koru.
+    safeStorageSetItem(window.sessionStorage, ROOM_PICKER_SESSION_KEY, payload);
+  }
 }
 
-function clearRoomPickerSessionState() {
+function clearRoomPickerSessionState(gameId?: GameId) {
   if (typeof window === "undefined") return;
+  if (gameId) {
+    safeStorageRemoveItem(window.sessionStorage, getRoomPickerSessionStorageKey(gameId));
+    if (gameId === DEFAULT_GAME_ID) {
+      safeStorageRemoveItem(window.sessionStorage, ROOM_PICKER_SESSION_KEY);
+    }
+    return;
+  }
   safeStorageRemoveItem(window.sessionStorage, ROOM_PICKER_SESSION_KEY);
+  safeStorageRemoveItem(window.sessionStorage, getRoomPickerSessionStorageKey("tavla"));
+  safeStorageRemoveItem(window.sessionStorage, getRoomPickerSessionStorageKey("okey101"));
 }
 
-function shouldOpenRoomPickerInitially(initialRoom: RoomSession | null) {
+function shouldOpenRoomPickerInitially(initialRoom: RoomSession | null, gameId: GameId = DEFAULT_GAME_ID) {
   if (initialRoom) return false;
   const memberSession = loadMemberSession();
   const identity = getRoomPickerIdentity(memberSession?.userId ?? "", getOrCreateGuestId());
-  const sessionState = loadRoomPickerSessionState();
+  const sessionState = loadRoomPickerSessionState(gameId);
   if (!sessionState) return true;
   return sessionState.identity !== identity;
 }
@@ -2500,12 +2526,12 @@ function App() {
     return !loadSelectedGameIdFromSession();
   });
   const [roomPickerOpen, setRoomPickerOpen] = useState<boolean>(() => {
-    const selectedGame = loadSelectedGameIdFromSession();
-    if (selectedGame && selectedGame !== "tavla") return false;
+    const selectedGame = loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID;
+    if (selectedGame !== "tavla") return false;
     const entryScreen = readEntryScreenFromUrl();
     if (entryScreen === "room") return true;
     if (entryScreen === "game" || entryScreen === "lobby") return false;
-    return shouldOpenRoomPickerInitially(initialRoom);
+    return shouldOpenRoomPickerInitially(initialRoom, selectedGame);
   });
   const [adminLobbyNameDraft, setAdminLobbyNameDraft] = useState("");
   const [adminSelectedLobbyId, setAdminSelectedLobbyId] = useState("");
@@ -5288,7 +5314,7 @@ function App() {
     const safeLobbyId = sanitizeLobbyId(lobbyId);
     if (!safeLobbyId) return;
     const identity = getRoomPickerIdentity(member?.id ?? "", guestId);
-    saveRoomPickerSessionState(identity, safeLobbyId);
+    saveRoomPickerSessionState(identity, safeLobbyId, selectedGameId);
   }
 
   function selectLobbyRoom(lobbyId: string) {

@@ -18,14 +18,14 @@ const checks = [
   {
     label: "Room picker session state load/save/clear fonksiyonlari mevcut",
     test: () =>
-      has("function loadRoomPickerSessionState()")
-      && has("function saveRoomPickerSessionState(identity: string, lobbyId: string)")
-      && has("function clearRoomPickerSessionState()"),
+      has("function loadRoomPickerSessionState(")
+      && has("function saveRoomPickerSessionState(identity: string, lobbyId: string")
+      && has("function clearRoomPickerSessionState("),
   },
   {
     label: "Ilk acilista room picker karari identity bazli yapiliyor",
     test: () =>
-      has("function shouldOpenRoomPickerInitially(initialRoom: RoomSession | null)")
+      has("function shouldOpenRoomPickerInitially(initialRoom: RoomSession | null")
       && has("const identity = getRoomPickerIdentity(memberSession?.userId ?? \"\", getOrCreateGuestId());")
       && has("return sessionState.identity !== identity;"),
   },
@@ -39,7 +39,8 @@ const checks = [
     label: "Oda secimi remember + history push ile kalici hale getiriliyor",
     test: () =>
       has("function rememberRoomPickerSelection(lobbyId: string)")
-      && has("saveRoomPickerSessionState(identity, safeLobbyId);")
+      && (has("saveRoomPickerSessionState(identity, safeLobbyId);")
+        || has("saveRoomPickerSessionState(identity, safeLobbyId, selectedGameId);"))
       && has("function selectLobbyRoom(lobbyId: string)")
       && has("pushEntryScreenHistory(\"lobby\");"),
   },
