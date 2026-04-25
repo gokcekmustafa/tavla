@@ -164,11 +164,14 @@
   padding: 14px;
   display: grid;
   gap: 12px;
+  grid-auto-rows: max-content;
+  align-content: start;
 }
 
 .my-entry-head {
   display: grid;
   gap: 4px;
+  align-content: start;
 }
 
 .my-entry-head h2 {
@@ -188,6 +191,12 @@
   grid-template-columns: repeat(auto-fit, minmax(150px, 170px));
   gap: 8px;
   justify-content: start;
+  align-content: start;
+}
+
+.my-game-picker-page {
+  grid-auto-rows: max-content;
+  align-content: start;
 }
 
 .my-game-picker-card {
