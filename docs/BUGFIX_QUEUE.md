@@ -23,7 +23,7 @@ Sablon: `docs/BUGFIX_TRIAGE_TEMPLATE.md`
 
 | ID | Oncelik | Durum | Alan | Ozet | Sonraki Aksiyon |
 | --- | --- | --- | --- | --- | --- |
-| BQ-001 | P2 | triaged | Tooling | BQ kaydinda Turkce karakterler bozuk gorunuyor (`docs/bugs/BQ-001.md`) | Tek dosya odakli metin/encoding duzeltmesini in_progress'a al |
+| BQ-001 | P2 | in_progress | Tooling | BQ kaydinda Turkce karakter kodlama duzeltmesi uygulaniyor (`docs/bugs/BQ-001.md`) | Duzeltme sonrasi mojibake smoke + check:safe ile verifying'e al |
 
 ## Triage Notu (Her Bug Icin Zorunlu)
 

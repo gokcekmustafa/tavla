@@ -144,7 +144,11 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
 35. BQ-001 triage tamamlama (dokuman bug'i):
    - `docs/BUGFIX_QUEUE.md` icinde BQ-001 durumu `triaged` olarak guncellendi,
    - `docs/bugs/BQ-001.md` placeholder metinlerden arindirilarak yeniden uretim/beklenen-gerceklesen/etki alani/cozum stratejisi alanlariyla somut bug kaydina donusturuldu.
+36. BQ-001 in_progress + encoding duzeltme kilidi:
+   - `docs/BUGFIX_QUEUE.md` ve `docs/bugs/BQ-001.md` durumlari `in_progress` olarak senkronlandi,
+   - BQ-001 metnindeki bozulan karakter ifadeleri UTF-8 uyumlu hale getirildi,
+   - `scripts/smoke-bq001-encoding-fix.mjs` ile mojibake izleri (`Ã`, `�`) ve BQ-001 durum/formati otomatik kontrol edilerek `check:safe` zincirine baglandi.
 
 ## Sonraki adimlar
 
-1. BQ-001'i `in_progress` durumuna alip tek dosya odakli encoding duzeltmesini uygulamak.
+1. BQ-001 icin dokuman duzeltmesini `verifying` durumuna alip kapanis notunu hazirlamak.
