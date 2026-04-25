@@ -99,6 +99,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-flow-event-observability.mjs` eklendi,
    - `appendFlowEvent` dedupe/log-limit, kritik event baglantilari ve diagnostik panelde akis listelemesi kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+24. Oda ozet sayac refresh tutarliligi smoke kontrolu:
+   - `scripts/smoke-room-summary-refresh.mjs` eklendi,
+   - room picker cached/fallback ozet, remote refresh timeout-backoff ve UI masa/oyuncu sayaci baglantilari kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
