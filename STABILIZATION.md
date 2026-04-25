@@ -79,9 +79,13 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-room-start-sync.mjs` eklendi,
    - room-start-gate mesaj akisi, iframe onLoad re-sync, periyodik start-gate korumasi ve baslat overlay baglantilari kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+19. Iki istemcili oyun baslangic zinciri smoke kontrolu:
+   - `scripts/smoke-two-client-start.mjs` eklendi,
+   - auto-start, heartbeat yedegi, WS/HTTP snapshot yayin-alim ve room-start-gate baglantilari birlikte kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
 1. Oyuncu/masa gecislerinde kritik olaylari (oturma, ayrilma, oyun baslangici) hafif event log ile izlemek.
-2. "Oyun basladi ama bir tarafta baslamadi" senaryosu icin iki istemcili smoke akisi eklemek.
-3. Masadan cikis/izin akisi icin birim seviyesinde saf fonksiyon testleri yazmak.
+2. Masadan cikis/izin akisi icin birim seviyesinde saf fonksiyon testleri yazmak.
+3. Oda degisimi + masa kapanisi gecisleri icin odakli regress smoke adimi eklemek.
