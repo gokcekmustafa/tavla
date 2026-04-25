@@ -107,9 +107,18 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-critical-notices.mjs` eklendi,
    - masa/oda gecis engelleri, ozel masa uyarilari, masa kapanis/bulunamama ve senkron/servis notice metinleri kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+26. Diagnostics recovery checklist dokumani:
+   - `docs/DIAGNOSTICS_RECOVERY_CHECKLIST.md` eklendi,
+   - WS/HTTP toparlanma akislarini iki istemcili pratik kontrol adimlariyla standardize ediyor,
+   - runtime davranisa dokunmadan operasyonel hata tespitini hizlandiriyor.
 
 ## Sonraki adimlar
 
 1. Coklu browser refresh + room summary sayac tutarliligi icin regress smoke adimi eklemek.
 2. Coklu browser refresh + room summary sayaç tutarliligi icin regress smoke adimi eklemek.
 3. Masa/sync hata durumlarinda kullaniciya gosterilen kritik notice metinleri icin guard adimi eklemek.
+
+## Sonraki adimlar (guncel)
+
+1. Runtime bugfix odakli adima gecmek (tek sorun -> tek duzeltme -> check:safe).
+2. Push/deploy kimlik akisini kalici hale getirmek (SEC_E_NO_CREDENTIALS engelini kapatmak).
