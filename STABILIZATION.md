@@ -6,7 +6,7 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
 
 - Oyun akisini koruyup (masa acma/oturma/baslama/bitirme) regresyon riskini dusurmek
 - Canli senkron istemci yukunu kontrol altina almak
-- Her degisiklikte otomatik kontrol ile "bozulma" riskini erken yakalamak
+- Her degisiklikte otomatik kontrol ile bozulma riskini erken yakalamak
 
 ## Uygulanan ilk adimlar
 
@@ -30,12 +30,12 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
 6. Guvenli diagnostik modu:
    - varsayilan kapali, oyun davranisini etkilemez,
    - `?diag=1` ile acilabilir (kalici saklanir),
-   - WS ac/kapa/hata ve HTTP push/pull sayaçlari panelde izlenebilir.
+   - WS ac/kapa/hata ve HTTP push/pull sayaclari panelde izlenebilir.
 7. Oda/masa akis smoke kontrolu:
    - `scripts/smoke-room-flow.mjs` eklendi,
    - masa acma/oturma/baslatma/cikis zinciri ve kritik cagri baglantilari kontrol ediliyor,
    - `check:safe` icine dahil edildi.
-8. Canli senkron dayanıklılık smoke kontrolu:
+8. Canli senkron dayaniklilik smoke kontrolu:
    - `scripts/smoke-realtime-resilience.mjs` eklendi,
    - WS/HTTP fallback/backoff, timeout ve start-gate re-sync korumalari kontrol ediliyor,
    - `check:safe` zincirine eklendi.
@@ -63,7 +63,7 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-entry-room-session.mjs` eklendi,
    - oyun secimi + oda secimi session persistence ve masadayken gecis engelleri kontrol ediliyor,
    - `check:safe` zincirine eklendi.
-15. Legacy tahta etkileşim smoke kontrolu:
+15. Legacy tahta etkilesim smoke kontrolu:
    - `scripts/smoke-legacy-interaction.mjs` eklendi,
    - surukle-birak, mobil dokunma/cift tik, highlight, geri al ve zar animasyonu baglantilari kontrol ediliyor,
    - `check:safe` zincirine eklendi.
@@ -111,14 +111,12 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `docs/DIAGNOSTICS_RECOVERY_CHECKLIST.md` eklendi,
    - WS/HTTP toparlanma akislarini iki istemcili pratik kontrol adimlariyla standardize ediyor,
    - runtime davranisa dokunmadan operasyonel hata tespitini hizlandiriyor.
+27. Runtime bugfix playbook dokumani:
+   - `docs/RUNTIME_BUGFIX_PLAYBOOK.md` eklendi,
+   - tek sorun / tek duzeltme / check:safe disiplinini standartlastiriyor,
+   - bugfix turlarinda degisiklik kapsaminin dar tutulmasini garanti altina aliyor.
 
 ## Sonraki adimlar
-
-1. Coklu browser refresh + room summary sayac tutarliligi icin regress smoke adimi eklemek.
-2. Coklu browser refresh + room summary sayaç tutarliligi icin regress smoke adimi eklemek.
-3. Masa/sync hata durumlarinda kullaniciya gosterilen kritik notice metinleri icin guard adimi eklemek.
-
-## Sonraki adimlar (guncel)
 
 1. Runtime bugfix odakli adima gecmek (tek sorun -> tek duzeltme -> check:safe).
 2. Push/deploy kimlik akisini kalici hale getirmek (SEC_E_NO_CREDENTIALS engelini kapatmak).
