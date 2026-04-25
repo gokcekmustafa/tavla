@@ -8493,13 +8493,12 @@ function App() {
       {viewMode === "lobby" ? (
         <header className="my-topbar">
           <div className="my-topbar-left">
-            {!roomSession ? (
+            {!roomSession && !showGamePicker && !showRoomPicker ? (
               <>
                 <button
                   className="my-top-btn my-btn-member-alt"
                   style={{ order: lobbyTopButtonOrder.indexOf("home") }}
                   onClick={goToGameSelection}
-                  disabled={showGamePicker}
                 >
                   {activeDesign.texts.lobbyHome || "Ana Sayfa"}
                 </button>
@@ -8507,11 +8506,9 @@ function App() {
                   className="my-top-btn my-btn-member-alt"
                   style={{ order: lobbyTopButtonOrder.indexOf("roomSelect") }}
                   onClick={openAllRoomsPicker}
-                  disabled={showRoomPicker}
                 >
                   {activeDesign.texts.lobbyRoomSelect || "Tum Odalar"}
                 </button>
-                {!showGamePicker && !showRoomPicker ? (<>
                 <button
                   className="my-top-btn my-btn-open my-lobby-top-action-hidden my-design-label-btn"
                   data-design-label={activeDesign.texts.lobbyOpenTable || "Masa Aç"}
@@ -8525,8 +8522,6 @@ function App() {
                 <button className="my-top-btn my-btn-bot" style={{ order: lobbyTopButtonOrder.indexOf("botMode") }} onClick={startBotGame}>
                   {activeDesign.texts.lobbyBotMode || "Bota Karsi"}
                 </button>
-                  </>
-                ) : null}
               </>
             ) : null}
             {roomSession ? (
