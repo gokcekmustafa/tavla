@@ -126,8 +126,11 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `docs/BUGFIX_TRIAGE_TEMPLATE.md` eklendi,
    - `scripts/smoke-bugfix-queue-integrity.mjs` eklendi,
    - kuyruk durum kodlari/oncelik/triage zorunlu alanlari ve "tek aktif bug" kurali otomatik kontrol edilerek `check:safe` zincirine baglandi.
+31. Push/deploy kimlik akisi koruma kilidi:
+   - `docs/GIT_PUSH_CREDENTIALS_WINDOWS.md` eklendi,
+   - `scripts/smoke-git-push-credentials.mjs` eklendi,
+   - Windows repoda `http.sslBackend=openssl` ve `credential.helper=manager-core` ayarlari otomatik kontrol edilerek `check:safe` zincirine baglandi.
 
 ## Sonraki adimlar
 
-1. Push/deploy kimlik akisini kalici hale getirmek (SEC_E_NO_CREDENTIALS engelini kapatmak).
-2. BQ-001 icin canli bug triage'ini baslatip tek bugfix turuna gecmek.
+1. BQ-001 icin canli bug triage'ini baslatip tek bugfix turuna gecmek.
