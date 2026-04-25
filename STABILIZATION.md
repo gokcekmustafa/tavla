@@ -47,6 +47,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-room-isolation-access.mjs` eklendi,
    - oda scope filtresi, presence tabanli oda ozetleri, ozel masa/izleyici erisim kurallari kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+11. Masadan cikma/izin akisi smoke kontrolu:
+   - `scripts/smoke-leave-permission-flow.mjs` eklendi,
+   - teklif, onay, red, modal acilma kosulu ve auto-leave baglantilari kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
