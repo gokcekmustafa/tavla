@@ -299,6 +299,28 @@
   box-shadow: 0 0 0 2px rgba(248, 220, 157, 0.25);
 }
 
+.my-game-picker-card.game-okey:hover {
+  border-color: rgba(248, 217, 147, 0.92);
+  box-shadow: 0 0 0 2px rgba(248, 220, 157, 0.25);
+}
+
+.my-game-coming-soon-page {
+  min-height: 320px;
+}
+
+.my-game-coming-soon-state {
+  min-height: 210px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.my-game-coming-soon-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+}
+
 .my-room-picker-page {
   grid-template-rows: auto 1fr;
 }

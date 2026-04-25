@@ -5,7 +5,7 @@ type GameMode = "local" | "bot";
 type Seat = "white" | "black";
 type RoomRole = "player" | "spectator";
 type ViewMode = "lobby" | "table";
-type GameId = "tavla";
+type GameId = "tavla" | "okey101";
 type EntryScreen = "game" | "room" | "lobby";
 type AuthMode = "login" | "register";
 type MatchOutcome = "win" | "loss" | "resign";
@@ -2099,7 +2099,7 @@ function shouldOpenRoomPickerInitially(initialRoom: RoomSession | null) {
 function loadSelectedGameIdFromSession(): GameId | null {
   if (typeof window === "undefined") return null;
   const raw = safeStorageGetItem(window.sessionStorage, GAME_SELECTION_SESSION_KEY);
-  if (raw === DEFAULT_GAME_ID) return DEFAULT_GAME_ID;
+  if (raw === "tavla" || raw === "okey101") return raw;
   return null;
 }
 
@@ -2500,6 +2500,8 @@ function App() {
     return !loadSelectedGameIdFromSession();
   });
   const [roomPickerOpen, setRoomPickerOpen] = useState<boolean>(() => {
+    const selectedGame = loadSelectedGameIdFromSession();
+    if (selectedGame && selectedGame !== "tavla") return false;
     const entryScreen = readEntryScreenFromUrl();
     if (entryScreen === "room") return true;
     if (entryScreen === "game" || entryScreen === "lobby") return false;
@@ -2602,6 +2604,7 @@ function App() {
   const [roomChatTab, setRoomChatTab] = useState<"table" | "lobby">("table");
   const [roomTableChatInput, setRoomTableChatInput] = useState("");
   const [roomLobbyChatInput, setRoomLobbyChatInput] = useState("");
+  const isTavlaSelectedGame = selectedGameId === "tavla";
   const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
   const [roomChatUnread, setRoomChatUnread] = useState(0);
   const [adminQuery, setAdminQuery] = useState("");
@@ -5225,6 +5228,14 @@ function App() {
   function onSelectGame(gameId: GameId) {
     setSelectedGameId(gameId);
     saveSelectedGameIdToSession(gameId);
+    if (gameId !== "tavla") {
+      setGamePickerOpen(false);
+      setRoomPickerOpen(false);
+      setViewMode("lobby");
+      setLobbyNotice("101 Okey prototip ekranina gecildi.");
+      pushEntryScreenHistory("lobby");
+      return;
+    }
     setGamePickerOpen(false);
     setRoomPickerOpen(true);
     setViewMode("lobby");
@@ -8751,7 +8762,7 @@ function App() {
       {viewMode === "lobby" ? (
         <header className="my-topbar">
           <div className="my-topbar-left">
-            {!roomSession && !showGamePicker && !showRoomPicker ? (
+            {!roomSession && !showGamePicker && !showRoomPicker && isTavlaSelectedGame ? (
               <>
                 <button
                   className="my-top-btn my-btn-member-alt"
@@ -9038,18 +9049,41 @@ function App() {
                 <strong>Klasik Tavla</strong>
                 <p>Online masa, bot modu ve mevcut sistemle devam et.</p>
               </button>
-              <article className="my-game-picker-card game-okey disabled">
+              <button
+                type="button"
+                className={`my-game-picker-card game-okey ${selectedGameId === "okey101" ? "active" : ""}`}
+                onClick={() => onSelectGame("okey101")}
+              >
                 <span className="my-game-picker-thumb" aria-hidden="true" />
-                <span className="my-game-picker-badge">Yakinda</span>
+                <span className="my-game-picker-badge">Prototip</span>
                 <strong>101 Okey</strong>
-                <p>101 Okey masasi yakinda bu ekrana eklenecek.</p>
-              </article>
+                <p>Izole gelistirme alaniyla 101 Okey altyapisini guvenli sekilde baslat.</p>
+              </button>
               <article className="my-game-picker-card game-batak disabled">
                 <span className="my-game-picker-thumb" aria-hidden="true" />
                 <span className="my-game-picker-badge">Yakinda</span>
                 <strong>Batak</strong>
                 <p>Batak masasi yakinda bu ekrana eklenecek.</p>
               </article>
+            </div>
+          </section>
+        ) : !isTavlaSelectedGame ? (
+          <section className="my-entry-page my-game-coming-soon-page">
+            <div className="my-entry-head">
+              <h2>101 Okey</h2>
+              <p>Bu ekran izole prototip alanidir. Tavla sistemi etkilenmez.</p>
+            </div>
+            <div className="my-empty-state my-game-coming-soon-state">
+              <p className="my-empty-state-title">101 Okey gelistirmesi basladi.</p>
+              <p className="my-empty-state-sub">Bu adimda sadece guvenli iskelet acildi. Tavla kodlari ayni calismaya devam eder.</p>
+              <div className="my-game-coming-soon-actions">
+                <button className="my-action-btn" type="button" onClick={goToGameSelection}>
+                  Ana Sayfaya Don
+                </button>
+                <button className="my-action-btn soft" type="button" onClick={() => onSelectGame("tavla")}>
+                  Tavla Moduna Gec
+                </button>
+              </div>
             </div>
           </section>
         ) : showRoomPicker ? (
