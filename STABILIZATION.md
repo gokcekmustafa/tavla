@@ -31,6 +31,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - varsayilan kapali, oyun davranisini etkilemez,
    - `?diag=1` ile acilabilir (kalici saklanir),
    - WS ac/kapa/hata ve HTTP push/pull sayaçlari panelde izlenebilir.
+7. Oda/masa akis smoke kontrolu:
+   - `scripts/smoke-room-flow.mjs` eklendi,
+   - masa acma/oturma/baslatma/cikis zinciri ve kritik cagri baglantilari kontrol ediliyor,
+   - `check:safe` icine dahil edildi.
 
 ## Sonraki adimlar
 
