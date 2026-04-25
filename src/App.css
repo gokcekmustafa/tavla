@@ -333,6 +333,13 @@
   gap: 6px;
 }
 
+.my-room-picker-account {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .my-room-picker-columns {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -629,6 +636,34 @@
   font-size: 1.08em;
   font-weight: 900;
   color: #fff6cc;
+}
+
+.my-empty-state-lobby > .my-empty-state-sub:not(.my-empty-state-sub-link) {
+  display: none;
+}
+
+.my-empty-state-sub-link {
+  margin: 0;
+}
+
+.my-empty-state-action-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 1.08em;
+  font-weight: 900;
+  color: var(--design-accent-from);
+  cursor: pointer;
+}
+
+.my-empty-state-action-btn:hover,
+.my-empty-state-action-btn:focus-visible {
+  color: var(--design-accent-to);
+  text-decoration: underline;
+  outline: none;
 }
 
 .my-table-grid {
@@ -2462,6 +2497,14 @@
 
   .my-room-picker-actions {
     justify-content: stretch;
+  }
+
+  .my-room-picker-account {
+    justify-content: stretch;
+  }
+
+  .my-room-picker-account .my-room-picker-tab {
+    flex: 1;
   }
 
   .my-room-picker-actions .my-action-btn {

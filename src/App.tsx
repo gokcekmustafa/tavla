@@ -5128,6 +5128,23 @@ function App() {
     setAccountMenuOpen(true);
   }
 
+  function openProfileFromRoomPicker() {
+    setGamePickerOpen(false);
+    setRoomPickerOpen(false);
+    setViewMode("lobby");
+    setAuthError("");
+    setMemberNotice("");
+    setAccountMenuOpen(true);
+    pushEntryScreenHistory("lobby");
+  }
+
+  function openAuthFromRoomPicker(mode: AuthMode) {
+    setGamePickerOpen(false);
+    setRoomPickerOpen(false);
+    pushEntryScreenHistory("lobby");
+    openAccountMenu(mode);
+  }
+
   function closeInvitePicker() {
     setInvitePickerTableId(null);
   }
@@ -8799,6 +8816,15 @@ function App() {
                 <button className="my-room-picker-tab" type="button" disabled>Hizli</button>
                 <button className="my-room-picker-tab" type="button" disabled>Kalabalik</button>
               </div>
+              <div className="my-room-picker-account">
+                <button className="my-room-picker-tab" type="button" onClick={openProfileFromRoomPicker}>Profil</button>
+                {!member ? (
+                  <>
+                    <button className="my-room-picker-tab" type="button" onClick={() => openAuthFromRoomPicker("register")}>Uye Ol</button>
+                    <button className="my-room-picker-tab" type="button" onClick={() => openAuthFromRoomPicker("login")}>Giris</button>
+                  </>
+                ) : null}
+              </div>
               <div className="my-room-picker-actions">
                 <button className="my-action-btn" type="button" onClick={onQuickPlay}>{activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}</button>
                 <button className="my-action-btn soft" type="button" onClick={() => void loadLobbyRoomsFromService()} disabled={lobbyRoomsBusy}>
@@ -8871,6 +8897,10 @@ function App() {
             <div className="my-lobby-table-zone">
               {openedTables.length === 0 ? (
                 <div className="my-empty-state my-empty-state-lobby">
+                  <p className="my-empty-state-sub my-empty-state-sub-link">
+                    <button type="button" className="my-empty-state-action-btn" onClick={onOpenTable}>Masa Aç</button>
+                    {" "}butonu ile ilk masayı açabilirsin.
+                  </p>
                   <p className="my-empty-state-title">Henüz açık masa yok.</p>
                   <p className="my-empty-state-sub"><span className="my-empty-state-action">Masa Aç</span> butonu ile ilk masayı açabilirsin.</p>
                 </div>
