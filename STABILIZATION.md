@@ -67,6 +67,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-legacy-interaction.mjs` eklendi,
    - surukle-birak, mobil dokunma/cift tik, highlight, geri al ve zar animasyonu baglantilari kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+16. Set serisi + puanlama smoke kontrolu:
+   - `scripts/smoke-series-scoring.mjs` eklendi,
+   - set token dedupe, seri tamamlanma, resign puani ve match-finished puan baglantilari kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
