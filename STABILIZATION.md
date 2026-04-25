@@ -141,7 +141,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-bug-ticket-quality.mjs` eklendi,
    - bug kayitlarinda zorunlu triage basliklari kontrol edildi,
    - `new` durumunda placeholder (`Bekleniyor`) serbest, `triaged` ve sonrasi durumlarda placeholder yasak kurali otomatik kontrol edilerek `check:safe` zincirine baglandi.
+35. BQ-001 triage tamamlama (dokuman bug'i):
+   - `docs/BUGFIX_QUEUE.md` icinde BQ-001 durumu `triaged` olarak guncellendi,
+   - `docs/bugs/BQ-001.md` placeholder metinlerden arindirilarak yeniden uretim/beklenen-gerceklesen/etki alani/cozum stratejisi alanlariyla somut bug kaydina donusturuldu.
 
 ## Sonraki adimlar
 
-1. BQ-001'e ilk dogrulanabilir canli bug'i isleyip `triaged` durumuna almak.
+1. BQ-001'i `in_progress` durumuna alip tek dosya odakli encoding duzeltmesini uygulamak.
