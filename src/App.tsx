@@ -377,6 +377,7 @@ const HTTP_SYNC_RUN_INTERVAL_MS = 4_000;
 const HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS = 10_000;
 const HTTP_SYNC_ERROR_BACKOFF_MIN_MS = 1_500;
 const HTTP_SYNC_ERROR_BACKOFF_MAX_MS = 30_000;
+const ROOM_START_GATE_RESYNC_DELAY_MS = 700;
 const ROOM_PICKER_REFRESH_INTERVAL_MS = 6_000;
 const ROOM_PICKER_REMOTE_REFRESH_MIN_MS = 12_000;
 const ROOM_PICKER_REMOTE_FETCH_TIMEOUT_MS = 4_000;
@@ -7009,6 +7010,7 @@ function App() {
 
       if (payload.type === "table-chat-ready") {
         syncTableChatToIframe();
+        syncRoomStartGateToIframe();
         return;
       }
 
@@ -7099,7 +7101,7 @@ function App() {
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [currentProfile.userId, currentProfile.displayName, handleLegacyMatchFinished, sendTableChat, syncTableChatToIframe, roomSession, mode]);
+  }, [currentProfile.userId, currentProfile.displayName, handleLegacyMatchFinished, sendTableChat, syncTableChatToIframe, syncRoomStartGateToIframe, roomSession, mode]);
 
   useEffect(() => {
     if (!roomSession || roomSession.role !== "player" || mode !== "local") {
@@ -9486,6 +9488,9 @@ function App() {
                     const frameWindow = iframeRef.current?.contentWindow ?? null;
                     syncTableChatToIframe(frameWindow);
                     syncRoomStartGateToIframe(frameWindow);
+                    window.setTimeout(() => {
+                      syncRoomStartGateToIframe(iframeRef.current?.contentWindow ?? null);
+                    }, ROOM_START_GATE_RESYNC_DELAY_MS);
                   }}
                 />
                 {roomSession

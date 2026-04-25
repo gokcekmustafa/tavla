@@ -19,6 +19,9 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
 3. HTTP fallback senkron dongusu:
    - tek seferde tek tick mantigina alindi (setInterval yerine setTimeout zinciri),
    - gizli sekmede daha seyrek calisacak sekilde yavaslatildi.
+4. Oyun baslangici iframe senkronu icin guvenlik takviyesi:
+   - `table-chat-ready` mesajinda `room-start-gate` yeniden senkron ediliyor,
+   - iframe `onLoad` sonrasinda kisa gecikmeli bir ek `room-start-gate` senkronu yapiliyor.
 
 ## Sonraki adimlar
 

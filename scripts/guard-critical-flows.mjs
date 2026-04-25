@@ -22,6 +22,23 @@ const checks = [
     test: () => source.includes("syncRoomStartGateToIframe(frameWindow);"),
   },
   {
+    label: "Iframe onLoad sonrasinda gecikmeli room-start-gate tekrar senkronu var",
+    test: () =>
+      source.includes("ROOM_START_GATE_RESYNC_DELAY_MS")
+      && source.includes("window.setTimeout(() => {")
+      && source.includes("syncRoomStartGateToIframe(iframeRef.current?.contentWindow ?? null);"),
+  },
+  {
+    label: "Legacy table-chat-ready mesajinda room-start-gate de tekrar senkron ediliyor",
+    test: () => {
+      const readyBlock = source.match(
+        /if \(payload\.type === "table-chat-ready"\)\s*{([\s\S]*?)\n\s*return;\n\s*}/,
+      );
+      if (!readyBlock) return false;
+      return readyBlock[1].includes("syncTableChatToIframe();") && readyBlock[1].includes("syncRoomStartGateToIframe();");
+    },
+  },
+  {
     label: "HTTP senkron dongusu gorunmeyen sekmede yavaslatiliyor",
     test: () =>
       source.includes("HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS")
