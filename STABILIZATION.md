@@ -149,6 +149,11 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - BQ-001 metnindeki bozulan karakter ifadeleri UTF-8 uyumlu hale getirildi,
    - `scripts/smoke-bq001-encoding-fix.mjs` ile mojibake izleri (`Ã`, `�`) ve BQ-001 durum/formati otomatik kontrol edilerek `check:safe` zincirine baglandi.
 
+37. BQ-001 verifying kilidi:
+   - `docs/BUGFIX_QUEUE.md` ve `docs/bugs/BQ-001.md` durumlari `verifying` olarak guncellendi,
+   - BQ-001 kapanis notu placeholder metinlerden arindirilarak dolduruldu,
+   - `scripts/smoke-bq001-verifying-ready.mjs` ile BQ-001 verifying durumu + kapanis notu dolulugu otomatik kontrol edilerek `check:safe` zincirine baglandi.
+
 ## Sonraki adimlar
 
-1. BQ-001 icin dokuman duzeltmesini `verifying` durumuna alip kapanis notunu hazirlamak.
+1. BQ-001 icin son manuel kontrolu tamamlayip kaydi `done` durumuna almak.

@@ -16,12 +16,22 @@ const ticket = readFileSync(ticketPath, "utf8");
 
 const errors = [];
 
-if (!queue.includes("| BQ-001 | P2 | in_progress | Tooling |")) {
-  errors.push("Kuyrukta BQ-001 satiri in_progress/P2/Tooling olarak bekleniyor.");
+const queueRowMatch = queue.match(/\|\s*BQ-001\s*\|\s*P2\s*\|\s*([a-z_]+)\s*\|\s*Tooling\s*\|/);
+if (!queueRowMatch) {
+  errors.push("Kuyrukta BQ-001 satiri P2/Tooling formatinda bulunamadi.");
 }
 
-if (!ticket.includes("Durum: `in_progress`")) {
-  errors.push("BQ-001 dosyasinda durum in_progress olmali.");
+const queueStatus = queueRowMatch?.[1] ?? "";
+const allowedStatuses = new Set(["in_progress", "verifying", "done"]);
+if (!allowedStatuses.has(queueStatus)) {
+  errors.push(`Kuyrukta BQ-001 durumu gecersiz: '${queueStatus || "(bos)"}'`);
+}
+
+const ticketStatusMatch = ticket.match(/Durum:\s*`([^`]+)`/);
+if (!ticketStatusMatch) {
+  errors.push("BQ-001 dosyasinda durum alani bulunamadi.");
+} else if (queueStatus && ticketStatusMatch[1] !== queueStatus) {
+  errors.push(`Kuyruk durumu '${queueStatus}' ama dosya durumu '${ticketStatusMatch[1]}'`);
 }
 
 const mojibakeTokens = ["Ã", "�"];
