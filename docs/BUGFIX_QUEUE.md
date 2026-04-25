@@ -2,6 +2,7 @@
 
 Bu dosya, runtime bugfix turlarini tek tek takip etmek icin kullanilir.
 Kural: Her turda sadece 1 bug aktif olur.
+Sablon: `docs/BUGFIX_TRIAGE_TEMPLATE.md`
 
 ## Durum Kodlari
 
@@ -31,4 +32,3 @@ Kural: Her turda sadece 1 bug aktif olur.
 3. Beklenen / Gerceklesen davranis
 4. Etki alani (hangi modlar/ekranlar)
 5. Cozum stratejisi (tek dosya/tek akis odagi)
-

@@ -122,6 +122,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
 29. Runtime bugfix kuyrugu olusturma:
    - `docs/BUGFIX_QUEUE.md` eklendi,
    - tek bug aktif kalacak sekilde oncelik/durum/triage standardi netlestirildi.
+30. Bugfix triage sablonu + kuyruk butunluk smoke kontrolu:
+   - `docs/BUGFIX_TRIAGE_TEMPLATE.md` eklendi,
+   - `scripts/smoke-bugfix-queue-integrity.mjs` eklendi,
+   - kuyruk durum kodlari/oncelik/triage zorunlu alanlari ve "tek aktif bug" kurali otomatik kontrol edilerek `check:safe` zincirine baglandi.
 
 ## Sonraki adimlar
 
