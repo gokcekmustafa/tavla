@@ -2142,10 +2142,21 @@ function readEntryScreenFromUrl(): EntryScreen | null {
   return null;
 }
 
-function pushEntryScreenHistory(screen: EntryScreen) {
+function readGameIdFromUrl(): GameId | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get("game");
+  if (raw === "tavla" || raw === "okey101") return raw;
+  return null;
+}
+
+function pushEntryScreenHistory(screen: EntryScreen, gameId?: GameId) {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
   url.searchParams.set("entry", screen);
+  if (gameId) {
+    url.searchParams.set("game", gameId);
+  }
   window.history.pushState({ entry: screen }, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
@@ -2518,15 +2529,15 @@ function App() {
   const [roomPickerLiveCounts, setRoomPickerLiveCounts] = useState<Record<string, LobbyRoomCounts>>({});
   const [lobbyRoomsBusy, setLobbyRoomsBusy] = useState(false);
   const [lobbyRoomsError, setLobbyRoomsError] = useState("");
-  const [selectedGameId, setSelectedGameId] = useState<GameId>(() => loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID);
+  const [selectedGameId, setSelectedGameId] = useState<GameId>(() => readGameIdFromUrl() ?? loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID);
   const [gamePickerOpen, setGamePickerOpen] = useState<boolean>(() => {
     const entryScreen = readEntryScreenFromUrl();
     if (entryScreen === "game") return true;
     if (entryScreen === "room" || entryScreen === "lobby") return false;
-    return !loadSelectedGameIdFromSession();
+    return !(readGameIdFromUrl() ?? loadSelectedGameIdFromSession());
   });
   const [roomPickerOpen, setRoomPickerOpen] = useState<boolean>(() => {
-    const selectedGame = loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID;
+    const selectedGame = readGameIdFromUrl() ?? loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID;
     if (selectedGame !== "tavla") return false;
     const entryScreen = readEntryScreenFromUrl();
     if (entryScreen === "room") return true;
@@ -5259,14 +5270,14 @@ function App() {
       setRoomPickerOpen(false);
       setViewMode("lobby");
       setLobbyNotice("101 Okey prototip ekranina gecildi.");
-      pushEntryScreenHistory("lobby");
+      pushEntryScreenHistory("lobby", gameId);
       return;
     }
     setGamePickerOpen(false);
     setRoomPickerOpen(true);
     setViewMode("lobby");
     setLobbyNotice("Oda secerek oyuna devam et.");
-    pushEntryScreenHistory("room");
+    pushEntryScreenHistory("room", gameId);
   }
 
   function goToGameSelection() {
@@ -5278,7 +5289,7 @@ function App() {
     setRoomPickerOpen(false);
     setGamePickerOpen(true);
     setLobbyNotice("Anasayfaya donuldu.");
-    pushEntryScreenHistory("game");
+    pushEntryScreenHistory("game", selectedGameId);
   }
 
   function goToLobbyFromTableView() {
@@ -5307,7 +5318,7 @@ function App() {
     }
     setGamePickerOpen(false);
     setRoomPickerOpen(true);
-    pushEntryScreenHistory("room");
+    pushEntryScreenHistory("room", selectedGameId);
   }
 
   function rememberRoomPickerSelection(lobbyId: string) {
@@ -5329,7 +5340,7 @@ function App() {
     setGamePickerOpen(false);
     setViewMode("lobby");
     setRoomPickerOpen(false);
-    pushEntryScreenHistory("lobby");
+    pushEntryScreenHistory("lobby", selectedGameId);
     const roomName = lobbyRooms.find((room) => room.id === safeId)?.name || DEFAULT_LOBBY_NAME;
     setLobbyNotice(`${sanitizeLobbyName(roomName)} odasına girildi.`);
   }
@@ -7703,6 +7714,7 @@ function App() {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
     url.searchParams.set("lobby", activeLobbyId);
+    url.searchParams.set("game", selectedGameId);
     if (roomSession) {
       url.searchParams.set("room", roomSession.code);
       url.searchParams.set("seat", roomSession.seat);
@@ -7729,12 +7741,15 @@ function App() {
       url.searchParams.delete("entry");
     }
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [roomSession, safeGuestName, activeLobbyId, viewMode, showGamePicker, showRoomPicker]);
+  }, [roomSession, safeGuestName, activeLobbyId, selectedGameId, viewMode, showGamePicker, showRoomPicker]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onPopState = () => {
       if (roomSession) return;
+      const gameFromUrl = readGameIdFromUrl() ?? DEFAULT_GAME_ID;
+      setSelectedGameId(gameFromUrl);
+      saveSelectedGameIdToSession(gameFromUrl);
       const entry = readEntryScreenFromUrl();
       if (entry === "game") {
         setViewMode("lobby");
@@ -7745,7 +7760,7 @@ function App() {
       if (entry === "room") {
         setViewMode("lobby");
         setGamePickerOpen(false);
-        setRoomPickerOpen(true);
+        setRoomPickerOpen(gameFromUrl === "tavla");
         return;
       }
       if (entry === "lobby") {

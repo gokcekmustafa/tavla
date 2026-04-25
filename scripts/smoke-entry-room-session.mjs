@@ -42,7 +42,8 @@ const checks = [
       && (has("saveRoomPickerSessionState(identity, safeLobbyId);")
         || has("saveRoomPickerSessionState(identity, safeLobbyId, selectedGameId);"))
       && has("function selectLobbyRoom(lobbyId: string)")
-      && has("pushEntryScreenHistory(\"lobby\");"),
+      && (has("pushEntryScreenHistory(\"lobby\");")
+        || has("pushEntryScreenHistory(\"lobby\", selectedGameId);")),
   },
   {
     label: "Masadayken anasayfa/oda degisimi engelleniyor",
