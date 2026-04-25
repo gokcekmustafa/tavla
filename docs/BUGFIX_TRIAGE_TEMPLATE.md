@@ -42,3 +42,8 @@ Kural: Her turda sadece 1 bug aktif tutulur.
 - Duzeltme ozeti:
 - Etkilenen alanlar:
 - Regress riski:
+
+## Durum Notu (Kalite Kurali)
+
+- Kayit `new` durumundayken "Bekleniyor" placeholder metinleri bulunabilir.
+- Kayit `triaged` ve sonrasi durumlara gectiginde "Bekleniyor" metinleri temizlenmelidir.

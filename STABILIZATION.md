@@ -137,6 +137,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
 33. Bug queue/ticket durum senkron kilidi:
    - `scripts/smoke-bug-ticket-sync.mjs` eklendi,
    - `docs/BUGFIX_QUEUE.md` satirindaki her BQ kaydinin `docs/bugs/BQ-xxx.md` dosyasiyla durum/oncelik tutarliligi otomatik kontrol edilerek `check:safe` zincirine baglandi.
+34. Bug ticket kalite kilidi:
+   - `scripts/smoke-bug-ticket-quality.mjs` eklendi,
+   - bug kayitlarinda zorunlu triage basliklari kontrol edildi,
+   - `new` durumunda placeholder (`Bekleniyor`) serbest, `triaged` ve sonrasi durumlarda placeholder yasak kurali otomatik kontrol edilerek `check:safe` zincirine baglandi.
 
 ## Sonraki adimlar
 
