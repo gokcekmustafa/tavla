@@ -55,6 +55,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-worker-deploy-config.mjs` eklendi,
    - wrangler assets/do bindingleri, worker route/export baglantilari ve DurableObject extends hatasi korumasi kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+13. Sohbet kapsam/izin smoke kontrolu:
+   - `scripts/smoke-chat-scope.mjs` eklendi,
+   - lobi/masa sohbetinin oturum zamanina gore filtrelenmesi ve rol/izin kurallarinin baglantilari kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
