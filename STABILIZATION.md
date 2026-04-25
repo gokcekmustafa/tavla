@@ -157,7 +157,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `docs/BUGFIX_QUEUE.md` ve `docs/bugs/BQ-001.md` durumlari `done` olarak guncellendi,
    - `scripts/smoke-bq001-verifying-ready.mjs` verifying/done durumlarini kapsayacak sekilde genellendi,
    - `scripts/smoke-bq001-done-closed.mjs` ile done kaydinda placeholder kalmadigi ve kapanis notu dolulugu otomatik kontrol edilerek `check:safe` zincirine baglandi.
+39. BQ-002 baslangic kaydi:
+   - `docs/BUGFIX_QUEUE.md` icine BQ-002 satiri eklendi (`new` / `P1` / `Runtime`),
+   - `docs/bugs/BQ-002.md` triage kaydi olusturuldu (placeholder alanlarla bug bekleme durumunda).
 
 ## Sonraki adimlar
 
-1. Yeni runtime bug geldigi anda BQ-002 kaydini acip tek-bug turunu baslatmak.
+1. BQ-002 icin ilk dogrulanabilir bug raporu geldiginde kaydi doldurup durumu `triaged` yapmak.

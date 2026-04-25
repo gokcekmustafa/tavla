@@ -24,6 +24,7 @@ Sablon: `docs/BUGFIX_TRIAGE_TEMPLATE.md`
 | ID | Oncelik | Durum | Alan | Ozet | Sonraki Aksiyon |
 | --- | --- | --- | --- | --- | --- |
 | BQ-001 | P2 | done | Tooling | BQ kaydindaki kodlama bozulmasi kapatildi (`docs/bugs/BQ-001.md`) | Yeni bug geldiginde BQ-002 ile yeni tur ac |
+| BQ-002 | P1 | new | Runtime | Yeni dogrulanabilir canli bug bekleniyor (`docs/bugs/BQ-002.md`) | Ilk bug raporunda triage kaydini doldurup durumu triaged'a al |
 
 ## Triage Notu (Her Bug Icin Zorunlu)
 
