@@ -71,6 +71,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-series-scoring.mjs` eklendi,
    - set token dedupe, seri tamamlanma, resign puani ve match-finished puan baglantilari kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+17. Presence yasam dongusu smoke kontrolu:
+   - `scripts/smoke-presence-lifecycle.mjs` eklendi,
+   - presence dedupe/heartbeat, lobi degisimi temizligi, beforeunload temizligi ve stale prune baglantilari kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
