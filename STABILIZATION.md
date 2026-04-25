@@ -63,6 +63,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-entry-room-session.mjs` eklendi,
    - oyun secimi + oda secimi session persistence ve masadayken gecis engelleri kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+15. Legacy tahta etkileşim smoke kontrolu:
+   - `scripts/smoke-legacy-interaction.mjs` eklendi,
+   - surukle-birak, mobil dokunma/cift tik, highlight, geri al ve zar animasyonu baglantilari kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
