@@ -1,0 +1,48 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const appPath = resolve("src", "App.tsx");
+const source = readFileSync(appPath, "utf8");
+
+const checks = [
+  {
+    label: "Masa otomatik baslatma fonksiyonu mevcut",
+    test: () => source.includes("function autoStartTableWhenBothSeated("),
+  },
+  {
+    label: "Masa otomatik baslatma en az iki yerde kullaniliyor",
+    test: () => (source.match(/autoStartTableWhenBothSeated\(/g) ?? []).length >= 3,
+  },
+  {
+    label: "Oda baslama kilidi iframe senkron fonksiyonu mevcut",
+    test: () => source.includes("function syncRoomStartGateToIframe("),
+  },
+  {
+    label: "Iframe onLoad icinde room-start-gate senkronu var",
+    test: () => source.includes("syncRoomStartGateToIframe(frameWindow);"),
+  },
+  {
+    label: "HTTP senkron dongusu gorunmeyen sekmede yavaslatiliyor",
+    test: () =>
+      source.includes("HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS")
+      && source.includes("document.hidden ? HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS : HTTP_SYNC_RUN_INTERVAL_MS"),
+  },
+  {
+    label: "Puansiz cikma izin alanlari tablo modelinde mevcut",
+    test: () =>
+      source.includes("leavePermissionRequestByUserId: string | null;")
+      && source.includes("leavePermissionGrantedToUserId: string | null;"),
+  },
+];
+
+const failed = checks.filter((check) => !check.test());
+
+if (failed.length > 0) {
+  console.error("Critical flow guard FAILED:");
+  for (const item of failed) {
+    console.error(`- ${item.label}`);
+  }
+  process.exit(1);
+}
+
+console.log("Critical flow guard passed.");

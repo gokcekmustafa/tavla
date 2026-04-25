@@ -374,6 +374,7 @@ const HTTP_SYNC_TIMEOUT_MS = 8_000;
 const HTTP_SYNC_THROTTLE_MS = 900;
 const HTTP_SYNC_MIRROR_MIN_INTERVAL_MS = 8_000;
 const HTTP_SYNC_RUN_INTERVAL_MS = 4_000;
+const HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS = 10_000;
 const HTTP_SYNC_ERROR_BACKOFF_MIN_MS = 1_500;
 const HTTP_SYNC_ERROR_BACKOFF_MAX_MS = 30_000;
 const ROOM_PICKER_REFRESH_INTERVAL_MS = 6_000;
@@ -6952,8 +6953,22 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
+    let timer: number | null = null;
+
+    const scheduleNext = () => {
+      if (cancelled) return;
+      const intervalMs = document.hidden ? HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS : HTTP_SYNC_RUN_INTERVAL_MS;
+      timer = window.setTimeout(() => {
+        void tick();
+      }, intervalMs);
+    };
+
     const run = async () => {
       if (cancelled) return;
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        setRealtimeStatus("offline");
+        return;
+      }
       const socket = realtimeSocketRef.current;
       const pending = realtimePendingSnapshotRef.current;
       if (socket && socket.readyState === WebSocket.OPEN && !pending) {
@@ -6970,14 +6985,18 @@ function App() {
       await syncRealtimeViaHttp("http-fallback");
     };
 
-    void run();
-    const timer = window.setInterval(() => {
-      void run();
-    }, HTTP_SYNC_RUN_INTERVAL_MS);
+    const tick = async () => {
+      await run();
+      scheduleNext();
+    };
+
+    void tick();
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
     };
   }, [appSessionId, activeRealtimeLobbyChannel]);
 
