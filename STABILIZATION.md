@@ -115,8 +115,12 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `docs/RUNTIME_BUGFIX_PLAYBOOK.md` eklendi,
    - tek sorun / tek duzeltme / check:safe disiplinini standartlastiriyor,
    - bugfix turlarinda degisiklik kapsaminin dar tutulmasini garanti altina aliyor.
+28. Runtime bugfix (tek sorun): lobby notice karakter normalizasyonu:
+   - `src/App.tsx` icinde `normalizeTurkishDisplayText` eklendi,
+   - lobby notice metinleri render oncesi normalize edilerek bozuk karakter gorunumu giderildi,
+   - `scripts/smoke-notice-normalization.mjs` ile guard edilip `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
-1. Runtime bugfix odakli adima gecmek (tek sorun -> tek duzeltme -> check:safe).
-2. Push/deploy kimlik akisini kalici hale getirmek (SEC_E_NO_CREDENTIALS engelini kapatmak).
+1. Push/deploy kimlik akisini kalici hale getirmek (SEC_E_NO_CREDENTIALS engelini kapatmak).
+2. Bir sonraki runtime bugfix turu icin tek bir canli issue secip playbook akisiyla ilerlemek.

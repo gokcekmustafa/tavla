@@ -987,6 +987,37 @@ function sanitizeChatText(value: string) {
   return value.replace(/\s+/g, " ").trim().slice(0, CHAT_TEXT_MAX);
 }
 
+const TURKISH_MOJIBAKE_REPLACEMENTS: Array<[string, string]> = [
+  ["Ã‡", "Ç"],
+  ["Ã§", "ç"],
+  ["Ä°", "İ"],
+  ["Ä±", "ı"],
+  ["Ã–", "Ö"],
+  ["Ã¶", "ö"],
+  ["Ãœ", "Ü"],
+  ["Ã¼", "ü"],
+  ["Åž", "Ş"],
+  ["ÅŸ", "ş"],
+  ["ÄŸ", "ğ"],
+  ["Äž", "Ğ"],
+  ["â€™", "’"],
+  ["â€œ", "“"],
+  ["â€�", "”"],
+  ["â€“", "–"],
+  ["â€”", "—"],
+  ["Â", ""],
+];
+
+function normalizeTurkishDisplayText(value: string) {
+  let next = String(value ?? "");
+  for (const [broken, fixed] of TURKISH_MOJIBAKE_REPLACEMENTS) {
+    if (next.includes(broken)) {
+      next = next.split(broken).join(fixed);
+    }
+  }
+  return next;
+}
+
 function sanitizeTableChatKey(value: string) {
   const roomCode = sanitizeRoomCode(value);
   if (roomCode) return roomCode;
@@ -2489,6 +2520,7 @@ function App() {
   const [joinCodeInput, setJoinCodeInput] = useState(() => initialRoom?.code ?? "");
   const [joinSeat, setJoinSeat] = useState<Seat>(() => initialRoom?.seat ?? "black");
   const [lobbyNotice, setLobbyNotice] = useState("");
+  const normalizedLobbyNotice = useMemo(() => normalizeTurkishDisplayText(lobbyNotice), [lobbyNotice]);
   const [invitePickerTableId, setInvitePickerTableId] = useState<number | null>(null);
   const [lobbyState, setLobbyState] = useState<LobbyState>(() => {
     const initialLobbyId = sanitizeLobbyId(initialRoom?.lobbyId ?? "") || sanitizeLobbyId(getInitialLobbyId()) || DEFAULT_LOBBY_ID;
@@ -9080,7 +9112,7 @@ function App() {
               ) : null}
             </div>
 
-            {lobbyNotice ? <p className="my-notice">{lobbyNotice}</p> : null}
+            {normalizedLobbyNotice ? <p className="my-notice">{normalizedLobbyNotice}</p> : null}
             {incomingInviteTable ? (
               <div className="my-invite-banner">
                 <p>
@@ -9701,7 +9733,7 @@ function App() {
                 <button className="my-action-btn soft" onClick={goToLobbyFromTableView}>
                   {activeDesign.texts.roomBackLobby || "Lobiye Don"}
                 </button>
-                {lobbyNotice ? <p className="my-notice my-notice-soft">{lobbyNotice}</p> : null}
+                {normalizedLobbyNotice ? <p className="my-notice my-notice-soft">{normalizedLobbyNotice}</p> : null}
               </section>
             </aside>
 
