@@ -119,8 +119,11 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `src/App.tsx` icinde `normalizeTurkishDisplayText` eklendi,
    - lobby notice metinleri render oncesi normalize edilerek bozuk karakter gorunumu giderildi,
    - `scripts/smoke-notice-normalization.mjs` ile guard edilip `check:safe` zincirine eklendi.
+29. Runtime bugfix kuyrugu olusturma:
+   - `docs/BUGFIX_QUEUE.md` eklendi,
+   - tek bug aktif kalacak sekilde oncelik/durum/triage standardi netlestirildi.
 
 ## Sonraki adimlar
 
 1. Push/deploy kimlik akisini kalici hale getirmek (SEC_E_NO_CREDENTIALS engelini kapatmak).
-2. Bir sonraki runtime bugfix turu icin tek bir canli issue secip playbook akisiyla ilerlemek.
+2. BQ-001 icin canli bug triage'ini baslatip tek bugfix turuna gecmek.
