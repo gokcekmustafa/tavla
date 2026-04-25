@@ -160,7 +160,11 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
 39. BQ-002 baslangic kaydi:
    - `docs/BUGFIX_QUEUE.md` icine BQ-002 satiri eklendi (`new` / `P1` / `Runtime`),
    - `docs/bugs/BQ-002.md` triage kaydi olusturuldu (placeholder alanlarla bug bekleme durumunda).
+40. BQ-002 intake hazirlik kilidi:
+   - `docs/BUG_REPORT_INTAKE_TEMPLATE.md` eklendi (ilk bug raporu icin zorunlu alanlar),
+   - `scripts/smoke-bq002-intake-ready.mjs` eklendi,
+   - BQ-002 satiri/durumu + intake sablon zorunlu alanlari + BQ-002 placeholder hazirligi otomatik kontrol edilerek `check:safe` zincirine baglandi.
 
 ## Sonraki adimlar
 
-1. BQ-002 icin ilk dogrulanabilir bug raporu geldiginde kaydi doldurup durumu `triaged` yapmak.
+1. BQ-002 icin ilk dogrulanabilir bug raporu geldiginde intake sablonuna gore kaydi doldurup durumu `triaged` yapmak.
