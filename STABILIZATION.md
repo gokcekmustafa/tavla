@@ -51,6 +51,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-leave-permission-flow.mjs` eklendi,
    - teklif, onay, red, modal acilma kosulu ve auto-leave baglantilari kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+12. Worker deploy/config smoke kontrolu:
+   - `scripts/smoke-worker-deploy-config.mjs` eklendi,
+   - wrangler assets/do bindingleri, worker route/export baglantilari ve DurableObject extends hatasi korumasi kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
