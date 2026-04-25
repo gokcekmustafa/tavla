@@ -39,6 +39,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-realtime-resilience.mjs` eklendi,
    - WS/HTTP fallback/backoff, timeout ve start-gate re-sync korumalari kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+9. Kimlik/oturum butunlugu smoke kontrolu:
+   - `scripts/smoke-identity-session.mjs` eklendi,
+   - duplicate-user koltuk engeli, session temizligi ve storage senkronu kontrolleri yapiliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
