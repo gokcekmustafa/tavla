@@ -103,6 +103,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-room-summary-refresh.mjs` eklendi,
    - room picker cached/fallback ozet, remote refresh timeout-backoff ve UI masa/oyuncu sayaci baglantilari kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+25. Kritik notice metinleri smoke kontrolu:
+   - `scripts/smoke-critical-notices.mjs` eklendi,
+   - masa/oda gecis engelleri, ozel masa uyarilari, masa kapanis/bulunamama ve senkron/servis notice metinleri kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
