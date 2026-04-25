@@ -75,6 +75,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-presence-lifecycle.mjs` eklendi,
    - presence dedupe/heartbeat, lobi degisimi temizligi, beforeunload temizligi ve stale prune baglantilari kontrol ediliyor,
    - `check:safe` zincirine eklendi.
+18. Oyun baslangic senkronu smoke kontrolu:
+   - `scripts/smoke-room-start-sync.mjs` eklendi,
+   - room-start-gate mesaj akisi, iframe onLoad re-sync, periyodik start-gate korumasi ve baslat overlay baglantilari kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
