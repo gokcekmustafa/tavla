@@ -43,6 +43,10 @@ Bu dokuman, calisan ozellikleri bozmadan ilerlemek icin minimum guvenlik adimlar
    - `scripts/smoke-identity-session.mjs` eklendi,
    - duplicate-user koltuk engeli, session temizligi ve storage senkronu kontrolleri yapiliyor,
    - `check:safe` zincirine eklendi.
+10. Oda bagimsizligi + erisim smoke kontrolu:
+   - `scripts/smoke-room-isolation-access.mjs` eklendi,
+   - oda scope filtresi, presence tabanli oda ozetleri, ozel masa/izleyici erisim kurallari kontrol ediliyor,
+   - `check:safe` zincirine eklendi.
 
 ## Sonraki adimlar
 
