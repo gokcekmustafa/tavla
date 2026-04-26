@@ -2661,6 +2661,7 @@ function App() {
   const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? "");
   const [okeyPrototypeTableFilter, setOkeyPrototypeTableFilter] = useState<"all" | "active" | "waiting">("all");
   const [okeyPrototypeTableSearch, setOkeyPrototypeTableSearch] = useState("");
+  const [okeyPrototypeTableSort, setOkeyPrototypeTableSort] = useState<"tableNo" | "occupancy" | "status">("tableNo");
   const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState("");
   const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState(1);
   const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: number } | null>(null);
@@ -2711,11 +2712,32 @@ function App() {
     if (!searchQuery) return rows;
     return rows.filter((row) => String(row.tableNo).includes(searchQuery));
   }, [okeyPrototypeTableSketchRows, okeyPrototypeTableFilter, okeyPrototypeTableSearch]);
+  const okeyPrototypeVisibleTableSketchRows = useMemo(() => {
+    const rows = okeyPrototypeFilteredTableSketchRows.slice();
+    if (okeyPrototypeTableSort === "occupancy") {
+      rows.sort((left, right) => {
+        if (right.seated !== left.seated) return right.seated - left.seated;
+        if (left.active !== right.active) return left.active ? -1 : 1;
+        return left.tableNo - right.tableNo;
+      });
+      return rows;
+    }
+    if (okeyPrototypeTableSort === "status") {
+      rows.sort((left, right) => {
+        if (left.active !== right.active) return left.active ? -1 : 1;
+        if (right.seated !== left.seated) return right.seated - left.seated;
+        return left.tableNo - right.tableNo;
+      });
+      return rows;
+    }
+    rows.sort((left, right) => left.tableNo - right.tableNo);
+    return rows;
+  }, [okeyPrototypeFilteredTableSketchRows, okeyPrototypeTableSort]);
   const okeyPrototypeTableSummary = useMemo(() => {
-    const total = okeyPrototypeFilteredTableSketchRows.length;
-    const active = okeyPrototypeFilteredTableSketchRows.filter((row) => row.active).length;
+    const total = okeyPrototypeVisibleTableSketchRows.length;
+    const active = okeyPrototypeVisibleTableSketchRows.filter((row) => row.active).length;
     const waiting = total - active;
-    const occupiedSeats = okeyPrototypeFilteredTableSketchRows.reduce((sum, row) => sum + row.seated, 0);
+    const occupiedSeats = okeyPrototypeVisibleTableSketchRows.reduce((sum, row) => sum + row.seated, 0);
     const totalSeats = total * 4;
     const freeSeats = Math.max(0, totalSeats - occupiedSeats);
     const occupancyPct = totalSeats > 0 ? Math.round((occupiedSeats / totalSeats) * 100) : 0;
@@ -2727,9 +2749,9 @@ function App() {
       freeSeats,
       occupancyPct,
     };
-  }, [okeyPrototypeFilteredTableSketchRows]);
+  }, [okeyPrototypeVisibleTableSketchRows]);
   const okeyPrototypeQuickJoinTable = useMemo(() => {
-    const candidates = okeyPrototypeFilteredTableSketchRows.filter((row) => row.seated < 4);
+    const candidates = okeyPrototypeVisibleTableSketchRows.filter((row) => row.seated < 4);
     if (candidates.length === 0) return null;
     return candidates
       .slice()
@@ -2738,10 +2760,10 @@ function App() {
         if (left.active !== right.active) return left.active ? -1 : 1;
         return left.tableNo - right.tableNo;
       })[0];
-  }, [okeyPrototypeFilteredTableSketchRows]);
+  }, [okeyPrototypeVisibleTableSketchRows]);
   const okeyPrototypeSelectedTable =
-    okeyPrototypeFilteredTableSketchRows.find((row) => row.id === okeyPrototypeSelectedTableId)
-    ?? okeyPrototypeFilteredTableSketchRows[0]
+    okeyPrototypeVisibleTableSketchRows.find((row) => row.id === okeyPrototypeSelectedTableId)
+    ?? okeyPrototypeVisibleTableSketchRows[0]
     ?? null;
   const okeyPrototypeSelectedTableSeats = useMemo(() => {
     if (!okeyPrototypeSelectedTable) return [];
@@ -2919,11 +2941,11 @@ function App() {
   }, [okeyPrototypeSelectedRoom?.id]);
 
   useEffect(() => {
-    if (okeyPrototypeFilteredTableSketchRows.some((row) => row.id === okeyPrototypeSelectedTableId)) return;
-    const fallbackId = okeyPrototypeFilteredTableSketchRows[0]?.id ?? "";
+    if (okeyPrototypeVisibleTableSketchRows.some((row) => row.id === okeyPrototypeSelectedTableId)) return;
+    const fallbackId = okeyPrototypeVisibleTableSketchRows[0]?.id ?? "";
     if (!fallbackId || fallbackId === okeyPrototypeSelectedTableId) return;
     setOkeyPrototypeSelectedTableId(fallbackId);
-  }, [okeyPrototypeFilteredTableSketchRows, okeyPrototypeSelectedTableId]);
+  }, [okeyPrototypeVisibleTableSketchRows, okeyPrototypeSelectedTableId]);
 
   useEffect(() => {
     if (okeyPrototypeAvailableSeatNos.length === 0) {
@@ -9435,7 +9457,7 @@ function App() {
                   <section className="my-game-coming-table-sketch">
                     <div className="my-game-coming-table-sketch-head">
                       <strong>{okeyPrototypeSelectedRoom.name} | Masa Taslagi</strong>
-                      <span>{okeyPrototypeFilteredTableSketchRows.length}/{okeyPrototypeTableSketchRows.length} Masa</span>
+                      <span>{okeyPrototypeVisibleTableSketchRows.length}/{okeyPrototypeTableSketchRows.length} Masa</span>
                     </div>
                     <div className="my-game-coming-table-sketch-filters">
                       <button
@@ -9459,6 +9481,19 @@ function App() {
                       >
                         Bekleyen
                       </button>
+                    </div>
+                    <div className="my-game-coming-table-sketch-sort">
+                      <label htmlFor="okey-prototype-table-sort">Siralama</label>
+                      <select
+                        id="okey-prototype-table-sort"
+                        className="my-game-coming-table-sketch-sort-select"
+                        value={okeyPrototypeTableSort}
+                        onChange={(e) => setOkeyPrototypeTableSort(e.target.value as "tableNo" | "occupancy" | "status")}
+                      >
+                        <option value="tableNo">Masa No</option>
+                        <option value="occupancy">Doluluk</option>
+                        <option value="status">Durum</option>
+                      </select>
                     </div>
                     <div className="my-game-coming-table-sketch-search">
                       <label htmlFor="okey-prototype-table-search">Masa Ara</label>
@@ -9615,10 +9650,10 @@ function App() {
                       </div>
                     </div>
                     <div className="my-game-coming-table-sketch-grid">
-                      {okeyPrototypeFilteredTableSketchRows.length === 0 ? (
+                      {okeyPrototypeVisibleTableSketchRows.length === 0 ? (
                         <p className="my-game-coming-table-sketch-empty">Aramaya uygun masa bulunamadi.</p>
                       ) : (
-                        okeyPrototypeFilteredTableSketchRows.map((row) => (
+                        okeyPrototypeVisibleTableSketchRows.map((row) => (
                           <button
                             key={row.id}
                             type="button"
