@@ -760,6 +760,13 @@
   white-space: nowrap;
 }
 
+.my-game-coming-table-sketch-search-meta {
+  margin: 0;
+  color: #cde8f4;
+  font-size: 0.69rem;
+  line-height: 1.2;
+}
+
 .my-game-coming-table-sketch-reset-btn {
   min-height: 30px;
   justify-self: start;
