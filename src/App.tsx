@@ -9675,6 +9675,7 @@ function App() {
                       className="my-action-btn soft my-game-coming-table-sketch-reset-btn"
                       onClick={resetOkeyPrototypeTableFilters}
                       disabled={!okeyPrototypeHasTableFilters}
+                      title="Tum masa filtrelerini temizler"
                     >
                       Filtreleri Sifirla
                     </button>
