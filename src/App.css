@@ -804,6 +804,19 @@
   gap: 6px;
 }
 
+.my-game-coming-table-sketch-nav-indicator {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(110, 194, 219, 0.68);
+  background: rgba(9, 84, 106, 0.58);
+  color: #ddf3ff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
 .my-game-coming-table-sketch-nav-btn {
   min-height: 30px;
 }

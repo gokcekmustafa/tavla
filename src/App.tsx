@@ -2773,6 +2773,7 @@ function App() {
     if (!okeyPrototypeSelectedTable) return -1;
     return okeyPrototypeVisibleTableSketchRows.findIndex((row) => row.id === okeyPrototypeSelectedTable.id);
   }, [okeyPrototypeVisibleTableSketchRows, okeyPrototypeSelectedTable]);
+  const okeyPrototypeSelectedTablePosition = okeyPrototypeSelectedTableIndex >= 0 ? okeyPrototypeSelectedTableIndex + 1 : 0;
   const okeyPrototypeRandomFreeSeatTableCandidates = useMemo(() => {
     if (okeyPrototypeVisibleTableSketchRows.length === 0) return [];
     return okeyPrototypeVisibleTableSketchRows.filter((row, index) => {
@@ -9660,6 +9661,9 @@ function App() {
                     ) : null}
                     {okeyPrototypeSelectedTable && okeyPrototypeVisibleTableSketchRows.length > 1 ? (
                       <div className="my-game-coming-table-sketch-nav">
+                        <span className="my-game-coming-table-sketch-nav-indicator">
+                          {okeyPrototypeSelectedTablePosition}/{okeyPrototypeVisibleTableSketchRows.length}
+                        </span>
                         <button
                           type="button"
                           className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
