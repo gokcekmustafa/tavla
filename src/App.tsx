@@ -2775,6 +2775,17 @@ function App() {
     || okeyPrototypeTableSort !== "tableNo"
     || okeyPrototypeTableSearch.trim().length > 0,
   );
+  const okeyPrototypeActiveFilterLabels = useMemo(() => {
+    const labels: string[] = [];
+    if (okeyPrototypeTableFilter === "active") labels.push("Durum: Aktif");
+    if (okeyPrototypeTableFilter === "waiting") labels.push("Durum: Bekleyen");
+    if (okeyPrototypeOnlyWithFreeSeats) labels.push("Bos Koltuk");
+    if (okeyPrototypeTableSort === "occupancy") labels.push("Siralama: Doluluk");
+    if (okeyPrototypeTableSort === "status") labels.push("Siralama: Durum");
+    const query = okeyPrototypeTableSearch.replace(/\D/g, "").slice(0, 2);
+    if (query) labels.push(`Masa Ara: ${query}`);
+    return labels;
+  }, [okeyPrototypeOnlyWithFreeSeats, okeyPrototypeTableFilter, okeyPrototypeTableSearch, okeyPrototypeTableSort]);
   const okeyPrototypeSelectedTableSeats = useMemo(() => {
     if (!okeyPrototypeSelectedTable) return [];
     return Array.from({ length: 4 }, (_, index) => {
@@ -9548,6 +9559,15 @@ function App() {
                     >
                       Filtreleri Sifirla
                     </button>
+                    {okeyPrototypeActiveFilterLabels.length > 0 ? (
+                      <div className="my-game-coming-table-sketch-active-filters">
+                        {okeyPrototypeActiveFilterLabels.map((label) => (
+                          <span key={`okey-filter-${label}`} className="my-game-coming-table-sketch-filter-chip">
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                     {okeyPrototypeSelectedTable ? (
                       <p className="my-game-coming-table-sketch-selected">
                         Secili Masa: {okeyPrototypeSelectedTable.tableNo} | Durum: {okeyPrototypeSelectedTable.active ? "Aktif" : "Bekliyor"} | Dolu Koltuk: {okeyPrototypeSelectedTable.seated}/4
