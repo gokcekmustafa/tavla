@@ -2660,6 +2660,7 @@ function App() {
   const [okeyPrototypeRoomFilter, setOkeyPrototypeRoomFilter] = useState<"all" | "fast" | "busy">("all");
   const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? "");
   const [okeyPrototypeTableFilter, setOkeyPrototypeTableFilter] = useState<"all" | "active" | "waiting">("all");
+  const [okeyPrototypeTableSearch, setOkeyPrototypeTableSearch] = useState("");
   const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState("");
   const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState(1);
   const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: number } | null>(null);
@@ -2699,14 +2700,17 @@ function App() {
     });
   }, [okeyPrototypeSelectedRoom]);
   const okeyPrototypeFilteredTableSketchRows = useMemo(() => {
+    const searchQuery = okeyPrototypeTableSearch.replace(/\D/g, "").slice(0, 2);
+    let rows = okeyPrototypeTableSketchRows;
     if (okeyPrototypeTableFilter === "active") {
-      return okeyPrototypeTableSketchRows.filter((row) => row.active);
+      rows = rows.filter((row) => row.active);
     }
     if (okeyPrototypeTableFilter === "waiting") {
-      return okeyPrototypeTableSketchRows.filter((row) => !row.active);
+      rows = rows.filter((row) => !row.active);
     }
-    return okeyPrototypeTableSketchRows;
-  }, [okeyPrototypeTableSketchRows, okeyPrototypeTableFilter]);
+    if (!searchQuery) return rows;
+    return rows.filter((row) => String(row.tableNo).includes(searchQuery));
+  }, [okeyPrototypeTableSketchRows, okeyPrototypeTableFilter, okeyPrototypeTableSearch]);
   const okeyPrototypeSelectedTable =
     okeyPrototypeFilteredTableSketchRows.find((row) => row.id === okeyPrototypeSelectedTableId)
     ?? okeyPrototypeFilteredTableSketchRows[0]
@@ -2881,6 +2885,10 @@ function App() {
     if (!fallbackId || fallbackId === okeyPrototypeSelectedRoomId) return;
     setOkeyPrototypeSelectedRoomId(fallbackId);
   }, [okeyPrototypeFilteredRooms, okeyPrototypeSelectedRoomId]);
+
+  useEffect(() => {
+    setOkeyPrototypeTableSearch("");
+  }, [okeyPrototypeSelectedRoom?.id]);
 
   useEffect(() => {
     if (okeyPrototypeFilteredTableSketchRows.some((row) => row.id === okeyPrototypeSelectedTableId)) return;
@@ -9424,6 +9432,17 @@ function App() {
                         Bekleyen
                       </button>
                     </div>
+                    <div className="my-game-coming-table-sketch-search">
+                      <label htmlFor="okey-prototype-table-search">Masa Ara</label>
+                      <input
+                        id="okey-prototype-table-search"
+                        className="my-game-coming-table-sketch-search-input"
+                        value={okeyPrototypeTableSearch}
+                        onChange={(e) => setOkeyPrototypeTableSearch(e.target.value.replace(/[^\d]/g, "").slice(0, 2))}
+                        placeholder="Masa No (or. 3)"
+                        inputMode="numeric"
+                      />
+                    </div>
                     {okeyPrototypeSelectedTable ? (
                       <p className="my-game-coming-table-sketch-selected">
                         Secili Masa: {okeyPrototypeSelectedTable.tableNo} | Durum: {okeyPrototypeSelectedTable.active ? "Aktif" : "Bekliyor"} | Dolu Koltuk: {okeyPrototypeSelectedTable.seated}/4
@@ -9532,24 +9551,28 @@ function App() {
                       </div>
                     </div>
                     <div className="my-game-coming-table-sketch-grid">
-                      {okeyPrototypeFilteredTableSketchRows.map((row) => (
-                        <button
-                          key={row.id}
-                          type="button"
-                          className={`my-game-coming-table-sketch-card ${row.active ? "active" : "waiting"} ${okeyPrototypeSelectedTableId === row.id ? "selected" : ""}`}
-                          onClick={() => {
-                            setOkeyPrototypeSelectedTableId(row.id);
-                            appendOkeyPrototypeAction(`Masa secildi: ${row.tableNo}`);
-                          }}
-                        >
-                          <header>
-                            <strong>Masa {row.tableNo}</strong>
-                            <em>{row.active ? "Aktif" : "Bekliyor"}</em>
-                          </header>
-                          <p>Dolu Koltuk: {row.seated}/4</p>
-                          <p>{row.active ? "Canli oyun prototipi icin hazir." : "Oyuncu bekliyor."}</p>
-                        </button>
-                      ))}
+                      {okeyPrototypeFilteredTableSketchRows.length === 0 ? (
+                        <p className="my-game-coming-table-sketch-empty">Aramaya uygun masa bulunamadi.</p>
+                      ) : (
+                        okeyPrototypeFilteredTableSketchRows.map((row) => (
+                          <button
+                            key={row.id}
+                            type="button"
+                            className={`my-game-coming-table-sketch-card ${row.active ? "active" : "waiting"} ${okeyPrototypeSelectedTableId === row.id ? "selected" : ""}`}
+                            onClick={() => {
+                              setOkeyPrototypeSelectedTableId(row.id);
+                              appendOkeyPrototypeAction(`Masa secildi: ${row.tableNo}`);
+                            }}
+                          >
+                            <header>
+                              <strong>Masa {row.tableNo}</strong>
+                              <em>{row.active ? "Aktif" : "Bekliyor"}</em>
+                            </header>
+                            <p>Dolu Koltuk: {row.seated}/4</p>
+                            <p>{row.active ? "Canli oyun prototipi icin hazir." : "Oyuncu bekliyor."}</p>
+                          </button>
+                        ))
+                      )}
                     </div>
                   </section>
                 ) : null}

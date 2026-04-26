@@ -687,6 +687,33 @@
   color: #fff6df;
 }
 
+.my-game-coming-table-sketch-search {
+  display: grid;
+  gap: 4px;
+}
+
+.my-game-coming-table-sketch-search label {
+  color: #d9eef9;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.my-game-coming-table-sketch-search-input {
+  min-height: 30px;
+  border-radius: 6px;
+  border: 1px solid rgba(102, 188, 214, 0.66);
+  background: rgba(8, 73, 92, 0.72);
+  color: #ecf9ff;
+  padding: 0 8px;
+  font-size: 0.74rem;
+}
+
+.my-game-coming-table-sketch-search-input:focus-visible {
+  outline: none;
+  border-color: rgba(248, 217, 147, 0.92);
+  box-shadow: 0 0 0 1px rgba(248, 217, 147, 0.32) inset;
+}
+
 .my-game-coming-table-sketch-selected {
   margin: 0;
   border-radius: 7px;
@@ -873,6 +900,17 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 6px;
+}
+
+.my-game-coming-table-sketch-empty {
+  margin: 0;
+  border-radius: 7px;
+  border: 1px solid rgba(96, 183, 209, 0.62);
+  background: rgba(8, 78, 99, 0.5);
+  color: #d7edf8;
+  padding: 7px;
+  font-size: 0.73rem;
+  line-height: 1.24;
 }
 
 .my-game-coming-table-sketch-card {

@@ -22,6 +22,7 @@ const checks = [
       && hasApp("const [okeyPrototypeRoomFilter, setOkeyPrototypeRoomFilter] = useState<\"all\" | \"fast\" | \"busy\">(\"all\");")
       && hasApp("const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? \"\");")
       && hasApp("const [okeyPrototypeTableFilter, setOkeyPrototypeTableFilter] = useState<\"all\" | \"active\" | \"waiting\">(\"all\");")
+      && hasApp("const [okeyPrototypeTableSearch, setOkeyPrototypeTableSearch] = useState(\"\");")
       && hasApp("const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState(\"\");")
       && hasApp("const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState(1);")
       && hasApp("const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: number } | null>(null);")
@@ -47,6 +48,8 @@ const checks = [
       && hasApp("className=\"my-game-coming-table-sketch\"")
       && hasApp("className=\"my-game-coming-table-sketch-filters\"")
       && hasApp("className={`my-game-coming-table-sketch-filter ${okeyPrototypeTableFilter === \"all\" ? \"active\" : \"\"}`}")
+      && hasApp("className=\"my-game-coming-table-sketch-search\"")
+      && hasApp("className=\"my-game-coming-table-sketch-search-input\"")
       && hasApp("className=\"my-game-coming-table-sketch-selected\"")
       && hasApp("const okeyPrototypeSelectedTableSeats = useMemo(() => {")
       && hasApp("const okeyPrototypeAvailableSeatNos = useMemo(() => {")
@@ -63,6 +66,7 @@ const checks = [
       && hasApp("className=\"my-game-coming-prototype-log-entry\"")
       && hasApp("Henuz kayitli prototip aksiyonu yok.")
       && hasApp("className=\"my-game-coming-table-sketch-grid\"")
+      && hasApp("Aramaya uygun masa bulunamadi.")
       && hasApp("okeyPrototypeFilteredTableSketchRows.map((row) => (")
       && hasApp("className={`my-game-coming-table-sketch-card ${row.active ? \"active\" : \"waiting\"} ${okeyPrototypeSelectedTableId === row.id ? \"selected\" : \"\"}`}")
       && hasApp("appendOkeyPrototypeAction(`Masa secildi: ${row.tableNo}`);"),
@@ -81,6 +85,8 @@ const checks = [
       && hasCss(".my-game-coming-table-sketch {")
       && hasCss(".my-game-coming-table-sketch-filters {")
       && hasCss(".my-game-coming-table-sketch-filter.active {")
+      && hasCss(".my-game-coming-table-sketch-search {")
+      && hasCss(".my-game-coming-table-sketch-search-input {")
       && hasCss(".my-game-coming-table-sketch-selected {")
       && hasCss(".my-game-coming-table-seat-row {")
       && hasCss(".my-game-coming-table-seat.occupied {")
@@ -92,6 +98,7 @@ const checks = [
       && hasCss(".my-game-coming-prototype-log-list {")
       && hasCss(".my-game-coming-prototype-log-entry {")
       && hasCss(".my-game-coming-table-sketch-grid {")
+      && hasCss(".my-game-coming-table-sketch-empty {")
       && hasCss(".my-game-coming-table-sketch-card.active {")
       && hasCss(".my-game-coming-table-sketch-card.selected {"),
   },
