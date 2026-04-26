@@ -1022,6 +1022,11 @@
   gap: 6px;
 }
 
+.my-game-coming-table-sketch-empty-state {
+  display: grid;
+  gap: 7px;
+}
+
 .my-game-coming-table-sketch-empty {
   margin: 0;
   border-radius: 7px;
@@ -1031,6 +1036,11 @@
   padding: 7px;
   font-size: 0.73rem;
   line-height: 1.24;
+}
+
+.my-game-coming-table-sketch-empty-reset-btn {
+  min-height: 30px;
+  justify-self: start;
 }
 
 .my-game-coming-table-sketch-card {

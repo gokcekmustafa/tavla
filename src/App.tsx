@@ -9744,7 +9744,18 @@ function App() {
                     </div>
                     <div className="my-game-coming-table-sketch-grid">
                       {okeyPrototypeVisibleTableSketchRows.length === 0 ? (
-                        <p className="my-game-coming-table-sketch-empty">Aramaya uygun masa bulunamadi.</p>
+                        <div className="my-game-coming-table-sketch-empty-state">
+                          <p className="my-game-coming-table-sketch-empty">Aramaya uygun masa bulunamadi.</p>
+                          {okeyPrototypeHasTableFilters ? (
+                            <button
+                              type="button"
+                              className="my-action-btn soft my-game-coming-table-sketch-empty-reset-btn"
+                              onClick={resetOkeyPrototypeTableFilters}
+                            >
+                              Filtreleri Temizle ve Tekrar Dene
+                            </button>
+                          ) : null}
+                        </div>
                       ) : (
                         okeyPrototypeVisibleTableSketchRows.map((row) => (
                           <button

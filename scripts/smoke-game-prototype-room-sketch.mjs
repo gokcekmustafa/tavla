@@ -90,7 +90,9 @@ const checks = [
       && hasApp("className=\"my-game-coming-prototype-log-entry\"")
       && hasApp("Henuz kayitli prototip aksiyonu yok.")
       && hasApp("className=\"my-game-coming-table-sketch-grid\"")
+      && hasApp("className=\"my-game-coming-table-sketch-empty-state\"")
       && hasApp("Aramaya uygun masa bulunamadi.")
+      && hasApp("Filtreleri Temizle ve Tekrar Dene")
       && hasApp("okeyPrototypeVisibleTableSketchRows.map((row) => (")
       && hasApp("className={`my-game-coming-table-sketch-card ${row.active ? \"active\" : \"waiting\"} ${okeyPrototypeSelectedTableId === row.id ? \"selected\" : \"\"}`}")
       && hasApp("appendOkeyPrototypeAction(`Masa secildi: ${row.tableNo}`);"),
@@ -130,7 +132,9 @@ const checks = [
       && hasCss(".my-game-coming-prototype-log-list {")
       && hasCss(".my-game-coming-prototype-log-entry {")
       && hasCss(".my-game-coming-table-sketch-grid {")
+      && hasCss(".my-game-coming-table-sketch-empty-state {")
       && hasCss(".my-game-coming-table-sketch-empty {")
+      && hasCss(".my-game-coming-table-sketch-empty-reset-btn {")
       && hasCss(".my-game-coming-table-sketch-card.active {")
       && hasCss(".my-game-coming-table-sketch-card.selected {"),
   },
