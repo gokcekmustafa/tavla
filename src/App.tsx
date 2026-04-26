@@ -9644,6 +9644,7 @@ function App() {
                           }}
                           placeholder="Masa No (or. 3)"
                           inputMode="numeric"
+                          maxLength={2}
                         />
                         <button
                           type="button"

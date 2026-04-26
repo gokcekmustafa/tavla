@@ -71,6 +71,7 @@ const checks = [
       && hasApp("className=\"my-game-coming-table-sketch-search\"")
       && hasApp("className=\"my-game-coming-table-sketch-search-row\"")
       && hasApp("className=\"my-game-coming-table-sketch-search-input\"")
+      && hasApp("maxLength={2}")
       && hasApp("onKeyDown={(e) => {")
       && hasApp("if (e.key !== \"Enter\") return;")
       && hasApp("selectFirstOkeyPrototypeSearchResult();")
