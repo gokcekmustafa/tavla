@@ -9742,6 +9742,10 @@ function App() {
                         <span>Bekleyen</span>
                       </article>
                       <article className="my-game-coming-table-sketch-summary-item">
+                        <strong>{okeyPrototypeTableSummary.occupiedSeats}</strong>
+                        <span>Toplam Dolu</span>
+                      </article>
+                      <article className="my-game-coming-table-sketch-summary-item">
                         <strong>{okeyPrototypeTableSummary.freeSeats}</strong>
                         <span>Toplam Bos</span>
                       </article>
