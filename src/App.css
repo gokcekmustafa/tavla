@@ -392,6 +392,103 @@
   line-height: 1.3;
 }
 
+.my-game-coming-side {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.my-game-coming-preview {
+  border-radius: 8px;
+  border: 1px solid rgba(27, 121, 149, 0.68);
+  background: linear-gradient(180deg, rgba(7, 74, 96, 0.92), rgba(5, 57, 72, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.11);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.my-game-coming-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.my-game-coming-preview-head h3 {
+  margin: 0;
+  color: #e8f8ff;
+  font-size: 0.94rem;
+}
+
+.my-game-coming-preview-head span {
+  border-radius: 999px;
+  border: 1px solid rgba(113, 204, 229, 0.6);
+  background: rgba(10, 110, 138, 0.42);
+  color: #d9f4ff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 8px;
+}
+
+.my-game-coming-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.my-game-coming-preview-card {
+  border-radius: 7px;
+  border: 1px solid rgba(62, 161, 195, 0.62);
+  background: rgba(7, 95, 121, 0.46);
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.my-game-coming-preview-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.my-game-coming-preview-card strong {
+  color: #fff3cf;
+  font-size: 0.8rem;
+}
+
+.my-game-coming-preview-card em {
+  font-style: normal;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #ddf4ff;
+}
+
+.my-game-coming-preview-card p {
+  margin: 0;
+  color: #d7edf8;
+  font-size: 0.73rem;
+  line-height: 1.25;
+}
+
+.my-game-coming-preview-card.waiting {
+  border-color: rgba(119, 194, 214, 0.58);
+}
+
+.my-game-coming-preview-card.waiting em {
+  color: #dcf6ff;
+}
+
+.my-game-coming-preview-card.active {
+  border-color: rgba(131, 214, 154, 0.78);
+  background: rgba(25, 103, 64, 0.34);
+}
+
+.my-game-coming-preview-card.active em {
+  color: #eaffd6;
+}
+
 .my-game-coming-soon-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -2769,6 +2866,10 @@
   }
 
   .my-game-coming-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .my-game-coming-preview-grid {
     grid-template-columns: 1fr;
   }
 

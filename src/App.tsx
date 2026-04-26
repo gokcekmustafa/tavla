@@ -9160,23 +9160,54 @@ function App() {
                 </div>
               </article>
 
-              <aside className="my-game-coming-plan">
-                <h3>Yol Haritasi</h3>
-                <div className="my-game-coming-plan-grid">
-                  <article className="my-game-coming-plan-card">
-                    <strong>Adim 1</strong>
-                    <p>Okey lobi girisi ve masa olusturma akisi.</p>
-                  </article>
-                  <article className="my-game-coming-plan-card">
-                    <strong>Adim 2</strong>
-                    <p>Tas dizilimi, sira yonetimi ve temel oyun dongusu.</p>
-                  </article>
-                  <article className="my-game-coming-plan-card">
-                    <strong>Adim 3</strong>
-                    <p>Sohbet, puanlama, oda ozetleri ve mobil iyilestirme.</p>
-                  </article>
-                </div>
-              </aside>
+              <div className="my-game-coming-side">
+                <aside className="my-game-coming-plan">
+                  <h3>Yol Haritasi</h3>
+                  <div className="my-game-coming-plan-grid">
+                    <article className="my-game-coming-plan-card">
+                      <strong>Adim 1</strong>
+                      <p>Okey lobi girisi ve masa olusturma akisi.</p>
+                    </article>
+                    <article className="my-game-coming-plan-card">
+                      <strong>Adim 2</strong>
+                      <p>Tas dizilimi, sira yonetimi ve temel oyun dongusu.</p>
+                    </article>
+                    <article className="my-game-coming-plan-card">
+                      <strong>Adim 3</strong>
+                      <p>Sohbet, puanlama, oda ozetleri ve mobil iyilestirme.</p>
+                    </article>
+                  </div>
+                </aside>
+
+                <section className="my-game-coming-preview">
+                  <div className="my-game-coming-preview-head">
+                    <h3>101 Lobi Onizleme</h3>
+                    <span>UI Taslak</span>
+                  </div>
+                  <div className="my-game-coming-preview-grid">
+                    <article className="my-game-coming-preview-card waiting">
+                      <header>
+                        <strong>Masa 1</strong>
+                        <em>Bekliyor</em>
+                      </header>
+                      <p>Oyuncu 1: Bos</p>
+                      <p>Oyuncu 2: Bos</p>
+                      <p>Oyuncu 3: Bos</p>
+                      <p>Oyuncu 4: Bos</p>
+                    </article>
+                    <article className="my-game-coming-preview-card active">
+                      <header>
+                        <strong>Masa 2</strong>
+                        <em>Aktif</em>
+                      </header>
+                      <p>Oyuncu 1: misafir_7</p>
+                      <p>Oyuncu 2: misafir_9</p>
+                      <p>Oyuncu 3: misafir_4</p>
+                      <p>Oyuncu 4: misafir_13</p>
+                    </article>
+                  </div>
+                </section>
+              </div>
             </div>
           </section>
         ) : showRoomPicker ? (
