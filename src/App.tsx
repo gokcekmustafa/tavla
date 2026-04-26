@@ -9622,14 +9622,28 @@ function App() {
                     </div>
                     <div className="my-game-coming-table-sketch-search">
                       <label htmlFor="okey-prototype-table-search">Masa Ara</label>
-                      <input
-                        id="okey-prototype-table-search"
-                        className="my-game-coming-table-sketch-search-input"
-                        value={okeyPrototypeTableSearch}
-                        onChange={(e) => setOkeyPrototypeTableSearch(e.target.value.replace(/[^\d]/g, "").slice(0, 2))}
-                        placeholder="Masa No (or. 3)"
-                        inputMode="numeric"
-                      />
+                      <div className="my-game-coming-table-sketch-search-row">
+                        <input
+                          id="okey-prototype-table-search"
+                          className="my-game-coming-table-sketch-search-input"
+                          value={okeyPrototypeTableSearch}
+                          onChange={(e) => setOkeyPrototypeTableSearch(e.target.value.replace(/[^\d]/g, "").slice(0, 2))}
+                          placeholder="Masa No (or. 3)"
+                          inputMode="numeric"
+                        />
+                        <button
+                          type="button"
+                          className="my-action-btn soft my-game-coming-table-sketch-search-clear-btn"
+                          onClick={() => {
+                            if (okeyPrototypeTableSearch.trim().length === 0) return;
+                            setOkeyPrototypeTableSearch("");
+                            appendOkeyPrototypeAction("Masa aramasi temizlendi.");
+                          }}
+                          disabled={okeyPrototypeTableSearch.trim().length === 0}
+                        >
+                          Temizle
+                        </button>
+                      </div>
                     </div>
                     <button
                       type="button"
