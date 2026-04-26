@@ -778,6 +778,13 @@
   gap: 6px;
 }
 
+.my-game-coming-table-sketch-filter-empty {
+  margin: 0;
+  color: #b9dbe8;
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
 .my-game-coming-table-sketch-filter-chip-btn {
   appearance: none;
   border-radius: 999px;
