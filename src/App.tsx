@@ -2660,6 +2660,7 @@ function App() {
   const [okeyPrototypeRoomFilter, setOkeyPrototypeRoomFilter] = useState<"all" | "fast" | "busy">("all");
   const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? "");
   const [okeyPrototypeTableFilter, setOkeyPrototypeTableFilter] = useState<"all" | "active" | "waiting">("all");
+  const [okeyPrototypeOnlyWithFreeSeats, setOkeyPrototypeOnlyWithFreeSeats] = useState(false);
   const [okeyPrototypeTableSearch, setOkeyPrototypeTableSearch] = useState("");
   const [okeyPrototypeTableSort, setOkeyPrototypeTableSort] = useState<"tableNo" | "occupancy" | "status">("tableNo");
   const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState("");
@@ -2709,9 +2710,12 @@ function App() {
     if (okeyPrototypeTableFilter === "waiting") {
       rows = rows.filter((row) => !row.active);
     }
+    if (okeyPrototypeOnlyWithFreeSeats) {
+      rows = rows.filter((row) => row.seated < 4);
+    }
     if (!searchQuery) return rows;
     return rows.filter((row) => String(row.tableNo).includes(searchQuery));
-  }, [okeyPrototypeTableSketchRows, okeyPrototypeTableFilter, okeyPrototypeTableSearch]);
+  }, [okeyPrototypeTableSketchRows, okeyPrototypeTableFilter, okeyPrototypeOnlyWithFreeSeats, okeyPrototypeTableSearch]);
   const okeyPrototypeVisibleTableSketchRows = useMemo(() => {
     const rows = okeyPrototypeFilteredTableSketchRows.slice();
     if (okeyPrototypeTableSort === "occupancy") {
@@ -2767,6 +2771,7 @@ function App() {
     ?? null;
   const okeyPrototypeHasTableFilters = Boolean(
     okeyPrototypeTableFilter !== "all"
+    || okeyPrototypeOnlyWithFreeSeats
     || okeyPrototypeTableSort !== "tableNo"
     || okeyPrototypeTableSearch.trim().length > 0,
   );
@@ -5465,6 +5470,7 @@ function App() {
   function resetOkeyPrototypeTableFilters() {
     const hadAny = okeyPrototypeHasTableFilters;
     setOkeyPrototypeTableFilter("all");
+    setOkeyPrototypeOnlyWithFreeSeats(false);
     setOkeyPrototypeTableSort("tableNo");
     setOkeyPrototypeTableSearch("");
     if (hadAny) {
@@ -9495,6 +9501,19 @@ function App() {
                         onClick={() => setOkeyPrototypeTableFilter("waiting")}
                       >
                         Bekleyen
+                      </button>
+                      <button
+                        type="button"
+                        className={`my-game-coming-table-sketch-filter ${okeyPrototypeOnlyWithFreeSeats ? "active" : ""}`}
+                        onClick={() => {
+                          setOkeyPrototypeOnlyWithFreeSeats((current) => {
+                            const next = !current;
+                            appendOkeyPrototypeAction(next ? "Bos koltuk filtresi acildi." : "Bos koltuk filtresi kapatildi.");
+                            return next;
+                          });
+                        }}
+                      >
+                        Bos Koltuk Var
                       </button>
                     </div>
                     <div className="my-game-coming-table-sketch-sort">
