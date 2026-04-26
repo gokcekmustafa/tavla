@@ -9677,7 +9677,7 @@ function App() {
                       disabled={!okeyPrototypeHasTableFilters}
                       title="Tum masa filtrelerini temizler"
                     >
-                      Filtreleri Sifirla
+                      Filtreleri Sifirla ({okeyPrototypeActiveFilters.length})
                     </button>
                     {okeyPrototypeActiveFilters.length > 0 ? (
                       <div className="my-game-coming-table-sketch-active-filters">
