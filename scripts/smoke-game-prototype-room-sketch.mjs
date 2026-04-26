@@ -36,6 +36,7 @@ const checks = [
       && hasApp("function resetOkeyPrototypeTableFilters() {")
       && hasApp("function clearOkeyPrototypeFilterChip(filterKey: string, label: string) {")
       && hasApp("function moveOkeyPrototypeTableSelection(step: number) {")
+      && hasApp("function jumpOkeyPrototypeTableSelection(target: \"first\" | \"last\") {")
       && hasApp("onClick={() => setOkeyPrototypeRoomSketchOpen((prev) => !prev)}")
       && hasApp("{okeyPrototypeRoomSketchOpen ? \"101 Oda Taslagini Kapat\" : \"101 Oda Taslagini Ac\"}"),
   },
@@ -71,10 +72,14 @@ const checks = [
       && hasApp("className=\"my-game-coming-table-sketch-selected\"")
       && hasApp("className=\"my-game-coming-table-sketch-nav\"")
       && hasApp("className=\"my-action-btn soft my-game-coming-table-sketch-nav-btn\"")
+      && hasApp("onClick={() => jumpOkeyPrototypeTableSelection(\"first\")}")
       && hasApp("onClick={() => moveOkeyPrototypeTableSelection(-1)}")
       && hasApp("onClick={() => moveOkeyPrototypeTableSelection(1)}")
+      && hasApp("onClick={() => jumpOkeyPrototypeTableSelection(\"last\")}")
+      && hasApp("Ilk Masa")
       && hasApp("Onceki Masa")
       && hasApp("Sonraki Masa")
+      && hasApp("Son Masa")
       && hasApp("const okeyPrototypeTableSummary = useMemo(() => {")
       && hasApp("const okeyPrototypeQuickJoinTable = useMemo(() => {")
       && hasApp("className=\"my-game-coming-table-sketch-summary\"")

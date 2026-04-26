@@ -5529,6 +5529,16 @@ function App() {
     appendOkeyPrototypeAction(`Masa gecisi: ${targetTable.tableNo}`);
   }
 
+  function jumpOkeyPrototypeTableSelection(target: "first" | "last") {
+    if (okeyPrototypeVisibleTableSketchRows.length === 0) return;
+    const targetIndex = target === "first" ? 0 : okeyPrototypeVisibleTableSketchRows.length - 1;
+    if (targetIndex === okeyPrototypeSelectedTableIndex) return;
+    const targetTable = okeyPrototypeVisibleTableSketchRows[targetIndex];
+    if (!targetTable) return;
+    setOkeyPrototypeSelectedTableId(targetTable.id);
+    appendOkeyPrototypeAction(`Masa gecisi: ${targetTable.tableNo}`);
+  }
+
   function onSelectGame(gameId: GameId) {
     setSelectedGameId(gameId);
     saveSelectedGameIdToSession(gameId);
@@ -9624,6 +9634,14 @@ function App() {
                         <button
                           type="button"
                           className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
+                          onClick={() => jumpOkeyPrototypeTableSelection("first")}
+                          disabled={okeyPrototypeSelectedTableIndex <= 0}
+                        >
+                          Ilk Masa
+                        </button>
+                        <button
+                          type="button"
+                          className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
                           onClick={() => moveOkeyPrototypeTableSelection(-1)}
                           disabled={okeyPrototypeSelectedTableIndex <= 0}
                         >
@@ -9636,6 +9654,14 @@ function App() {
                           disabled={okeyPrototypeSelectedTableIndex < 0 || okeyPrototypeSelectedTableIndex >= okeyPrototypeVisibleTableSketchRows.length - 1}
                         >
                           Sonraki Masa
+                        </button>
+                        <button
+                          type="button"
+                          className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
+                          onClick={() => jumpOkeyPrototypeTableSelection("last")}
+                          disabled={okeyPrototypeSelectedTableIndex < 0 || okeyPrototypeSelectedTableIndex >= okeyPrototypeVisibleTableSketchRows.length - 1}
+                        >
+                          Son Masa
                         </button>
                       </div>
                     ) : null}
