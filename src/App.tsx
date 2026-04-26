@@ -9681,6 +9681,9 @@ function App() {
                     </button>
                     {okeyPrototypeActiveFilters.length > 0 ? (
                       <div className="my-game-coming-table-sketch-active-filters">
+                        <p className="my-game-coming-table-sketch-filter-count">
+                          Aktif filtreler: {okeyPrototypeActiveFilters.length}
+                        </p>
                         {okeyPrototypeActiveFilters.map((filter) => (
                           <button
                             key={`okey-filter-${filter.key}`}
