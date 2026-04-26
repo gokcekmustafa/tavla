@@ -9678,6 +9678,7 @@ function App() {
                       onClick={resetOkeyPrototypeTableFilters}
                       disabled={!okeyPrototypeHasTableFilters}
                       title="Tum masa filtrelerini temizler"
+                      aria-label={`Filtreleri sifirla. Aktif filtre: ${okeyPrototypeActiveFilters.length}`}
                     >
                       Filtreleri Sifirla ({okeyPrototypeActiveFilters.length})
                     </button>

@@ -87,6 +87,7 @@ const checks = [
       && hasApp("Sonuc: {okeyPrototypeVisibleTableSketchRows.length} masa | Enter: Ilk Sonuc")
       && hasApp("className=\"my-action-btn soft my-game-coming-table-sketch-reset-btn\"")
       && hasApp("title=\"Tum masa filtrelerini temizler\"")
+      && hasApp("aria-label={`Filtreleri sifirla. Aktif filtre: ${okeyPrototypeActiveFilters.length}`}")
       && hasApp("Filtreleri Sifirla")
       && hasApp("Filtreleri Sifirla ({okeyPrototypeActiveFilters.length})")
       && hasApp("className=\"my-game-coming-table-sketch-active-filters\"")
