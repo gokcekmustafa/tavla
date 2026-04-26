@@ -752,6 +752,30 @@
   gap: 6px;
 }
 
+.my-game-coming-table-sketch-filter-chip-btn {
+  appearance: none;
+  border-radius: 999px;
+  border: 1px solid rgba(248, 217, 147, 0.84);
+  background: rgba(179, 128, 24, 0.34);
+  color: #fff3d7;
+  font-size: 0.69rem;
+  font-weight: 800;
+  padding: 3px 9px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.my-game-coming-table-sketch-filter-chip-btn:hover {
+  border-color: rgba(250, 226, 170, 0.95);
+  background: rgba(200, 145, 28, 0.42);
+}
+
+.my-game-coming-table-sketch-filter-chip-btn:focus-visible {
+  outline: none;
+  border-color: rgba(250, 226, 170, 0.95);
+  box-shadow: 0 0 0 1px rgba(250, 226, 170, 0.28) inset;
+}
+
 .my-game-coming-table-sketch-filter-chip {
   border-radius: 999px;
   border: 1px solid rgba(248, 217, 147, 0.84);

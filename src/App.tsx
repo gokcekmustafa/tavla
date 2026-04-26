@@ -2775,16 +2775,16 @@ function App() {
     || okeyPrototypeTableSort !== "tableNo"
     || okeyPrototypeTableSearch.trim().length > 0,
   );
-  const okeyPrototypeActiveFilterLabels = useMemo(() => {
-    const labels: string[] = [];
-    if (okeyPrototypeTableFilter === "active") labels.push("Durum: Aktif");
-    if (okeyPrototypeTableFilter === "waiting") labels.push("Durum: Bekleyen");
-    if (okeyPrototypeOnlyWithFreeSeats) labels.push("Bos Koltuk");
-    if (okeyPrototypeTableSort === "occupancy") labels.push("Siralama: Doluluk");
-    if (okeyPrototypeTableSort === "status") labels.push("Siralama: Durum");
+  const okeyPrototypeActiveFilters = useMemo(() => {
+    const filters: Array<{ key: string; label: string }> = [];
+    if (okeyPrototypeTableFilter === "active") filters.push({ key: "status-active", label: "Durum: Aktif" });
+    if (okeyPrototypeTableFilter === "waiting") filters.push({ key: "status-waiting", label: "Durum: Bekleyen" });
+    if (okeyPrototypeOnlyWithFreeSeats) filters.push({ key: "free-seats", label: "Bos Koltuk" });
+    if (okeyPrototypeTableSort === "occupancy") filters.push({ key: "sort-occupancy", label: "Siralama: Doluluk" });
+    if (okeyPrototypeTableSort === "status") filters.push({ key: "sort-status", label: "Siralama: Durum" });
     const query = okeyPrototypeTableSearch.replace(/\D/g, "").slice(0, 2);
-    if (query) labels.push(`Masa Ara: ${query}`);
-    return labels;
+    if (query) filters.push({ key: "search", label: `Masa Ara: ${query}` });
+    return filters;
   }, [okeyPrototypeOnlyWithFreeSeats, okeyPrototypeTableFilter, okeyPrototypeTableSearch, okeyPrototypeTableSort]);
   const okeyPrototypeSelectedTableSeats = useMemo(() => {
     if (!okeyPrototypeSelectedTable) return [];
@@ -5486,6 +5486,31 @@ function App() {
     setOkeyPrototypeTableSearch("");
     if (hadAny) {
       appendOkeyPrototypeAction("Masa filtreleri sifirlandi.");
+    }
+  }
+
+  function clearOkeyPrototypeFilterChip(filterKey: string, label: string) {
+    let changed = false;
+    if ((filterKey === "status-active" && okeyPrototypeTableFilter === "active")
+      || (filterKey === "status-waiting" && okeyPrototypeTableFilter === "waiting")) {
+      setOkeyPrototypeTableFilter("all");
+      changed = true;
+    }
+    if (filterKey === "free-seats" && okeyPrototypeOnlyWithFreeSeats) {
+      setOkeyPrototypeOnlyWithFreeSeats(false);
+      changed = true;
+    }
+    if ((filterKey === "sort-occupancy" && okeyPrototypeTableSort === "occupancy")
+      || (filterKey === "sort-status" && okeyPrototypeTableSort === "status")) {
+      setOkeyPrototypeTableSort("tableNo");
+      changed = true;
+    }
+    if (filterKey === "search" && okeyPrototypeTableSearch.trim().length > 0) {
+      setOkeyPrototypeTableSearch("");
+      changed = true;
+    }
+    if (changed) {
+      appendOkeyPrototypeAction(`Filtre kaldirildi: ${label}`);
     }
   }
 
@@ -9559,12 +9584,18 @@ function App() {
                     >
                       Filtreleri Sifirla
                     </button>
-                    {okeyPrototypeActiveFilterLabels.length > 0 ? (
+                    {okeyPrototypeActiveFilters.length > 0 ? (
                       <div className="my-game-coming-table-sketch-active-filters">
-                        {okeyPrototypeActiveFilterLabels.map((label) => (
-                          <span key={`okey-filter-${label}`} className="my-game-coming-table-sketch-filter-chip">
-                            {label}
-                          </span>
+                        {okeyPrototypeActiveFilters.map((filter) => (
+                          <button
+                            key={`okey-filter-${filter.key}`}
+                            type="button"
+                            className="my-game-coming-table-sketch-filter-chip-btn"
+                            onClick={() => clearOkeyPrototypeFilterChip(filter.key, filter.label)}
+                            aria-label={`${filter.label} filtresini kaldir`}
+                          >
+                            {filter.label} ×
+                          </button>
                         ))}
                       </div>
                     ) : null}
