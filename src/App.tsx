@@ -9137,17 +9137,46 @@ function App() {
               <h2>101 Okey</h2>
               <p>Bu ekran izole prototip alanidir. Tavla sistemi etkilenmez.</p>
             </div>
-            <div className="my-empty-state my-game-coming-soon-state">
-              <p className="my-empty-state-title">101 Okey gelistirmesi basladi.</p>
-              <p className="my-empty-state-sub">Bu adimda sadece guvenli iskelet acildi. Tavla kodlari ayni calismaya devam eder.</p>
-              <div className="my-game-coming-soon-actions">
-                <button className="my-action-btn" type="button" onClick={goToGameSelection}>
-                  Ana Sayfaya Don
-                </button>
-                <button className="my-action-btn soft" type="button" onClick={() => onSelectGame("tavla")}>
-                  Tavla Moduna Gec
-                </button>
-              </div>
+            <div className="my-game-coming-shell">
+              <article className="my-empty-state my-game-coming-soon-state">
+                <span className="my-game-coming-pill">Prototip Asamasi</span>
+                <p className="my-empty-state-title">101 Okey gelistirmesi basladi.</p>
+                <p className="my-empty-state-sub">
+                  Bu alan sadece 101 gelistirmesi icin acildi. Tavla kodlari ve online akisi ayni sekilde devam eder.
+                </p>
+                <div className="my-game-coming-list">
+                  <p>Ilk adimlar:</p>
+                  <p>1. Oda/lobi yapisini Tavla ile ortak kullan.</p>
+                  <p>2. Okey masa durum modelini ayri state katmani ile kur.</p>
+                  <p>3. Oyun ici UI ve hamle kurallarini asamali ac.</p>
+                </div>
+                <div className="my-game-coming-soon-actions">
+                  <button className="my-action-btn" type="button" onClick={goToGameSelection}>
+                    Ana Sayfaya Don
+                  </button>
+                  <button className="my-action-btn soft" type="button" onClick={() => onSelectGame("tavla")}>
+                    Tavla Moduna Gec
+                  </button>
+                </div>
+              </article>
+
+              <aside className="my-game-coming-plan">
+                <h3>Yol Haritasi</h3>
+                <div className="my-game-coming-plan-grid">
+                  <article className="my-game-coming-plan-card">
+                    <strong>Adim 1</strong>
+                    <p>Okey lobi girisi ve masa olusturma akisi.</p>
+                  </article>
+                  <article className="my-game-coming-plan-card">
+                    <strong>Adim 2</strong>
+                    <p>Tas dizilimi, sira yonetimi ve temel oyun dongusu.</p>
+                  </article>
+                  <article className="my-game-coming-plan-card">
+                    <strong>Adim 3</strong>
+                    <p>Sohbet, puanlama, oda ozetleri ve mobil iyilestirme.</p>
+                  </article>
+                </div>
+              </aside>
             </div>
           </section>
         ) : showRoomPicker ? (
