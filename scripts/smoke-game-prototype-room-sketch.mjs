@@ -36,7 +36,11 @@ const checks = [
       && hasApp("okeyPrototypeFilteredRooms.map((room) => (")
       && hasApp("className={`my-game-coming-room-card ${okeyPrototypeSelectedRoomId === room.id ? \"active\" : \"\"}`}")
       && hasApp("onClick={() => setOkeyPrototypeSelectedRoomId(room.id)}")
-      && hasApp("Gorunen Oda: {okeyPrototypeFilteredRooms.length} | Toplam Oyuncu: {okeyPrototypeFilteredPlayers}"),
+      && hasApp("Gorunen Oda: {okeyPrototypeFilteredRooms.length} | Toplam Oyuncu: {okeyPrototypeFilteredPlayers}")
+      && hasApp("const okeyPrototypeTableSketchRows = useMemo(() => {")
+      && hasApp("className=\"my-game-coming-table-sketch\"")
+      && hasApp("className=\"my-game-coming-table-sketch-grid\"")
+      && hasApp("okeyPrototypeTableSketchRows.map((row) => ("),
   },
   {
     label: "101 oda taslagi css siniflari mevcut",
@@ -48,7 +52,10 @@ const checks = [
       && hasCss(".my-game-coming-room-selected {")
       && hasCss(".my-game-coming-room-grid {")
       && hasCss(".my-game-coming-room-card {")
-      && hasCss(".my-game-coming-room-card.active {"),
+      && hasCss(".my-game-coming-room-card.active {")
+      && hasCss(".my-game-coming-table-sketch {")
+      && hasCss(".my-game-coming-table-sketch-grid {")
+      && hasCss(".my-game-coming-table-sketch-card.active {"),
   },
 ];
 

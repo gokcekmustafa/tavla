@@ -2677,6 +2677,22 @@ function App() {
   const okeyPrototypeFilteredPlayers = okeyPrototypeFilteredRooms
     .map((room) => room.players)
     .reduce((sum, players) => sum + players, 0);
+  const okeyPrototypeTableSketchRows = useMemo(() => {
+    if (!okeyPrototypeSelectedRoom) return [];
+    const activeCount = Number(okeyPrototypeSelectedRoom.activeTables);
+    const totalCount = Math.max(3, Math.min(8, activeCount + 2));
+    return Array.from({ length: totalCount }, (_, index) => {
+      const tableNo = index + 1;
+      const active = tableNo <= activeCount;
+      const seated = active ? 4 : tableNo % 2 === 0 ? 2 : 0;
+      return {
+        id: `${okeyPrototypeSelectedRoom.id}-table-${tableNo}`,
+        tableNo,
+        active,
+        seated,
+      };
+    });
+  }, [okeyPrototypeSelectedRoom]);
   const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
   const [roomChatUnread, setRoomChatUnread] = useState(0);
   const [adminQuery, setAdminQuery] = useState("");
@@ -9307,6 +9323,26 @@ function App() {
                     </button>
                   ))}
                 </div>
+                {okeyPrototypeSelectedRoom ? (
+                  <section className="my-game-coming-table-sketch">
+                    <div className="my-game-coming-table-sketch-head">
+                      <strong>{okeyPrototypeSelectedRoom.name} | Masa Taslagi</strong>
+                      <span>{okeyPrototypeTableSketchRows.length} Masa</span>
+                    </div>
+                    <div className="my-game-coming-table-sketch-grid">
+                      {okeyPrototypeTableSketchRows.map((row) => (
+                        <article key={row.id} className={`my-game-coming-table-sketch-card ${row.active ? "active" : "waiting"}`}>
+                          <header>
+                            <strong>Masa {row.tableNo}</strong>
+                            <em>{row.active ? "Aktif" : "Bekliyor"}</em>
+                          </header>
+                          <p>Dolu Koltuk: {row.seated}/4</p>
+                          <p>{row.active ? "Canli oyun prototipi icin hazir." : "Oyuncu bekliyor."}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
               </section>
             ) : null}
           </section>

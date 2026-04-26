@@ -631,6 +631,87 @@
   line-height: 1.25;
 }
 
+.my-game-coming-table-sketch {
+  border-radius: 8px;
+  border: 1px solid rgba(42, 139, 168, 0.7);
+  background: linear-gradient(180deg, rgba(6, 66, 84, 0.94), rgba(5, 50, 64, 0.95));
+  padding: 9px;
+  display: grid;
+  gap: 7px;
+}
+
+.my-game-coming-table-sketch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.my-game-coming-table-sketch-head strong {
+  color: #edf9ff;
+  font-size: 0.8rem;
+}
+
+.my-game-coming-table-sketch-head span {
+  border-radius: 999px;
+  border: 1px solid rgba(127, 210, 233, 0.58);
+  background: rgba(12, 106, 133, 0.42);
+  color: #ddf4ff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 8px;
+}
+
+.my-game-coming-table-sketch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 6px;
+}
+
+.my-game-coming-table-sketch-card {
+  border-radius: 7px;
+  border: 1px solid rgba(76, 170, 199, 0.62);
+  background: rgba(7, 90, 113, 0.46);
+  padding: 7px;
+  display: grid;
+  gap: 3px;
+}
+
+.my-game-coming-table-sketch-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.my-game-coming-table-sketch-card strong {
+  color: #fff4d6;
+  font-size: 0.76rem;
+}
+
+.my-game-coming-table-sketch-card em {
+  font-style: normal;
+  color: #dcf3ff;
+  font-size: 0.67rem;
+  font-weight: 800;
+}
+
+.my-game-coming-table-sketch-card p {
+  margin: 0;
+  color: #d8edf9;
+  font-size: 0.71rem;
+  line-height: 1.23;
+}
+
+.my-game-coming-table-sketch-card.active {
+  border-color: rgba(132, 214, 156, 0.84);
+  background: rgba(25, 103, 64, 0.36);
+}
+
+.my-game-coming-table-sketch-card.waiting {
+  border-color: rgba(120, 195, 217, 0.64);
+}
+
 .my-game-coming-soon-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -3016,6 +3097,10 @@
   }
 
   .my-game-coming-room-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .my-game-coming-table-sketch-grid {
     grid-template-columns: 1fr;
   }
 
