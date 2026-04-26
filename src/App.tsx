@@ -5569,6 +5569,13 @@ function App() {
     appendOkeyPrototypeAction(`Rastgele bos koltuklu masa secildi: ${targetTable.tableNo}`);
   }
 
+  function selectFirstOkeyPrototypeSearchResult() {
+    const targetTable = okeyPrototypeVisibleTableSketchRows[0];
+    if (!targetTable) return;
+    setOkeyPrototypeSelectedTableId(targetTable.id);
+    appendOkeyPrototypeAction(`Arama sonucu secildi: ${targetTable.tableNo}`);
+  }
+
   function onSelectGame(gameId: GameId) {
     setSelectedGameId(gameId);
     saveSelectedGameIdToSession(gameId);
@@ -9628,9 +9635,22 @@ function App() {
                           className="my-game-coming-table-sketch-search-input"
                           value={okeyPrototypeTableSearch}
                           onChange={(e) => setOkeyPrototypeTableSearch(e.target.value.replace(/[^\d]/g, "").slice(0, 2))}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter") return;
+                            e.preventDefault();
+                            selectFirstOkeyPrototypeSearchResult();
+                          }}
                           placeholder="Masa No (or. 3)"
                           inputMode="numeric"
                         />
+                        <button
+                          type="button"
+                          className="my-action-btn soft my-game-coming-table-sketch-search-pick-btn"
+                          onClick={selectFirstOkeyPrototypeSearchResult}
+                          disabled={okeyPrototypeTableSearch.trim().length === 0 || okeyPrototypeVisibleTableSketchRows.length === 0}
+                        >
+                          Ilk Sonuc
+                        </button>
                         <button
                           type="button"
                           className="my-action-btn soft my-game-coming-table-sketch-search-clear-btn"

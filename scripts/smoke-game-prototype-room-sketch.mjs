@@ -41,6 +41,7 @@ const checks = [
       && hasApp("function jumpOkeyPrototypeTableSelection(target: \"first\" | \"last\") {")
       && hasApp("function pickRandomOkeyPrototypeTable() {")
       && hasApp("function pickRandomOkeyPrototypeFreeSeatTable() {")
+      && hasApp("function selectFirstOkeyPrototypeSearchResult() {")
       && hasApp("onClick={() => setOkeyPrototypeRoomSketchOpen((prev) => !prev)}")
       && hasApp("{okeyPrototypeRoomSketchOpen ? \"101 Oda Taslagini Kapat\" : \"101 Oda Taslagini Ac\"}"),
   },
@@ -69,6 +70,12 @@ const checks = [
       && hasApp("className=\"my-game-coming-table-sketch-search\"")
       && hasApp("className=\"my-game-coming-table-sketch-search-row\"")
       && hasApp("className=\"my-game-coming-table-sketch-search-input\"")
+      && hasApp("onKeyDown={(e) => {")
+      && hasApp("if (e.key !== \"Enter\") return;")
+      && hasApp("selectFirstOkeyPrototypeSearchResult();")
+      && hasApp("className=\"my-action-btn soft my-game-coming-table-sketch-search-pick-btn\"")
+      && hasApp("Ilk Sonuc")
+      && hasApp("Arama sonucu secildi:")
       && hasApp("className=\"my-action-btn soft my-game-coming-table-sketch-search-clear-btn\"")
       && hasApp("Masa aramasi temizlendi.")
       && hasApp("Temizle")
@@ -145,6 +152,7 @@ const checks = [
       && hasCss(".my-game-coming-table-sketch-search {")
       && hasCss(".my-game-coming-table-sketch-search-row {")
       && hasCss(".my-game-coming-table-sketch-search-input {")
+      && hasCss(".my-game-coming-table-sketch-search-pick-btn {")
       && hasCss(".my-game-coming-table-sketch-search-clear-btn {")
       && hasCss(".my-game-coming-table-sketch-reset-btn {")
       && hasCss(".my-game-coming-table-sketch-active-filters {")

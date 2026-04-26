@@ -721,7 +721,7 @@
 
 .my-game-coming-table-sketch-search-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 6px;
   align-items: center;
 }
@@ -749,6 +749,12 @@
 }
 
 .my-game-coming-table-sketch-search-clear-btn {
+  min-height: 30px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.my-game-coming-table-sketch-search-pick-btn {
   min-height: 30px;
   padding: 0 10px;
   white-space: nowrap;
