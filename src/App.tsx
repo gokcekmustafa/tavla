@@ -5539,6 +5539,19 @@ function App() {
     appendOkeyPrototypeAction(`Masa gecisi: ${targetTable.tableNo}`);
   }
 
+  function pickRandomOkeyPrototypeTable() {
+    if (okeyPrototypeVisibleTableSketchRows.length < 2) return;
+    const candidateIndexes = okeyPrototypeVisibleTableSketchRows
+      .map((_, index) => index)
+      .filter((index) => index !== okeyPrototypeSelectedTableIndex);
+    if (candidateIndexes.length === 0) return;
+    const randomIndex = candidateIndexes[Math.floor(Math.random() * candidateIndexes.length)];
+    const targetTable = okeyPrototypeVisibleTableSketchRows[randomIndex];
+    if (!targetTable) return;
+    setOkeyPrototypeSelectedTableId(targetTable.id);
+    appendOkeyPrototypeAction(`Rastgele masa secildi: ${targetTable.tableNo}`);
+  }
+
   function onSelectGame(gameId: GameId) {
     setSelectedGameId(gameId);
     saveSelectedGameIdToSession(gameId);
@@ -9654,6 +9667,14 @@ function App() {
                           disabled={okeyPrototypeSelectedTableIndex < 0 || okeyPrototypeSelectedTableIndex >= okeyPrototypeVisibleTableSketchRows.length - 1}
                         >
                           Sonraki Masa
+                        </button>
+                        <button
+                          type="button"
+                          className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
+                          onClick={pickRandomOkeyPrototypeTable}
+                          disabled={okeyPrototypeVisibleTableSketchRows.length < 2}
+                        >
+                          Rastgele Masa
                         </button>
                         <button
                           type="button"

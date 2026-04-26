@@ -37,6 +37,7 @@ const checks = [
       && hasApp("function clearOkeyPrototypeFilterChip(filterKey: string, label: string) {")
       && hasApp("function moveOkeyPrototypeTableSelection(step: number) {")
       && hasApp("function jumpOkeyPrototypeTableSelection(target: \"first\" | \"last\") {")
+      && hasApp("function pickRandomOkeyPrototypeTable() {")
       && hasApp("onClick={() => setOkeyPrototypeRoomSketchOpen((prev) => !prev)}")
       && hasApp("{okeyPrototypeRoomSketchOpen ? \"101 Oda Taslagini Kapat\" : \"101 Oda Taslagini Ac\"}"),
   },
@@ -79,6 +80,8 @@ const checks = [
       && hasApp("Ilk Masa")
       && hasApp("Onceki Masa")
       && hasApp("Sonraki Masa")
+      && hasApp("onClick={pickRandomOkeyPrototypeTable}")
+      && hasApp("Rastgele Masa")
       && hasApp("Son Masa")
       && hasApp("const okeyPrototypeTableSummary = useMemo(() => {")
       && hasApp("const okeyPrototypeQuickJoinTable = useMemo(() => {")
