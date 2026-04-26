@@ -705,12 +705,17 @@
 }
 
 .my-game-coming-table-seat {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
   border-radius: 7px;
   border: 1px solid rgba(86, 177, 206, 0.62);
   background: rgba(7, 88, 111, 0.5);
   padding: 6px;
   display: grid;
   gap: 2px;
+  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 }
 
 .my-game-coming-table-seat strong {
@@ -732,6 +737,78 @@
 .my-game-coming-table-seat.empty {
   border-color: rgba(116, 193, 216, 0.66);
   background: rgba(8, 84, 105, 0.46);
+}
+
+.my-game-coming-table-seat.empty:hover {
+  border-color: rgba(248, 217, 147, 0.86);
+}
+
+.my-game-coming-table-seat:focus-visible {
+  outline: none;
+  border-color: rgba(248, 217, 147, 0.92);
+  box-shadow: 0 0 0 1px rgba(248, 217, 147, 0.35) inset;
+}
+
+.my-game-coming-table-seat:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+
+.my-game-coming-table-seat.draft {
+  border-color: rgba(249, 223, 155, 0.94);
+  box-shadow: 0 0 0 1px rgba(248, 218, 147, 0.3) inset;
+}
+
+.my-game-coming-table-seat-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.my-game-coming-table-seat-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.my-game-coming-table-seat-chip {
+  appearance: none;
+  min-height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(93, 184, 210, 0.66);
+  background: rgba(8, 84, 106, 0.68);
+  color: #d8f2ff;
+  padding: 0 10px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.my-game-coming-table-seat-chip.active {
+  border-color: rgba(248, 217, 147, 0.9);
+  background: linear-gradient(180deg, #c89833, #9f6e1c);
+  color: #fff6df;
+}
+
+.my-game-coming-table-seat-empty-note {
+  color: #d4ebf7;
+  font-size: 0.72rem;
+}
+
+.my-game-coming-table-seat-action-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 6px;
+}
+
+.my-game-coming-table-seat-action-buttons .my-action-btn {
+  min-height: 32px;
+}
+
+.my-game-coming-table-seat-status {
+  margin: 0;
+  color: #d7edf8;
+  font-size: 0.72rem;
+  line-height: 1.24;
 }
 
 .my-game-coming-table-sketch-grid {

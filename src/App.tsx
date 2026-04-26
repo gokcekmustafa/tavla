@@ -2661,6 +2661,8 @@ function App() {
   const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? "");
   const [okeyPrototypeTableFilter, setOkeyPrototypeTableFilter] = useState<"all" | "active" | "waiting">("all");
   const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState("");
+  const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState(1);
+  const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: number } | null>(null);
   const isTavlaSelectedGame = selectedGameId === "tavla";
   const okeyPrototypeFilteredRooms = useMemo(() => {
     if (okeyPrototypeRoomFilter === "fast") {
@@ -2721,6 +2723,13 @@ function App() {
       };
     });
   }, [okeyPrototypeSelectedTable]);
+  const okeyPrototypeAvailableSeatNos = useMemo(() => {
+    return okeyPrototypeSelectedTableSeats.filter((seat) => !seat.occupied).map((seat) => seat.seatNo);
+  }, [okeyPrototypeSelectedTableSeats]);
+  const okeyPrototypeJoinedTable = useMemo(() => {
+    if (!okeyPrototypeSeatReservation) return null;
+    return okeyPrototypeTableSketchRows.find((row) => row.id === okeyPrototypeSeatReservation.tableId) ?? null;
+  }, [okeyPrototypeSeatReservation, okeyPrototypeTableSketchRows]);
   const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
   const [roomChatUnread, setRoomChatUnread] = useState(0);
   const [adminQuery, setAdminQuery] = useState("");
@@ -2878,6 +2887,22 @@ function App() {
     if (!fallbackId || fallbackId === okeyPrototypeSelectedTableId) return;
     setOkeyPrototypeSelectedTableId(fallbackId);
   }, [okeyPrototypeFilteredTableSketchRows, okeyPrototypeSelectedTableId]);
+
+  useEffect(() => {
+    if (okeyPrototypeAvailableSeatNos.length === 0) {
+      if (okeyPrototypeSeatDraft !== 1) setOkeyPrototypeSeatDraft(1);
+      return;
+    }
+    if (okeyPrototypeAvailableSeatNos.includes(okeyPrototypeSeatDraft)) return;
+    setOkeyPrototypeSeatDraft(okeyPrototypeAvailableSeatNos[0]);
+  }, [okeyPrototypeAvailableSeatNos, okeyPrototypeSeatDraft]);
+
+  useEffect(() => {
+    if (!okeyPrototypeSeatReservation) return;
+    const exists = okeyPrototypeTableSketchRows.some((row) => row.id === okeyPrototypeSeatReservation.tableId);
+    if (exists) return;
+    setOkeyPrototypeSeatReservation(null);
+  }, [okeyPrototypeSeatReservation, okeyPrototypeTableSketchRows]);
 
   useEffect(() => {
     const currentLobbyId = sanitizeLobbyId(activeLobbyId);
@@ -9395,13 +9420,70 @@ function App() {
                     {okeyPrototypeSelectedTableSeats.length > 0 ? (
                       <div className="my-game-coming-table-seat-row">
                         {okeyPrototypeSelectedTableSeats.map((seat) => (
-                          <article key={seat.id} className={`my-game-coming-table-seat ${seat.occupied ? "occupied" : "empty"}`}>
+                          <button
+                            key={seat.id}
+                            type="button"
+                            className={`my-game-coming-table-seat ${seat.occupied ? "occupied" : "empty"} ${!seat.occupied && okeyPrototypeSeatDraft === seat.seatNo ? "draft" : ""}`}
+                            onClick={() => {
+                              if (seat.occupied) return;
+                              setOkeyPrototypeSeatDraft(seat.seatNo);
+                            }}
+                            disabled={seat.occupied}
+                          >
                             <strong>Koltuk {seat.seatNo}</strong>
                             <span>{seat.label}</span>
-                          </article>
+                          </button>
                         ))}
                       </div>
                     ) : null}
+                    <div className="my-game-coming-table-seat-actions">
+                      <div className="my-game-coming-table-seat-chip-row">
+                        {okeyPrototypeAvailableSeatNos.length > 0 ? (
+                          okeyPrototypeAvailableSeatNos.map((seatNo) => (
+                            <button
+                              key={`seat-chip-${seatNo}`}
+                              type="button"
+                              className={`my-game-coming-table-seat-chip ${okeyPrototypeSeatDraft === seatNo ? "active" : ""}`}
+                              onClick={() => setOkeyPrototypeSeatDraft(seatNo)}
+                            >
+                              Koltuk {seatNo}
+                            </button>
+                          ))
+                        ) : (
+                          <span className="my-game-coming-table-seat-empty-note">Bu masada bos koltuk yok.</span>
+                        )}
+                      </div>
+                      <div className="my-game-coming-table-seat-action-buttons">
+                        <button
+                          type="button"
+                          className="my-action-btn"
+                          onClick={() => {
+                            if (!okeyPrototypeSelectedTable) return;
+                            if (okeyPrototypeAvailableSeatNos.length === 0) return;
+                            setOkeyPrototypeSeatReservation({
+                              tableId: okeyPrototypeSelectedTable.id,
+                              seatNo: okeyPrototypeSeatDraft,
+                            });
+                          }}
+                          disabled={!okeyPrototypeSelectedTable || okeyPrototypeAvailableSeatNos.length === 0}
+                        >
+                          Masaya Otur (Prototip)
+                        </button>
+                        <button
+                          type="button"
+                          className="my-action-btn soft"
+                          onClick={() => setOkeyPrototypeSeatReservation(null)}
+                          disabled={!okeyPrototypeSeatReservation}
+                        >
+                          Masadan Ayril (Prototip)
+                        </button>
+                      </div>
+                      <p className="my-game-coming-table-seat-status">
+                        {okeyPrototypeSeatReservation && okeyPrototypeJoinedTable
+                          ? `Prototip oturum: Masa ${okeyPrototypeJoinedTable.tableNo} / Koltuk ${okeyPrototypeSeatReservation.seatNo}`
+                          : "Prototip oturum acik degil."}
+                      </p>
+                    </div>
                     <div className="my-game-coming-table-sketch-grid">
                       {okeyPrototypeFilteredTableSketchRows.map((row) => (
                         <button
