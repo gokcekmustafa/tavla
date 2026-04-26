@@ -662,6 +662,42 @@
   padding: 1px 8px;
 }
 
+.my-game-coming-table-sketch-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.my-game-coming-table-sketch-filter {
+  appearance: none;
+  min-height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(93, 184, 210, 0.66);
+  background: rgba(8, 84, 106, 0.68);
+  color: #d8f2ff;
+  padding: 0 10px;
+  font-size: 0.71rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.my-game-coming-table-sketch-filter.active {
+  border-color: rgba(248, 217, 147, 0.9);
+  background: linear-gradient(180deg, #c89833, #9f6e1c);
+  color: #fff6df;
+}
+
+.my-game-coming-table-sketch-selected {
+  margin: 0;
+  border-radius: 7px;
+  border: 1px solid rgba(133, 213, 158, 0.74);
+  background: rgba(25, 103, 64, 0.3);
+  color: #def5e8;
+  padding: 6px 7px;
+  font-size: 0.72rem;
+  line-height: 1.24;
+}
+
 .my-game-coming-table-sketch-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -669,12 +705,17 @@
 }
 
 .my-game-coming-table-sketch-card {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
   border-radius: 7px;
   border: 1px solid rgba(76, 170, 199, 0.62);
   background: rgba(7, 90, 113, 0.46);
   padding: 7px;
   display: grid;
   gap: 3px;
+  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 }
 
 .my-game-coming-table-sketch-card header {
@@ -710,6 +751,21 @@
 
 .my-game-coming-table-sketch-card.waiting {
   border-color: rgba(120, 195, 217, 0.64);
+}
+
+.my-game-coming-table-sketch-card:hover {
+  border-color: rgba(248, 217, 147, 0.86);
+}
+
+.my-game-coming-table-sketch-card:focus-visible {
+  outline: none;
+  border-color: rgba(248, 217, 147, 0.92);
+  box-shadow: 0 0 0 1px rgba(248, 217, 147, 0.35) inset;
+}
+
+.my-game-coming-table-sketch-card.selected {
+  border-color: rgba(249, 223, 155, 0.94);
+  box-shadow: 0 0 0 1px rgba(248, 218, 147, 0.3) inset;
 }
 
 .my-game-coming-soon-actions {

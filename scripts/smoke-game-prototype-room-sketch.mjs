@@ -21,6 +21,8 @@ const checks = [
       hasApp("const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(false);")
       && hasApp("const [okeyPrototypeRoomFilter, setOkeyPrototypeRoomFilter] = useState<\"all\" | \"fast\" | \"busy\">(\"all\");")
       && hasApp("const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? \"\");")
+      && hasApp("const [okeyPrototypeTableFilter, setOkeyPrototypeTableFilter] = useState<\"all\" | \"active\" | \"waiting\">(\"all\");")
+      && hasApp("const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState(\"\");")
       && hasApp("onClick={() => setOkeyPrototypeRoomSketchOpen((prev) => !prev)}")
       && hasApp("{okeyPrototypeRoomSketchOpen ? \"101 Oda Taslagini Kapat\" : \"101 Oda Taslagini Ac\"}"),
   },
@@ -39,8 +41,13 @@ const checks = [
       && hasApp("Gorunen Oda: {okeyPrototypeFilteredRooms.length} | Toplam Oyuncu: {okeyPrototypeFilteredPlayers}")
       && hasApp("const okeyPrototypeTableSketchRows = useMemo(() => {")
       && hasApp("className=\"my-game-coming-table-sketch\"")
+      && hasApp("className=\"my-game-coming-table-sketch-filters\"")
+      && hasApp("className={`my-game-coming-table-sketch-filter ${okeyPrototypeTableFilter === \"all\" ? \"active\" : \"\"}`}")
+      && hasApp("className=\"my-game-coming-table-sketch-selected\"")
       && hasApp("className=\"my-game-coming-table-sketch-grid\"")
-      && hasApp("okeyPrototypeTableSketchRows.map((row) => ("),
+      && hasApp("okeyPrototypeFilteredTableSketchRows.map((row) => (")
+      && hasApp("className={`my-game-coming-table-sketch-card ${row.active ? \"active\" : \"waiting\"} ${okeyPrototypeSelectedTableId === row.id ? \"selected\" : \"\"}`}")
+      && hasApp("onClick={() => setOkeyPrototypeSelectedTableId(row.id)}"),
   },
   {
     label: "101 oda taslagi css siniflari mevcut",
@@ -54,8 +61,12 @@ const checks = [
       && hasCss(".my-game-coming-room-card {")
       && hasCss(".my-game-coming-room-card.active {")
       && hasCss(".my-game-coming-table-sketch {")
+      && hasCss(".my-game-coming-table-sketch-filters {")
+      && hasCss(".my-game-coming-table-sketch-filter.active {")
+      && hasCss(".my-game-coming-table-sketch-selected {")
       && hasCss(".my-game-coming-table-sketch-grid {")
-      && hasCss(".my-game-coming-table-sketch-card.active {"),
+      && hasCss(".my-game-coming-table-sketch-card.active {")
+      && hasCss(".my-game-coming-table-sketch-card.selected {"),
   },
 ];
 

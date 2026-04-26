@@ -2659,6 +2659,8 @@ function App() {
   const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(false);
   const [okeyPrototypeRoomFilter, setOkeyPrototypeRoomFilter] = useState<"all" | "fast" | "busy">("all");
   const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? "");
+  const [okeyPrototypeTableFilter, setOkeyPrototypeTableFilter] = useState<"all" | "active" | "waiting">("all");
+  const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState("");
   const isTavlaSelectedGame = selectedGameId === "tavla";
   const okeyPrototypeFilteredRooms = useMemo(() => {
     if (okeyPrototypeRoomFilter === "fast") {
@@ -2693,6 +2695,19 @@ function App() {
       };
     });
   }, [okeyPrototypeSelectedRoom]);
+  const okeyPrototypeFilteredTableSketchRows = useMemo(() => {
+    if (okeyPrototypeTableFilter === "active") {
+      return okeyPrototypeTableSketchRows.filter((row) => row.active);
+    }
+    if (okeyPrototypeTableFilter === "waiting") {
+      return okeyPrototypeTableSketchRows.filter((row) => !row.active);
+    }
+    return okeyPrototypeTableSketchRows;
+  }, [okeyPrototypeTableSketchRows, okeyPrototypeTableFilter]);
+  const okeyPrototypeSelectedTable =
+    okeyPrototypeFilteredTableSketchRows.find((row) => row.id === okeyPrototypeSelectedTableId)
+    ?? okeyPrototypeFilteredTableSketchRows[0]
+    ?? null;
   const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
   const [roomChatUnread, setRoomChatUnread] = useState(0);
   const [adminQuery, setAdminQuery] = useState("");
@@ -2843,6 +2858,13 @@ function App() {
     if (!fallbackId || fallbackId === okeyPrototypeSelectedRoomId) return;
     setOkeyPrototypeSelectedRoomId(fallbackId);
   }, [okeyPrototypeFilteredRooms, okeyPrototypeSelectedRoomId]);
+
+  useEffect(() => {
+    if (okeyPrototypeFilteredTableSketchRows.some((row) => row.id === okeyPrototypeSelectedTableId)) return;
+    const fallbackId = okeyPrototypeFilteredTableSketchRows[0]?.id ?? "";
+    if (!fallbackId || fallbackId === okeyPrototypeSelectedTableId) return;
+    setOkeyPrototypeSelectedTableId(fallbackId);
+  }, [okeyPrototypeFilteredTableSketchRows, okeyPrototypeSelectedTableId]);
 
   useEffect(() => {
     const currentLobbyId = sanitizeLobbyId(activeLobbyId);
@@ -9327,18 +9349,51 @@ function App() {
                   <section className="my-game-coming-table-sketch">
                     <div className="my-game-coming-table-sketch-head">
                       <strong>{okeyPrototypeSelectedRoom.name} | Masa Taslagi</strong>
-                      <span>{okeyPrototypeTableSketchRows.length} Masa</span>
+                      <span>{okeyPrototypeFilteredTableSketchRows.length}/{okeyPrototypeTableSketchRows.length} Masa</span>
                     </div>
+                    <div className="my-game-coming-table-sketch-filters">
+                      <button
+                        type="button"
+                        className={`my-game-coming-table-sketch-filter ${okeyPrototypeTableFilter === "all" ? "active" : ""}`}
+                        onClick={() => setOkeyPrototypeTableFilter("all")}
+                      >
+                        Tumu
+                      </button>
+                      <button
+                        type="button"
+                        className={`my-game-coming-table-sketch-filter ${okeyPrototypeTableFilter === "active" ? "active" : ""}`}
+                        onClick={() => setOkeyPrototypeTableFilter("active")}
+                      >
+                        Aktif
+                      </button>
+                      <button
+                        type="button"
+                        className={`my-game-coming-table-sketch-filter ${okeyPrototypeTableFilter === "waiting" ? "active" : ""}`}
+                        onClick={() => setOkeyPrototypeTableFilter("waiting")}
+                      >
+                        Bekleyen
+                      </button>
+                    </div>
+                    {okeyPrototypeSelectedTable ? (
+                      <p className="my-game-coming-table-sketch-selected">
+                        Secili Masa: {okeyPrototypeSelectedTable.tableNo} | Durum: {okeyPrototypeSelectedTable.active ? "Aktif" : "Bekliyor"} | Dolu Koltuk: {okeyPrototypeSelectedTable.seated}/4
+                      </p>
+                    ) : null}
                     <div className="my-game-coming-table-sketch-grid">
-                      {okeyPrototypeTableSketchRows.map((row) => (
-                        <article key={row.id} className={`my-game-coming-table-sketch-card ${row.active ? "active" : "waiting"}`}>
+                      {okeyPrototypeFilteredTableSketchRows.map((row) => (
+                        <button
+                          key={row.id}
+                          type="button"
+                          className={`my-game-coming-table-sketch-card ${row.active ? "active" : "waiting"} ${okeyPrototypeSelectedTableId === row.id ? "selected" : ""}`}
+                          onClick={() => setOkeyPrototypeSelectedTableId(row.id)}
+                        >
                           <header>
                             <strong>Masa {row.tableNo}</strong>
                             <em>{row.active ? "Aktif" : "Bekliyor"}</em>
                           </header>
                           <p>Dolu Koltuk: {row.seated}/4</p>
                           <p>{row.active ? "Canli oyun prototipi icin hazir." : "Oyuncu bekliyor."}</p>
-                        </article>
+                        </button>
                       ))}
                     </div>
                   </section>
