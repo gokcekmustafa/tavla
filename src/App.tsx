@@ -2657,9 +2657,26 @@ function App() {
   const [roomTableChatInput, setRoomTableChatInput] = useState("");
   const [roomLobbyChatInput, setRoomLobbyChatInput] = useState("");
   const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(false);
+  const [okeyPrototypeRoomFilter, setOkeyPrototypeRoomFilter] = useState<"all" | "fast" | "busy">("all");
   const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? "");
   const isTavlaSelectedGame = selectedGameId === "tavla";
-  const okeyPrototypeSelectedRoom = OKEY_PROTOTYPE_ROOMS.find((room) => room.id === okeyPrototypeSelectedRoomId) ?? OKEY_PROTOTYPE_ROOMS[0] ?? null;
+  const okeyPrototypeFilteredRooms = useMemo(() => {
+    if (okeyPrototypeRoomFilter === "fast") {
+      return OKEY_PROTOTYPE_ROOMS.filter((room) => room.level === "Hizli");
+    }
+    if (okeyPrototypeRoomFilter === "busy") {
+      return OKEY_PROTOTYPE_ROOMS.filter((room) => room.players >= 15);
+    }
+    return OKEY_PROTOTYPE_ROOMS;
+  }, [okeyPrototypeRoomFilter]);
+  const okeyPrototypeSelectedRoom =
+    okeyPrototypeFilteredRooms.find((room) => room.id === okeyPrototypeSelectedRoomId)
+    ?? okeyPrototypeFilteredRooms[0]
+    ?? OKEY_PROTOTYPE_ROOMS[0]
+    ?? null;
+  const okeyPrototypeFilteredPlayers = okeyPrototypeFilteredRooms
+    .map((room) => room.players)
+    .reduce((sum, players) => sum + players, 0);
   const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
   const [roomChatUnread, setRoomChatUnread] = useState(0);
   const [adminQuery, setAdminQuery] = useState("");
@@ -2803,6 +2820,13 @@ function App() {
     activeRealtimeLobbyChannelRef.current = activeRealtimeLobbyChannel;
     activeLobbyNameRef.current = activeLobbyName;
   }, [activeLobbyStorageKey, activeRealtimeLobbyChannel, activeLobbyName]);
+
+  useEffect(() => {
+    if (okeyPrototypeFilteredRooms.some((room) => room.id === okeyPrototypeSelectedRoomId)) return;
+    const fallbackId = okeyPrototypeFilteredRooms[0]?.id ?? OKEY_PROTOTYPE_ROOMS[0]?.id ?? "";
+    if (!fallbackId || fallbackId === okeyPrototypeSelectedRoomId) return;
+    setOkeyPrototypeSelectedRoomId(fallbackId);
+  }, [okeyPrototypeFilteredRooms, okeyPrototypeSelectedRoomId]);
 
   useEffect(() => {
     const currentLobbyId = sanitizeLobbyId(activeLobbyId);
@@ -9234,16 +9258,40 @@ function App() {
                   <h3>101 Oda Taslagi</h3>
                   <span>Izole Prototip</span>
                 </div>
+                <div className="my-game-coming-room-filters">
+                  <button
+                    type="button"
+                    className={`my-game-coming-room-filter ${okeyPrototypeRoomFilter === "all" ? "active" : ""}`}
+                    onClick={() => setOkeyPrototypeRoomFilter("all")}
+                  >
+                    Tumu
+                  </button>
+                  <button
+                    type="button"
+                    className={`my-game-coming-room-filter ${okeyPrototypeRoomFilter === "fast" ? "active" : ""}`}
+                    onClick={() => setOkeyPrototypeRoomFilter("fast")}
+                  >
+                    Hizli
+                  </button>
+                  <button
+                    type="button"
+                    className={`my-game-coming-room-filter ${okeyPrototypeRoomFilter === "busy" ? "active" : ""}`}
+                    onClick={() => setOkeyPrototypeRoomFilter("busy")}
+                  >
+                    Kalabalik
+                  </button>
+                </div>
                 {okeyPrototypeSelectedRoom ? (
                   <div className="my-game-coming-room-selected">
                     <strong>Secili Oda: {okeyPrototypeSelectedRoom.name}</strong>
                     <p>
                       Mod: {okeyPrototypeSelectedRoom.level} | Aktif Masa: {okeyPrototypeSelectedRoom.activeTables} | Oyuncu: {okeyPrototypeSelectedRoom.players}
                     </p>
+                    <p>Gorunen Oda: {okeyPrototypeFilteredRooms.length} | Toplam Oyuncu: {okeyPrototypeFilteredPlayers}</p>
                   </div>
                 ) : null}
                 <div className="my-game-coming-room-grid">
-                  {OKEY_PROTOTYPE_ROOMS.map((room) => (
+                  {okeyPrototypeFilteredRooms.map((room) => (
                     <button
                       key={room.id}
                       type="button"

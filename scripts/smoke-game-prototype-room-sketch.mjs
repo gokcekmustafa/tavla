@@ -19,6 +19,7 @@ const checks = [
     label: "101 oda taslagi local state ile ac/kapatiliyor",
     test: () =>
       hasApp("const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(false);")
+      && hasApp("const [okeyPrototypeRoomFilter, setOkeyPrototypeRoomFilter] = useState<\"all\" | \"fast\" | \"busy\">(\"all\");")
       && hasApp("const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? \"\");")
       && hasApp("onClick={() => setOkeyPrototypeRoomSketchOpen((prev) => !prev)}")
       && hasApp("{okeyPrototypeRoomSketchOpen ? \"101 Oda Taslagini Kapat\" : \"101 Oda Taslagini Ac\"}"),
@@ -28,17 +29,22 @@ const checks = [
     test: () =>
       hasApp("const OKEY_PROTOTYPE_ROOMS = [")
       && hasApp("className=\"my-game-coming-room-shell\"")
+      && hasApp("className=\"my-game-coming-room-filters\"")
+      && hasApp("className={`my-game-coming-room-filter ${okeyPrototypeRoomFilter === \"all\" ? \"active\" : \"\"}`}")
       && hasApp("className=\"my-game-coming-room-selected\"")
       && hasApp("className=\"my-game-coming-room-grid\"")
-      && hasApp("OKEY_PROTOTYPE_ROOMS.map((room) => (")
+      && hasApp("okeyPrototypeFilteredRooms.map((room) => (")
       && hasApp("className={`my-game-coming-room-card ${okeyPrototypeSelectedRoomId === room.id ? \"active\" : \"\"}`}")
-      && hasApp("onClick={() => setOkeyPrototypeSelectedRoomId(room.id)}"),
+      && hasApp("onClick={() => setOkeyPrototypeSelectedRoomId(room.id)}")
+      && hasApp("Gorunen Oda: {okeyPrototypeFilteredRooms.length} | Toplam Oyuncu: {okeyPrototypeFilteredPlayers}"),
   },
   {
     label: "101 oda taslagi css siniflari mevcut",
     test: () =>
       hasCss(".my-game-coming-room-shell {")
       && hasCss(".my-game-coming-room-head {")
+      && hasCss(".my-game-coming-room-filters {")
+      && hasCss(".my-game-coming-room-filter.active {")
       && hasCss(".my-game-coming-room-selected {")
       && hasCss(".my-game-coming-room-grid {")
       && hasCss(".my-game-coming-room-card {")
