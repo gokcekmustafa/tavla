@@ -92,6 +92,7 @@ const checks = [
       && hasApp("Filtreleri Sifirla ({okeyPrototypeActiveFilters.length})")
       && hasApp("className=\"my-game-coming-table-sketch-active-filters\"")
       && hasApp("className=\"my-game-coming-table-sketch-filter-count\"")
+      && hasApp("className=\"my-game-coming-table-sketch-filter-count\" aria-live=\"polite\"")
       && hasApp("Aktif filtreler: {okeyPrototypeActiveFilters.length}")
       && hasApp("className=\"my-game-coming-table-sketch-filter-chip-btn\"")
       && hasApp("title={`${filter.label} filtresini kaldir`}")
