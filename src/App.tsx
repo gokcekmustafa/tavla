@@ -9667,7 +9667,7 @@ function App() {
                         </button>
                       </div>
                       <p className="my-game-coming-table-sketch-search-meta">
-                        Sonuc: {okeyPrototypeVisibleTableSketchRows.length} masa
+                        Sonuc: {okeyPrototypeVisibleTableSketchRows.length} masa | Enter: Ilk Sonuc
                       </p>
                     </div>
                     <button

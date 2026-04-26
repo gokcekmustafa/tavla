@@ -81,7 +81,7 @@ const checks = [
       && hasApp("Masa aramasi temizlendi.")
       && hasApp("Temizle")
       && hasApp("className=\"my-game-coming-table-sketch-search-meta\"")
-      && hasApp("Sonuc: {okeyPrototypeVisibleTableSketchRows.length} masa")
+      && hasApp("Sonuc: {okeyPrototypeVisibleTableSketchRows.length} masa | Enter: Ilk Sonuc")
       && hasApp("className=\"my-action-btn soft my-game-coming-table-sketch-reset-btn\"")
       && hasApp("Filtreleri Sifirla")
       && hasApp("className=\"my-game-coming-table-sketch-active-filters\"")
