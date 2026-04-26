@@ -9693,6 +9693,7 @@ function App() {
                             className="my-game-coming-table-sketch-filter-chip-btn"
                             onClick={() => clearOkeyPrototypeFilterChip(filter.key, filter.label)}
                             aria-label={`${filter.label} filtresini kaldir`}
+                            title={`${filter.label} filtresini kaldir`}
                           >
                             {filter.label} ×
                           </button>
