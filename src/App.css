@@ -741,6 +741,11 @@
   box-shadow: 0 0 0 1px rgba(248, 217, 147, 0.32) inset;
 }
 
+.my-game-coming-table-sketch-reset-btn {
+  min-height: 30px;
+  justify-self: start;
+}
+
 .my-game-coming-table-sketch-selected {
   margin: 0;
   border-radius: 7px;

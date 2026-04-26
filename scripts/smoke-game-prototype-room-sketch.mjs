@@ -28,7 +28,9 @@ const checks = [
       && hasApp("const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState(1);")
       && hasApp("const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: number } | null>(null);")
       && hasApp("const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);")
+      && hasApp("const okeyPrototypeHasTableFilters = Boolean(")
       && hasApp("function appendOkeyPrototypeAction(rawText: string) {")
+      && hasApp("function resetOkeyPrototypeTableFilters() {")
       && hasApp("onClick={() => setOkeyPrototypeRoomSketchOpen((prev) => !prev)}")
       && hasApp("{okeyPrototypeRoomSketchOpen ? \"101 Oda Taslagini Kapat\" : \"101 Oda Taslagini Ac\"}"),
   },
@@ -54,6 +56,8 @@ const checks = [
       && hasApp("const okeyPrototypeVisibleTableSketchRows = useMemo(() => {")
       && hasApp("className=\"my-game-coming-table-sketch-search\"")
       && hasApp("className=\"my-game-coming-table-sketch-search-input\"")
+      && hasApp("className=\"my-action-btn soft my-game-coming-table-sketch-reset-btn\"")
+      && hasApp("Filtreleri Sifirla")
       && hasApp("className=\"my-game-coming-table-sketch-selected\"")
       && hasApp("const okeyPrototypeTableSummary = useMemo(() => {")
       && hasApp("const okeyPrototypeQuickJoinTable = useMemo(() => {")
@@ -101,6 +105,7 @@ const checks = [
       && hasCss(".my-game-coming-table-sketch-sort-select {")
       && hasCss(".my-game-coming-table-sketch-search {")
       && hasCss(".my-game-coming-table-sketch-search-input {")
+      && hasCss(".my-game-coming-table-sketch-reset-btn {")
       && hasCss(".my-game-coming-table-sketch-selected {")
       && hasCss(".my-game-coming-table-sketch-summary {")
       && hasCss(".my-game-coming-table-sketch-summary-item {")

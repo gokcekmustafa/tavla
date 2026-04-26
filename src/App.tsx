@@ -2765,6 +2765,11 @@ function App() {
     okeyPrototypeVisibleTableSketchRows.find((row) => row.id === okeyPrototypeSelectedTableId)
     ?? okeyPrototypeVisibleTableSketchRows[0]
     ?? null;
+  const okeyPrototypeHasTableFilters = Boolean(
+    okeyPrototypeTableFilter !== "all"
+    || okeyPrototypeTableSort !== "tableNo"
+    || okeyPrototypeTableSearch.trim().length > 0,
+  );
   const okeyPrototypeSelectedTableSeats = useMemo(() => {
     if (!okeyPrototypeSelectedTable) return [];
     return Array.from({ length: 4 }, (_, index) => {
@@ -5455,6 +5460,16 @@ function App() {
     const now = Date.now();
     const id = `okey-proto-${now}-${Math.random().toString(36).slice(2, 8)}`;
     setOkeyPrototypeActionLog((current) => [{ id, at: now, text }, ...current].slice(0, 14));
+  }
+
+  function resetOkeyPrototypeTableFilters() {
+    const hadAny = okeyPrototypeHasTableFilters;
+    setOkeyPrototypeTableFilter("all");
+    setOkeyPrototypeTableSort("tableNo");
+    setOkeyPrototypeTableSearch("");
+    if (hadAny) {
+      appendOkeyPrototypeAction("Masa filtreleri sifirlandi.");
+    }
   }
 
   function onSelectGame(gameId: GameId) {
@@ -9506,6 +9521,14 @@ function App() {
                         inputMode="numeric"
                       />
                     </div>
+                    <button
+                      type="button"
+                      className="my-action-btn soft my-game-coming-table-sketch-reset-btn"
+                      onClick={resetOkeyPrototypeTableFilters}
+                      disabled={!okeyPrototypeHasTableFilters}
+                    >
+                      Filtreleri Sifirla
+                    </button>
                     {okeyPrototypeSelectedTable ? (
                       <p className="my-game-coming-table-sketch-selected">
                         Secili Masa: {okeyPrototypeSelectedTable.tableNo} | Durum: {okeyPrototypeSelectedTable.active ? "Aktif" : "Bekliyor"} | Dolu Koltuk: {okeyPrototypeSelectedTable.seated}/4
