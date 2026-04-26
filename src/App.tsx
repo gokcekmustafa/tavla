@@ -2657,7 +2657,9 @@ function App() {
   const [roomTableChatInput, setRoomTableChatInput] = useState("");
   const [roomLobbyChatInput, setRoomLobbyChatInput] = useState("");
   const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(false);
+  const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? "");
   const isTavlaSelectedGame = selectedGameId === "tavla";
+  const okeyPrototypeSelectedRoom = OKEY_PROTOTYPE_ROOMS.find((room) => room.id === okeyPrototypeSelectedRoomId) ?? OKEY_PROTOTYPE_ROOMS[0] ?? null;
   const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
   const [roomChatUnread, setRoomChatUnread] = useState(0);
   const [adminQuery, setAdminQuery] = useState("");
@@ -9232,16 +9234,29 @@ function App() {
                   <h3>101 Oda Taslagi</h3>
                   <span>Izole Prototip</span>
                 </div>
+                {okeyPrototypeSelectedRoom ? (
+                  <div className="my-game-coming-room-selected">
+                    <strong>Secili Oda: {okeyPrototypeSelectedRoom.name}</strong>
+                    <p>
+                      Mod: {okeyPrototypeSelectedRoom.level} | Aktif Masa: {okeyPrototypeSelectedRoom.activeTables} | Oyuncu: {okeyPrototypeSelectedRoom.players}
+                    </p>
+                  </div>
+                ) : null}
                 <div className="my-game-coming-room-grid">
                   {OKEY_PROTOTYPE_ROOMS.map((room) => (
-                    <article key={room.id} className="my-game-coming-room-card">
+                    <button
+                      key={room.id}
+                      type="button"
+                      className={`my-game-coming-room-card ${okeyPrototypeSelectedRoomId === room.id ? "active" : ""}`}
+                      onClick={() => setOkeyPrototypeSelectedRoomId(room.id)}
+                    >
                       <header>
                         <strong>{room.name}</strong>
                         <em>{room.level}</em>
                       </header>
                       <p>Aktif Masa: {room.activeTables}</p>
                       <p>Oyuncu: {room.players}</p>
-                    </article>
+                    </button>
                   ))}
                 </div>
               </section>

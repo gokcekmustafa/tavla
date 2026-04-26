@@ -529,13 +529,54 @@
   gap: 7px;
 }
 
+.my-game-coming-room-selected {
+  border-radius: 7px;
+  border: 1px solid rgba(133, 213, 158, 0.75);
+  background: rgba(25, 104, 64, 0.34);
+  padding: 7px 8px;
+  display: grid;
+  gap: 2px;
+}
+
+.my-game-coming-room-selected strong {
+  color: #eefddf;
+  font-size: 0.8rem;
+}
+
+.my-game-coming-room-selected p {
+  margin: 0;
+  color: #dcf3e6;
+  font-size: 0.72rem;
+}
+
 .my-game-coming-room-card {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
   border-radius: 7px;
   border: 1px solid rgba(73, 167, 198, 0.62);
   background: rgba(9, 89, 113, 0.48);
   padding: 8px;
   display: grid;
   gap: 3px;
+  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+.my-game-coming-room-card:hover {
+  border-color: rgba(248, 217, 147, 0.9);
+}
+
+.my-game-coming-room-card:focus-visible {
+  outline: none;
+  border-color: rgba(248, 217, 147, 0.94);
+  box-shadow: 0 0 0 1px rgba(248, 217, 147, 0.36) inset;
+}
+
+.my-game-coming-room-card.active {
+  border-color: rgba(138, 220, 163, 0.88);
+  background: rgba(25, 103, 64, 0.4);
+  box-shadow: 0 0 0 1px rgba(138, 220, 163, 0.24) inset;
 }
 
 .my-game-coming-room-card header {
