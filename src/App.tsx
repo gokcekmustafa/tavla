@@ -423,6 +423,12 @@ const DEFAULT_AVATAR_BY_GENDER: Record<MemberGender, AvatarId> = {
 };
 
 const FALLBACK_CLOUD_API_BASE = "https://tavla.gokcek.workers.dev";
+const OKEY_PROTOTYPE_ROOMS = [
+  { id: "okey-1", name: "Marmara", activeTables: 4, players: 18, level: "Standart" },
+  { id: "okey-2", name: "Ege", activeTables: 2, players: 9, level: "Hizli" },
+  { id: "okey-3", name: "Anadolu", activeTables: 6, players: 24, level: "Turnuva" },
+  { id: "okey-4", name: "Akdeniz", activeTables: 1, players: 5, level: "Baslangic" },
+] as const;
 
 function normalizeHttpOrigin(rawValue: string | undefined) {
   const trimmed = rawValue?.trim();
@@ -2650,6 +2656,7 @@ function App() {
   const [roomChatTab, setRoomChatTab] = useState<"table" | "lobby">("table");
   const [roomTableChatInput, setRoomTableChatInput] = useState("");
   const [roomLobbyChatInput, setRoomLobbyChatInput] = useState("");
+  const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(false);
   const isTavlaSelectedGame = selectedGameId === "tavla";
   const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
   const [roomChatUnread, setRoomChatUnread] = useState(0);
@@ -5285,6 +5292,7 @@ function App() {
     setSelectedGameId(gameId);
     saveSelectedGameIdToSession(gameId);
     if (gameId !== "tavla") {
+      setOkeyPrototypeRoomSketchOpen(false);
       setGamePickerOpen(false);
       setRoomPickerOpen(false);
       setViewMode("lobby");
@@ -5292,6 +5300,7 @@ function App() {
       pushEntryScreenHistory("lobby", gameId);
       return;
     }
+    setOkeyPrototypeRoomSketchOpen(false);
     setGamePickerOpen(false);
     setRoomPickerOpen(true);
     setViewMode("lobby");
@@ -5304,6 +5313,7 @@ function App() {
       setLobbyNotice("Anasayfaya donmek icin once masadan kalkmalisin.");
       return;
     }
+    setOkeyPrototypeRoomSketchOpen(false);
     setViewMode("lobby");
     setRoomPickerOpen(false);
     setGamePickerOpen(true);
@@ -9157,6 +9167,13 @@ function App() {
                   <button className="my-action-btn soft" type="button" onClick={() => onSelectGame("tavla")}>
                     Tavla Moduna Gec
                   </button>
+                  <button
+                    className="my-action-btn soft"
+                    type="button"
+                    onClick={() => setOkeyPrototypeRoomSketchOpen((prev) => !prev)}
+                  >
+                    {okeyPrototypeRoomSketchOpen ? "101 Oda Taslagini Kapat" : "101 Oda Taslagini Ac"}
+                  </button>
                 </div>
               </article>
 
@@ -9209,6 +9226,26 @@ function App() {
                 </section>
               </div>
             </div>
+            {okeyPrototypeRoomSketchOpen ? (
+              <section className="my-game-coming-room-shell">
+                <div className="my-game-coming-room-head">
+                  <h3>101 Oda Taslagi</h3>
+                  <span>Izole Prototip</span>
+                </div>
+                <div className="my-game-coming-room-grid">
+                  {OKEY_PROTOTYPE_ROOMS.map((room) => (
+                    <article key={room.id} className="my-game-coming-room-card">
+                      <header>
+                        <strong>{room.name}</strong>
+                        <em>{room.level}</em>
+                      </header>
+                      <p>Aktif Masa: {room.activeTables}</p>
+                      <p>Oyuncu: {room.players}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </section>
         ) : showRoomPicker ? (
           <section className="my-entry-page my-room-picker-page">
