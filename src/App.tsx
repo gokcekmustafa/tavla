@@ -9650,6 +9650,7 @@ function App() {
                           className="my-action-btn soft my-game-coming-table-sketch-search-pick-btn"
                           onClick={selectFirstOkeyPrototypeSearchResult}
                           disabled={okeyPrototypeTableSearch.trim().length === 0 || okeyPrototypeVisibleTableSketchRows.length === 0}
+                          title="Arama sonucundaki ilk masayi secer"
                         >
                           Ilk Sonuc
                         </button>
@@ -9662,6 +9663,7 @@ function App() {
                             appendOkeyPrototypeAction("Masa aramasi temizlendi.");
                           }}
                           disabled={okeyPrototypeTableSearch.trim().length === 0}
+                          title="Masa arama kutusunu temizler"
                         >
                           Temizle
                         </button>
