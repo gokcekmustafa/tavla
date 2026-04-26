@@ -2708,6 +2708,19 @@ function App() {
     okeyPrototypeFilteredTableSketchRows.find((row) => row.id === okeyPrototypeSelectedTableId)
     ?? okeyPrototypeFilteredTableSketchRows[0]
     ?? null;
+  const okeyPrototypeSelectedTableSeats = useMemo(() => {
+    if (!okeyPrototypeSelectedTable) return [];
+    return Array.from({ length: 4 }, (_, index) => {
+      const seatNo = index + 1;
+      const occupied = index < okeyPrototypeSelectedTable.seated;
+      return {
+        id: `${okeyPrototypeSelectedTable.id}-seat-${seatNo}`,
+        seatNo,
+        occupied,
+        label: occupied ? `Oyuncu ${seatNo}` : "Bos",
+      };
+    });
+  }, [okeyPrototypeSelectedTable]);
   const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
   const [roomChatUnread, setRoomChatUnread] = useState(0);
   const [adminQuery, setAdminQuery] = useState("");
@@ -9378,6 +9391,16 @@ function App() {
                       <p className="my-game-coming-table-sketch-selected">
                         Secili Masa: {okeyPrototypeSelectedTable.tableNo} | Durum: {okeyPrototypeSelectedTable.active ? "Aktif" : "Bekliyor"} | Dolu Koltuk: {okeyPrototypeSelectedTable.seated}/4
                       </p>
+                    ) : null}
+                    {okeyPrototypeSelectedTableSeats.length > 0 ? (
+                      <div className="my-game-coming-table-seat-row">
+                        {okeyPrototypeSelectedTableSeats.map((seat) => (
+                          <article key={seat.id} className={`my-game-coming-table-seat ${seat.occupied ? "occupied" : "empty"}`}>
+                            <strong>Koltuk {seat.seatNo}</strong>
+                            <span>{seat.label}</span>
+                          </article>
+                        ))}
+                      </div>
                     ) : null}
                     <div className="my-game-coming-table-sketch-grid">
                       {okeyPrototypeFilteredTableSketchRows.map((row) => (

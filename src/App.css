@@ -698,6 +698,42 @@
   line-height: 1.24;
 }
 
+.my-game-coming-table-seat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 6px;
+}
+
+.my-game-coming-table-seat {
+  border-radius: 7px;
+  border: 1px solid rgba(86, 177, 206, 0.62);
+  background: rgba(7, 88, 111, 0.5);
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+}
+
+.my-game-coming-table-seat strong {
+  color: #eef9ff;
+  font-size: 0.71rem;
+}
+
+.my-game-coming-table-seat span {
+  color: #d6ecf8;
+  font-size: 0.69rem;
+  line-height: 1.2;
+}
+
+.my-game-coming-table-seat.occupied {
+  border-color: rgba(136, 215, 160, 0.76);
+  background: rgba(25, 103, 64, 0.34);
+}
+
+.my-game-coming-table-seat.empty {
+  border-color: rgba(116, 193, 216, 0.66);
+  background: rgba(8, 84, 105, 0.46);
+}
+
 .my-game-coming-table-sketch-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -3157,6 +3193,10 @@
   }
 
   .my-game-coming-table-sketch-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .my-game-coming-table-seat-row {
     grid-template-columns: 1fr;
   }
 

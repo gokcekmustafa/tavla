@@ -44,6 +44,9 @@ const checks = [
       && hasApp("className=\"my-game-coming-table-sketch-filters\"")
       && hasApp("className={`my-game-coming-table-sketch-filter ${okeyPrototypeTableFilter === \"all\" ? \"active\" : \"\"}`}")
       && hasApp("className=\"my-game-coming-table-sketch-selected\"")
+      && hasApp("const okeyPrototypeSelectedTableSeats = useMemo(() => {")
+      && hasApp("className=\"my-game-coming-table-seat-row\"")
+      && hasApp("className={`my-game-coming-table-seat ${seat.occupied ? \"occupied\" : \"empty\"}`}")
       && hasApp("className=\"my-game-coming-table-sketch-grid\"")
       && hasApp("okeyPrototypeFilteredTableSketchRows.map((row) => (")
       && hasApp("className={`my-game-coming-table-sketch-card ${row.active ? \"active\" : \"waiting\"} ${okeyPrototypeSelectedTableId === row.id ? \"selected\" : \"\"}`}")
@@ -64,6 +67,8 @@ const checks = [
       && hasCss(".my-game-coming-table-sketch-filters {")
       && hasCss(".my-game-coming-table-sketch-filter.active {")
       && hasCss(".my-game-coming-table-sketch-selected {")
+      && hasCss(".my-game-coming-table-seat-row {")
+      && hasCss(".my-game-coming-table-seat.occupied {")
       && hasCss(".my-game-coming-table-sketch-grid {")
       && hasCss(".my-game-coming-table-sketch-card.active {")
       && hasCss(".my-game-coming-table-sketch-card.selected {"),
