@@ -83,6 +83,7 @@ const checks = [
       && hasApp("Masa aramasi temizlendi.")
       && hasApp("Temizle")
       && hasApp("className=\"my-game-coming-table-sketch-search-meta\"")
+      && hasApp("aria-live=\"polite\"")
       && hasApp("Sonuc: {okeyPrototypeVisibleTableSketchRows.length} masa | Enter: Ilk Sonuc")
       && hasApp("className=\"my-action-btn soft my-game-coming-table-sketch-reset-btn\"")
       && hasApp("title=\"Tum masa filtrelerini temizler\"")

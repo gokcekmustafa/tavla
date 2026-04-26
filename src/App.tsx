@@ -9668,7 +9668,7 @@ function App() {
                           Temizle
                         </button>
                       </div>
-                      <p className="my-game-coming-table-sketch-search-meta">
+                      <p className="my-game-coming-table-sketch-search-meta" aria-live="polite">
                         Sonuc: {okeyPrototypeVisibleTableSketchRows.length} masa | Enter: Ilk Sonuc
                       </p>
                     </div>
