@@ -2769,6 +2769,10 @@ function App() {
     okeyPrototypeVisibleTableSketchRows.find((row) => row.id === okeyPrototypeSelectedTableId)
     ?? okeyPrototypeVisibleTableSketchRows[0]
     ?? null;
+  const okeyPrototypeSelectedTableIndex = useMemo(() => {
+    if (!okeyPrototypeSelectedTable) return -1;
+    return okeyPrototypeVisibleTableSketchRows.findIndex((row) => row.id === okeyPrototypeSelectedTable.id);
+  }, [okeyPrototypeVisibleTableSketchRows, okeyPrototypeSelectedTable]);
   const okeyPrototypeHasTableFilters = Boolean(
     okeyPrototypeTableFilter !== "all"
     || okeyPrototypeOnlyWithFreeSeats
@@ -5512,6 +5516,17 @@ function App() {
     if (changed) {
       appendOkeyPrototypeAction(`Filtre kaldirildi: ${label}`);
     }
+  }
+
+  function moveOkeyPrototypeTableSelection(step: number) {
+    if (okeyPrototypeVisibleTableSketchRows.length === 0) return;
+    const currentIndex = okeyPrototypeSelectedTableIndex >= 0 ? okeyPrototypeSelectedTableIndex : 0;
+    const targetIndex = Math.max(0, Math.min(okeyPrototypeVisibleTableSketchRows.length - 1, currentIndex + step));
+    if (targetIndex === currentIndex) return;
+    const targetTable = okeyPrototypeVisibleTableSketchRows[targetIndex];
+    if (!targetTable) return;
+    setOkeyPrototypeSelectedTableId(targetTable.id);
+    appendOkeyPrototypeAction(`Masa gecisi: ${targetTable.tableNo}`);
   }
 
   function onSelectGame(gameId: GameId) {
@@ -9603,6 +9618,26 @@ function App() {
                       <p className="my-game-coming-table-sketch-selected">
                         Secili Masa: {okeyPrototypeSelectedTable.tableNo} | Durum: {okeyPrototypeSelectedTable.active ? "Aktif" : "Bekliyor"} | Dolu Koltuk: {okeyPrototypeSelectedTable.seated}/4
                       </p>
+                    ) : null}
+                    {okeyPrototypeSelectedTable && okeyPrototypeVisibleTableSketchRows.length > 1 ? (
+                      <div className="my-game-coming-table-sketch-nav">
+                        <button
+                          type="button"
+                          className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
+                          onClick={() => moveOkeyPrototypeTableSelection(-1)}
+                          disabled={okeyPrototypeSelectedTableIndex <= 0}
+                        >
+                          Onceki Masa
+                        </button>
+                        <button
+                          type="button"
+                          className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
+                          onClick={() => moveOkeyPrototypeTableSelection(1)}
+                          disabled={okeyPrototypeSelectedTableIndex < 0 || okeyPrototypeSelectedTableIndex >= okeyPrototypeVisibleTableSketchRows.length - 1}
+                        >
+                          Sonraki Masa
+                        </button>
+                      </div>
                     ) : null}
                     <div className="my-game-coming-table-sketch-summary">
                       <article className="my-game-coming-table-sketch-summary-item">

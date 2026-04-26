@@ -798,6 +798,16 @@
   line-height: 1.24;
 }
 
+.my-game-coming-table-sketch-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.my-game-coming-table-sketch-nav-btn {
+  min-height: 30px;
+}
+
 .my-game-coming-table-sketch-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
