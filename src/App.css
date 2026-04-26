@@ -725,6 +725,53 @@
   line-height: 1.24;
 }
 
+.my-game-coming-table-sketch-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 6px;
+}
+
+.my-game-coming-table-sketch-summary-item {
+  border-radius: 7px;
+  border: 1px solid rgba(100, 189, 215, 0.64);
+  background: rgba(8, 82, 104, 0.52);
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+}
+
+.my-game-coming-table-sketch-summary-item strong {
+  color: #fff4d8;
+  font-size: 0.8rem;
+}
+
+.my-game-coming-table-sketch-summary-item span {
+  color: #d7eef9;
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
+.my-game-coming-table-sketch-quick-join {
+  border-radius: 7px;
+  border: 1px solid rgba(134, 214, 157, 0.72);
+  background: rgba(26, 102, 64, 0.33);
+  padding: 6px;
+  display: grid;
+  gap: 6px;
+}
+
+.my-game-coming-table-sketch-quick-join p {
+  margin: 0;
+  color: #def5e8;
+  font-size: 0.71rem;
+  line-height: 1.24;
+}
+
+.my-game-coming-table-sketch-quick-join .my-action-btn {
+  min-height: 30px;
+  justify-self: start;
+}
+
 .my-game-coming-table-seat-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));

@@ -2711,6 +2711,34 @@ function App() {
     if (!searchQuery) return rows;
     return rows.filter((row) => String(row.tableNo).includes(searchQuery));
   }, [okeyPrototypeTableSketchRows, okeyPrototypeTableFilter, okeyPrototypeTableSearch]);
+  const okeyPrototypeTableSummary = useMemo(() => {
+    const total = okeyPrototypeFilteredTableSketchRows.length;
+    const active = okeyPrototypeFilteredTableSketchRows.filter((row) => row.active).length;
+    const waiting = total - active;
+    const occupiedSeats = okeyPrototypeFilteredTableSketchRows.reduce((sum, row) => sum + row.seated, 0);
+    const totalSeats = total * 4;
+    const freeSeats = Math.max(0, totalSeats - occupiedSeats);
+    const occupancyPct = totalSeats > 0 ? Math.round((occupiedSeats / totalSeats) * 100) : 0;
+    return {
+      total,
+      active,
+      waiting,
+      occupiedSeats,
+      freeSeats,
+      occupancyPct,
+    };
+  }, [okeyPrototypeFilteredTableSketchRows]);
+  const okeyPrototypeQuickJoinTable = useMemo(() => {
+    const candidates = okeyPrototypeFilteredTableSketchRows.filter((row) => row.seated < 4);
+    if (candidates.length === 0) return null;
+    return candidates
+      .slice()
+      .sort((left, right) => {
+        if (right.seated !== left.seated) return right.seated - left.seated;
+        if (left.active !== right.active) return left.active ? -1 : 1;
+        return left.tableNo - right.tableNo;
+      })[0];
+  }, [okeyPrototypeFilteredTableSketchRows]);
   const okeyPrototypeSelectedTable =
     okeyPrototypeFilteredTableSketchRows.find((row) => row.id === okeyPrototypeSelectedTableId)
     ?? okeyPrototypeFilteredTableSketchRows[0]
@@ -9447,6 +9475,42 @@ function App() {
                       <p className="my-game-coming-table-sketch-selected">
                         Secili Masa: {okeyPrototypeSelectedTable.tableNo} | Durum: {okeyPrototypeSelectedTable.active ? "Aktif" : "Bekliyor"} | Dolu Koltuk: {okeyPrototypeSelectedTable.seated}/4
                       </p>
+                    ) : null}
+                    <div className="my-game-coming-table-sketch-summary">
+                      <article className="my-game-coming-table-sketch-summary-item">
+                        <strong>{okeyPrototypeTableSummary.total}</strong>
+                        <span>Gorunen Masa</span>
+                      </article>
+                      <article className="my-game-coming-table-sketch-summary-item">
+                        <strong>{okeyPrototypeTableSummary.active}</strong>
+                        <span>Aktif</span>
+                      </article>
+                      <article className="my-game-coming-table-sketch-summary-item">
+                        <strong>{okeyPrototypeTableSummary.waiting}</strong>
+                        <span>Bekleyen</span>
+                      </article>
+                      <article className="my-game-coming-table-sketch-summary-item">
+                        <strong>%{okeyPrototypeTableSummary.occupancyPct}</strong>
+                        <span>Doluluk</span>
+                      </article>
+                    </div>
+                    {okeyPrototypeQuickJoinTable ? (
+                      <div className="my-game-coming-table-sketch-quick-join">
+                        <p>
+                          Hizli Oneri: Masa {okeyPrototypeQuickJoinTable.tableNo} | Bos Koltuk: {Math.max(0, 4 - okeyPrototypeQuickJoinTable.seated)}
+                          {" "}({okeyPrototypeTableSummary.freeSeats} bos koltuk / {okeyPrototypeTableSummary.occupiedSeats} dolu)
+                        </p>
+                        <button
+                          type="button"
+                          className="my-action-btn soft"
+                          onClick={() => {
+                            setOkeyPrototypeSelectedTableId(okeyPrototypeQuickJoinTable.id);
+                            appendOkeyPrototypeAction(`Hizli oneriden masa secildi: ${okeyPrototypeQuickJoinTable.tableNo}`);
+                          }}
+                        >
+                          Onerilen Masayi Sec
+                        </button>
+                      </div>
                     ) : null}
                     {okeyPrototypeSelectedTableSeats.length > 0 ? (
                       <div className="my-game-coming-table-seat-row">
