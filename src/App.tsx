@@ -2773,6 +2773,13 @@ function App() {
     if (!okeyPrototypeSelectedTable) return -1;
     return okeyPrototypeVisibleTableSketchRows.findIndex((row) => row.id === okeyPrototypeSelectedTable.id);
   }, [okeyPrototypeVisibleTableSketchRows, okeyPrototypeSelectedTable]);
+  const okeyPrototypeRandomFreeSeatTableCandidates = useMemo(() => {
+    if (okeyPrototypeVisibleTableSketchRows.length === 0) return [];
+    return okeyPrototypeVisibleTableSketchRows.filter((row, index) => {
+      if (index === okeyPrototypeSelectedTableIndex) return false;
+      return row.seated < 4;
+    });
+  }, [okeyPrototypeVisibleTableSketchRows, okeyPrototypeSelectedTableIndex]);
   const okeyPrototypeHasTableFilters = Boolean(
     okeyPrototypeTableFilter !== "all"
     || okeyPrototypeOnlyWithFreeSeats
@@ -5550,6 +5557,15 @@ function App() {
     if (!targetTable) return;
     setOkeyPrototypeSelectedTableId(targetTable.id);
     appendOkeyPrototypeAction(`Rastgele masa secildi: ${targetTable.tableNo}`);
+  }
+
+  function pickRandomOkeyPrototypeFreeSeatTable() {
+    if (okeyPrototypeRandomFreeSeatTableCandidates.length === 0) return;
+    const randomIndex = Math.floor(Math.random() * okeyPrototypeRandomFreeSeatTableCandidates.length);
+    const targetTable = okeyPrototypeRandomFreeSeatTableCandidates[randomIndex];
+    if (!targetTable) return;
+    setOkeyPrototypeSelectedTableId(targetTable.id);
+    appendOkeyPrototypeAction(`Rastgele bos koltuklu masa secildi: ${targetTable.tableNo}`);
   }
 
   function onSelectGame(gameId: GameId) {
@@ -9675,6 +9691,14 @@ function App() {
                           disabled={okeyPrototypeVisibleTableSketchRows.length < 2}
                         >
                           Rastgele Masa
+                        </button>
+                        <button
+                          type="button"
+                          className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
+                          onClick={pickRandomOkeyPrototypeFreeSeatTable}
+                          disabled={okeyPrototypeRandomFreeSeatTableCandidates.length === 0}
+                        >
+                          Rastgele Bos
                         </button>
                         <button
                           type="button"

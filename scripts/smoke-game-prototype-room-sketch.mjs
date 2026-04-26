@@ -30,6 +30,7 @@ const checks = [
       && hasApp("const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: number } | null>(null);")
       && hasApp("const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);")
       && hasApp("const okeyPrototypeSelectedTableIndex = useMemo(() => {")
+      && hasApp("const okeyPrototypeRandomFreeSeatTableCandidates = useMemo(() => {")
       && hasApp("const okeyPrototypeHasTableFilters = Boolean(")
       && hasApp("const okeyPrototypeActiveFilters = useMemo(() => {")
       && hasApp("function appendOkeyPrototypeAction(rawText: string) {")
@@ -38,6 +39,7 @@ const checks = [
       && hasApp("function moveOkeyPrototypeTableSelection(step: number) {")
       && hasApp("function jumpOkeyPrototypeTableSelection(target: \"first\" | \"last\") {")
       && hasApp("function pickRandomOkeyPrototypeTable() {")
+      && hasApp("function pickRandomOkeyPrototypeFreeSeatTable() {")
       && hasApp("onClick={() => setOkeyPrototypeRoomSketchOpen((prev) => !prev)}")
       && hasApp("{okeyPrototypeRoomSketchOpen ? \"101 Oda Taslagini Kapat\" : \"101 Oda Taslagini Ac\"}"),
   },
@@ -82,6 +84,8 @@ const checks = [
       && hasApp("Sonraki Masa")
       && hasApp("onClick={pickRandomOkeyPrototypeTable}")
       && hasApp("Rastgele Masa")
+      && hasApp("onClick={pickRandomOkeyPrototypeFreeSeatTable}")
+      && hasApp("Rastgele Bos")
       && hasApp("Son Masa")
       && hasApp("const okeyPrototypeTableSummary = useMemo(() => {")
       && hasApp("const okeyPrototypeQuickJoinTable = useMemo(() => {")
