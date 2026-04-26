@@ -25,6 +25,8 @@ const checks = [
       && hasApp("const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState(\"\");")
       && hasApp("const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState(1);")
       && hasApp("const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: number } | null>(null);")
+      && hasApp("const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);")
+      && hasApp("function appendOkeyPrototypeAction(rawText: string) {")
       && hasApp("onClick={() => setOkeyPrototypeRoomSketchOpen((prev) => !prev)}")
       && hasApp("{okeyPrototypeRoomSketchOpen ? \"101 Oda Taslagini Kapat\" : \"101 Oda Taslagini Ac\"}"),
   },
@@ -39,7 +41,7 @@ const checks = [
       && hasApp("className=\"my-game-coming-room-grid\"")
       && hasApp("okeyPrototypeFilteredRooms.map((room) => (")
       && hasApp("className={`my-game-coming-room-card ${okeyPrototypeSelectedRoomId === room.id ? \"active\" : \"\"}`}")
-      && hasApp("onClick={() => setOkeyPrototypeSelectedRoomId(room.id)}")
+      && hasApp("appendOkeyPrototypeAction(`Oda secildi: ${room.name}`);")
       && hasApp("Gorunen Oda: {okeyPrototypeFilteredRooms.length} | Toplam Oyuncu: {okeyPrototypeFilteredPlayers}")
       && hasApp("const okeyPrototypeTableSketchRows = useMemo(() => {")
       && hasApp("className=\"my-game-coming-table-sketch\"")
@@ -56,10 +58,14 @@ const checks = [
       && hasApp("Masaya Otur (Prototip)")
       && hasApp("Masadan Ayril (Prototip)")
       && hasApp("className=\"my-game-coming-table-seat-status\"")
+      && hasApp("className=\"my-game-coming-prototype-log\"")
+      && hasApp("className=\"my-game-coming-prototype-log-list\"")
+      && hasApp("className=\"my-game-coming-prototype-log-entry\"")
+      && hasApp("Henuz kayitli prototip aksiyonu yok.")
       && hasApp("className=\"my-game-coming-table-sketch-grid\"")
       && hasApp("okeyPrototypeFilteredTableSketchRows.map((row) => (")
       && hasApp("className={`my-game-coming-table-sketch-card ${row.active ? \"active\" : \"waiting\"} ${okeyPrototypeSelectedTableId === row.id ? \"selected\" : \"\"}`}")
-      && hasApp("onClick={() => setOkeyPrototypeSelectedTableId(row.id)}"),
+      && hasApp("appendOkeyPrototypeAction(`Masa secildi: ${row.tableNo}`);"),
   },
   {
     label: "101 oda taslagi css siniflari mevcut",
@@ -82,6 +88,9 @@ const checks = [
       && hasCss(".my-game-coming-table-seat-actions {")
       && hasCss(".my-game-coming-table-seat-chip.active {")
       && hasCss(".my-game-coming-table-seat-status {")
+      && hasCss(".my-game-coming-prototype-log {")
+      && hasCss(".my-game-coming-prototype-log-list {")
+      && hasCss(".my-game-coming-prototype-log-entry {")
       && hasCss(".my-game-coming-table-sketch-grid {")
       && hasCss(".my-game-coming-table-sketch-card.active {")
       && hasCss(".my-game-coming-table-sketch-card.selected {"),

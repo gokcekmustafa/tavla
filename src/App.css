@@ -811,6 +811,64 @@
   line-height: 1.24;
 }
 
+.my-game-coming-prototype-log {
+  border-radius: 7px;
+  border: 1px solid rgba(88, 180, 208, 0.66);
+  background: rgba(7, 82, 103, 0.5);
+  padding: 7px;
+  display: grid;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.my-game-coming-prototype-log-head strong {
+  color: #eaf8ff;
+  font-size: 0.74rem;
+}
+
+.my-game-coming-prototype-log-head .my-action-btn {
+  min-height: 28px;
+  font-size: 0.72rem;
+  padding: 0 10px;
+}
+
+.my-game-coming-prototype-log-list {
+  max-height: 132px;
+  overflow-y: auto;
+  display: grid;
+  gap: 4px;
+  padding-right: 2px;
+}
+
+.my-game-coming-prototype-log-entry {
+  margin: 0;
+  color: #d9edf9;
+  font-size: 0.71rem;
+  line-height: 1.22;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+}
+
+.my-game-coming-prototype-log-entry span {
+  color: #fff3cf;
+  font-weight: 700;
+  min-width: 64px;
+}
+
+.my-game-coming-prototype-log-empty {
+  margin: 0;
+  color: #d2e8f4;
+  font-size: 0.72rem;
+  line-height: 1.22;
+}
+
 .my-game-coming-table-sketch-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -3275,6 +3333,15 @@
 
   .my-game-coming-table-seat-row {
     grid-template-columns: 1fr;
+  }
+
+  .my-game-coming-prototype-log-entry {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .my-game-coming-prototype-log-entry span {
+    min-width: 0;
   }
 
   .my-room-picker-tabs {

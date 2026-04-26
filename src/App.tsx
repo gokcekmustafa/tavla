@@ -2663,6 +2663,7 @@ function App() {
   const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState("");
   const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState(1);
   const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: number } | null>(null);
+  const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
   const isTavlaSelectedGame = selectedGameId === "tavla";
   const okeyPrototypeFilteredRooms = useMemo(() => {
     if (okeyPrototypeRoomFilter === "fast") {
@@ -5388,6 +5389,14 @@ function App() {
     } finally {
       setAdminDesignBusy(false);
     }
+  }
+
+  function appendOkeyPrototypeAction(rawText: string) {
+    const text = rawText.replace(/\s+/g, " ").trim().slice(0, 160);
+    if (!text) return;
+    const now = Date.now();
+    const id = `okey-proto-${now}-${Math.random().toString(36).slice(2, 8)}`;
+    setOkeyPrototypeActionLog((current) => [{ id, at: now, text }, ...current].slice(0, 14));
   }
 
   function onSelectGame(gameId: GameId) {
@@ -9372,7 +9381,10 @@ function App() {
                       key={room.id}
                       type="button"
                       className={`my-game-coming-room-card ${okeyPrototypeSelectedRoomId === room.id ? "active" : ""}`}
-                      onClick={() => setOkeyPrototypeSelectedRoomId(room.id)}
+                      onClick={() => {
+                        setOkeyPrototypeSelectedRoomId(room.id);
+                        appendOkeyPrototypeAction(`Oda secildi: ${room.name}`);
+                      }}
                     >
                       <header>
                         <strong>{room.name}</strong>
@@ -9427,6 +9439,7 @@ function App() {
                             onClick={() => {
                               if (seat.occupied) return;
                               setOkeyPrototypeSeatDraft(seat.seatNo);
+                              appendOkeyPrototypeAction(`Koltuk secildi: ${seat.seatNo}`);
                             }}
                             disabled={seat.occupied}
                           >
@@ -9444,7 +9457,10 @@ function App() {
                               key={`seat-chip-${seatNo}`}
                               type="button"
                               className={`my-game-coming-table-seat-chip ${okeyPrototypeSeatDraft === seatNo ? "active" : ""}`}
-                              onClick={() => setOkeyPrototypeSeatDraft(seatNo)}
+                              onClick={() => {
+                                setOkeyPrototypeSeatDraft(seatNo);
+                                appendOkeyPrototypeAction(`Koltuk secildi: ${seatNo}`);
+                              }}
                             >
                               Koltuk {seatNo}
                             </button>
@@ -9464,6 +9480,7 @@ function App() {
                               tableId: okeyPrototypeSelectedTable.id,
                               seatNo: okeyPrototypeSeatDraft,
                             });
+                            appendOkeyPrototypeAction(`Masaya oturuldu: Masa ${okeyPrototypeSelectedTable.tableNo}, Koltuk ${okeyPrototypeSeatDraft}`);
                           }}
                           disabled={!okeyPrototypeSelectedTable || okeyPrototypeAvailableSeatNos.length === 0}
                         >
@@ -9472,7 +9489,12 @@ function App() {
                         <button
                           type="button"
                           className="my-action-btn soft"
-                          onClick={() => setOkeyPrototypeSeatReservation(null)}
+                          onClick={() => {
+                            if (okeyPrototypeSeatReservation && okeyPrototypeJoinedTable) {
+                              appendOkeyPrototypeAction(`Masadan ayrildi: Masa ${okeyPrototypeJoinedTable.tableNo}, Koltuk ${okeyPrototypeSeatReservation.seatNo}`);
+                            }
+                            setOkeyPrototypeSeatReservation(null);
+                          }}
                           disabled={!okeyPrototypeSeatReservation}
                         >
                           Masadan Ayril (Prototip)
@@ -9484,13 +9506,41 @@ function App() {
                           : "Prototip oturum acik degil."}
                       </p>
                     </div>
+                    <div className="my-game-coming-prototype-log">
+                      <div className="my-game-coming-prototype-log-head">
+                        <strong>Prototip Olay Gecmisi</strong>
+                        <button
+                          type="button"
+                          className="my-action-btn soft"
+                          onClick={() => setOkeyPrototypeActionLog([])}
+                          disabled={okeyPrototypeActionLog.length === 0}
+                        >
+                          Temizle
+                        </button>
+                      </div>
+                      <div className="my-game-coming-prototype-log-list">
+                        {okeyPrototypeActionLog.length === 0 ? (
+                          <p className="my-game-coming-prototype-log-empty">Henuz kayitli prototip aksiyonu yok.</p>
+                        ) : (
+                          okeyPrototypeActionLog.map((item) => (
+                            <p key={item.id} className="my-game-coming-prototype-log-entry">
+                              <span>{new Date(item.at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+                              {item.text}
+                            </p>
+                          ))
+                        )}
+                      </div>
+                    </div>
                     <div className="my-game-coming-table-sketch-grid">
                       {okeyPrototypeFilteredTableSketchRows.map((row) => (
                         <button
                           key={row.id}
                           type="button"
                           className={`my-game-coming-table-sketch-card ${row.active ? "active" : "waiting"} ${okeyPrototypeSelectedTableId === row.id ? "selected" : ""}`}
-                          onClick={() => setOkeyPrototypeSelectedTableId(row.id)}
+                          onClick={() => {
+                            setOkeyPrototypeSelectedTableId(row.id);
+                            appendOkeyPrototypeAction(`Masa secildi: ${row.tableNo}`);
+                          }}
                         >
                           <header>
                             <strong>Masa {row.tableNo}</strong>
