@@ -9576,7 +9576,9 @@ function App() {
                   <section className="my-game-coming-table-sketch">
                     <div className="my-game-coming-table-sketch-head">
                       <strong>{okeyPrototypeSelectedRoom.name} | Masa Taslagi</strong>
-                      <span>{okeyPrototypeVisibleTableSketchRows.length}/{okeyPrototypeTableSketchRows.length} Masa</span>
+                      <span>
+                        {okeyPrototypeVisibleTableSketchRows.length}/{okeyPrototypeTableSketchRows.length} Masa | Filtre: {okeyPrototypeActiveFilters.length}
+                      </span>
                     </div>
                     <div className="my-game-coming-table-sketch-filters">
                       <button

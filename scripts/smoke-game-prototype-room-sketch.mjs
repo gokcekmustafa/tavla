@@ -61,6 +61,7 @@ const checks = [
       && hasApp("const okeyPrototypeTableSketchRows = useMemo(() => {")
       && hasApp("className=\"my-game-coming-table-sketch\"")
       && hasApp("className=\"my-game-coming-table-sketch-filters\"")
+      && hasApp("Masa | Filtre: {okeyPrototypeActiveFilters.length}")
       && hasApp("className={`my-game-coming-table-sketch-filter ${okeyPrototypeTableFilter === \"all\" ? \"active\" : \"\"}`}")
       && hasApp("className={`my-game-coming-table-sketch-filter ${okeyPrototypeOnlyWithFreeSeats ? \"active\" : \"\"}`}")
       && hasApp("Bos Koltuk Var")
