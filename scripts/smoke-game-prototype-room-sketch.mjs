@@ -98,6 +98,7 @@ const checks = [
       && hasApp("const okeyPrototypeQuickJoinTable = useMemo(() => {")
       && hasApp("className=\"my-game-coming-table-sketch-summary\"")
       && hasApp("className=\"my-game-coming-table-sketch-summary-item\"")
+      && hasApp("<span>Toplam Bos</span>")
       && hasApp("className=\"my-game-coming-table-sketch-quick-join\"")
       && hasApp("Hizli Oneri: Masa {okeyPrototypeQuickJoinTable.tableNo}")
       && hasApp("appendOkeyPrototypeAction(`Hizli oneriden masa secildi: ${okeyPrototypeQuickJoinTable.tableNo}`);")
