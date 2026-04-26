@@ -4303,7 +4303,14 @@ function App() {
     setLobbyNotice("Hazır oldun. Rakibin de Oyuna Başla butonuna basması bekleniyor.");
   }
 
+  function guardTavlaOnlyAction() {
+    if (selectedGameId === "tavla") return true;
+    setLobbyNotice("Bu ozellik su an sadece Tavla icin aktif.");
+    return false;
+  }
+
   function onOpenTable() {
+    if (!guardTavlaOnlyAction()) return;
     const latest = getCurrentLobbyState();
     const existing = findSessionSeat(latest.tables, appSessionId);
     if (existing) {
@@ -4319,6 +4326,7 @@ function App() {
   }
 
   function onQuickPlay() {
+    if (!guardTavlaOnlyAction()) return;
     const latest = getCurrentLobbyState();
     const existing = findSessionSeat(latest.tables, appSessionId);
     if (existing) {
@@ -4348,6 +4356,7 @@ function App() {
   }
 
   function onJoinByCode() {
+    if (!guardTavlaOnlyAction()) return;
     const code = sanitizeRoomCode(joinCodeInput);
     if (!code) {
       setLobbyNotice("Lutfen gecerli bir oda kodu yazin.");
@@ -4592,6 +4601,7 @@ function App() {
   }
 
   async function startBotGame() {
+    if (!guardTavlaOnlyAction()) return;
     let penalized = false;
     let leftWithPermission = false;
     let penaltyWaivedBecauseOpponentLeft = false;
