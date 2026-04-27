@@ -1,72 +1,88 @@
+import { useMemo, useState } from "react";
+import "./App.css";
 import TavlaApp from "./apps/tavla/TavlaApp";
 import Okey101App from "./apps/okey101/Okey101App";
 
-function navigateTo(path: string) {
-  if (typeof window === "undefined") return;
-  if (window.location.pathname === path) return;
-  window.location.assign(path);
+type RootGameChoice = "tavla" | "okey101" | null;
+
+const ROOT_GAME_CHOICE_KEY = "tavla.root.selected.game.v1";
+
+function readPathChoice(): RootGameChoice {
+  if (typeof window === "undefined") return null;
+  const path = window.location.pathname.toLowerCase();
+  if (path.startsWith("/tavla")) return "tavla";
+  if (path.startsWith("/okey101") || path.startsWith("/okey")) return "okey101";
+  return null;
 }
 
-function GameHub() {
+function readStoredChoice(): RootGameChoice {
+  if (typeof window === "undefined") return null;
+  const raw = window.sessionStorage.getItem(ROOT_GAME_CHOICE_KEY);
+  if (raw === "tavla" || raw === "okey101") return raw;
+  return null;
+}
+
+function saveChoice(choice: RootGameChoice) {
+  if (typeof window === "undefined") return;
+  if (!choice) {
+    window.sessionStorage.removeItem(ROOT_GAME_CHOICE_KEY);
+    return;
+  }
+  window.sessionStorage.setItem(ROOT_GAME_CHOICE_KEY, choice);
+}
+
+function GameHub({ onSelect }: { onSelect: (choice: Exclude<RootGameChoice, null>) => void }) {
   return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#0d4f63", padding: "24px" }}>
-      <section
-        style={{
-          width: "min(640px, 100%)",
-          borderRadius: 16,
-          border: "2px solid rgba(86, 168, 195, 0.6)",
-          background: "linear-gradient(180deg, #146b84, #0f5570)",
-          padding: 20,
-          color: "#ecf9ff",
-          display: "grid",
-          gap: 14,
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: "1.7rem", lineHeight: 1.1 }}>Oyun Secimi</h1>
-        <p style={{ margin: 0, color: "#d4eef8" }}>Tavla ve 101 Okey artik ayri uygulamalar olarak calisir.</p>
-        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-          <button
-            type="button"
-            onClick={() => navigateTo("/tavla")}
-            style={{
-              minHeight: 54,
-              borderRadius: 10,
-              border: "1px solid rgba(248, 220, 156, 0.72)",
-              background: "linear-gradient(180deg, #d7a83b, #a7731a)",
-              color: "#fffdfa",
-              fontWeight: 800,
-              cursor: "pointer",
-            }}
-          >
-            Tavla Uygulamasi
-          </button>
-          <button
-            type="button"
-            onClick={() => navigateTo("/okey101")}
-            style={{
-              minHeight: 54,
-              borderRadius: 10,
-              border: "1px solid rgba(104, 183, 112, 0.78)",
-              background: "linear-gradient(180deg, #3b9d4c, #2a7d39)",
-              color: "#f6fff7",
-              fontWeight: 800,
-              cursor: "pointer",
-            }}
-          >
-            101 Okey Uygulamasi
-          </button>
-        </div>
-      </section>
-    </main>
+    <section className="my-entry-page my-game-picker-page">
+      <div className="my-entry-head">
+        <h2>Oyun Secimi</h2>
+        <p>Oynamak istedigin oyunu secerek devam et.</p>
+      </div>
+      <div className="my-game-picker-grid">
+        <button
+          type="button"
+          className="my-game-picker-card game-tavla"
+          onClick={() => onSelect("tavla")}
+        >
+          <span className="my-game-picker-thumb" aria-hidden="true" />
+          <span className="my-game-picker-badge">Hazir</span>
+          <strong>Klasik Tavla</strong>
+          <p>Online masa, bot modu ve mevcut sistemle devam et.</p>
+        </button>
+        <button
+          type="button"
+          className="my-game-picker-card game-okey"
+          onClick={() => onSelect("okey101")}
+        >
+          <span className="my-game-picker-thumb" aria-hidden="true" />
+          <span className="my-game-picker-badge">Hazir</span>
+          <strong>101 Okey</strong>
+          <p>4 kisilik masa yapisiyla 101 gelistirmesine devam et.</p>
+        </button>
+      </div>
+    </section>
   );
 }
 
 function App() {
-  if (typeof window === "undefined") return <GameHub />;
-  const path = window.location.pathname.toLowerCase();
-  if (path.startsWith("/tavla")) return <TavlaApp />;
-  if (path.startsWith("/okey101") || path.startsWith("/okey")) return <Okey101App />;
-  return <GameHub />;
+  const initialChoice = useMemo<RootGameChoice>(() => {
+    const pathChoice = readPathChoice();
+    if (pathChoice) return pathChoice;
+    return readStoredChoice();
+  }, []);
+  const [rootChoice, setRootChoice] = useState<RootGameChoice>(initialChoice);
+
+  if (rootChoice === "tavla") return <TavlaApp />;
+  if (rootChoice === "okey101") return <Okey101App />;
+
+  return (
+    <GameHub
+      onSelect={(choice) => {
+        setRootChoice(choice);
+        saveChoice(choice);
+      }}
+    />
+  );
 }
 
 export default App;

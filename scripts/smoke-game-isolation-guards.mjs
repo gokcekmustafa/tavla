@@ -40,12 +40,21 @@ const checks = [
       && countIn("if (!guardTavlaOnlyAction()) return;", tavlaSource) >= 4,
   },
   {
-    label: "Shell app tavla ve 101 uygulamalarini ayri route ile aciyor",
+    label: "Shell app tavla ve 101 uygulamalarini ayri secimle aciyor",
     test: () =>
       hasIn("import TavlaApp from \"./apps/tavla/TavlaApp\";", shellSource)
       && hasIn("import Okey101App from \"./apps/okey101/Okey101App\";", shellSource)
-      && hasIn("if (path.startsWith(\"/tavla\")) return <TavlaApp />;", shellSource)
-      && hasIn("if (path.startsWith(\"/okey101\") || path.startsWith(\"/okey\")) return <Okey101App />;", shellSource),
+      && (
+        (
+          hasIn("if (path.startsWith(\"/tavla\")) return <TavlaApp />;", shellSource)
+          && hasIn("if (path.startsWith(\"/okey101\") || path.startsWith(\"/okey\")) return <Okey101App />;", shellSource)
+        )
+        || (
+          hasIn("const [rootChoice, setRootChoice] = useState<RootGameChoice>(initialChoice);", shellSource)
+          && hasIn("if (rootChoice === \"tavla\") return <TavlaApp />;", shellSource)
+          && hasIn("if (rootChoice === \"okey101\") return <Okey101App />;", shellSource)
+        )
+      ),
   },
   {
     label: "101 uygulamasi ayri dosyada mevcut",
