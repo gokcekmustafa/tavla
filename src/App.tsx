@@ -9644,6 +9644,7 @@ function App() {
                           }}
                           placeholder="Masa No (or. 3)"
                           inputMode="numeric"
+                          autoComplete="off"
                           maxLength={2}
                           title="Masa numarasina gore arama yapar"
                           aria-describedby="okey-prototype-table-search-meta"
