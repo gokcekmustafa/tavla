@@ -2267,6 +2267,41 @@
   margin-top: 6px;
 }
 
+.my-room-picker-page-okey {
+  border-color: rgba(53, 100, 46, 0.78);
+  background: linear-gradient(180deg, #2d6f51, #24593f 46%, #1f4e37);
+}
+
+.my-room-picker-topbar-okey {
+  border-color: rgba(69, 126, 88, 0.68);
+  background: linear-gradient(180deg, rgba(36, 89, 63, 0.95), rgba(27, 72, 50, 0.96));
+}
+
+.my-room-picker-page-okey .my-room-picker-tab {
+  border-color: rgba(93, 144, 105, 0.74);
+  background: rgba(31, 76, 53, 0.88);
+  color: #e1f5e9;
+}
+
+.my-room-picker-page-okey .my-room-picker-tab.active {
+  border-color: rgba(245, 228, 171, 0.9);
+  background: linear-gradient(180deg, #c89b3a, #9e741f);
+  color: #fff8e7;
+}
+
+.my-room-picker-card-okey {
+  border-color: rgba(48, 110, 70, 0.72);
+  background: linear-gradient(180deg, rgba(241, 247, 238, 0.98), rgba(223, 236, 224, 0.98));
+}
+
+.my-room-picker-card-okey .my-room-picker-card-head strong {
+  color: #1f4f35;
+}
+
+.my-room-picker-card-okey p {
+  color: #2b6043;
+}
+
 .my-lobby-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 348px;
@@ -2335,6 +2370,35 @@
 
 .my-lobby-top-action-hidden {
   display: none !important;
+}
+
+.my-okey-lobby-controls {
+  border-radius: 8px;
+  border: 1px solid rgba(112, 161, 113, 0.72);
+  background: linear-gradient(180deg, rgba(36, 98, 67, 0.9), rgba(28, 77, 52, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.my-okey-lobby-controls h3 {
+  margin: 0;
+  color: #e8faed;
+  font-size: 0.92rem;
+}
+
+.my-okey-lobby-controls p {
+  margin: 0;
+  color: #d6efdf;
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.my-okey-lobby-controls-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .my-lobby-controls {
@@ -2416,6 +2480,28 @@
   padding: 7px;
   height: var(--design-lobby-table-zone-height);
   overflow-y: auto;
+}
+
+.my-lobby-layout-okey {
+  grid-template-columns: minmax(0, 1fr) 332px;
+}
+
+.my-lobby-main-okey {
+  border-color: rgba(41, 111, 67, 0.84);
+  background: linear-gradient(180deg, #2b7450, #245f43 46%, #1f5239);
+}
+
+.my-lobby-layout-okey .my-lobby-header h2 {
+  color: #eefcf3;
+}
+
+.my-lobby-layout-okey .my-lobby-header p {
+  color: #d6f0df;
+}
+
+.my-lobby-table-zone-okey {
+  border-color: rgba(56, 120, 77, 0.78);
+  background: linear-gradient(180deg, rgba(38, 103, 70, 0.95), rgba(31, 85, 58, 0.98));
 }
 
 .my-notice {
@@ -2798,6 +2884,32 @@
     0 2px 6px rgba(16, 33, 40, 0.24);
 }
 
+.my-table-card-okey {
+  border-color: rgba(72, 95, 45, 0.86);
+  background: linear-gradient(180deg, #d6be73, #b89343 72%, #9f7731);
+}
+
+.my-lobby-layout-okey .my-watch-eye-btn {
+  border-color: rgba(114, 88, 32, 0.78);
+  background: linear-gradient(180deg, #f4cf77, #c48f28);
+}
+
+.my-lobby-layout-okey .my-table-card-head {
+  color: #2e260e;
+}
+
+.my-lobby-layout-okey .my-table-board {
+  border-color: rgba(97, 76, 35, 0.8);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(247, 241, 215, 0.94), rgba(225, 205, 156, 0.9) 57%, rgba(197, 154, 82, 0.84) 100%),
+    linear-gradient(90deg, rgba(246, 236, 205, 0.94), rgba(227, 202, 150, 0.9));
+}
+
+.my-lobby-layout-okey .my-board-mid {
+  border-color: rgba(108, 83, 34, 0.74);
+  background: linear-gradient(180deg, #f9f0cf, #d7b471);
+}
+
 .my-table-card-head {
   display: flex;
   align-items: center;
@@ -3043,6 +3155,11 @@
   gap: 10px;
   align-content: stretch;
   min-height: 0;
+}
+
+.my-lobby-side-okey .my-side-card {
+  border-color: rgba(53, 112, 75, 0.74);
+  background: linear-gradient(180deg, rgba(32, 96, 66, 0.96), rgba(27, 76, 53, 0.97));
 }
 
 .my-side-card {

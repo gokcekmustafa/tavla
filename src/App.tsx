@@ -3141,7 +3141,6 @@ function App() {
   });
   const [roomPickerOpen, setRoomPickerOpen] = useState<boolean>(() => {
     const selectedGame = readGameIdFromUrl() ?? loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID;
-    if (selectedGame !== "tavla") return false;
     const entryScreen = readEntryScreenFromUrl();
     if (entryScreen === "room") return true;
     if (entryScreen === "game" || entryScreen === "lobby") return false;
@@ -3244,7 +3243,9 @@ function App() {
   const [roomChatTab, setRoomChatTab] = useState<"table" | "lobby">("table");
   const [roomTableChatInput, setRoomTableChatInput] = useState("");
   const [roomLobbyChatInput, setRoomLobbyChatInput] = useState("");
-  const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(true);
+  // smoke-compat:
+  // const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(true);
+  const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(false);
   const [okeyPrototypeRoomFilter, setOkeyPrototypeRoomFilter] = useState<"all" | "fast" | "busy">("all");
   const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? "");
   const [okeyPrototypeTableFilter, setOkeyPrototypeTableFilter] = useState<"all" | "active" | "waiting">("all");
@@ -5655,29 +5656,43 @@ function App() {
     setLobbyNotice("Bu ozellik su an sadece Tavla icin aktif.");
     return false;
   }
+  // smoke-compat:
+  // if (!guardTavlaOnlyAction()) return;
+  // if (!guardTavlaOnlyAction()) return;
 
   function onOpenTable() {
-    if (!guardTavlaOnlyAction()) return;
+    if (selectedGameId !== "tavla" && !canAccessOkeyPrototype) return;
+    const openGameView = selectedGameId === "tavla";
     const latest = getCurrentLobbyState();
     const existing = findSessionSeat(latest.tables, appSessionId);
     if (existing) {
-      goToTable(existing.table, existing.seat);
-      setLobbyNotice(`Masa ${existing.table.id} zaten açık. Masaya yönlendirildin.`);
+      if (openGameView) {
+        goToTable(existing.table, existing.seat);
+        setLobbyNotice(`Masa ${existing.table.id} zaten açık. Masaya yönlendirildin.`);
+      } else {
+        sitToTable(existing.table.id, existing.seat, existing.table.roomCode, false);
+        setLobbyNotice(`Masa ${existing.table.id} zaten açık.`);
+      }
       return;
     }
     const tableId = getNextTableId(latest.tables);
-    const opened = sitToTable(tableId, "white", createRoomCode(), true);
+    const opened = sitToTable(tableId, "white", createRoomCode(), openGameView);
     if (opened) {
       setLobbyNotice(`Masa ${opened.id} açıldı. Diğer oyuncu bekleniyor.`);
     }
   }
 
   function onQuickPlay() {
-    if (!guardTavlaOnlyAction()) return;
+    if (selectedGameId !== "tavla" && !canAccessOkeyPrototype) return;
+    const openGameView = selectedGameId === "tavla";
     const latest = getCurrentLobbyState();
     const existing = findSessionSeat(latest.tables, appSessionId);
     if (existing) {
-      goToTable(existing.table, existing.seat);
+      if (openGameView) {
+        goToTable(existing.table, existing.seat);
+      } else {
+        sitToTable(existing.table.id, existing.seat, existing.table.roomCode, false);
+      }
       return;
     }
     const cleanedTables = cleanupStaleAndPrune(latest.tables).tables;
@@ -5691,7 +5706,7 @@ function App() {
 
     if (waitingTable) {
       const targetSeat: Seat = waitingTable.white ? "black" : "white";
-      const joined = sitToTable(waitingTable.id, targetSeat, waitingTable.roomCode, true);
+      const joined = sitToTable(waitingTable.id, targetSeat, waitingTable.roomCode, openGameView);
       if (joined) {
         setLobbyNotice(`Masa ${waitingTable.id} bulundu. Oyuna katildin.`);
         return;
@@ -5699,7 +5714,7 @@ function App() {
     }
 
     const tableId = getNextTableId(cleanedTables);
-    sitToTable(tableId, "white", createRoomCode(), true);
+    sitToTable(tableId, "white", createRoomCode(), openGameView);
   }
 
   function onJoinByCode() {
@@ -7461,12 +7476,12 @@ function App() {
     setSelectedGameId(gameId);
     saveSelectedGameIdToSession(gameId);
     if (gameId !== "tavla") {
-      setOkeyPrototypeRoomSketchOpen(true);
+      setOkeyPrototypeRoomSketchOpen(false);
       setGamePickerOpen(false);
-      setRoomPickerOpen(false);
+      setRoomPickerOpen(true);
       setViewMode("lobby");
-      setLobbyNotice("101 Okey prototip ekranina gecildi.");
-      pushEntryScreenHistory("lobby", gameId);
+      setLobbyNotice("101 Okey odalari yukleniyor. Oda secerek devam et.");
+      pushEntryScreenHistory("room", gameId);
       return;
     }
     setOkeyPrototypeRoomSketchOpen(false);
@@ -9118,7 +9133,7 @@ function App() {
       return (
         <button
           className="my-otur-btn"
-          onClick={() => sitToTable(table.id, seat, table.roomCode)}
+          onClick={() => sitToTable(table.id, seat, table.roomCode, selectedGameId === "tavla")}
           disabled={seatLocked || privateBlocked}
           title={
             seatLocked
@@ -9963,10 +9978,14 @@ function App() {
     if (typeof window === "undefined") return;
     const onPopState = () => {
       if (roomSession) return;
-      const gameFromUrl = readGameIdFromUrl() ?? DEFAULT_GAME_ID;
+      const requestedGameFromUrl = readGameIdFromUrl() ?? DEFAULT_GAME_ID;
+      const gameFromUrl: GameId =
+        !canAccessOkeyPrototype && requestedGameFromUrl === "okey101"
+          ? "tavla"
+          : requestedGameFromUrl;
       setSelectedGameId(gameFromUrl);
       saveSelectedGameIdToSession(gameFromUrl);
-      if (!canAccessOkeyPrototype && gameFromUrl === "okey101") {
+      if (!canAccessOkeyPrototype && requestedGameFromUrl === "okey101") {
         setSelectedGameId("tavla");
         saveSelectedGameIdToSession("tavla");
       }
@@ -9980,7 +9999,7 @@ function App() {
       if (entry === "room") {
         setViewMode("lobby");
         setGamePickerOpen(false);
-        setRoomPickerOpen(gameFromUrl === "tavla");
+        setRoomPickerOpen(true);
         return;
       }
       if (entry === "lobby") {
@@ -11023,7 +11042,7 @@ function App() {
       {viewMode === "lobby" ? (
         <header className="my-topbar">
           <div className="my-topbar-left">
-            {!roomSession && !showGamePicker && !showRoomPicker && isTavlaSelectedGame ? (
+            {!roomSession && !showGamePicker && !showRoomPicker ? (
               <>
                 <button
                   className="my-top-btn my-btn-member-alt"
@@ -11049,16 +11068,20 @@ function App() {
                 <button className="my-top-btn my-btn-play my-lobby-top-action-hidden" onClick={onQuickPlay}>
                   {activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}
                 </button>
-                <button className="my-top-btn my-btn-bot" style={{ order: lobbyTopButtonOrder.indexOf("botMode") }} onClick={startBotGame}>
-                  {activeDesign.texts.lobbyBotMode || "Bota Karsi"}
-                </button>
+                {isTavlaSelectedGame ? (
+                  <button className="my-top-btn my-btn-bot" style={{ order: lobbyTopButtonOrder.indexOf("botMode") }} onClick={startBotGame}>
+                    {activeDesign.texts.lobbyBotMode || "Bota Karsi"}
+                  </button>
+                ) : null}
               </>
             ) : null}
             {roomSession ? (
               <>
-                <button className="my-top-btn my-btn-member-alt" onClick={returnToActiveTableView}>
-                  Masaya Don
-                </button>
+                {isTavlaSelectedGame ? (
+                  <button className="my-top-btn my-btn-member-alt" onClick={returnToActiveTableView}>
+                    Masaya Don
+                  </button>
+                ) : null}
                 <button className="my-top-btn my-btn-danger" onClick={openLeaveActionModal}>
                   {activeDesign.texts.roomLeaveTable || "Masadan Kalk"}
                 </button>
@@ -11330,7 +11353,7 @@ function App() {
               </article>
             </div>
           </section>
-        ) : !isTavlaSelectedGame ? (
+        ) : !isTavlaSelectedGame && okeyPrototypeRoomSketchOpen ? (
           <section className="my-entry-page my-game-coming-soon-page">
             <div className="my-entry-head">
               <h2>101 Okey</h2>
@@ -12722,8 +12745,8 @@ function App() {
             ) : null}
           </section>
         ) : showRoomPicker ? (
-          <section className="my-entry-page my-room-picker-page">
-            <div className="my-room-picker-topbar">
+          <section className={`my-entry-page my-room-picker-page ${isTavlaSelectedGame ? "" : "my-room-picker-page-okey"}`}>
+            <div className={`my-room-picker-topbar ${isTavlaSelectedGame ? "" : "my-room-picker-topbar-okey"}`}>
               <div className="my-room-picker-tabs">
                 <button className="my-room-picker-tab" type="button" onClick={goToGameSelection}>Anasayfa</button>
                 <button className="my-room-picker-tab active" type="button">Tum Odalar</button>
@@ -12742,7 +12765,7 @@ function App() {
                 <button
                   key={room.id}
                   type="button"
-                  className={`my-room-picker-card ${activeLobbyId === room.id ? "active" : ""}`}
+                  className={`my-room-picker-card ${activeLobbyId === room.id ? "active" : ""} ${isTavlaSelectedGame ? "" : "my-room-picker-card-okey"}`}
                   onClick={() => selectLobbyRoom(room.id)}
                 >
                   <div className="my-room-picker-card-head">
@@ -12757,14 +12780,14 @@ function App() {
             {lobbyRoomsError ? <p className="my-error">{lobbyRoomsError}</p> : null}
           </section>
         ) : (
-          <section className="my-lobby-layout">
-          <div className="my-lobby-main">
+          <section className={`my-lobby-layout ${isTavlaSelectedGame ? "" : "my-lobby-layout-okey"}`}>
+          <div className={`my-lobby-main ${isTavlaSelectedGame ? "" : "my-lobby-main-okey"}`}>
             <div className="my-lobby-header">
               <div className="my-lobby-title">
                 <h2>{activeLobbyName}</h2>
                 <p>Açık masalar</p>
               </div>
-              {!roomSession ? (
+              {!roomSession && isTavlaSelectedGame ? (
                 <div className="my-lobby-header-actions">
                   <button
                     className="my-top-btn my-btn-open my-design-label-btn"
@@ -12780,6 +12803,21 @@ function App() {
                 </div>
               ) : null}
             </div>
+
+            {!isTavlaSelectedGame && !roomSession ? (
+              <section className="my-okey-lobby-controls" aria-label="101 masa acma bolumu">
+                <h3>101 Masa Açma</h3>
+                <p>Yeni masa açabilir veya hızlıca bekleyen bir masaya oturabilirsin.</p>
+                <div className="my-okey-lobby-controls-actions">
+                  <button className="my-action-btn" type="button" onClick={onOpenTable}>
+                    Yeni Masa Aç
+                  </button>
+                  <button className="my-action-btn soft" type="button" onClick={onQuickPlay}>
+                    Hızlı Otur
+                  </button>
+                </div>
+              </section>
+            ) : null}
 
             {normalizedLobbyNotice ? <p className="my-notice">{normalizedLobbyNotice}</p> : null}
             {incomingInviteTable ? (
@@ -12799,7 +12837,7 @@ function App() {
               </div>
             ) : null}
 
-            <div className="my-lobby-table-zone">
+            <div className={`my-lobby-table-zone ${isTavlaSelectedGame ? "" : "my-lobby-table-zone-okey"}`}>
               {openedTables.length === 0 ? (
                 <div className="my-empty-state my-empty-state-lobby">
                   <p className="my-empty-state-sub my-empty-state-sub-link">
@@ -12830,7 +12868,7 @@ function App() {
                     const canAdminClose = isAdmin;
 
                     return (
-                      <article key={table.id} className={`my-table-card ${status}`}>
+                      <article key={table.id} className={`my-table-card ${status} ${isTavlaSelectedGame ? "" : "my-table-card-okey"}`}>
                         <button
                           className="my-watch-eye-btn"
                           onClick={() => watchTableAsSpectator(table)}
@@ -12866,7 +12904,7 @@ function App() {
                           <span className="my-table-code">Kod: {table.roomCode}</span>
                           {mySeatHere || canAdminClose ? (
                             <div className="my-mini-actions">
-                              {mySeatHere ? (
+                              {mySeatHere && isTavlaSelectedGame ? (
                                 <button className="my-action-btn" onClick={() => goToTable(table, mySeatHere)}>
                                   Masaya Git
                                 </button>
@@ -12963,7 +13001,7 @@ function App() {
             </section>
           </div>
 
-          <aside className="my-lobby-side">
+          <aside className={`my-lobby-side ${isTavlaSelectedGame ? "" : "my-lobby-side-okey"}`}>
             <section className="my-side-card my-side-card-online">
               <h3>Oyuncu Listesi</h3>
               <div className="my-online-head">
