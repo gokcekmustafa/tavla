@@ -389,6 +389,7 @@ const ACTIVE_LOBBY_ID_KEY = "tavla.active.lobby.id.v1";
 const ROOM_PICKER_SESSION_KEY = "tavla.room.picker.session.v1";
 const GAME_SELECTION_SESSION_KEY = "tavla.game.selection.session.v1";
 const OKEY_PROTOTYPE_TILE_SCALE_SESSION_KEY = "tavla.okey.prototype.tile.scale.pct.v1";
+const OKEY_PROTOTYPE_AUTO_SORT_SESSION_KEY = "tavla.okey.prototype.auto.sort.mode.v1";
 const LEAVE_NOTICE_REJECT_PREFIX = "LEAVE_REJECT|";
 const LOBBY_STATE_KEY_PREFIX = "tavla.lobby.state.v3";
 const LOBBY_SYNC_CHANNEL_PREFIX = "tavla.lobby.sync.v3";
@@ -2546,6 +2547,18 @@ function loadOkeyPrototypeTileScalePctFromSession() {
   return normalizeOkeyPrototypeTileScalePct(parsed);
 }
 
+function normalizeOkeyPrototypeAutoSortMode(value: string): OkeyPrototypeAutoSortMode {
+  if (value === "color" || value === "value") return value;
+  return "off";
+}
+
+function loadOkeyPrototypeAutoSortModeFromSession(): OkeyPrototypeAutoSortMode {
+  if (typeof window === "undefined") return "off";
+  const raw = safeStorageGetItem(window.sessionStorage, OKEY_PROTOTYPE_AUTO_SORT_SESSION_KEY);
+  if (!raw) return "off";
+  return normalizeOkeyPrototypeAutoSortMode(raw);
+}
+
 function readEntryScreenFromUrl(): EntryScreen | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
@@ -3094,7 +3107,7 @@ function App() {
   const [okeyPrototypeDealSeedDraft, setOkeyPrototypeDealSeedDraft] = useState(() => String(Date.now()));
   const [okeyPrototypeBoardMaskOthers, setOkeyPrototypeBoardMaskOthers] = useState(true);
   const [okeyPrototypeTileScalePct, setOkeyPrototypeTileScalePct] = useState(() => loadOkeyPrototypeTileScalePctFromSession());
-  const [okeyPrototypeAutoSortMode, setOkeyPrototypeAutoSortMode] = useState<OkeyPrototypeAutoSortMode>("off");
+  const [okeyPrototypeAutoSortMode, setOkeyPrototypeAutoSortMode] = useState<OkeyPrototypeAutoSortMode>(() => loadOkeyPrototypeAutoSortModeFromSession());
   const [okeyPrototypeWinnerSeat, setOkeyPrototypeWinnerSeat] = useState<OkeyPrototypeSeatNo | null>(null);
   const [okeyPrototypeHandDrawn, setOkeyPrototypeHandDrawn] = useState(false);
   const [okeyPrototypeSeatHandWins, setOkeyPrototypeSeatHandWins] = useState<Record<OkeyPrototypeSeatNo, number>>(() => createDefaultOkeyPrototypeSeatWinState());
@@ -3726,6 +3739,41 @@ function App() {
     }
     safeStorageSetItem(window.sessionStorage, OKEY_PROTOTYPE_TILE_SCALE_SESSION_KEY, String(normalized));
   }, [okeyPrototypeTileScalePct]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const normalized = normalizeOkeyPrototypeAutoSortMode(okeyPrototypeAutoSortMode);
+    if (normalized !== okeyPrototypeAutoSortMode) {
+      setOkeyPrototypeAutoSortMode(normalized);
+      return;
+    }
+    safeStorageSetItem(window.sessionStorage, OKEY_PROTOTYPE_AUTO_SORT_SESSION_KEY, normalized);
+  }, [okeyPrototypeAutoSortMode]);
+
+  useEffect(() => {
+    if (okeyPrototypeAutoSortMode === "off") return;
+    if (!okeyPrototypeSeatReservation) return;
+    setOkeyPrototypeRackState((current) => {
+      let changed = false;
+      const next: OkeyPrototypeRackState = { ...current };
+      OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+        const rack = current[seatNo] ?? [];
+        if (rack.length < 2) {
+          next[seatNo] = rack;
+          return;
+        }
+        const sortedRack = sortOkeyPrototypeRackTiles(rack, okeyPrototypeAutoSortMode, okeyPrototypeOkeyTile);
+        const orderChanged = sortedRack.some((tile, index) => tile.id !== rack[index]?.id);
+        if (!orderChanged) {
+          next[seatNo] = rack;
+          return;
+        }
+        changed = true;
+        next[seatNo] = sortedRack;
+      });
+      return changed ? next : current;
+    });
+  }, [okeyPrototypeAutoSortMode, okeyPrototypeOkeyTile, okeyPrototypeSeatReservation]);
 
   useEffect(() => {
     if (okeyPrototypeHandCompleted) return;
@@ -11804,9 +11852,7 @@ function App() {
                             id="okey-prototype-autosort-select"
                             value={okeyPrototypeAutoSortMode}
                             onChange={(e) => {
-                              const nextValue = e.target.value === "color" || e.target.value === "value"
-                                ? e.target.value
-                                : "off";
+                              const nextValue = normalizeOkeyPrototypeAutoSortMode(e.target.value);
                               setOkeyPrototypeAutoSortMode(nextValue);
                             }}
                             aria-label="101 prototip otomatik siralama secimi"
