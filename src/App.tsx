@@ -382,6 +382,41 @@ type OkeyPrototypeDealState = {
   turnRound: number;
 };
 
+type OkeyPrototypeLobbySeatState = {
+  userId: string;
+  sessionId: string;
+  username: string;
+  displayName: string;
+  gender: MemberGender;
+  avatarId: AvatarId;
+  points: number;
+  stats: PlayerStats;
+  joinedAt: number;
+};
+
+type OkeyPrototypeLobbyTableState = {
+  id: string;
+  roomId: string;
+  tableNo: number;
+  ownerUserId: string;
+  ownerSessionId: string;
+  seats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>>;
+  createdAt: number;
+  startedAt: number | null;
+};
+
+type OkeyPrototypeTableSketchRow = {
+  id: string;
+  roomId: string;
+  tableNo: number;
+  active: boolean;
+  started: boolean;
+  seated: number;
+  occupiedSeatNos: OkeyPrototypeSeatNo[];
+  ownerUserId: string;
+  seats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>>;
+};
+
 const GUEST_STORAGE_KEY = "tavla.guestName";
 const GUEST_ID_STORAGE_KEY = "tavla.guest.id.v1";
 const GUEST_PROFILE_SESSION_KEY = "tavla.guest.profile.session.v1";
@@ -469,10 +504,10 @@ const DEFAULT_AVATAR_BY_GENDER: Record<MemberGender, AvatarId> = {
 
 const FALLBACK_CLOUD_API_BASE = "https://tavla.gokcek.workers.dev";
 const OKEY_PROTOTYPE_ROOMS = [
-  { id: "okey-1", name: "Marmara", activeTables: 4, players: 18, level: "Standart" },
-  { id: "okey-2", name: "Ege", activeTables: 2, players: 9, level: "Hizli" },
-  { id: "okey-3", name: "Anadolu", activeTables: 6, players: 24, level: "Turnuva" },
-  { id: "okey-4", name: "Akdeniz", activeTables: 1, players: 5, level: "Baslangic" },
+  { id: "okey-1", name: "Marmara", activeTables: 0, players: 0, level: "Standart" },
+  { id: "okey-2", name: "Ege", activeTables: 0, players: 0, level: "Hizli" },
+  { id: "okey-3", name: "Anadolu", activeTables: 0, players: 0, level: "Turnuva" },
+  { id: "okey-4", name: "Akdeniz", activeTables: 0, players: 0, level: "Baslangic" },
 ] as const;
 const OKEY_PROTOTYPE_TOTAL_TILE_COUNT = 106;
 const OKEY_PROTOTYPE_HAND_TILE_COUNT = 21;
@@ -3248,13 +3283,14 @@ function App() {
   const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(false);
   const [okeyPrototypeRoomFilter, setOkeyPrototypeRoomFilter] = useState<"all" | "fast" | "busy">("all");
   const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? "");
+  const [okeyPrototypeTablesByRoom, setOkeyPrototypeTablesByRoom] = useState<Record<string, OkeyPrototypeLobbyTableState[]>>(() => ({}));
   const [okeyPrototypeTableFilter, setOkeyPrototypeTableFilter] = useState<"all" | "active" | "waiting">("all");
   const [okeyPrototypeOnlyWithFreeSeats, setOkeyPrototypeOnlyWithFreeSeats] = useState(false);
   const [okeyPrototypeTableSearch, setOkeyPrototypeTableSearch] = useState("");
   const [okeyPrototypeTableSort, setOkeyPrototypeTableSort] = useState<"tableNo" | "occupancy" | "status">("tableNo");
   const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState("");
-  const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState(1);
-  const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: number } | null>(null);
+  const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState<OkeyPrototypeSeatNo>(1);
+  const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: OkeyPrototypeSeatNo } | null>(null);
   const [okeyPrototypeTurnSeat, setOkeyPrototypeTurnSeat] = useState<1 | 2 | 3 | 4>(1);
   const [okeyPrototypeHandFirstSeat, setOkeyPrototypeHandFirstSeat] = useState<OkeyPrototypeSeatNo>(1);
   const [okeyPrototypeTurnRound, setOkeyPrototypeTurnRound] = useState(1);
@@ -3291,39 +3327,75 @@ function App() {
   const canAccessOkeyPrototype = member?.role === "admin";
   const effectiveSelectedGameId: GameId = canAccessOkeyPrototype ? selectedGameId : "tavla";
   const isTavlaSelectedGame = effectiveSelectedGameId === "tavla";
+  const okeyPrototypeRoomStatsById = useMemo(() => {
+    return OKEY_PROTOTYPE_ROOMS.reduce<Record<string, { activeTables: number; players: number }>>((acc, room) => {
+      const roomTables = okeyPrototypeTablesByRoom[room.id] ?? [];
+      const activeTables = roomTables.filter((table) => Object.keys(table.seats).length > 0).length;
+      const uniquePlayers = new Set<string>();
+      roomTables.forEach((table) => {
+        Object.values(table.seats).forEach((seat) => {
+          if (!seat) return;
+          const safeUserId = sanitizeGuestId(seat.userId);
+          if (!safeUserId) return;
+          uniquePlayers.add(safeUserId);
+        });
+      });
+      acc[room.id] = {
+        activeTables,
+        players: uniquePlayers.size,
+      };
+      return acc;
+    }, {});
+  }, [okeyPrototypeTablesByRoom]);
+  const okeyPrototypeRoomsWithStats = useMemo(() => {
+    return OKEY_PROTOTYPE_ROOMS.map((room) => {
+      const stats = okeyPrototypeRoomStatsById[room.id] ?? { activeTables: 0, players: 0 };
+      return {
+        ...room,
+        activeTables: stats.activeTables,
+        players: stats.players,
+      };
+    });
+  }, [okeyPrototypeRoomStatsById]);
   const okeyPrototypeFilteredRooms = useMemo(() => {
     if (okeyPrototypeRoomFilter === "fast") {
-      return OKEY_PROTOTYPE_ROOMS.filter((room) => room.level === "Hizli");
+      return okeyPrototypeRoomsWithStats.filter((room) => room.level === "Hizli");
     }
     if (okeyPrototypeRoomFilter === "busy") {
-      return OKEY_PROTOTYPE_ROOMS.filter((room) => room.players >= 15);
+      return okeyPrototypeRoomsWithStats.filter((room) => room.players >= 15);
     }
-    return OKEY_PROTOTYPE_ROOMS;
-  }, [okeyPrototypeRoomFilter]);
+    return okeyPrototypeRoomsWithStats;
+  }, [okeyPrototypeRoomFilter, okeyPrototypeRoomsWithStats]);
   const okeyPrototypeSelectedRoom =
     okeyPrototypeFilteredRooms.find((room) => room.id === okeyPrototypeSelectedRoomId)
     ?? okeyPrototypeFilteredRooms[0]
-    ?? OKEY_PROTOTYPE_ROOMS[0]
+    ?? okeyPrototypeRoomsWithStats[0]
     ?? null;
   const okeyPrototypeFilteredPlayers = okeyPrototypeFilteredRooms
     .map((room) => room.players)
     .reduce((sum, players) => sum + players, 0);
-  const okeyPrototypeTableSketchRows = useMemo(() => {
+  const okeyPrototypeTableSketchRows = useMemo<OkeyPrototypeTableSketchRow[]>(() => {
     if (!okeyPrototypeSelectedRoom) return [];
-    const activeCount = Number(okeyPrototypeSelectedRoom.activeTables);
-    const totalCount = Math.max(3, Math.min(8, activeCount + 2));
-    return Array.from({ length: totalCount }, (_, index) => {
-      const tableNo = index + 1;
-      const active = tableNo <= activeCount;
-      const seated = active ? 4 : tableNo % 2 === 0 ? 2 : 0;
+    const roomTables = (okeyPrototypeTablesByRoom[okeyPrototypeSelectedRoom.id] ?? [])
+      .slice()
+      .sort((left, right) => left.tableNo - right.tableNo);
+    return roomTables.map((table) => {
+      const occupiedSeatNos = OKEY_PROTOTYPE_SEATS.filter((seatNo) => Boolean(table.seats[seatNo]));
+      const seated = occupiedSeatNos.length;
+      const started = seated >= 4 && Boolean(table.startedAt);
       return {
-        id: `${okeyPrototypeSelectedRoom.id}-table-${tableNo}`,
-        tableNo,
-        active,
+        id: table.id,
+        roomId: table.roomId,
+        tableNo: table.tableNo,
+        active: started,
+        started,
         seated,
+        occupiedSeatNos,
+        ownerUserId: table.ownerUserId,
+        seats: table.seats,
       };
     });
-  }, [okeyPrototypeSelectedRoom]);
+  }, [okeyPrototypeSelectedRoom, okeyPrototypeTablesByRoom]);
   const okeyPrototypeFilteredTableSketchRows = useMemo(() => {
     const searchQuery = okeyPrototypeTableSearch.replace(/\D/g, "").slice(0, 2);
     let rows = okeyPrototypeTableSketchRows;
@@ -3393,9 +3465,8 @@ function App() {
     ?? okeyPrototypeVisibleTableSketchRows[0]
     ?? null;
   const okeyPrototypeLobbyRows = useMemo(() => {
-    const reservedTableId = okeyPrototypeSeatReservation?.tableId ?? "";
-    return okeyPrototypeVisibleTableSketchRows.filter((row) => row.active || row.id === reservedTableId);
-  }, [okeyPrototypeSeatReservation?.tableId, okeyPrototypeVisibleTableSketchRows]);
+    return okeyPrototypeVisibleTableSketchRows;
+  }, [okeyPrototypeVisibleTableSketchRows]);
   const okeyPrototypeSelectedTableIndex = useMemo(() => {
     if (!okeyPrototypeSelectedTable) return -1;
     return okeyPrototypeVisibleTableSketchRows.findIndex((row) => row.id === okeyPrototypeSelectedTable.id);
@@ -3428,13 +3499,14 @@ function App() {
   const okeyPrototypeSelectedTableSeats = useMemo(() => {
     if (!okeyPrototypeSelectedTable) return [];
     return Array.from({ length: 4 }, (_, index) => {
-      const seatNo = index + 1;
-      const occupied = index < okeyPrototypeSelectedTable.seated;
+      const seatNo = (index + 1) as OkeyPrototypeSeatNo;
+      const occupant = okeyPrototypeSelectedTable.seats[seatNo] ?? null;
+      const occupied = Boolean(occupant);
       return {
         id: `${okeyPrototypeSelectedTable.id}-seat-${seatNo}`,
         seatNo,
         occupied,
-        label: occupied ? `Oyuncu ${seatNo}` : "Bos",
+        label: occupant?.displayName ?? "Bos",
       };
     });
   }, [okeyPrototypeSelectedTable]);
@@ -3450,13 +3522,10 @@ function App() {
       return [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
     }
     const seatsFromRack = OKEY_PROTOTYPE_SEATS.filter((seatNo) => (okeyPrototypeRackState[seatNo] ?? []).length > 0);
-    const occupiedSeatCount = Math.max(1, Math.min(4, okeyPrototypeJoinedTable.seated));
+    const occupiedSeatNos = getOkeyLobbyOccupiedSeatNos(okeyPrototypeJoinedTable);
     const seats = seatsFromRack.length > 0
       ? seatsFromRack
-      : Array.from(
-        { length: occupiedSeatCount },
-        (_, index) => (index + 1) as OkeyPrototypeSeatNo,
-      );
+      : (occupiedSeatNos.length > 0 ? occupiedSeatNos.slice() : [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo]);
     const reservedSeatNo = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
     if (!seats.includes(reservedSeatNo)) {
       seats.push(reservedSeatNo);
@@ -3972,7 +4041,7 @@ function App() {
     if (!okeyPrototypeSeatReservation) return;
     const exists = okeyPrototypeTableSketchRows.some((row) => row.id === okeyPrototypeSeatReservation.tableId);
     if (exists) return;
-    setOkeyPrototypeSeatReservation(null);
+    resetOkeyPrototypeSeatSessionState();
   }, [okeyPrototypeSeatReservation, okeyPrototypeTableSketchRows]);
 
   useEffect(() => {
@@ -5667,32 +5736,60 @@ function App() {
   function onOpenTable() {
     if (selectedGameId !== "tavla") {
       if (!canAccessOkeyPrototype) return;
-      const hasExistingReservation = Boolean(okeyPrototypeSeatReservation);
-      const targetTable = hasExistingReservation
-        ? (
-          okeyPrototypeVisibleTableSketchRows.find((row) => row.id === okeyPrototypeSeatReservation?.tableId)
-          ?? okeyPrototypeSelectedTable
-          ?? okeyPrototypeVisibleTableSketchRows[0]
-          ?? null
-        )
-        : (
-          okeyPrototypeVisibleTableSketchRows.find((row) => !row.active || row.seated < 4)
-          ?? okeyPrototypeVisibleTableSketchRows[0]
-          ?? null
-        );
-      if (!targetTable) {
-        setLobbyNotice("Bu odada masa bulunamadi.");
+      if (!okeyPrototypeSelectedRoom) {
+        setLobbyNotice("Lutfen once bir oda sec.");
         return;
       }
-      const targetSeat = hasExistingReservation
-        ? Math.max(1, Math.min(4, okeyPrototypeSeatReservation?.seatNo ?? okeyPrototypeSeatDraft))
-        : (
-          okeyPrototypeAvailableSeatNos[0]
-          ?? okeyPrototypeSeatDraft
-          ?? 1
-        );
-      reserveOkeyPrototypeSeat(targetTable, targetSeat, "Masaya oturuldu");
-      setLobbyNotice(`Masa ${targetTable.tableNo} açıldı. Oyuncular bekleniyor.`);
+      if (okeyPrototypeSeatReservation) {
+        const existingTable = okeyPrototypeVisibleTableSketchRows.find((row) => row.id === okeyPrototypeSeatReservation.tableId) ?? null;
+        if (existingTable) {
+          setOkeyPrototypeSelectedTableId(existingTable.id);
+          setLobbyNotice(`Zaten Masa ${existingTable.tableNo} / Koltuk ${okeyPrototypeSeatReservation.seatNo} uzerindesin.`);
+        } else {
+          setLobbyNotice("Ayni anda sadece bir 101 masasinda oturabilirsin.");
+        }
+        return;
+      }
+      const safeUserId = sanitizeGuestId(currentProfile.userId);
+      if (!safeUserId) {
+        setLobbyNotice("Kullanici bilgisi alinmadi. Sayfayi yenileyip tekrar dene.");
+        return;
+      }
+      const seatNo = Math.max(1, Math.min(4, okeyPrototypeSeatDraft)) as OkeyPrototypeSeatNo;
+      const roomId = okeyPrototypeSelectedRoom.id;
+      const existingRoomTables = okeyPrototypeTablesByRoom[roomId] ?? [];
+      const nextTableNo = existingRoomTables.reduce((max, table) => Math.max(max, table.tableNo), 0) + 1;
+      const now = Date.now();
+      const createdTable: OkeyPrototypeLobbyTableState = {
+        id: `${roomId}-table-${nextTableNo}-${now.toString(36).slice(-5)}`,
+        roomId,
+        tableNo: nextTableNo,
+        ownerUserId: safeUserId,
+        ownerSessionId: appSessionId,
+        seats: {},
+        createdAt: now,
+        startedAt: null,
+      };
+      const createdRow: OkeyPrototypeTableSketchRow = {
+        id: createdTable.id,
+        roomId,
+        tableNo: createdTable.tableNo,
+        active: false,
+        started: false,
+        seated: 0,
+        occupiedSeatNos: [],
+        ownerUserId: createdTable.ownerUserId,
+        seats: createdTable.seats,
+      };
+      setOkeyPrototypeTablesByRoom((current) => {
+        const roomTables = (current[roomId] ?? []).slice();
+        return {
+          ...current,
+          [roomId]: [...roomTables, createdTable],
+        };
+      });
+      setOkeyPrototypeSelectedTableId(createdRow.id);
+      reserveOkeyPrototypeSeat(createdRow, seatNo, "Masa acildi");
       return;
     }
     const openGameView = true;
@@ -5718,39 +5815,31 @@ function App() {
   function onQuickPlay() {
     if (selectedGameId !== "tavla") {
       if (!canAccessOkeyPrototype) return;
-      const hasExistingReservation = Boolean(okeyPrototypeSeatReservation);
-      const targetTable = hasExistingReservation
-        ? (
-          okeyPrototypeVisibleTableSketchRows.find((row) => row.id === okeyPrototypeSeatReservation?.tableId)
-          ?? okeyPrototypeSelectedTable
-          ?? okeyPrototypeVisibleTableSketchRows[0]
-          ?? null
-        )
-        : (
-          okeyPrototypeVisibleTableSketchRows
-            .filter((row) => row.seated < 4)
-            .sort((left, right) => {
-              if (right.seated !== left.seated) return right.seated - left.seated;
-              if (left.active !== right.active) return left.active ? -1 : 1;
-              return left.tableNo - right.tableNo;
-            })[0]
-          ?? null
-        );
-      if (!targetTable) {
-        setLobbyNotice("Bos koltuklu masa bulunamadi.");
+      if (okeyPrototypeSeatReservation) {
+        const existingTable = okeyPrototypeVisibleTableSketchRows.find((row) => row.id === okeyPrototypeSeatReservation.tableId) ?? null;
+        if (existingTable) {
+          setOkeyPrototypeSelectedTableId(existingTable.id);
+          setLobbyNotice(`Zaten Masa ${existingTable.tableNo} / Koltuk ${okeyPrototypeSeatReservation.seatNo} uzerindesin.`);
+        } else {
+          setLobbyNotice("Ayni anda sadece bir 101 masasinda oturabilirsin.");
+        }
         return;
       }
-      const occupiedSeatNos = Array.from(
-        { length: Math.max(0, Math.min(4, targetTable.seated)) },
-        (_, index) => index + 1,
-      );
-      const targetSeat = hasExistingReservation
-        ? Math.max(1, Math.min(4, okeyPrototypeSeatReservation?.seatNo ?? okeyPrototypeSeatDraft))
-        : (
-          ([1, 2, 3, 4].find((seatNo) => !occupiedSeatNos.includes(seatNo)) ?? okeyPrototypeSeatDraft ?? 1)
-        );
+      const targetTable = okeyPrototypeVisibleTableSketchRows
+        .filter((row) => row.seated < 4)
+        .sort((left, right) => {
+          if (right.seated !== left.seated) return right.seated - left.seated;
+          if (left.active !== right.active) return left.active ? -1 : 1;
+          return left.tableNo - right.tableNo;
+        })[0]
+        ?? null;
+      if (!targetTable) {
+        onOpenTable();
+        return;
+      }
+      const occupiedSeatNos = getOkeyLobbyOccupiedSeatNos(targetTable);
+      const targetSeat = (OKEY_PROTOTYPE_SEATS.find((seatNo) => !occupiedSeatNos.includes(seatNo)) ?? 1) as OkeyPrototypeSeatNo;
       reserveOkeyPrototypeSeat(targetTable, targetSeat, "Hizli oturuldu");
-      setLobbyNotice(`Masa ${targetTable.tableNo} bulundu. Koltuk ${targetSeat} için oturdun.`);
       return;
     }
     const openGameView = true;
@@ -6818,35 +6907,245 @@ function App() {
     };
   }
 
+  function getOkeyPrototypeCurrentSeatState(joinedAt = Date.now()): OkeyPrototypeLobbySeatState {
+    return {
+      userId: sanitizeGuestId(currentProfile.userId),
+      sessionId: appSessionId,
+      username: currentProfile.username,
+      displayName: currentProfile.displayName,
+      gender: currentProfile.gender,
+      avatarId: currentProfile.avatarId,
+      points: currentProfile.points,
+      stats: currentProfile.stats,
+      joinedAt,
+    };
+  }
+
+  function getOkeyPrototypeOccupiedSeatNos(table: Pick<OkeyPrototypeLobbyTableState, "seats">): OkeyPrototypeSeatNo[] {
+    return OKEY_PROTOTYPE_SEATS.filter((seatNo) => Boolean(table.seats[seatNo]));
+  }
+
+  function resetOkeyPrototypeSeatSessionState() {
+    setOkeyPrototypeSeatReservation(null);
+    setOkeyPrototypeTurnSeat(1);
+    setOkeyPrototypeTurnRound(1);
+    setOkeyPrototypeTurnPhase("draw");
+    setOkeyPrototypeTurnLockedAfterMeld(false);
+    setOkeyPrototypeTurnOpeningPoints(0);
+    setOkeyPrototypeWallTiles([]);
+    setOkeyPrototypeIndicatorTile(null);
+    setOkeyPrototypeOkeyTile(null);
+    setOkeyPrototypeDiscardPile([]);
+    setOkeyPrototypePendingDiscardTileId("");
+    setOkeyPrototypeDiscardDraftTileId("");
+    setOkeyPrototypeMeldDraftTileIds([]);
+    setOkeyPrototypeOpenedMelds([]);
+    setOkeyPrototypeAttachTargetMeldId("");
+    setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
+    setOkeyPrototypeWinnerSeat(null);
+    setOkeyPrototypeHandDrawn(false);
+    setOkeyPrototypeSessionHandNo(1);
+    setOkeyPrototypeHandFirstSeat(1);
+    setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
+    setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
+    setOkeyPrototypeDrawHandCount(0);
+    setOkeyPrototypeLastHandSummary("");
+    setOkeyPrototypeBotModeEnabled(false);
+  }
+
   function reserveOkeyPrototypeSeat(
-    tableRow: { id: string; tableNo: number; seated: number },
+    tableRow: OkeyPrototypeTableSketchRow,
     seatDraftNo: number,
     sourceLabel: string,
   ) {
     const reservedSeat = Math.max(1, Math.min(4, seatDraftNo)) as OkeyPrototypeSeatNo;
-    const occupiedSeatCount = Math.max(1, Math.min(4, tableRow.seated));
-    const selectedTableActiveSeats = Array.from(
-      { length: occupiedSeatCount },
-      (_, index) => (index + 1) as OkeyPrototypeSeatNo,
-    );
-    if (!selectedTableActiveSeats.includes(reservedSeat)) {
-      selectedTableActiveSeats.push(reservedSeat);
-      selectedTableActiveSeats.sort((left, right) => left - right);
+    const now = Date.now();
+    const safeUserId = sanitizeGuestId(currentProfile.userId);
+    const currentSeatState = getOkeyPrototypeCurrentSeatState(now);
+    const roomId = tableRow.roomId;
+    const roomTables = (okeyPrototypeTablesByRoom[roomId] ?? []).slice();
+    const tableIndex = roomTables.findIndex((table) => table.id === tableRow.id);
+    if (tableIndex < 0) {
+      setLobbyNotice("Masa bulunamadi.");
+      return;
     }
+    const seatedAtOtherTable = Object.values(okeyPrototypeTablesByRoom).some((tables) => tables.some((table) => {
+      if (table.id === tableRow.id) return false;
+      return OKEY_PROTOTYPE_SEATS.some((seatNo) => {
+        const occupant = table.seats[seatNo];
+        if (!occupant) return false;
+        return sanitizeGuestId(occupant.userId) === safeUserId || occupant.sessionId === appSessionId;
+      });
+    }));
+    if (seatedAtOtherTable) {
+      setLobbyNotice("Ayni anda sadece bir 101 masasinda oturabilirsin.");
+      return;
+    }
+
+    const table = roomTables[tableIndex];
+    if (!table) {
+      setLobbyNotice("Masa bulunamadi.");
+      return;
+    }
+    const occupiedSeatNos = getOkeyPrototypeOccupiedSeatNos(table);
+    const occupiedSeat = table.seats[reservedSeat];
+    if (occupiedSeat && sanitizeGuestId(occupiedSeat.userId) !== safeUserId && occupiedSeat.sessionId !== appSessionId) {
+      setLobbyNotice("Bu koltuk dolu. Baska bir koltuk sec.");
+      return;
+    }
+    if (occupiedSeatNos.length >= 4 && !occupiedSeat) {
+      setLobbyNotice("Masa dolu. Baska bir masa sec.");
+      return;
+    }
+
+    const nextSeats = {
+      ...table.seats,
+      [reservedSeat]: currentSeatState,
+    };
+    const nextOccupiedSeatNos = getOkeyPrototypeOccupiedSeatNos({ seats: nextSeats });
+    const shouldStart = nextOccupiedSeatNos.length >= 4;
+    const startedNow = shouldStart && !table.startedAt;
+    const nextTable: OkeyPrototypeLobbyTableState = {
+      ...table,
+      ownerUserId: table.ownerUserId || safeUserId,
+      ownerSessionId: table.ownerSessionId || appSessionId,
+      seats: nextSeats,
+      startedAt: shouldStart ? (table.startedAt ?? now) : null,
+    };
+    setOkeyPrototypeTablesByRoom((current) => {
+      const nextRoomTables = (current[roomId] ?? []).slice();
+      const nextIndex = nextRoomTables.findIndex((entry) => entry.id === tableRow.id);
+      if (nextIndex < 0) return current;
+      nextRoomTables[nextIndex] = nextTable;
+      return {
+        ...current,
+        [roomId]: nextRoomTables,
+      };
+    });
     setOkeyPrototypeSelectedTableId(tableRow.id);
     setOkeyPrototypeSeatDraft(reservedSeat);
     setOkeyPrototypeSeatReservation({
       tableId: tableRow.id,
       seatNo: reservedSeat,
     });
-    setOkeyPrototypeSessionHandNo(1);
-    setOkeyPrototypeHandFirstSeat(reservedSeat);
-    setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
-    setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
-    setOkeyPrototypeDrawHandCount(0);
-    setOkeyPrototypeLastHandSummary("");
-    applyOkeyPrototypeDeal(reservedSeat, Date.now(), selectedTableActiveSeats);
+    if (startedNow && nextOccupiedSeatNos.length >= 4) {
+      setOkeyPrototypeSessionHandNo(1);
+      setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
+      setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
+      setOkeyPrototypeDrawHandCount(0);
+      setOkeyPrototypeLastHandSummary("");
+      const ownerSeat = nextOccupiedSeatNos.find((seatNo) => sanitizeGuestId(nextTable.seats[seatNo]?.userId ?? "") === sanitizeGuestId(nextTable.ownerUserId ?? ""))
+        ?? nextOccupiedSeatNos[0]
+        ?? reservedSeat;
+      applyOkeyPrototypeDeal(ownerSeat, nextTable.startedAt ?? Date.now(), nextOccupiedSeatNos);
+      setLobbyNotice(`Masa ${tableRow.tableNo} doldu. Oyun basladi.`);
+      appendOkeyPrototypeAction(`Oyun basladi: Masa ${tableRow.tableNo} (4/4)`);
+    } else {
+      const waitingPlayers = Math.max(0, 4 - nextOccupiedSeatNos.length);
+      setLobbyNotice(`Masa ${tableRow.tableNo} / Koltuk ${reservedSeat}. Oyun icin ${waitingPlayers} oyuncu bekleniyor.`);
+    }
     appendOkeyPrototypeAction(`${sourceLabel}: Masa ${tableRow.tableNo}, Koltuk ${reservedSeat}`);
+  }
+
+  function leaveOkeyPrototypeSeat(sourceLabel: string) {
+    const reservation = okeyPrototypeSeatReservation;
+    if (!reservation) return;
+    let leftTableNo = 0;
+    let tableClosed = false;
+    let leftSuccessfully = false;
+    const safeUserId = sanitizeGuestId(currentProfile.userId);
+    setOkeyPrototypeTablesByRoom((current) => {
+      const nextState: Record<string, OkeyPrototypeLobbyTableState[]> = {};
+      Object.entries(current).forEach(([roomId, tables]) => {
+        nextState[roomId] = tables.slice();
+      });
+      for (const [roomId, tables] of Object.entries(nextState)) {
+        const tableIndex = tables.findIndex((table) => table.id === reservation.tableId);
+        if (tableIndex < 0) continue;
+        const table = tables[tableIndex];
+        if (!table) return current;
+        leftTableNo = table.tableNo;
+        const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = { ...table.seats };
+        const reservedSeatNo = Math.max(1, Math.min(4, reservation.seatNo)) as OkeyPrototypeSeatNo;
+        const reservedSeat = nextSeats[reservedSeatNo];
+        const canRemoveReservedSeat = Boolean(
+          reservedSeat
+          && (sanitizeGuestId(reservedSeat.userId) === safeUserId || reservedSeat.sessionId === appSessionId),
+        );
+        if (canRemoveReservedSeat) {
+          delete nextSeats[reservedSeatNo];
+        } else {
+          const fallbackSeatNo = OKEY_PROTOTYPE_SEATS.find((seatNo) => {
+            const occupant = nextSeats[seatNo];
+            if (!occupant) return false;
+            return sanitizeGuestId(occupant.userId) === safeUserId || occupant.sessionId === appSessionId;
+          });
+          if (!fallbackSeatNo) {
+            return current;
+          }
+          delete nextSeats[fallbackSeatNo];
+        }
+
+        const occupiedSeatNos = getOkeyPrototypeOccupiedSeatNos({ seats: nextSeats });
+        if (occupiedSeatNos.length === 0) {
+          tables.splice(tableIndex, 1);
+          tableClosed = true;
+        } else {
+          const nextOwnerSeat = occupiedSeatNos[0];
+          const nextOwner = nextOwnerSeat ? nextSeats[nextOwnerSeat] ?? null : null;
+          const nextTable: OkeyPrototypeLobbyTableState = {
+            ...table,
+            seats: nextSeats,
+            ownerUserId: nextOwner?.userId ?? "",
+            ownerSessionId: nextOwner?.sessionId ?? "",
+            startedAt: occupiedSeatNos.length >= 4 ? table.startedAt ?? Date.now() : null,
+          };
+          tables[tableIndex] = nextTable;
+        }
+        nextState[roomId] = tables;
+        leftSuccessfully = true;
+        return nextState;
+      }
+      return current;
+    });
+
+    if (!leftSuccessfully) {
+      setLobbyNotice("Masadan ayrilma tamamlanamadi.");
+      return;
+    }
+    appendOkeyPrototypeAction(`${sourceLabel}: Masa ${leftTableNo}, Koltuk ${reservation.seatNo}`);
+    resetOkeyPrototypeSeatSessionState();
+    if (tableClosed) {
+      setLobbyNotice(`Masa ${leftTableNo} kapandi.`);
+    } else {
+      setLobbyNotice(`Masa ${leftTableNo} masasindan ayrildin.`);
+    }
+  }
+
+  function adminCloseOkeyPrototypeTable(tableRow: OkeyPrototypeTableSketchRow) {
+    if (!isAdmin) return;
+    let removed = false;
+    setOkeyPrototypeTablesByRoom((current) => {
+      const roomTables = (current[tableRow.roomId] ?? []).slice();
+      const nextRoomTables = roomTables.filter((table) => table.id !== tableRow.id);
+      if (nextRoomTables.length === roomTables.length) {
+        return current;
+      }
+      removed = true;
+      return {
+        ...current,
+        [tableRow.roomId]: nextRoomTables,
+      };
+    });
+    if (!removed) {
+      setLobbyNotice("Masa kapatilamadi.");
+      return;
+    }
+    if (okeyPrototypeSeatReservation?.tableId === tableRow.id) {
+      resetOkeyPrototypeSeatSessionState();
+    }
+    setLobbyNotice(`Masa ${tableRow.tableNo} admin tarafindan kapatildi.`);
+    appendOkeyPrototypeAction(`Admin masa kapatti: Masa ${tableRow.tableNo}`);
   }
 
   function applyOkeyPrototypeDeal(
@@ -9243,37 +9542,19 @@ function App() {
     );
   }
 
-  function getOkeyLobbyOccupiedSeatNos(row: { id: string; seated: number }) {
-    const occupiedSeatCount = Math.max(0, Math.min(4, row.seated));
-    const occupiedSeatNos = Array.from({ length: occupiedSeatCount }, (_, index) => index + 1);
-    if (okeyPrototypeSeatReservation?.tableId === row.id) {
-      const mySeatNo = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo));
-      if (!occupiedSeatNos.includes(mySeatNo)) {
-        occupiedSeatNos.push(mySeatNo);
-      }
-    }
-    return occupiedSeatNos.sort((left, right) => left - right);
+  function getOkeyLobbyOccupiedSeatNos(row: OkeyPrototypeTableSketchRow) {
+    return row.occupiedSeatNos.slice().sort((left, right) => left - right);
   }
 
-  function getOkeyLobbySeatProfile(row: { id: string; tableNo: number }, seatNo: OkeyPrototypeSeatNo) {
-    const isMine = okeyPrototypeSeatReservation?.tableId === row.id && okeyPrototypeSeatReservation.seatNo === seatNo;
-    if (isMine) {
-      return {
-        mine: true,
-        displayName: currentProfile.displayName,
-        gender: currentProfile.gender,
-        avatarId: currentProfile.avatarId,
-      };
-    }
-    const seed = hashOkeyPrototypeText(`${row.id}:${seatNo}:lobby-seat`);
-    const randomName = OKEY_PROTOTYPE_OPPONENT_NAMES[seed % OKEY_PROTOTYPE_OPPONENT_NAMES.length] ?? "Misafir";
-    const avatarId = AVATAR_PRESETS[seed % AVATAR_PRESETS.length]?.id ?? DEFAULT_AVATAR_BY_GENDER.unknown;
-    const gender = AVATAR_PRESET_BY_ID[avatarId]?.gender ?? "unknown";
+  function getOkeyLobbySeatProfile(row: OkeyPrototypeTableSketchRow, seatNo: OkeyPrototypeSeatNo) {
+    const seat = row.seats[seatNo];
+    if (!seat) return null;
+    const isMine = sanitizeGuestId(seat.userId) === sanitizeGuestId(currentProfile.userId) || seat.sessionId === appSessionId;
     return {
-      mine: false,
-      displayName: `${randomName}_${(seed % 89) + 11}`,
-      gender,
-      avatarId,
+      displayName: seat.displayName,
+      gender: seat.gender,
+      avatarId: seat.avatarId,
+      mine: isMine,
     };
   }
 
@@ -11519,23 +11800,23 @@ function App() {
                   <div className="my-game-coming-preview-grid">
                     <article className="my-game-coming-preview-card waiting">
                       <header>
-                        <strong>Masa 1</strong>
+                        <strong>Masa Yok</strong>
                         <em>Bekliyor</em>
                       </header>
-                      <p>Oyuncu 1: Bos</p>
-                      <p>Oyuncu 2: Bos</p>
-                      <p>Oyuncu 3: Bos</p>
-                      <p>Oyuncu 4: Bos</p>
+                      <p>Henüz açık masa bulunmuyor.</p>
+                      <p>Masa sahibi ilk masayı açar.</p>
+                      <p>4 oyuncu dolunca oyun başlar.</p>
+                      <p>Admin masayı kapatabilir.</p>
                     </article>
                     <article className="my-game-coming-preview-card active">
                       <header>
-                        <strong>Masa 2</strong>
-                        <em>Aktif</em>
+                        <strong>Masa Kuralları</strong>
+                        <em>101</em>
                       </header>
-                      <p>Oyuncu 1: misafir_7</p>
-                      <p>Oyuncu 2: misafir_9</p>
-                      <p>Oyuncu 3: misafir_4</p>
-                      <p>Oyuncu 4: misafir_13</p>
+                      <p>Sadece 4 koltuk bulunur.</p>
+                      <p>Masa sahibi masayı açan oyuncudur.</p>
+                      <p>Dolmadan oyun başlamaz.</p>
+                      <p>Kapanan masa listeden düşer.</p>
                     </article>
                   </div>
                 </section>
@@ -11878,7 +12159,8 @@ function App() {
                             type="button"
                             className="my-action-btn"
                             onClick={() => {
-                              const quickSeat = Math.max(1, Math.min(4, okeyPrototypeQuickJoinTable.seated + 1)) as OkeyPrototypeSeatNo;
+                              const occupiedSeatNos = getOkeyLobbyOccupiedSeatNos(okeyPrototypeQuickJoinTable);
+                              const quickSeat = (OKEY_PROTOTYPE_SEATS.find((seatNo) => !occupiedSeatNos.includes(seatNo)) ?? 1) as OkeyPrototypeSeatNo;
                               reserveOkeyPrototypeSeat(okeyPrototypeQuickJoinTable, quickSeat, "Hizli oturuldu");
                             }}
                             disabled={okeyPrototypeQuickJoinTable.seated >= 4}
@@ -11947,34 +12229,7 @@ function App() {
                           className="my-action-btn soft"
                           aria-describedby="okey-prototype-seat-status"
                           onClick={() => {
-                            if (okeyPrototypeSeatReservation && okeyPrototypeJoinedTable) {
-                              appendOkeyPrototypeAction(`Masadan ayrildi: Masa ${okeyPrototypeJoinedTable.tableNo}, Koltuk ${okeyPrototypeSeatReservation.seatNo}`);
-                            }
-                            setOkeyPrototypeSeatReservation(null);
-                            setOkeyPrototypeTurnSeat(1);
-                            setOkeyPrototypeTurnRound(1);
-                            setOkeyPrototypeTurnPhase("draw");
-                            setOkeyPrototypeTurnLockedAfterMeld(false);
-                            setOkeyPrototypeTurnOpeningPoints(0);
-                            setOkeyPrototypeWallTiles([]);
-                            setOkeyPrototypeIndicatorTile(null);
-                            setOkeyPrototypeOkeyTile(null);
-                            setOkeyPrototypeDiscardPile([]);
-                            setOkeyPrototypePendingDiscardTileId("");
-                            setOkeyPrototypeDiscardDraftTileId("");
-                            setOkeyPrototypeMeldDraftTileIds([]);
-                            setOkeyPrototypeOpenedMelds([]);
-                            setOkeyPrototypeAttachTargetMeldId("");
-                            setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
-                            setOkeyPrototypeWinnerSeat(null);
-                            setOkeyPrototypeHandDrawn(false);
-                            setOkeyPrototypeSessionHandNo(1);
-                            setOkeyPrototypeHandFirstSeat(1);
-                            setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
-                            setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
-                            setOkeyPrototypeDrawHandCount(0);
-                            setOkeyPrototypeLastHandSummary("");
-                            setOkeyPrototypeBotModeEnabled(false);
+                            leaveOkeyPrototypeSeat("Masadan ayrildi");
                           }}
                           disabled={!okeyPrototypeSeatReservation}
                         >
@@ -12824,8 +13079,8 @@ function App() {
                             key={row.id}
                             type="button"
                             className={`my-game-coming-table-sketch-card ${row.active ? "active" : "waiting"} ${okeyPrototypeSelectedTableId === row.id ? "selected" : ""}`}
-                            title={`Masa ${row.tableNo}, durum ${row.active ? "aktif" : "bekliyor"}, dolu koltuk ${row.seated}/4`}
-                            aria-label={`Masa ${row.tableNo}, durum ${row.active ? "aktif" : "bekliyor"}, dolu koltuk ${row.seated}/4`}
+                            title={`Masa ${row.tableNo}, durum ${row.started ? "oyunda" : "bekliyor"}, dolu koltuk ${row.seated}/4`}
+                            aria-label={`Masa ${row.tableNo}, durum ${row.started ? "oyunda" : "bekliyor"}, dolu koltuk ${row.seated}/4`}
                             aria-pressed={okeyPrototypeSelectedTableId === row.id}
                             onClick={() => {
                               setOkeyPrototypeSelectedTableId(row.id);
@@ -12834,10 +13089,10 @@ function App() {
                           >
                             <header>
                               <strong>Masa {row.tableNo}</strong>
-                              <em>{row.active ? "Aktif" : "Bekliyor"}</em>
+                              <em>{row.started ? "Oyunda" : "Bekliyor"}</em>
                             </header>
                             <p>Dolu Koltuk: {row.seated}/4</p>
-                            <p>{row.active ? "Canli oyun prototipi icin hazir." : "Oyuncu bekliyor."}</p>
+                            <p>{row.started ? "Oyun basladi." : "Masa 4 oyuncu bekliyor."}</p>
                           </button>
                         ))
                       )}
@@ -12910,7 +13165,7 @@ function App() {
             {!isTavlaSelectedGame && !roomSession ? (
               <section className="my-okey-lobby-controls" aria-label="101 masa acma bolumu">
                 <h3>101 Masa Açma</h3>
-                <p>Yeni masa açabilir veya hızlıca bekleyen bir masaya oturabilirsin.</p>
+                <p>Yeni masa açtığında masa sahibi olursun. Masada 4 oyuncu dolunca oyun başlar.</p>
                 <div className="my-okey-lobby-controls-actions">
                   <button className="my-action-btn" type="button" onClick={onOpenTable}>
                     Yeni Masa Aç
@@ -13064,7 +13319,7 @@ function App() {
                         <article key={`okey-lobby-table-${row.id}`} className={`my-okey-lobby-card ${row.active ? "active" : "waiting"} ${mySeatNo ? "mine" : ""}`}>
                           <div className="my-okey-lobby-card-head">
                             <strong>Masa {row.tableNo}</strong>
-                            <span>{row.active ? "Açık" : "Bekliyor"}</span>
+                            <span>{row.started ? "Oyunda" : "Bekliyor"}</span>
                           </div>
                           <div className="my-okey-lobby-board">
                             {OKEY_PROTOTYPE_SEATS.map((seatNo) => {
@@ -13084,7 +13339,6 @@ function App() {
                                       className="my-otur-btn my-okey-otur-btn"
                                       onClick={() => {
                                         reserveOkeyPrototypeSeat(row, seatNo, "Masaya oturuldu");
-                                        setLobbyNotice(`Masa ${row.tableNo} / Koltuk ${seatNo} seçildi.`);
                                       }}
                                       disabled={seatLockedByOtherTable}
                                       title={seatLockedByOtherTable ? "Önce mevcut 101 masandan ayrılmalısın." : `Masa ${row.tableNo}, Koltuk ${seatNo}`}
@@ -13099,7 +13353,14 @@ function App() {
                           </div>
                           <div className="my-okey-lobby-card-foot">
                             <span>{occupiedSeatNos.length}/4 Dolu</span>
-                            <span>OP: {Math.max(1, Math.ceil(occupiedSeatNos.length / 2))}</span>
+                            <div className="my-mini-actions">
+                              <span>OP: {Math.max(1, Math.ceil(occupiedSeatNos.length / 2))}</span>
+                              {isAdmin ? (
+                                <button className="my-action-btn danger" onClick={() => adminCloseOkeyPrototypeTable(row)}>
+                                  Masayı Kapat
+                                </button>
+                              ) : null}
+                            </div>
                           </div>
                         </article>
                       );

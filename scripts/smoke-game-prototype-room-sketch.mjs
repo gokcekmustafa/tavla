@@ -20,7 +20,10 @@ const checks = [
     test: () =>
       hasApp("const OKEY_PROTOTYPE_TOTAL_TILE_COUNT = 106;")
       && hasApp("const OKEY_PROTOTYPE_OPENING_TARGET_POINTS = 101;")
-      && hasApp("const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(true);")
+      && (
+        hasApp("const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(true);")
+        || hasApp("const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(false);")
+      )
       && hasApp("const [okeyPrototypeRoomFilter, setOkeyPrototypeRoomFilter] = useState<\"all\" | \"fast\" | \"busy\">(\"all\");")
       && hasApp("const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? \"\");")
       && hasApp("const [okeyPrototypeTableFilter, setOkeyPrototypeTableFilter] = useState<\"all\" | \"active\" | \"waiting\">(\"all\");")
@@ -28,8 +31,14 @@ const checks = [
       && hasApp("const [okeyPrototypeTableSearch, setOkeyPrototypeTableSearch] = useState(\"\");")
       && hasApp("const [okeyPrototypeTableSort, setOkeyPrototypeTableSort] = useState<\"tableNo\" | \"occupancy\" | \"status\">(\"tableNo\");")
       && hasApp("const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState(\"\");")
-      && hasApp("const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState(1);")
-      && hasApp("const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: number } | null>(null);")
+      && (
+        hasApp("const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState(1);")
+        || hasApp("const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState<OkeyPrototypeSeatNo>(1);")
+      )
+      && (
+        hasApp("const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: number } | null>(null);")
+        || hasApp("const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: OkeyPrototypeSeatNo } | null>(null);")
+      )
       && hasApp("const [okeyPrototypeTurnSeat, setOkeyPrototypeTurnSeat] = useState<1 | 2 | 3 | 4>(1);")
       && hasApp("const [okeyPrototypeTurnRound, setOkeyPrototypeTurnRound] = useState(1);")
       && hasApp("const [okeyPrototypeTurnPhase, setOkeyPrototypeTurnPhase] = useState<OkeyPrototypeTurnPhase>(\"draw\");")
@@ -151,7 +160,10 @@ const checks = [
       && hasApp("className={`my-game-coming-room-card ${okeyPrototypeSelectedRoomId === room.id ? \"active\" : \"\"}`}")
       && hasApp("appendOkeyPrototypeAction(`Oda secildi: ${room.name}`);")
       && hasApp("Gorunen Oda: {okeyPrototypeFilteredRooms.length} | Toplam Oyuncu: {okeyPrototypeFilteredPlayers}")
-      && hasApp("const okeyPrototypeTableSketchRows = useMemo(() => {")
+      && (
+        hasApp("const okeyPrototypeTableSketchRows = useMemo(() => {")
+        || hasApp("const okeyPrototypeTableSketchRows = useMemo<OkeyPrototypeTableSketchRow[]>(() => {")
+      )
       && hasApp("className=\"my-game-coming-table-sketch\"")
       && hasApp("className=\"my-game-coming-table-sketch-filters\"")
       && hasApp("Masa | Filtre: {okeyPrototypeActiveFilters.length}")
@@ -403,8 +415,14 @@ const checks = [
       && hasApp("Filtreleri Temizle ve Tekrar Dene")
       && hasApp("okeyPrototypeVisibleTableSketchRows.map((row) => (")
       && hasApp("className={`my-game-coming-table-sketch-card ${row.active ? \"active\" : \"waiting\"} ${okeyPrototypeSelectedTableId === row.id ? \"selected\" : \"\"}`}")
-      && hasApp("title={`Masa ${row.tableNo}, durum ${row.active ? \"aktif\" : \"bekliyor\"}, dolu koltuk ${row.seated}/4`}")
-      && hasApp("aria-label={`Masa ${row.tableNo}, durum ${row.active ? \"aktif\" : \"bekliyor\"}, dolu koltuk ${row.seated}/4`}")
+      && (
+        hasApp("title={`Masa ${row.tableNo}, durum ${row.active ? \"aktif\" : \"bekliyor\"}, dolu koltuk ${row.seated}/4`}")
+        || hasApp("title={`Masa ${row.tableNo}, durum ${row.started ? \"oyunda\" : \"bekliyor\"}, dolu koltuk ${row.seated}/4`}")
+      )
+      && (
+        hasApp("aria-label={`Masa ${row.tableNo}, durum ${row.active ? \"aktif\" : \"bekliyor\"}, dolu koltuk ${row.seated}/4`}")
+        || hasApp("aria-label={`Masa ${row.tableNo}, durum ${row.started ? \"oyunda\" : \"bekliyor\"}, dolu koltuk ${row.seated}/4`}")
+      )
       && hasApp("aria-pressed={okeyPrototypeSelectedTableId === row.id}")
       && hasApp("appendOkeyPrototypeAction(`Masa secildi: ${row.tableNo}`);"),
   },
