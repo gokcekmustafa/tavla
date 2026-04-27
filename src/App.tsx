@@ -9693,7 +9693,7 @@ function App() {
                           Temizle
                         </button>
                       </div>
-                      <p id="okey-prototype-table-search-meta" className="my-game-coming-table-sketch-search-meta" aria-live="polite" role="status">
+                      <p id="okey-prototype-table-search-meta" className="my-game-coming-table-sketch-search-meta" aria-live="polite" role="status" aria-atomic="true">
                         Sonuc: {okeyPrototypeVisibleTableSketchRows.length} masa | Enter: Ilk Sonuc
                       </p>
                     </div>
@@ -9709,7 +9709,7 @@ function App() {
                     </button>
                     {okeyPrototypeActiveFilters.length > 0 ? (
                       <div className="my-game-coming-table-sketch-active-filters">
-                        <p className="my-game-coming-table-sketch-filter-count" aria-live="polite" role="status">
+                        <p className="my-game-coming-table-sketch-filter-count" aria-live="polite" role="status" aria-atomic="true">
                           Aktif filtreler: {okeyPrototypeActiveFilters.length}
                         </p>
                         {okeyPrototypeActiveFilters.map((filter) => (
@@ -9726,10 +9726,10 @@ function App() {
                         ))}
                       </div>
                     ) : (
-                      <p className="my-game-coming-table-sketch-filter-empty" aria-live="polite" role="status">Aktif filtre yok.</p>
+                      <p className="my-game-coming-table-sketch-filter-empty" aria-live="polite" role="status" aria-atomic="true">Aktif filtre yok.</p>
                     )}
                     {okeyPrototypeSelectedTable ? (
-                      <p className="my-game-coming-table-sketch-selected" aria-live="polite" role="status">
+                      <p className="my-game-coming-table-sketch-selected" aria-live="polite" role="status" aria-atomic="true">
                         Secili Masa: {okeyPrototypeSelectedTable.tableNo} | Durum: {okeyPrototypeSelectedTable.active ? "Aktif" : "Bekliyor"} | Dolu Koltuk: {okeyPrototypeSelectedTable.seated}/4
                       </p>
                     ) : null}
