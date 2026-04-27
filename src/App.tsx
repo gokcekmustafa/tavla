@@ -9968,6 +9968,7 @@ function App() {
                             className={`my-game-coming-table-sketch-card ${row.active ? "active" : "waiting"} ${okeyPrototypeSelectedTableId === row.id ? "selected" : ""}`}
                             title={`Masa ${row.tableNo}, durum ${row.active ? "aktif" : "bekliyor"}, dolu koltuk ${row.seated}/4`}
                             aria-label={`Masa ${row.tableNo}, durum ${row.active ? "aktif" : "bekliyor"}, dolu koltuk ${row.seated}/4`}
+                            aria-pressed={okeyPrototypeSelectedTableId === row.id}
                             onClick={() => {
                               setOkeyPrototypeSelectedTableId(row.id);
                               appendOkeyPrototypeAction(`Masa secildi: ${row.tableNo}`);
