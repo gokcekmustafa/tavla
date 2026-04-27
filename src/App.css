@@ -904,9 +904,14 @@
   line-height: 1.24;
 }
 
+.my-game-coming-table-sketch-quick-join-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .my-game-coming-table-sketch-quick-join .my-action-btn {
   min-height: 30px;
-  justify-self: start;
 }
 
 .my-game-coming-table-seat-row {

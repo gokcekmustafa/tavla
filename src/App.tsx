@@ -6171,6 +6171,31 @@ function App() {
     };
   }
 
+  function reserveOkeyPrototypeSeat(
+    tableRow: { id: string; tableNo: number; seated: number },
+    seatDraftNo: number,
+    sourceLabel: string,
+  ) {
+    const reservedSeat = Math.max(1, Math.min(4, seatDraftNo)) as OkeyPrototypeSeatNo;
+    const occupiedSeatCount = Math.max(1, Math.min(4, tableRow.seated));
+    const selectedTableActiveSeats = Array.from(
+      { length: occupiedSeatCount },
+      (_, index) => (index + 1) as OkeyPrototypeSeatNo,
+    );
+    if (!selectedTableActiveSeats.includes(reservedSeat)) {
+      selectedTableActiveSeats.push(reservedSeat);
+      selectedTableActiveSeats.sort((left, right) => left - right);
+    }
+    setOkeyPrototypeSelectedTableId(tableRow.id);
+    setOkeyPrototypeSeatDraft(reservedSeat);
+    setOkeyPrototypeSeatReservation({
+      tableId: tableRow.id,
+      seatNo: reservedSeat,
+    });
+    applyOkeyPrototypeDeal(reservedSeat, Date.now(), selectedTableActiveSeats);
+    appendOkeyPrototypeAction(`${sourceLabel}: Masa ${tableRow.tableNo}, Koltuk ${reservedSeat}`);
+  }
+
   function applyOkeyPrototypeDeal(
     firstSeat: OkeyPrototypeSeatNo,
     seed = Date.now(),
@@ -10984,16 +11009,29 @@ function App() {
                           Hizli Oneri: Masa {okeyPrototypeQuickJoinTable.tableNo} | Bos Koltuk: {Math.max(0, 4 - okeyPrototypeQuickJoinTable.seated)}
                           {" "}({okeyPrototypeTableSummary.freeSeats} bos koltuk / {okeyPrototypeTableSummary.occupiedSeats} dolu)
                         </p>
-                        <button
-                          type="button"
-                          className="my-action-btn soft"
-                          onClick={() => {
-                            setOkeyPrototypeSelectedTableId(okeyPrototypeQuickJoinTable.id);
-                            appendOkeyPrototypeAction(`Hizli oneriden masa secildi: ${okeyPrototypeQuickJoinTable.tableNo}`);
-                          }}
-                        >
-                          Onerilen Masayi Sec
-                        </button>
+                        <div className="my-game-coming-table-sketch-quick-join-actions">
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={() => {
+                              setOkeyPrototypeSelectedTableId(okeyPrototypeQuickJoinTable.id);
+                              appendOkeyPrototypeAction(`Hizli oneriden masa secildi: ${okeyPrototypeQuickJoinTable.tableNo}`);
+                            }}
+                          >
+                            Onerilen Masayi Sec
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn"
+                            onClick={() => {
+                              const quickSeat = Math.max(1, Math.min(4, okeyPrototypeQuickJoinTable.seated + 1)) as OkeyPrototypeSeatNo;
+                              reserveOkeyPrototypeSeat(okeyPrototypeQuickJoinTable, quickSeat, "Hizli oturuldu");
+                            }}
+                            disabled={okeyPrototypeQuickJoinTable.seated >= 4}
+                          >
+                            Hizli Otur
+                          </button>
+                        </div>
                       </div>
                     ) : null}
                     {okeyPrototypeSelectedTableSeats.length > 0 ? (
@@ -11044,22 +11082,7 @@ function App() {
                           onClick={() => {
                             if (!okeyPrototypeSelectedTable) return;
                             if (okeyPrototypeAvailableSeatNos.length === 0) return;
-                            const reservedSeat = Math.max(1, Math.min(4, okeyPrototypeSeatDraft)) as 1 | 2 | 3 | 4;
-                            const occupiedSeatCount = Math.max(1, Math.min(4, okeyPrototypeSelectedTable.seated));
-                            const selectedTableActiveSeats = Array.from(
-                              { length: occupiedSeatCount },
-                              (_, index) => (index + 1) as OkeyPrototypeSeatNo,
-                            );
-                            if (!selectedTableActiveSeats.includes(reservedSeat)) {
-                              selectedTableActiveSeats.push(reservedSeat);
-                              selectedTableActiveSeats.sort((left, right) => left - right);
-                            }
-                            setOkeyPrototypeSeatReservation({
-                              tableId: okeyPrototypeSelectedTable.id,
-                              seatNo: reservedSeat,
-                            });
-                            applyOkeyPrototypeDeal(reservedSeat, Date.now(), selectedTableActiveSeats);
-                            appendOkeyPrototypeAction(`Masaya oturuldu: Masa ${okeyPrototypeSelectedTable.tableNo}, Koltuk ${reservedSeat}`);
+                            reserveOkeyPrototypeSeat(okeyPrototypeSelectedTable, okeyPrototypeSeatDraft, "Masaya oturuldu");
                           }}
                           disabled={!okeyPrototypeSelectedTable || okeyPrototypeAvailableSeatNos.length === 0}
                         >
