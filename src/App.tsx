@@ -544,14 +544,36 @@ function createOkeyPrototypeOkeyTile(indicatorTile: OkeyPrototypeTile | null): O
   };
 }
 
-function createOkeyPrototypeDealState(seed = 0, firstSeat: OkeyPrototypeSeatNo = 1): OkeyPrototypeDealState {
+function getNormalizedOkeyPrototypeActiveSeats(
+  activeSeats: readonly OkeyPrototypeSeatNo[] | null | undefined,
+  firstSeat: OkeyPrototypeSeatNo,
+) {
+  const pool = activeSeats && activeSeats.length > 0
+    ? activeSeats
+    : OKEY_PROTOTYPE_SEATS;
+  const deduped = Array.from(new Set(pool))
+    .filter((seatNo): seatNo is OkeyPrototypeSeatNo => OKEY_PROTOTYPE_SEATS.includes(seatNo))
+    .sort((left, right) => left - right);
+  if (!deduped.includes(firstSeat)) {
+    deduped.push(firstSeat);
+    deduped.sort((left, right) => left - right);
+  }
+  return deduped;
+}
+
+function createOkeyPrototypeDealState(
+  seed = 0,
+  firstSeat: OkeyPrototypeSeatNo = 1,
+  activeSeats?: readonly OkeyPrototypeSeatNo[],
+): OkeyPrototypeDealState {
   const safeSeed = Math.abs(Math.trunc(seed)) || Date.now();
   const wallTiles = createOkeyPrototypeDeck(safeSeed);
   const indicatorIndex = wallTiles.findIndex((tile) => tile.kind === "normal");
   const indicatorTile = indicatorIndex >= 0 ? wallTiles.splice(indicatorIndex, 1)[0] ?? null : null;
   const okeyTile = createOkeyPrototypeOkeyTile(indicatorTile);
   const rackState = createEmptyOkeyPrototypeRackState();
-  OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+  const seatsToDeal = getNormalizedOkeyPrototypeActiveSeats(activeSeats, firstSeat);
+  seatsToDeal.forEach((seatNo) => {
     for (let round = 0; round < 14; round += 1) {
       const nextTile = wallTiles.shift();
       if (!nextTile) break;
@@ -3184,18 +3206,21 @@ function App() {
     if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) {
       return [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
     }
+    const seatsFromRack = OKEY_PROTOTYPE_SEATS.filter((seatNo) => (okeyPrototypeRackState[seatNo] ?? []).length > 0);
     const occupiedSeatCount = Math.max(1, Math.min(4, okeyPrototypeJoinedTable.seated));
-    const seats = Array.from(
-      { length: occupiedSeatCount },
-      (_, index) => (index + 1) as OkeyPrototypeSeatNo,
-    );
+    const seats = seatsFromRack.length > 0
+      ? seatsFromRack
+      : Array.from(
+        { length: occupiedSeatCount },
+        (_, index) => (index + 1) as OkeyPrototypeSeatNo,
+      );
     const reservedSeatNo = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
     if (!seats.includes(reservedSeatNo)) {
       seats.push(reservedSeatNo);
       seats.sort((left, right) => left - right);
     }
     return seats;
-  }, [okeyPrototypeJoinedTable, okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
+  }, [okeyPrototypeJoinedTable, okeyPrototypeRackState, okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
   const okeyPrototypeSeatNoForRack = useMemo(() => {
     if (okeyPrototypeSeatReservation && okeyPrototypeJoinedTable) {
       return okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
@@ -6104,8 +6129,12 @@ function App() {
     };
   }
 
-  function applyOkeyPrototypeDeal(firstSeat: OkeyPrototypeSeatNo, seed = Date.now()) {
-    const deal = createOkeyPrototypeDealState(seed, firstSeat);
+  function applyOkeyPrototypeDeal(
+    firstSeat: OkeyPrototypeSeatNo,
+    seed = Date.now(),
+    activeSeats: readonly OkeyPrototypeSeatNo[] = OKEY_PROTOTYPE_SEATS,
+  ) {
+    const deal = createOkeyPrototypeDealState(seed, firstSeat, activeSeats);
     setOkeyPrototypeRackState(deal.rackState);
     setOkeyPrototypeWallTiles(deal.wallTiles);
     setOkeyPrototypeIndicatorTile(deal.indicatorTile);
@@ -6470,7 +6499,7 @@ function App() {
   function startNewOkeyPrototypeHand() {
     if (!okeyPrototypeSeatReservation) return;
     const baseSeat = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as 1 | 2 | 3 | 4;
-    applyOkeyPrototypeDeal(baseSeat, Date.now());
+    applyOkeyPrototypeDeal(baseSeat, Date.now(), okeyPrototypeActiveTurnSeats);
     appendOkeyPrototypeAction(`Yeni el baslatildi: Koltuk ${baseSeat}`);
   }
 
@@ -6478,7 +6507,10 @@ function App() {
     const baseSeat = okeyPrototypeSeatReservation
       ? Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo
       : 1;
-    applyOkeyPrototypeDeal(baseSeat, Date.now());
+    const activeSeats = okeyPrototypeSeatReservation
+      ? okeyPrototypeActiveTurnSeats
+      : OKEY_PROTOTYPE_SEATS;
+    applyOkeyPrototypeDeal(baseSeat, Date.now(), activeSeats);
     appendOkeyPrototypeAction("Tas dizilimi yenilendi.");
   }
 
@@ -6491,7 +6523,7 @@ function App() {
     const parsedSeed = Number.parseInt(okeyPrototypeDealSeedDraft.trim(), 10);
     const normalizedSeed = Number.isFinite(parsedSeed) && parsedSeed > 0 ? parsedSeed : Date.now();
     setOkeyPrototypeDealSeedDraft(String(normalizedSeed));
-    applyOkeyPrototypeDeal(baseSeat, normalizedSeed);
+    applyOkeyPrototypeDeal(baseSeat, normalizedSeed, okeyPrototypeActiveTurnSeats);
     appendOkeyPrototypeAction(`Seed ile dagitildi: ${normalizedSeed} (K${baseSeat})`);
   }
 
@@ -6539,7 +6571,7 @@ function App() {
       return;
     }
     const baseSeat = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
-    const deal = createOkeyPrototypeDealState(Date.now(), baseSeat);
+    const deal = createOkeyPrototypeDealState(Date.now(), baseSeat, okeyPrototypeActiveTurnSeats);
     const nextRackState: OkeyPrototypeRackState = {
       ...deal.rackState,
       [baseSeat]: [],
@@ -10964,11 +10996,20 @@ function App() {
                             if (!okeyPrototypeSelectedTable) return;
                             if (okeyPrototypeAvailableSeatNos.length === 0) return;
                             const reservedSeat = Math.max(1, Math.min(4, okeyPrototypeSeatDraft)) as 1 | 2 | 3 | 4;
+                            const occupiedSeatCount = Math.max(1, Math.min(4, okeyPrototypeSelectedTable.seated));
+                            const selectedTableActiveSeats = Array.from(
+                              { length: occupiedSeatCount },
+                              (_, index) => (index + 1) as OkeyPrototypeSeatNo,
+                            );
+                            if (!selectedTableActiveSeats.includes(reservedSeat)) {
+                              selectedTableActiveSeats.push(reservedSeat);
+                              selectedTableActiveSeats.sort((left, right) => left - right);
+                            }
                             setOkeyPrototypeSeatReservation({
                               tableId: okeyPrototypeSelectedTable.id,
                               seatNo: reservedSeat,
                             });
-                            applyOkeyPrototypeDeal(reservedSeat, Date.now());
+                            applyOkeyPrototypeDeal(reservedSeat, Date.now(), selectedTableActiveSeats);
                             appendOkeyPrototypeAction(`Masaya oturuldu: Masa ${okeyPrototypeSelectedTable.tableNo}, Koltuk ${reservedSeat}`);
                           }}
                           disabled={!okeyPrototypeSelectedTable || okeyPrototypeAvailableSeatNos.length === 0}
