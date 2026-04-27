@@ -1229,6 +1229,27 @@
   min-height: 30px;
 }
 
+.my-game-coming-prototype-seed-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-seed-input {
+  min-height: 30px;
+  border-radius: 7px;
+  border: 1px solid rgba(89, 178, 205, 0.62);
+  background: rgba(6, 72, 92, 0.52);
+  color: #dff2ff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0 9px;
+}
+
+.my-game-coming-prototype-seed-input::placeholder {
+  color: rgba(220, 239, 251, 0.62);
+}
+
 .my-game-coming-prototype-rack-discard-status {
   margin: 0;
   color: #d6edf8;

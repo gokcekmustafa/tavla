@@ -3025,6 +3025,7 @@ function App() {
   const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useState<string[]>([]);
   const [okeyPrototypeOpenedMelds, setOkeyPrototypeOpenedMelds] = useState<OkeyPrototypeMeldEntry[]>([]);
   const [okeyPrototypeAttachTargetMeldId, setOkeyPrototypeAttachTargetMeldId] = useState("");
+  const [okeyPrototypeDealSeedDraft, setOkeyPrototypeDealSeedDraft] = useState(() => String(Date.now()));
   const [okeyPrototypeWinnerSeat, setOkeyPrototypeWinnerSeat] = useState<OkeyPrototypeSeatNo | null>(null);
   const [okeyPrototypeHandDrawn, setOkeyPrototypeHandDrawn] = useState(false);
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
@@ -6451,6 +6452,19 @@ function App() {
       : 1;
     applyOkeyPrototypeDeal(baseSeat, Date.now());
     appendOkeyPrototypeAction("Tas dizilimi yenilendi.");
+  }
+
+  function dealOkeyPrototypeWithSeed() {
+    if (!okeyPrototypeSeatReservation) {
+      appendOkeyPrototypeAction("Seed ile dagitmak icin once bir masaya oturmalisin.");
+      return;
+    }
+    const baseSeat = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
+    const parsedSeed = Number.parseInt(okeyPrototypeDealSeedDraft.trim(), 10);
+    const normalizedSeed = Number.isFinite(parsedSeed) && parsedSeed > 0 ? parsedSeed : Date.now();
+    setOkeyPrototypeDealSeedDraft(String(normalizedSeed));
+    applyOkeyPrototypeDeal(baseSeat, normalizedSeed);
+    appendOkeyPrototypeAction(`Seed ile dagitildi: ${normalizedSeed} (K${baseSeat})`);
   }
 
   function sortOkeyPrototypeRack(mode: OkeyPrototypeRackSortMode) {
@@ -11230,6 +11244,34 @@ function App() {
                             aria-describedby="okey-prototype-turn-status"
                           >
                             Rafi Sirala (Deger)
+                          </button>
+                        </div>
+                        <div className="my-game-coming-prototype-seed-row">
+                          <input
+                            type="text"
+                            className="my-game-coming-prototype-seed-input"
+                            value={okeyPrototypeDealSeedDraft}
+                            onChange={(event) => {
+                              const digits = event.target.value.replace(/\D+/g, "").slice(0, 12);
+                              setOkeyPrototypeDealSeedDraft(digits);
+                            }}
+                            placeholder="Seed"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            autoComplete="off"
+                            spellCheck={false}
+                            title="Ayni seed ile ayni tas dagitimini tekrar kurar."
+                            aria-label="Seed degeri"
+                            aria-describedby="okey-prototype-turn-status"
+                          />
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={dealOkeyPrototypeWithSeed}
+                            disabled={!okeyPrototypeSeatReservation}
+                            aria-describedby="okey-prototype-turn-status"
+                          >
+                            Seed Ile Dagit
                           </button>
                         </div>
                       </div>
