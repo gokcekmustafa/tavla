@@ -424,8 +424,7 @@ const GUEST_PROFILE_SESSION_KEY = "tavla.guest.profile.session.v1";
 const MEMBER_SESSION_KEY = "tavla.member.session.v1";
 const ACTIVE_LOBBY_ID_KEY = "tavla.active.lobby.id.v1";
 const ROOM_PICKER_SESSION_KEY = "tavla.room.picker.session.v1";
-const GAME_SELECTION_SESSION_KEY = "tavla.game.selection.session.v1";
-const ROOT_GAME_CHOICE_KEY = "tavla.root.selected.game.v1";
+const GAME_SELECTION_SESSION_KEY = "tavla.game.selection.session.tavla.v1";
 const OKEY_PROTOTYPE_TILE_SCALE_SESSION_KEY = "tavla.okey.prototype.tile.scale.pct.v1";
 const OKEY_PROTOTYPE_AUTO_SORT_SESSION_KEY = "tavla.okey.prototype.auto.sort.mode.v1";
 const LEAVE_NOTICE_REJECT_PREFIX = "LEAVE_REJECT|";
@@ -2729,9 +2728,7 @@ function shouldOpenRoomPickerInitially(initialRoom: RoomSession | null, gameId: 
 function loadSelectedGameIdFromSession(): GameId | null {
   if (typeof window === "undefined") return null;
   const raw = safeStorageGetItem(window.sessionStorage, GAME_SELECTION_SESSION_KEY);
-  if (raw === "tavla" || raw === "okey101") return raw;
-  const rootRaw = safeStorageGetItem(window.sessionStorage, ROOT_GAME_CHOICE_KEY);
-  if (rootRaw === "tavla" || rootRaw === "okey101") return rootRaw;
+  if (raw === "tavla") return raw;
   return null;
 }
 
@@ -3172,9 +3169,7 @@ function TavlaApp() {
   const [lobbyRoomsBusy, setLobbyRoomsBusy] = useState(false);
   const [lobbyRoomsError, setLobbyRoomsError] = useState("");
   const [roomPickerFilter, setRoomPickerFilter] = useState<RoomPickerFilter>("all");
-  const [selectedGameId, setSelectedGameId] = useState<GameId>(
-    () => readGameIdFromUrl() ?? loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID,
-  );
+  const [selectedGameId, setSelectedGameId] = useState<GameId>("tavla");
   const [gamePickerOpen, setGamePickerOpen] = useState<boolean>(() => {
     const entryScreen = readEntryScreenFromUrl();
     if (entryScreen === "game") return true;
@@ -3331,7 +3326,7 @@ function TavlaApp() {
   const [okeyPrototypeDrawHandCount, setOkeyPrototypeDrawHandCount] = useState(0);
   const [okeyPrototypeLastHandSummary, setOkeyPrototypeLastHandSummary] = useState("");
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
-  const canAccessOkeyPrototype = true;
+  const canAccessOkeyPrototype = false;
   const effectiveSelectedGameId: GameId = selectedGameId;
   const isTavlaSelectedGame = effectiveSelectedGameId === "tavla";
   const okeyPrototypeRoomStatsById = useMemo(() => {
