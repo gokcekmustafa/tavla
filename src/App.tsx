@@ -6212,6 +6212,13 @@ function App() {
     appendOkeyPrototypeAction("Per taslagi temizlendi.");
   }
 
+  function clearOkeyPrototypeTileSelections() {
+    if (!okeyPrototypeDiscardDraftTileId && okeyPrototypeMeldDraftTileIds.length === 0) return;
+    setOkeyPrototypeDiscardDraftTileId("");
+    setOkeyPrototypeMeldDraftTileIds([]);
+    appendOkeyPrototypeAction("Tahta secimi temizlendi.");
+  }
+
   function selectOkeyPrototypeAttachTarget(meldId: string) {
     const target = okeyPrototypeOpenedMelds.find((meld) => meld.id === meldId);
     if (!target) return;
@@ -11206,6 +11213,30 @@ function App() {
                           <strong>Masa Onizleme (Prototip)</strong>
                           <span>Aktif tur: K{okeyPrototypeTurnSeat}</span>
                         </div>
+                        <div className="my-game-coming-prototype-board-status" role="status" aria-live="polite" aria-atomic="true">
+                          <span>
+                            Atis:
+                            {" "}
+                            {okeyPrototypeDiscardDraftTile ? formatOkeyPrototypeTile(okeyPrototypeDiscardDraftTile) : "-"}
+                          </span>
+                          <span>Per: {okeyPrototypeMeldDraftTiles.length} tas</span>
+                          <span>
+                            Hedef:
+                            {" "}
+                            {okeyPrototypeAttachTargetMeld
+                              ? `K${okeyPrototypeAttachTargetMeld.seatNo}/E${okeyPrototypeAttachTargetMeld.round}`
+                              : "-"}
+                          </span>
+                          <button
+                            type="button"
+                            className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
+                            onClick={clearOkeyPrototypeTileSelections}
+                            disabled={!okeyPrototypeDiscardDraftTileId && okeyPrototypeMeldDraftTileIds.length === 0}
+                            aria-describedby="okey-prototype-turn-status"
+                          >
+                            Secimi Temizle
+                          </button>
+                        </div>
                         <div className="my-game-coming-prototype-board-grid" aria-label="101 okey masa onizleme">
                           {OKEY_PROTOTYPE_SEATS.map((seatNo) => {
                             const seatTiles = okeyPrototypeRackState[seatNo] ?? [];
@@ -11241,7 +11272,7 @@ function App() {
                                             toggleOkeyPrototypeMeldDraftTile(tile.id);
                                           }}
                                           disabled={!canInteractBoardSeat}
-                                          aria-pressed={isDiscardSelected}
+                                          aria-pressed={isDiscardSelected || isMeldSelected}
                                           title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
                                         >
                                           {renderOkeyPrototypeTileFace(tile)}
