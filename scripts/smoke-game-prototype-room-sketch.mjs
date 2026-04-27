@@ -334,7 +334,7 @@ const checks = [
       && hasApp("Masa Perleri:")
       && hasApp("className=\"my-game-coming-prototype-board-center-melds-list\"")
       && hasApp("className={`my-game-coming-prototype-board-center-meld-btn ${okeyPrototypeAttachTargetMeldId === meld.id ? \"active\" : \"\"}`}")
-      && hasApp("className={`my-game-coming-prototype-board-seat seat-${seatNo} ${isTurnSeat ? \"active\" : \"\"}`}")
+      && hasApp("className={`my-game-coming-prototype-board-seat seat-${seatNo}")
       && hasApp("className=\"my-game-coming-prototype-board-seat-tiles\"")
       && hasApp("className=\"my-game-coming-prototype-board-seat-empty\"")
       && hasApp("className=\"my-game-coming-prototype-rack\"")

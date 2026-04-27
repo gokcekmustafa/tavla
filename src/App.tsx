@@ -3248,6 +3248,37 @@ function App() {
   const okeyPrototypeSeatRackTiles = useMemo(() => {
     return okeyPrototypeRackState[okeyPrototypeSeatNoForRack] ?? [];
   }, [okeyPrototypeRackState, okeyPrototypeSeatNoForRack]);
+  const okeyPrototypeLocalSeatNo = useMemo(() => {
+    if (okeyPrototypeSeatReservation) {
+      return Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
+    }
+    return okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+  }, [okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
+  const okeyPrototypeSeatRoleLabels = useMemo(() => {
+    const labels: Record<OkeyPrototypeSeatNo, string> = {
+      1: "Bos",
+      2: "Bos",
+      3: "Bos",
+      4: "Bos",
+    };
+    const activeSeats = okeyPrototypeActiveTurnSeats.length > 0
+      ? okeyPrototypeActiveTurnSeats
+      : OKEY_PROTOTYPE_SEATS;
+    let rivalIndex = 1;
+    OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+      if (seatNo === okeyPrototypeLocalSeatNo) {
+        labels[seatNo] = "Sen";
+        return;
+      }
+      if (!activeSeats.includes(seatNo)) {
+        labels[seatNo] = "Bos";
+        return;
+      }
+      labels[seatNo] = `Rakip ${rivalIndex}`;
+      rivalIndex += 1;
+    });
+    return labels;
+  }, [okeyPrototypeActiveTurnSeats, okeyPrototypeLocalSeatNo]);
   const okeyPrototypeDiscardDraftTile = useMemo(() => {
     if (!okeyPrototypeDiscardDraftTileId) return null;
     return okeyPrototypeSeatRackTiles.find((tile) => tile.id === okeyPrototypeDiscardDraftTileId) ?? null;
@@ -11500,15 +11531,16 @@ function App() {
                             const isOpenedSeat = okeyPrototypeSeatOpenedState[seatNo] ?? false;
                             const canInteractBoardSeat = isTurnSeat && okeyPrototypeCanDiscardTile;
                             const isMaskedSeat = okeyPrototypeBoardMaskOthers && !isTurnSeat;
+                            const isLocalSeat = seatNo === okeyPrototypeLocalSeatNo;
                             return (
                               <article
                                 key={`okey-proto-board-seat-${seatNo}`}
-                                className={`my-game-coming-prototype-board-seat seat-${seatNo} ${isTurnSeat ? "active" : ""}`}
-                                aria-label={`Koltuk ${seatNo} raf gorunumu`}
+                                className={`my-game-coming-prototype-board-seat seat-${seatNo} ${isTurnSeat ? "active" : ""} ${isLocalSeat ? "self" : ""}`}
+                                aria-label={`Koltuk ${seatNo} (${okeyPrototypeSeatRoleLabels[seatNo]}) raf gorunumu`}
                               >
                                 <header>
-                                  <strong>K{seatNo}</strong>
-                                  <span>{isOpenedSeat ? "ACIK" : "KAPALI"} | {seatTiles.length} tas</span>
+                                  <strong>K{seatNo} • {okeyPrototypeSeatRoleLabels[seatNo]}</strong>
+                                  <span>{isTurnSeat ? "SIRA | " : ""}{isOpenedSeat ? "ACIK" : "KAPALI"} | {seatTiles.length} tas</span>
                                 </header>
                                 <div className="my-game-coming-prototype-board-seat-tiles">
                                   {seatTiles.length === 0 ? (
