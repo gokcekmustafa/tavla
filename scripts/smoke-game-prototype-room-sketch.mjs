@@ -82,6 +82,7 @@ const checks = [
       && hasApp("const okeyPrototypeActiveFilters = useMemo(() => {")
       && hasApp("function appendOkeyPrototypeAction(rawText: string) {")
       && hasApp("function getOkeyPrototypeMeldPoints(tiles: OkeyPrototypeTile[]) {")
+      && hasApp("function getOkeyPrototypeMeldPointsWithJokers(tiles: OkeyPrototypeTile[], okeyTile: OkeyPrototypeTile | null = null) {")
       && hasApp("function resetOkeyPrototypeTableFilters() {")
       && hasApp("function clearOkeyPrototypeFilterChip(filterKey: string, label: string) {")
       && hasApp("function moveOkeyPrototypeTableSelection(step: number) {")
