@@ -1056,6 +1056,14 @@
   line-height: 1.22;
 }
 
+.my-game-coming-prototype-turn-pile-status {
+  margin: 0;
+  color: #ffeec2;
+  font-size: 0.71rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
 .my-game-coming-prototype-turn-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

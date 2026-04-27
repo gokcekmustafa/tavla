@@ -446,6 +446,7 @@ const OKEY_PROTOTYPE_ROOMS = [
   { id: "okey-3", name: "Anadolu", activeTables: 6, players: 24, level: "Turnuva" },
   { id: "okey-4", name: "Akdeniz", activeTables: 1, players: 5, level: "Baslangic" },
 ] as const;
+const OKEY_PROTOTYPE_TOTAL_TILE_COUNT = 106;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = [1, 2, 3, 4];
 const OKEY_PROTOTYPE_TILE_COLORS: readonly OkeyPrototypeTileColor[] = ["kirmizi", "mavi", "sari", "siyah"];
 
@@ -2889,11 +2890,16 @@ function App() {
       };
     });
   }, [okeyPrototypeRackState]);
+  const okeyPrototypeRackTileCount = okeyPrototypeRackSeatSummaries.reduce((sum, item) => sum + item.tileCount, 0);
   const okeyPrototypeLastDiscard = okeyPrototypeDiscardPile[0] ?? null;
   const okeyPrototypeDiscardPreview = okeyPrototypeDiscardPile.slice(0, 8);
+  const okeyPrototypeDrawPileRemaining = Math.max(0, OKEY_PROTOTYPE_TOTAL_TILE_COUNT - (okeyPrototypeRackTileCount + okeyPrototypeDiscardPile.length));
   const okeyPrototypeCanAdvanceTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable);
   const okeyPrototypeNextTurnSeat = okeyPrototypeTurnSeat === 4 ? 1 : (okeyPrototypeTurnSeat + 1) as 1 | 2 | 3 | 4;
-  const okeyPrototypeCanDrawTile = okeyPrototypeCanAdvanceTurn && okeyPrototypeTurnPhase === "draw" && okeyPrototypeSeatRackTiles.length < 15;
+  const okeyPrototypeCanDrawTile = okeyPrototypeCanAdvanceTurn
+    && okeyPrototypeTurnPhase === "draw"
+    && okeyPrototypeSeatRackTiles.length < 15
+    && okeyPrototypeDrawPileRemaining > 0;
   const okeyPrototypeCanDiscardTile = okeyPrototypeCanAdvanceTurn && okeyPrototypeTurnPhase === "discard" && okeyPrototypeSeatRackTiles.length > 0;
   const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
   const [roomChatUnread, setRoomChatUnread] = useState(0);
@@ -5702,6 +5708,10 @@ function App() {
       appendOkeyPrototypeAction("Gecersiz hamle: Once tas atmalisin.");
       return;
     }
+    if (okeyPrototypeDrawPileRemaining <= 0) {
+      appendOkeyPrototypeAction("Gecersiz hamle: Kapali destede tas kalmadi.");
+      return;
+    }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     const currentRack = okeyPrototypeRackState[seatNo] ?? [];
     if (currentRack.length >= 15) {
@@ -5716,6 +5726,9 @@ function App() {
     setOkeyPrototypeTurnPhase("discard");
     setOkeyPrototypeDiscardDraftTileId(tile.id);
     appendOkeyPrototypeAction(`Tas cekildi: Koltuk ${seatNo} (${tile.color}-${tile.value})`);
+    if (okeyPrototypeDrawPileRemaining === 1) {
+      appendOkeyPrototypeAction("Kapali deste bitti: Son tas cekildi.");
+    }
   }
 
   function discardOkeyPrototypeTile() {
@@ -10158,6 +10171,9 @@ function App() {
                           <strong>Tur Yonetimi (Prototip)</strong>
                           <span>El {okeyPrototypeTurnRound} | Faz: {okeyPrototypeTurnPhase === "draw" ? "Tas Cek" : "Tas At"}</span>
                         </div>
+                        <p className="my-game-coming-prototype-turn-pile-status" role="status" aria-live="polite" aria-atomic="true">
+                          Kapali Deste: {okeyPrototypeDrawPileRemaining} tas
+                        </p>
                         <p
                           id="okey-prototype-turn-status"
                           className="my-game-coming-prototype-turn-status"
