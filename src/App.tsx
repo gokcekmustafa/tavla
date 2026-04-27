@@ -369,6 +369,7 @@ type OkeyPrototypeMeldEntry = {
 };
 type OkeyPrototypeSeatOpenedState = Record<OkeyPrototypeSeatNo, boolean>;
 type OkeyPrototypeScenarioKind = "opening" | "attach" | "finish" | "draw-end";
+type OkeyPrototypeRackSortMode = "color" | "value";
 type OkeyPrototypeDealState = {
   rackState: OkeyPrototypeRackState;
   wallTiles: OkeyPrototypeTile[];
@@ -586,6 +587,35 @@ function isOkeyPrototypeJokerTile(tile: OkeyPrototypeTile, okeyTile: OkeyPrototy
   if (tile.kind === "sahte") return true;
   if (!okeyTile || okeyTile.kind !== "normal") return false;
   return tile.kind === "normal" && tile.color === okeyTile.color && tile.value === okeyTile.value;
+}
+
+function sortOkeyPrototypeRackTiles(
+  tiles: OkeyPrototypeTile[],
+  mode: OkeyPrototypeRackSortMode,
+  okeyTile: OkeyPrototypeTile | null = null,
+) {
+  const colorIndexOf = (tile: OkeyPrototypeTile) => {
+    if (tile.kind !== "normal") return Number.POSITIVE_INFINITY;
+    const index = OKEY_PROTOTYPE_TILE_COLORS.findIndex((entry) => entry === tile.color);
+    return index >= 0 ? index : Number.POSITIVE_INFINITY;
+  };
+  return tiles.slice().sort((left, right) => {
+    const leftIsJoker = isOkeyPrototypeJokerTile(left, okeyTile);
+    const rightIsJoker = isOkeyPrototypeJokerTile(right, okeyTile);
+    if (leftIsJoker !== rightIsJoker) return leftIsJoker ? 1 : -1;
+    if (mode === "color") {
+      const colorDiff = colorIndexOf(left) - colorIndexOf(right);
+      if (colorDiff !== 0) return colorDiff;
+      const valueDiff = left.value - right.value;
+      if (valueDiff !== 0) return valueDiff;
+      return left.id.localeCompare(right.id);
+    }
+    const valueDiff = left.value - right.value;
+    if (valueDiff !== 0) return valueDiff;
+    const colorDiff = colorIndexOf(left) - colorIndexOf(right);
+    if (colorDiff !== 0) return colorDiff;
+    return left.id.localeCompare(right.id);
+  });
 }
 
 function evaluateOkeyPrototypeMeldDraft(tiles: OkeyPrototypeTile[], okeyTile: OkeyPrototypeTile | null = null) {
@@ -6423,6 +6453,30 @@ function App() {
     appendOkeyPrototypeAction("Tas dizilimi yenilendi.");
   }
 
+  function sortOkeyPrototypeRack(mode: OkeyPrototypeRackSortMode) {
+    if (!okeyPrototypeSeatReservation) {
+      appendOkeyPrototypeAction("Rafi siralamak icin once bir masaya oturmalisin.");
+      return;
+    }
+    const seatNo = okeyPrototypeSeatNoForRack as OkeyPrototypeSeatNo;
+    const currentRack = okeyPrototypeRackState[seatNo] ?? [];
+    if (currentRack.length < 2) {
+      appendOkeyPrototypeAction("Raf siralamasi icin en az 2 tas olmali.");
+      return;
+    }
+    const sortedRack = sortOkeyPrototypeRackTiles(currentRack, mode, okeyPrototypeOkeyTile);
+    const orderChanged = sortedRack.some((tile, index) => tile.id !== currentRack[index]?.id);
+    if (!orderChanged) {
+      appendOkeyPrototypeAction(`Raf zaten ${mode === "color" ? "renk" : "deger"} sirasinda.`);
+      return;
+    }
+    setOkeyPrototypeRackState((current) => ({
+      ...current,
+      [seatNo]: sortedRack,
+    }));
+    appendOkeyPrototypeAction(`Raf siralandi: K${seatNo} (${mode === "color" ? "renk" : "deger"}).`);
+  }
+
   function createOkeyPrototypeScenarioTile(
     key: string,
     color: OkeyPrototypeTileColor,
@@ -11158,6 +11212,24 @@ function App() {
                             aria-describedby="okey-prototype-turn-status"
                           >
                             Taslari Yeniden Dagit (Prototip)
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={() => sortOkeyPrototypeRack("color")}
+                            disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                            aria-describedby="okey-prototype-turn-status"
+                          >
+                            Rafi Sirala (Renk)
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={() => sortOkeyPrototypeRack("value")}
+                            disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                            aria-describedby="okey-prototype-turn-status"
+                          >
+                            Rafi Sirala (Deger)
                           </button>
                         </div>
                       </div>
