@@ -1064,6 +1064,14 @@
   font-weight: 700;
 }
 
+.my-game-coming-prototype-turn-indicator-status {
+  margin: 0;
+  color: #d7e9ff;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
 .my-game-coming-prototype-turn-open-status {
   margin: 0;
   color: #d7f1dd;
@@ -1201,6 +1209,11 @@
 
 .my-game-coming-prototype-rack-tile.tile-siyah {
   background: linear-gradient(180deg, #4a5866, #2a323b);
+}
+
+.my-game-coming-prototype-rack-tile.tile-sahte {
+  background: linear-gradient(180deg, #b08d3d, #785f23);
+  color: #fff5cf;
 }
 
 .my-game-coming-prototype-rack-actions {
