@@ -9645,6 +9645,7 @@ function App() {
                           placeholder="Masa No (or. 3)"
                           inputMode="numeric"
                           maxLength={2}
+                          aria-describedby="okey-prototype-table-search-meta"
                         />
                         <button
                           type="button"
@@ -9669,7 +9670,7 @@ function App() {
                           Temizle
                         </button>
                       </div>
-                      <p className="my-game-coming-table-sketch-search-meta" aria-live="polite">
+                      <p id="okey-prototype-table-search-meta" className="my-game-coming-table-sketch-search-meta" aria-live="polite">
                         Sonuc: {okeyPrototypeVisibleTableSketchRows.length} masa | Enter: Ilk Sonuc
                       </p>
                     </div>
