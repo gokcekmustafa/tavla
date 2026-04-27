@@ -11367,6 +11367,40 @@ function App() {
                               {" "}
                               {okeyPrototypeOkeyTile ? formatOkeyPrototypeTile(okeyPrototypeOkeyTile) : "-"}
                             </p>
+                            <div className="my-game-coming-prototype-board-center-melds">
+                              <p>Masa Perleri:</p>
+                              {okeyPrototypeOpenedMeldPreview.length === 0 ? (
+                                <span className="my-game-coming-prototype-board-center-melds-empty">Henuz acik per yok.</span>
+                              ) : (
+                                <div className="my-game-coming-prototype-board-center-melds-list">
+                                  {okeyPrototypeOpenedMeldPreview.map((meld) => (
+                                    <button
+                                      key={`okey-proto-board-center-meld-${meld.id}`}
+                                      type="button"
+                                      className={`my-game-coming-prototype-board-center-meld-btn ${okeyPrototypeAttachTargetMeldId === meld.id ? "active" : ""}`}
+                                      onClick={() => selectOkeyPrototypeAttachTarget(meld.id)}
+                                      aria-describedby="okey-prototype-turn-status"
+                                    >
+                                      <span>K{meld.seatNo} / El {meld.round}</span>
+                                      <div className="my-game-coming-prototype-board-center-meld-btn-tiles">
+                                        {meld.tiles.map((tile) => {
+                                          const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+                                          return (
+                                            <span
+                                              key={`${meld.id}-${tile.id}`}
+                                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${tileIsJoker ? "joker-tile" : ""}`}
+                                              title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
+                                            >
+                                              {renderOkeyPrototypeTileFace(tile)}
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </section>
                           {OKEY_PROTOTYPE_SEATS.map((seatNo) => {
                             const seatTiles = okeyPrototypeRackState[seatNo] ?? [];

@@ -1312,6 +1312,71 @@
   padding: 0 5px;
 }
 
+.my-game-coming-prototype-board-center-melds {
+  display: grid;
+  gap: 5px;
+}
+
+.my-game-coming-prototype-board-center-melds > p {
+  margin: 0;
+  color: #d9effb;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.my-game-coming-prototype-board-center-melds-empty {
+  color: #c7e5f6;
+  font-size: 0.65rem;
+  line-height: 1.2;
+}
+
+.my-game-coming-prototype-board-center-melds-list {
+  display: grid;
+  gap: 4px;
+  max-height: 120px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.my-game-coming-prototype-board-center-meld-btn {
+  appearance: none;
+  border-radius: 7px;
+  border: 1px solid rgba(102, 188, 214, 0.56);
+  background: rgba(9, 86, 107, 0.58);
+  color: #e2f5ff;
+  display: grid;
+  gap: 4px;
+  padding: 5px 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.my-game-coming-prototype-board-center-meld-btn.active {
+  border-color: rgba(245, 225, 156, 0.88);
+  box-shadow: 0 0 0 1px rgba(246, 220, 138, 0.24) inset;
+}
+
+.my-game-coming-prototype-board-center-meld-btn > span {
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: #dff3ff;
+  line-height: 1.2;
+}
+
+.my-game-coming-prototype-board-center-meld-btn-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.my-game-coming-prototype-board-center-meld-btn-tiles .my-game-coming-prototype-rack-tile {
+  min-width: 18px;
+  height: 18px;
+  font-size: 0.63rem;
+  padding: 0 4px;
+}
+
 @keyframes my-game-prototype-board-suggest-pulse {
   0%,
   100% {
