@@ -368,6 +368,7 @@ type OkeyPrototypeMeldEntry = {
   at: number;
 };
 type OkeyPrototypeSeatOpenedState = Record<OkeyPrototypeSeatNo, boolean>;
+type OkeyPrototypeScenarioKind = "opening" | "attach" | "finish" | "draw-end";
 type OkeyPrototypeDealState = {
   rackState: OkeyPrototypeRackState;
   wallTiles: OkeyPrototypeTile[];
@@ -6422,6 +6423,134 @@ function App() {
     appendOkeyPrototypeAction("Tas dizilimi yenilendi.");
   }
 
+  function createOkeyPrototypeScenarioTile(
+    key: string,
+    color: OkeyPrototypeTileColor,
+    value: number,
+    kind: OkeyPrototypeTileKind = "normal",
+  ): OkeyPrototypeTile {
+    return {
+      id: `okey-proto-scn-${key}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      kind,
+      color,
+      value,
+    };
+  }
+
+  function applyOkeyPrototypeScenario(kind: OkeyPrototypeScenarioKind) {
+    if (!okeyPrototypeSeatReservation) {
+      appendOkeyPrototypeAction("Senaryo icin once bir masaya oturmalisin.");
+      return;
+    }
+    const baseSeat = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
+    const deal = createOkeyPrototypeDealState(Date.now(), baseSeat);
+    const nextRackState: OkeyPrototypeRackState = {
+      ...deal.rackState,
+      [baseSeat]: [],
+    };
+    const nextSeatOpenedState = createDefaultOkeyPrototypeSeatOpenedState();
+    let nextPhase: OkeyPrototypeTurnPhase = "discard";
+    let nextRound = 1;
+    let nextDiscardPile: OkeyPrototypeDiscardEntry[] = [];
+    let nextOpenedMelds: OkeyPrototypeMeldEntry[] = [];
+    let nextAttachTargetMeldId = "";
+    let nextDiscardDraftTileId = "";
+    let nextWallTiles = deal.wallTiles.slice();
+
+    if (kind === "opening") {
+      nextRackState[baseSeat] = [
+        createOkeyPrototypeScenarioTile("open-13-r", "kirmizi", 13),
+        createOkeyPrototypeScenarioTile("open-13-m", "mavi", 13),
+        createOkeyPrototypeScenarioTile("open-13-s", "sari", 13),
+        createOkeyPrototypeScenarioTile("open-12-r", "kirmizi", 12),
+        createOkeyPrototypeScenarioTile("open-12-m", "mavi", 12),
+        createOkeyPrototypeScenarioTile("open-12-s", "sari", 12),
+        createOkeyPrototypeScenarioTile("open-11-r", "kirmizi", 11),
+        createOkeyPrototypeScenarioTile("open-11-m", "mavi", 11),
+        createOkeyPrototypeScenarioTile("open-11-s", "sari", 11),
+        createOkeyPrototypeScenarioTile("open-x1", "siyah", 9),
+        createOkeyPrototypeScenarioTile("open-x2", "kirmizi", 8),
+        createOkeyPrototypeScenarioTile("open-x3", "mavi", 7),
+        createOkeyPrototypeScenarioTile("open-x4", "sari", 6),
+        createOkeyPrototypeScenarioTile("open-x5", "siyah", 5),
+        createOkeyPrototypeScenarioTile("open-x6", "kirmizi", 4),
+      ];
+      nextDiscardDraftTileId = nextRackState[baseSeat][nextRackState[baseSeat].length - 1]?.id ?? "";
+      appendOkeyPrototypeAction("Senaryo yuklendi: Acilis provasi (101 ustu per dizilimi hazir).");
+    } else if (kind === "attach") {
+      nextSeatOpenedState[baseSeat] = true;
+      const attachMeldId = `okey-proto-scn-meld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      nextOpenedMelds = [{
+        id: attachMeldId,
+        seatNo: baseSeat,
+        round: 1,
+        kind: "seri",
+        tiles: [
+          createOkeyPrototypeScenarioTile("attach-7r", "kirmizi", 7),
+          createOkeyPrototypeScenarioTile("attach-8r", "kirmizi", 8),
+          createOkeyPrototypeScenarioTile("attach-9r", "kirmizi", 9),
+        ],
+        at: Date.now(),
+      }];
+      const scenarioOkeyTile = deal.okeyTile && deal.okeyTile.kind === "normal"
+        ? createOkeyPrototypeScenarioTile("attach-okey", deal.okeyTile.color, deal.okeyTile.value)
+        : createOkeyPrototypeScenarioTile("attach-j", "sahte", 0, "sahte");
+      nextRackState[baseSeat] = [
+        createOkeyPrototypeScenarioTile("attach-10r", "kirmizi", 10),
+        scenarioOkeyTile,
+        createOkeyPrototypeScenarioTile("attach-a1", "mavi", 12),
+        createOkeyPrototypeScenarioTile("attach-a2", "sari", 12),
+        createOkeyPrototypeScenarioTile("attach-a3", "siyah", 12),
+        createOkeyPrototypeScenarioTile("attach-a4", "kirmizi", 5),
+        createOkeyPrototypeScenarioTile("attach-a5", "mavi", 5),
+        createOkeyPrototypeScenarioTile("attach-a6", "sari", 5),
+        createOkeyPrototypeScenarioTile("attach-a7", "siyah", 5),
+        createOkeyPrototypeScenarioTile("attach-a8", "kirmizi", 2),
+        createOkeyPrototypeScenarioTile("attach-a9", "mavi", 3),
+        createOkeyPrototypeScenarioTile("attach-a10", "sari", 4),
+        createOkeyPrototypeScenarioTile("attach-a11", "siyah", 6),
+        createOkeyPrototypeScenarioTile("attach-a12", "kirmizi", 7),
+        createOkeyPrototypeScenarioTile("attach-a13", "mavi", 9),
+      ];
+      nextAttachTargetMeldId = attachMeldId;
+      nextDiscardDraftTileId = nextRackState[baseSeat][0]?.id ?? "";
+      appendOkeyPrototypeAction("Senaryo yuklendi: Pere ekleme provasi (hedef per secili).");
+    } else if (kind === "finish") {
+      nextSeatOpenedState[baseSeat] = true;
+      nextRackState[baseSeat] = [
+        createOkeyPrototypeScenarioTile("finish-last", "mavi", 12),
+      ];
+      nextDiscardDraftTileId = nextRackState[baseSeat][0]?.id ?? "";
+      appendOkeyPrototypeAction("Senaryo yuklendi: El bitirme provasi (tek tas kaldi).");
+    } else {
+      nextPhase = "draw";
+      nextRackState[baseSeat] = deal.rackState[baseSeat].slice(0, 14);
+      nextWallTiles = [];
+      nextDiscardPile = [];
+      nextDiscardDraftTileId = "";
+      appendOkeyPrototypeAction("Senaryo yuklendi: Berabere provasi (duvar ve orta bos).");
+    }
+
+    setOkeyPrototypeRackState(nextRackState);
+    setOkeyPrototypeWallTiles(nextWallTiles);
+    setOkeyPrototypeIndicatorTile(deal.indicatorTile);
+    setOkeyPrototypeOkeyTile(deal.okeyTile);
+    setOkeyPrototypeSahteOkeyCount(2);
+    setOkeyPrototypeDiscardPile(nextDiscardPile);
+    setOkeyPrototypeTurnSeat(baseSeat);
+    setOkeyPrototypeTurnRound(nextRound);
+    setOkeyPrototypeTurnPhase(nextPhase);
+    setOkeyPrototypeTurnLockedAfterMeld(false);
+    setOkeyPrototypeTurnOpeningPoints(0);
+    setOkeyPrototypeDiscardDraftTileId(nextDiscardDraftTileId);
+    setOkeyPrototypeMeldDraftTileIds([]);
+    setOkeyPrototypeOpenedMelds(nextOpenedMelds);
+    setOkeyPrototypeAttachTargetMeldId(nextAttachTargetMeldId);
+    setOkeyPrototypeSeatOpenedState(nextSeatOpenedState);
+    setOkeyPrototypeWinnerSeat(null);
+    setOkeyPrototypeHandDrawn(false);
+  }
+
   function onSelectGame(gameId: GameId) {
     setSelectedGameId(gameId);
     saveSelectedGameIdToSession(gameId);
@@ -10891,6 +11020,44 @@ function App() {
                             aria-describedby="okey-prototype-turn-status"
                           >
                             Yeni El Baslat (Prototip)
+                          </button>
+                        </div>
+                        <div className="my-game-coming-prototype-turn-actions">
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={() => applyOkeyPrototypeScenario("opening")}
+                            disabled={!okeyPrototypeSeatReservation}
+                            aria-describedby="okey-prototype-turn-status"
+                          >
+                            Senaryo: Acilis
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={() => applyOkeyPrototypeScenario("attach")}
+                            disabled={!okeyPrototypeSeatReservation}
+                            aria-describedby="okey-prototype-turn-status"
+                          >
+                            Senaryo: Pere Ekle
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={() => applyOkeyPrototypeScenario("finish")}
+                            disabled={!okeyPrototypeSeatReservation}
+                            aria-describedby="okey-prototype-turn-status"
+                          >
+                            Senaryo: Eli Bitir
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={() => applyOkeyPrototypeScenario("draw-end")}
+                            disabled={!okeyPrototypeSeatReservation}
+                            aria-describedby="okey-prototype-turn-status"
+                          >
+                            Senaryo: Berabere
                           </button>
                         </div>
                       </div>
