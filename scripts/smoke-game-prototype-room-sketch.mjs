@@ -136,6 +136,7 @@ const checks = [
       && hasApp("className=\"my-game-coming-table-sketch-selected\" aria-live=\"polite\" role=\"status\" aria-atomic=\"true\"")
       && hasApp("className=\"my-game-coming-table-sketch-nav\"")
       && hasApp("className=\"my-game-coming-table-sketch-nav-indicator\"")
+      && hasApp("className=\"my-game-coming-table-sketch-nav-indicator\" aria-live=\"polite\" role=\"status\" aria-atomic=\"true\"")
       && hasApp("{okeyPrototypeSelectedTablePosition}/{okeyPrototypeVisibleTableSketchRows.length}")
       && hasApp("className=\"my-action-btn soft my-game-coming-table-sketch-nav-btn\"")
       && hasApp("onClick={() => jumpOkeyPrototypeTableSelection(\"first\")}")

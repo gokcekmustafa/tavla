@@ -9735,7 +9735,7 @@ function App() {
                     ) : null}
                     {okeyPrototypeSelectedTable && okeyPrototypeVisibleTableSketchRows.length > 1 ? (
                       <div className="my-game-coming-table-sketch-nav">
-                        <span className="my-game-coming-table-sketch-nav-indicator">
+                        <span className="my-game-coming-table-sketch-nav-indicator" aria-live="polite" role="status" aria-atomic="true">
                           {okeyPrototypeSelectedTablePosition}/{okeyPrototypeVisibleTableSketchRows.length}
                         </span>
                         <button
