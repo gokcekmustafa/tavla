@@ -1064,6 +1064,14 @@
   font-weight: 700;
 }
 
+.my-game-coming-prototype-turn-open-status {
+  margin: 0;
+  color: #d7f1dd;
+  font-size: 0.71rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
 .my-game-coming-prototype-turn-lock {
   margin: 0;
   color: #ffd3b0;
@@ -1231,6 +1239,23 @@
 .my-game-coming-prototype-melds-list {
   display: grid;
   gap: 6px;
+}
+
+.my-game-coming-prototype-melds-open-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-melds-open-summary p {
+  margin: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(98, 189, 215, 0.66);
+  background: rgba(8, 84, 106, 0.62);
+  color: #d8f1ff;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  padding: 2px 8px;
 }
 
 .my-game-coming-prototype-melds-empty {

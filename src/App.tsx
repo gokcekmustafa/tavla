@@ -364,6 +364,7 @@ type OkeyPrototypeMeldEntry = {
   kind: OkeyPrototypeMeldKind;
   at: number;
 };
+type OkeyPrototypeSeatOpenedState = Record<OkeyPrototypeSeatNo, boolean>;
 
 const GUEST_STORAGE_KEY = "tavla.guestName";
 const GUEST_ID_STORAGE_KEY = "tavla.guest.id.v1";
@@ -505,6 +506,15 @@ function evaluateOkeyPrototypeMeldDraft(tiles: OkeyPrototypeTile[]) {
     }
   }
   return { valid: true, kind: "seri" as OkeyPrototypeMeldKind, reason: "" };
+}
+
+function createDefaultOkeyPrototypeSeatOpenedState(): OkeyPrototypeSeatOpenedState {
+  return {
+    1: false,
+    2: false,
+    3: false,
+    4: false,
+  };
 }
 
 function normalizeHttpOrigin(rawValue: string | undefined) {
@@ -2747,6 +2757,7 @@ function App() {
   const [okeyPrototypeTurnRound, setOkeyPrototypeTurnRound] = useState(1);
   const [okeyPrototypeTurnPhase, setOkeyPrototypeTurnPhase] = useState<OkeyPrototypeTurnPhase>("draw");
   const [okeyPrototypeTurnLockedAfterMeld, setOkeyPrototypeTurnLockedAfterMeld] = useState(false);
+  const [okeyPrototypeSeatOpenedState, setOkeyPrototypeSeatOpenedState] = useState<OkeyPrototypeSeatOpenedState>(() => createDefaultOkeyPrototypeSeatOpenedState());
   const [okeyPrototypeRackState, setOkeyPrototypeRackState] = useState<OkeyPrototypeRackState>(() => createOkeyPrototypeRackState());
   const [okeyPrototypeDiscardPile, setOkeyPrototypeDiscardPile] = useState<OkeyPrototypeDiscardEntry[]>([]);
   const [okeyPrototypeDiscardDraftTileId, setOkeyPrototypeDiscardDraftTileId] = useState("");
@@ -2941,6 +2952,11 @@ function App() {
   const okeyPrototypeOpenedMeldPreview = okeyPrototypeOpenedMelds.slice(0, 8);
   const okeyPrototypeDrawPileRemaining = Math.max(0, OKEY_PROTOTYPE_TOTAL_TILE_COUNT - (okeyPrototypeRackTileCount + okeyPrototypeDiscardPile.length));
   const okeyPrototypeCanAdvanceTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable);
+  const okeyPrototypeCurrentSeatOpened = okeyPrototypeSeatOpenedState[okeyPrototypeTurnSeat as OkeyPrototypeSeatNo] ?? false;
+  const okeyPrototypeSeatOpenedSummary = OKEY_PROTOTYPE_SEATS.map((seatNo) => ({
+    seatNo,
+    opened: okeyPrototypeSeatOpenedState[seatNo] ?? false,
+  }));
   const okeyPrototypeNextTurnSeat = okeyPrototypeTurnSeat === 4 ? 1 : (okeyPrototypeTurnSeat + 1) as 1 | 2 | 3 | 4;
   const okeyPrototypeCanDrawTile = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
@@ -5817,6 +5833,13 @@ function App() {
     setOkeyPrototypeOpenedMelds((current) => [meldEntry, ...current].slice(0, 40));
     setOkeyPrototypeMeldDraftTileIds([]);
     setOkeyPrototypeTurnLockedAfterMeld(true);
+    if (!okeyPrototypeSeatOpenedState[seatNo]) {
+      setOkeyPrototypeSeatOpenedState((current) => ({
+        ...current,
+        [seatNo]: true,
+      }));
+      appendOkeyPrototypeAction(`El acildi: Koltuk ${seatNo}`);
+    }
     appendOkeyPrototypeAction(`Per acildi: ${validation.kind} (${meldEntry.tiles.map((tile) => `${tile.color}-${tile.value}`).join(", ")})`);
   }
 
@@ -5917,6 +5940,7 @@ function App() {
     setOkeyPrototypeTurnLockedAfterMeld(false);
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
+    setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
     appendOkeyPrototypeAction(`Tur sifirlandi: Koltuk ${baseSeat}`);
   }
 
@@ -5928,6 +5952,7 @@ function App() {
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
     setOkeyPrototypeOpenedMelds([]);
+    setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
     appendOkeyPrototypeAction("Tas dizilimi yenilendi.");
   }
 
@@ -10260,6 +10285,7 @@ function App() {
                             setOkeyPrototypeDiscardDraftTileId("");
                             setOkeyPrototypeMeldDraftTileIds([]);
                             setOkeyPrototypeOpenedMelds([]);
+                            setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
                             appendOkeyPrototypeAction(`Masaya oturuldu: Masa ${okeyPrototypeSelectedTable.tableNo}, Koltuk ${reservedSeat}`);
                           }}
                           disabled={!okeyPrototypeSelectedTable || okeyPrototypeAvailableSeatNos.length === 0}
@@ -10283,6 +10309,7 @@ function App() {
                             setOkeyPrototypeDiscardDraftTileId("");
                             setOkeyPrototypeMeldDraftTileIds([]);
                             setOkeyPrototypeOpenedMelds([]);
+                            setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
                           }}
                           disabled={!okeyPrototypeSeatReservation}
                         >
@@ -10307,6 +10334,9 @@ function App() {
                         </div>
                         <p className="my-game-coming-prototype-turn-pile-status" role="status" aria-live="polite" aria-atomic="true">
                           Kapali Deste: {okeyPrototypeDrawPileRemaining} tas
+                        </p>
+                        <p className="my-game-coming-prototype-turn-open-status" role="status" aria-live="polite" aria-atomic="true">
+                          El Durumu: Koltuk {okeyPrototypeTurnSeat} {okeyPrototypeCurrentSeatOpened ? "ACIK" : "KAPALI"}
                         </p>
                         <p
                           id="okey-prototype-turn-status"
@@ -10463,6 +10493,13 @@ function App() {
                         <div className="my-game-coming-prototype-melds-head">
                           <strong>Acilan Perler (Prototip)</strong>
                           <span>{okeyPrototypeOpenedMelds.length} per</span>
+                        </div>
+                        <div className="my-game-coming-prototype-melds-open-summary" role="status" aria-live="polite" aria-atomic="true">
+                          {okeyPrototypeSeatOpenedSummary.map((item) => (
+                            <p key={`opened-seat-${item.seatNo}`}>
+                              K{item.seatNo}: {item.opened ? "ACIK" : "KAPALI"}
+                            </p>
+                          ))}
                         </div>
                         <div className="my-game-coming-prototype-melds-list" aria-label="Acilan per listesi">
                           {okeyPrototypeOpenedMeldPreview.length === 0 ? (
