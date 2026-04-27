@@ -1094,6 +1094,35 @@
   font-weight: 700;
 }
 
+.my-game-coming-prototype-turn-order {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-turn-order-chip {
+  border-radius: 999px;
+  border: 1px solid rgba(96, 186, 213, 0.56);
+  background: rgba(8, 83, 104, 0.5);
+  color: #d7eefb;
+  font-size: 0.66rem;
+  line-height: 1.2;
+  font-weight: 700;
+  padding: 2px 8px;
+}
+
+.my-game-coming-prototype-turn-order-chip.current {
+  border-color: rgba(245, 225, 156, 0.86);
+  background: rgba(124, 98, 34, 0.42);
+  color: #fff2ca;
+}
+
+.my-game-coming-prototype-turn-order-chip.next {
+  border-color: rgba(141, 219, 173, 0.8);
+  background: rgba(31, 94, 63, 0.36);
+  color: #ddf7e7;
+}
+
 .my-game-coming-prototype-turn-scoreboard {
   margin: 0;
   color: #d9f5de;

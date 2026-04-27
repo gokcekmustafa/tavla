@@ -3395,6 +3395,28 @@ function App() {
     if (currentIndex < 0) return seats[0];
     return seats[(currentIndex + 1) % seats.length] ?? seats[0];
   }, [okeyPrototypeActiveTurnSeats, okeyPrototypeTurnSeat]);
+  const okeyPrototypeTurnQueue = useMemo(() => {
+    const seats = okeyPrototypeActiveTurnSeats.length > 0
+      ? okeyPrototypeActiveTurnSeats
+      : [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
+    const currentIndex = seats.findIndex((seatNo) => seatNo === okeyPrototypeTurnSeat);
+    const safeCurrentIndex = currentIndex >= 0 ? currentIndex : 0;
+    return seats.map((_, index) => {
+      const seatNo = seats[(safeCurrentIndex + index) % seats.length] ?? seats[0];
+      return {
+        seatNo,
+        role: okeyPrototypeSeatRoleLabels[seatNo] ?? "Bos",
+        name: okeyPrototypeSeatDisplayNames[seatNo] ?? `K${seatNo}`,
+        current: index === 0,
+        next: index === 1,
+      };
+    });
+  }, [
+    okeyPrototypeActiveTurnSeats,
+    okeyPrototypeSeatDisplayNames,
+    okeyPrototypeSeatRoleLabels,
+    okeyPrototypeTurnSeat,
+  ]);
   const okeyPrototypeCanDrawTile = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
     && okeyPrototypeSeatRackTiles.length === 14
@@ -11315,6 +11337,21 @@ function App() {
                         <p className="my-game-coming-prototype-turn-seat-list" role="status" aria-live="polite" aria-atomic="true">
                           Aktif Koltuklar: {okeyPrototypeActiveTurnSeats.map((seatNo) => `K${seatNo}`).join(", ")}
                         </p>
+                        <div className="my-game-coming-prototype-turn-order" aria-label="Sira akisi">
+                          {okeyPrototypeTurnQueue.map((entry) => (
+                            <span
+                              key={`okey-proto-turn-order-${entry.seatNo}`}
+                              className={`my-game-coming-prototype-turn-order-chip ${entry.current ? "current" : ""} ${entry.next ? "next" : ""}`}
+                              title={`K${entry.seatNo} | ${entry.role}`}
+                            >
+                              {entry.current ? "Simdi" : entry.next ? "Sonra" : "Bekle"}
+                              {" • "}
+                              K{entry.seatNo}
+                              {" • "}
+                              {entry.name}
+                            </span>
+                          ))}
+                        </div>
                         <p className="my-game-coming-prototype-turn-scoreboard" role="status" aria-live="polite" aria-atomic="true">
                           El Kazanci: {okeyPrototypeSeatScoreSummaryText} | Berabere: {okeyPrototypeDrawHandCount}
                         </p>
