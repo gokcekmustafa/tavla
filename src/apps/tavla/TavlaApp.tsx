@@ -372,6 +372,7 @@ type OkeyPrototypeScenarioKind = "opening" | "attach" | "finish" | "draw-end";
 type OkeyPrototypeRackSortMode = "color" | "value";
 type OkeyPrototypeAutoSortMode = "off" | OkeyPrototypeRackSortMode;
 type OkeyPrototypeBotDifficulty = "easy" | "normal" | "hard";
+type RoomPickerFilter = "all" | "fast" | "busy";
 type OkeyPrototypeDealState = {
   rackState: OkeyPrototypeRackState;
   wallTiles: OkeyPrototypeTile[];
@@ -3170,6 +3171,7 @@ function TavlaApp() {
   const [roomPickerLiveCounts, setRoomPickerLiveCounts] = useState<Record<string, LobbyRoomCounts>>({});
   const [lobbyRoomsBusy, setLobbyRoomsBusy] = useState(false);
   const [lobbyRoomsError, setLobbyRoomsError] = useState("");
+  const [roomPickerFilter, setRoomPickerFilter] = useState<RoomPickerFilter>("all");
   const [selectedGameId, setSelectedGameId] = useState<GameId>(
     () => readGameIdFromUrl() ?? loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID,
   );
@@ -4388,6 +4390,14 @@ function TavlaApp() {
       };
     });
   }, [lobbyRooms, roomPickerLiveCounts]);
+
+  const filteredRoomPickerRows = useMemo(() => {
+    if (roomPickerFilter === "all") return roomPickerRows;
+    if (roomPickerFilter === "fast") {
+      return roomPickerRows.filter((room) => room.activeTables <= 2 && room.seatedPlayers <= 12);
+    }
+    return roomPickerRows.filter((room) => room.activeTables >= 3 || room.seatedPlayers >= 13);
+  }, [roomPickerRows, roomPickerFilter]);
 
   useEffect(() => {
     const safeActiveLobbyId = sanitizeLobbyId(activeLobbyId) || DEFAULT_LOBBY_ID;
@@ -11418,6 +11428,11 @@ function TavlaApp() {
       {viewMode === "lobby" ? (
         <header className="my-topbar">
           <div className="my-topbar-left">
+            {!roomSession && showRoomPicker ? (
+              <button className="my-top-btn my-btn-member-alt" onClick={goToGameSelection}>
+                {activeDesign.texts.lobbyHome || "Ana Sayfa"}
+              </button>
+            ) : null}
             {!roomSession && !showGamePicker && !showRoomPicker ? (
               <>
                 <button
@@ -13098,10 +13113,27 @@ function TavlaApp() {
           <section className={`my-entry-page my-room-picker-page ${isTavlaSelectedGame ? "" : "my-room-picker-page-okey"}`}>
             <div className={`my-room-picker-topbar ${isTavlaSelectedGame ? "" : "my-room-picker-topbar-okey"}`}>
               <div className="my-room-picker-tabs">
-                <button className="my-room-picker-tab" type="button" onClick={goToGameSelection}>Anasayfa</button>
-                <button className="my-room-picker-tab active" type="button">Tum Odalar</button>
-                <button className="my-room-picker-tab" type="button" disabled>Hizli</button>
-                <button className="my-room-picker-tab" type="button" disabled>Kalabalik</button>
+                <button
+                  className={`my-room-picker-tab ${roomPickerFilter === "all" ? "active" : ""}`}
+                  type="button"
+                  onClick={() => setRoomPickerFilter("all")}
+                >
+                  Tum Odalar
+                </button>
+                <button
+                  className={`my-room-picker-tab ${roomPickerFilter === "fast" ? "active" : ""}`}
+                  type="button"
+                  onClick={() => setRoomPickerFilter("fast")}
+                >
+                  Hizli
+                </button>
+                <button
+                  className={`my-room-picker-tab ${roomPickerFilter === "busy" ? "active" : ""}`}
+                  type="button"
+                  onClick={() => setRoomPickerFilter("busy")}
+                >
+                  Kalabalik
+                </button>
               </div>
               <div className="my-room-picker-actions">
                 <button className="my-action-btn" type="button" onClick={onQuickPlay}>{activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}</button>
@@ -13116,7 +13148,7 @@ function TavlaApp() {
               </div>
             </div>
             <div className="my-room-picker-columns">
-              {roomPickerRows.map((room) => (
+              {filteredRoomPickerRows.map((room) => (
                 <button
                   key={room.id}
                   type="button"
