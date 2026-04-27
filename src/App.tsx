@@ -371,6 +371,7 @@ type OkeyPrototypeSeatOpenedState = Record<OkeyPrototypeSeatNo, boolean>;
 type OkeyPrototypeScenarioKind = "opening" | "attach" | "finish" | "draw-end";
 type OkeyPrototypeRackSortMode = "color" | "value";
 type OkeyPrototypeAutoSortMode = "off" | OkeyPrototypeRackSortMode;
+type OkeyPrototypeBotDifficulty = "easy" | "normal" | "hard";
 type OkeyPrototypeDealState = {
   rackState: OkeyPrototypeRackState;
   wallTiles: OkeyPrototypeTile[];
@@ -657,6 +658,91 @@ function sortOkeyPrototypeRackTiles(
     if (colorDiff !== 0) return colorDiff;
     return left.id.localeCompare(right.id);
   });
+}
+
+function getOkeyPrototypeTileUsefulnessScore(
+  tile: OkeyPrototypeTile,
+  rack: OkeyPrototypeTile[],
+  okeyTile: OkeyPrototypeTile | null = null,
+) {
+  if (rack.length === 0) return 0;
+  const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyTile);
+  let score = tileIsJoker ? 100 : 0;
+  if (tile.kind === "normal") {
+    const sameColorNeighbors = rack.filter((entry) => (
+      entry.id !== tile.id
+      && entry.kind === "normal"
+      && entry.color === tile.color
+    ));
+    sameColorNeighbors.forEach((entry) => {
+      const diff = Math.abs(entry.value - tile.value);
+      if (diff === 0) {
+        score += 2.2;
+        return;
+      }
+      if (diff === 1) {
+        score += 6.2;
+        return;
+      }
+      if (diff === 2) {
+        score += 3.4;
+      }
+    });
+    const sameValueCount = rack.filter((entry) => (
+      entry.id !== tile.id
+      && entry.kind === "normal"
+      && entry.value === tile.value
+      && entry.color !== tile.color
+    )).length;
+    score += sameValueCount * 4.7;
+    if (tile.value >= 11) score += 0.6;
+  } else {
+    score += 18;
+  }
+  return Number(score.toFixed(3));
+}
+
+function pickOkeyPrototypeBotDiscardTileId(
+  rack: OkeyPrototypeTile[],
+  okeyTile: OkeyPrototypeTile | null,
+  difficulty: OkeyPrototypeBotDifficulty,
+) {
+  if (rack.length === 0) return null;
+  const weighted = rack.map((tile) => ({
+    tile,
+    score: getOkeyPrototypeTileUsefulnessScore(tile, rack, okeyTile),
+  }));
+  if (difficulty === "easy") {
+    if (Math.random() < 0.55) {
+      return rack[Math.floor(Math.random() * rack.length)]?.id ?? null;
+    }
+    const sorted = weighted.slice().sort((left, right) => left.score - right.score);
+    return sorted[Math.floor(Math.random() * Math.min(4, sorted.length))]?.tile.id ?? sorted[0]?.tile.id ?? null;
+  }
+  const sorted = weighted.slice().sort((left, right) => {
+    if (left.score !== right.score) return left.score - right.score;
+    return right.tile.value - left.tile.value;
+  });
+  if (difficulty === "normal") {
+    return sorted[Math.floor(Math.random() * Math.min(2, sorted.length))]?.tile.id ?? sorted[0]?.tile.id ?? null;
+  }
+  return sorted[0]?.tile.id ?? null;
+}
+
+function shouldOkeyPrototypeBotDrawFromDiscard(
+  topDiscardTile: OkeyPrototypeTile | null,
+  rack: OkeyPrototypeTile[],
+  okeyTile: OkeyPrototypeTile | null,
+  difficulty: OkeyPrototypeBotDifficulty,
+) {
+  if (!topDiscardTile || rack.length === 0) return false;
+  if (difficulty === "easy") return Math.random() < 0.2;
+  if (difficulty === "normal") return Math.random() < 0.35;
+  const discardScore = getOkeyPrototypeTileUsefulnessScore(topDiscardTile, [...rack, topDiscardTile], okeyTile);
+  const weakestTileScore = rack.reduce((minScore, tile) => (
+    Math.min(minScore, getOkeyPrototypeTileUsefulnessScore(tile, rack, okeyTile))
+  ), Number.POSITIVE_INFINITY);
+  return discardScore >= weakestTileScore + 2.2;
 }
 
 function evaluateOkeyPrototypeMeldDraft(tiles: OkeyPrototypeTile[], okeyTile: OkeyPrototypeTile | null = null) {
@@ -3109,6 +3195,7 @@ function App() {
   const [okeyPrototypeTileScalePct, setOkeyPrototypeTileScalePct] = useState(() => loadOkeyPrototypeTileScalePctFromSession());
   const [okeyPrototypeAutoSortMode, setOkeyPrototypeAutoSortMode] = useState<OkeyPrototypeAutoSortMode>(() => loadOkeyPrototypeAutoSortModeFromSession());
   const [okeyPrototypeBotModeEnabled, setOkeyPrototypeBotModeEnabled] = useState(false);
+  const [okeyPrototypeBotDifficulty, setOkeyPrototypeBotDifficulty] = useState<OkeyPrototypeBotDifficulty>("normal");
   const [okeyPrototypeWinnerSeat, setOkeyPrototypeWinnerSeat] = useState<OkeyPrototypeSeatNo | null>(null);
   const [okeyPrototypeHandDrawn, setOkeyPrototypeHandDrawn] = useState(false);
   const [okeyPrototypeSeatHandWins, setOkeyPrototypeSeatHandWins] = useState<Record<OkeyPrototypeSeatNo, number>>(() => createDefaultOkeyPrototypeSeatWinState());
@@ -3788,16 +3875,34 @@ function App() {
     const turnSeat = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     if (turnSeat === okeyPrototypeLocalSeatNo) return;
     if (!okeyPrototypeActiveTurnSeats.includes(turnSeat)) return;
-    const delay = okeyPrototypeTurnPhase === "draw" ? 650 : 800;
+    const botDelayByDifficulty: Record<OkeyPrototypeBotDifficulty, { draw: number; discard: number }> = {
+      easy: { draw: 860, discard: 980 },
+      normal: { draw: 650, discard: 800 },
+      hard: { draw: 540, discard: 670 },
+    };
+    const delayConfig = botDelayByDifficulty[okeyPrototypeBotDifficulty] ?? botDelayByDifficulty.normal;
+    const delay = okeyPrototypeTurnPhase === "draw" ? delayConfig.draw : delayConfig.discard;
     const timer = window.setTimeout(() => {
       if (okeyPrototypeHandCompleted) return;
+      const botRack = okeyPrototypeRackState[turnSeat] ?? [];
       if (okeyPrototypeTurnPhase === "draw") {
-        if (okeyPrototypeCanDrawFromDiscard && (!okeyPrototypeCanDrawTile || Math.random() < 0.35)) {
+        const topDiscardTile = okeyPrototypeDiscardPile[0]?.tile ?? null;
+        const prefersDiscard = shouldOkeyPrototypeBotDrawFromDiscard(
+          topDiscardTile,
+          botRack,
+          okeyPrototypeOkeyTile,
+          okeyPrototypeBotDifficulty,
+        );
+        if (okeyPrototypeCanDrawFromDiscard && (!okeyPrototypeCanDrawTile || prefersDiscard)) {
           drawOkeyPrototypeTileFromDiscard();
           return;
         }
         if (okeyPrototypeCanDrawTile) {
           drawOkeyPrototypeTile();
+          return;
+        }
+        if (okeyPrototypeCanDrawFromDiscard) {
+          drawOkeyPrototypeTileFromDiscard();
         }
         return;
       }
@@ -3809,18 +3914,27 @@ function App() {
         appendOkeyPrototypeAction(`Bot K${turnSeat} acilis bariyerini gecti (prototip).`);
         return;
       }
-      discardOkeyPrototypeTile();
+      const forcedDiscardTileId = pickOkeyPrototypeBotDiscardTileId(
+        botRack,
+        okeyPrototypeOkeyTile,
+        okeyPrototypeBotDifficulty,
+      );
+      discardOkeyPrototypeTileWithForced(forcedDiscardTileId ?? undefined);
     }, delay);
     return () => window.clearTimeout(timer);
   }, [
     okeyPrototypeActiveTurnSeats,
+    okeyPrototypeBotDifficulty,
     okeyPrototypeBotModeEnabled,
     okeyPrototypeCanDrawFromDiscard,
     okeyPrototypeCanDrawTile,
+    okeyPrototypeDiscardPile,
     okeyPrototypeDiscardBlockedByOpening,
     okeyPrototypeHandCompleted,
     okeyPrototypeJoinedTable,
     okeyPrototypeLocalSeatNo,
+    okeyPrototypeOkeyTile,
+    okeyPrototypeRackState,
     okeyPrototypeSeatReservation,
     okeyPrototypeTurnPhase,
     okeyPrototypeTurnSeat,
@@ -6780,7 +6894,7 @@ function App() {
     );
   }
 
-  function discardOkeyPrototypeTile() {
+  function discardOkeyPrototypeTileWithForced(forcedTileId?: string) {
     if (okeyPrototypeHandCompleted) {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
       return;
@@ -6802,8 +6916,9 @@ function App() {
     }
     let droppedTile = currentRack[currentRack.length - 1];
     let nextRack = currentRack.slice(0, -1);
-    if (okeyPrototypeDiscardDraftTileId) {
-      const selectedIndex = currentRack.findIndex((tile) => tile.id === okeyPrototypeDiscardDraftTileId);
+    const selectedTileId = forcedTileId || okeyPrototypeDiscardDraftTileId;
+    if (selectedTileId) {
+      const selectedIndex = currentRack.findIndex((tile) => tile.id === selectedTileId);
       if (selectedIndex >= 0) {
         droppedTile = currentRack[selectedIndex];
         nextRack = currentRack.filter((_, index) => index !== selectedIndex);
@@ -6838,6 +6953,10 @@ function App() {
     appendOkeyPrototypeAction(
       `Tas atildi: Koltuk ${seatNo} (${formatOkeyPrototypeTile(droppedTile)}) -> Siradaki Koltuk ${next.nextSeat} (El ${next.nextRound})`,
     );
+  }
+
+  function discardOkeyPrototypeTile() {
+    discardOkeyPrototypeTileWithForced();
   }
 
   function resetOkeyPrototypeTurn() {
@@ -11923,13 +12042,32 @@ function App() {
                           >
                             {okeyPrototypeBotModeEnabled ? "Bot Modu: Acik" : "Bot Modu: Kapali"}
                           </button>
+                          <div className="my-game-coming-prototype-rack-bot-difficulty">
+                            <label htmlFor="okey-prototype-bot-difficulty-select">Bot Zorlugu</label>
+                            <select
+                              id="okey-prototype-bot-difficulty-select"
+                              value={okeyPrototypeBotDifficulty}
+                              onChange={(event) => {
+                                const rawValue = event.target.value;
+                                if (rawValue === "easy" || rawValue === "normal" || rawValue === "hard") {
+                                  setOkeyPrototypeBotDifficulty(rawValue);
+                                }
+                              }}
+                              disabled={!okeyPrototypeSeatReservation}
+                              aria-label="101 prototip bot zorlugu"
+                            >
+                              <option value="easy">Kolay</option>
+                              <option value="normal">Orta</option>
+                              <option value="hard">Zor</option>
+                            </select>
+                          </div>
                           <p role="status" aria-live="polite" aria-atomic="true">
                             {!okeyPrototypeSeatReservation
                               ? "Bot modu icin once masaya otur."
                               : okeyPrototypeIsBotTurn
                               ? `Bot K${okeyPrototypeTurnSeat} hamle yapiyor...`
                               : okeyPrototypeBotModeEnabled
-                              ? "Rakip koltuklar sira geldiginde otomatik oynar."
+                              ? `Rakip koltuklar sira geldiginde otomatik oynar. (Zorluk: ${okeyPrototypeBotDifficulty === "easy" ? "Kolay" : okeyPrototypeBotDifficulty === "hard" ? "Zor" : "Orta"})`
                               : "Bot testini acmak icin butonu kullan."}
                           </p>
                         </div>
