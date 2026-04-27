@@ -3180,6 +3180,22 @@ function App() {
     if (!okeyPrototypeSeatReservation) return null;
     return okeyPrototypeTableSketchRows.find((row) => row.id === okeyPrototypeSeatReservation.tableId) ?? null;
   }, [okeyPrototypeSeatReservation, okeyPrototypeTableSketchRows]);
+  const okeyPrototypeActiveTurnSeats = useMemo(() => {
+    if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) {
+      return [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
+    }
+    const occupiedSeatCount = Math.max(1, Math.min(4, okeyPrototypeJoinedTable.seated));
+    const seats = Array.from(
+      { length: occupiedSeatCount },
+      (_, index) => (index + 1) as OkeyPrototypeSeatNo,
+    );
+    const reservedSeatNo = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
+    if (!seats.includes(reservedSeatNo)) {
+      seats.push(reservedSeatNo);
+      seats.sort((left, right) => left - right);
+    }
+    return seats;
+  }, [okeyPrototypeJoinedTable, okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
   const okeyPrototypeSeatNoForRack = useMemo(() => {
     if (okeyPrototypeSeatReservation && okeyPrototypeJoinedTable) {
       return okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
@@ -3233,7 +3249,13 @@ function App() {
     seatNo,
     opened: okeyPrototypeSeatOpenedState[seatNo] ?? false,
   }));
-  const okeyPrototypeNextTurnSeat = okeyPrototypeTurnSeat === 4 ? 1 : (okeyPrototypeTurnSeat + 1) as 1 | 2 | 3 | 4;
+  const okeyPrototypeNextTurnSeat = useMemo(() => {
+    const seats = okeyPrototypeActiveTurnSeats;
+    if (seats.length === 0) return okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+    const currentIndex = seats.findIndex((seatNo) => seatNo === okeyPrototypeTurnSeat);
+    if (currentIndex < 0) return seats[0];
+    return seats[(currentIndex + 1) % seats.length] ?? seats[0];
+  }, [okeyPrototypeActiveTurnSeats, okeyPrototypeTurnSeat]);
   const okeyPrototypeCanDrawTile = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
     && okeyPrototypeSeatRackTiles.length === 14
@@ -6105,7 +6127,13 @@ function App() {
   }
 
   function moveOkeyPrototypeTurnToNextSeat() {
-    const nextSeat = (okeyPrototypeTurnSeat % 4 + 1) as 1 | 2 | 3 | 4;
+    const seats = okeyPrototypeActiveTurnSeats.length > 0
+      ? okeyPrototypeActiveTurnSeats
+      : [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
+    const currentIndex = seats.findIndex((seatNo) => seatNo === okeyPrototypeTurnSeat);
+    const safeCurrentIndex = currentIndex >= 0 ? currentIndex : 0;
+    const nextIndex = (safeCurrentIndex + 1) % seats.length;
+    const nextSeat = seats[nextIndex] ?? seats[0] ?? (okeyPrototypeTurnSeat as OkeyPrototypeSeatNo);
     setOkeyPrototypeTurnSeat(nextSeat);
     setOkeyPrototypeTurnPhase("draw");
     setOkeyPrototypeTurnLockedAfterMeld(false);
@@ -6113,7 +6141,7 @@ function App() {
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
     setOkeyPrototypeAttachTargetMeldId("");
-    if (nextSeat === 1) {
+    if (nextIndex === 0) {
       const nextRound = okeyPrototypeTurnRound + 1;
       setOkeyPrototypeTurnRound(nextRound);
       return { nextSeat, nextRound };
@@ -11010,6 +11038,9 @@ function App() {
                         </p>
                         <p className="my-game-coming-prototype-turn-open-status" role="status" aria-live="polite" aria-atomic="true">
                           El Durumu: Koltuk {okeyPrototypeTurnSeat} {okeyPrototypeCurrentSeatOpened ? "ACIK" : "KAPALI"}
+                        </p>
+                        <p className="my-game-coming-prototype-turn-seat-list" role="status" aria-live="polite" aria-atomic="true">
+                          Aktif Koltuklar: {okeyPrototypeActiveTurnSeats.map((seatNo) => `K${seatNo}`).join(", ")}
                         </p>
                         {!okeyPrototypeCurrentSeatOpened ? (
                           <p className="my-game-coming-prototype-turn-opening-points" role="status" aria-live="polite" aria-atomic="true">

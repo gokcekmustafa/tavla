@@ -1080,6 +1080,14 @@
   font-weight: 700;
 }
 
+.my-game-coming-prototype-turn-seat-list {
+  margin: 0;
+  color: #cfe8ff;
+  font-size: 0.69rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
 .my-game-coming-prototype-turn-opening-points {
   margin: 0;
   color: #ffeec2;
