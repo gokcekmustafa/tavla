@@ -3204,11 +3204,11 @@ function App() {
   const okeyPrototypeNextTurnSeat = okeyPrototypeTurnSeat === 4 ? 1 : (okeyPrototypeTurnSeat + 1) as 1 | 2 | 3 | 4;
   const okeyPrototypeCanDrawTile = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
-    && okeyPrototypeSeatRackTiles.length < 15
+    && okeyPrototypeSeatRackTiles.length === 14
     && okeyPrototypeDrawPileRemaining > 0;
   const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
-    && okeyPrototypeSeatRackTiles.length < 15
+    && okeyPrototypeSeatRackTiles.length === 14
     && okeyPrototypeDiscardPile.length > 0;
   const okeyPrototypeCanDiscardTile = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
@@ -3442,6 +3442,21 @@ function App() {
     if (exists) return;
     setOkeyPrototypeAttachTargetMeldId("");
   }, [okeyPrototypeAttachTargetMeldId, okeyPrototypeOpenedMelds]);
+
+  useEffect(() => {
+    if (okeyPrototypeHandCompleted) return;
+    if (!okeyPrototypeCanAdvanceTurn) return;
+    if (okeyPrototypeTurnPhase !== "draw") return;
+    if (okeyPrototypeDrawPileRemaining > 0 || okeyPrototypeDiscardPile.length > 0) return;
+    setOkeyPrototypeHandDrawn(true);
+    appendOkeyPrototypeAction("El berabere bitti: Ortada ve kapali destede tas kalmadi.");
+  }, [
+    okeyPrototypeCanAdvanceTurn,
+    okeyPrototypeDiscardPile.length,
+    okeyPrototypeDrawPileRemaining,
+    okeyPrototypeHandCompleted,
+    okeyPrototypeTurnPhase,
+  ]);
 
   useEffect(() => {
     const currentLobbyId = sanitizeLobbyId(activeLobbyId);
@@ -6257,8 +6272,8 @@ function App() {
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     const currentRack = okeyPrototypeRackState[seatNo] ?? [];
-    if (currentRack.length >= 15) {
-      appendOkeyPrototypeAction("Gecersiz hamle: Bu koltuk zaten 15 tasa ulasmis.");
+    if (currentRack.length !== 14) {
+      appendOkeyPrototypeAction(`Gecersiz hamle: Tas cekmek icin rafta 14 tas olmali (su an ${currentRack.length}).`);
       return;
     }
     const tile = topWallTile ?? buildOkeyPrototypeDrawTile(seatNo, currentRack.length);
@@ -6297,8 +6312,8 @@ function App() {
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     const currentRack = okeyPrototypeRackState[seatNo] ?? [];
-    if (currentRack.length >= 15) {
-      appendOkeyPrototypeAction("Gecersiz hamle: Bu koltuk zaten 15 tasa ulasmis.");
+    if (currentRack.length !== 14) {
+      appendOkeyPrototypeAction(`Gecersiz hamle: Ortadan tas almak icin rafta 14 tas olmali (su an ${currentRack.length}).`);
       return;
     }
     const tile = {
@@ -6372,37 +6387,6 @@ function App() {
     appendOkeyPrototypeAction(
       `Tas atildi: Koltuk ${seatNo} (${formatOkeyPrototypeTile(droppedTile)}) -> Siradaki Koltuk ${next.nextSeat} (El ${next.nextRound})`,
     );
-  }
-
-  function advanceOkeyPrototypeTurn() {
-    if (okeyPrototypeHandCompleted) {
-      appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
-      return;
-    }
-    if (!okeyPrototypeCanAdvanceTurn) return;
-    if (okeyPrototypeTurnLockedAfterMeld) {
-      appendOkeyPrototypeAction("Tur kilidi aktif: Per actiktan sonra tasi atmadan tur devredemezsin.");
-      return;
-    }
-    if (okeyPrototypeTurnPhase !== "draw") {
-      appendOkeyPrototypeAction("Gecersiz hamle: Tur devri icin once tas atmalisin.");
-      return;
-    }
-    if (okeyPrototypeCanDrawTile || okeyPrototypeCanDrawFromDiscard) {
-      appendOkeyPrototypeAction("Gecersiz hamle: Tur devri icin once tas cekmelisin.");
-      return;
-    }
-    if (okeyPrototypeDrawPileRemaining <= 0 && okeyPrototypeDiscardPile.length === 0) {
-      setOkeyPrototypeHandDrawn(true);
-      appendOkeyPrototypeAction("El berabere bitti: Ortada ve kapali destede tas kalmadi.");
-      return;
-    }
-    if (okeyPrototypeSeatRackTiles.length !== 14) {
-      appendOkeyPrototypeAction(`Gecersiz hamle: Tur devri icin rafta 14 tas olmali (su an ${okeyPrototypeSeatRackTiles.length}).`);
-      return;
-    }
-    const next = moveOkeyPrototypeTurnToNextSeat();
-    appendOkeyPrototypeAction(`Tur manuel ilerletildi: Koltuk ${next.nextSeat} (El ${next.nextRound})`);
   }
 
   function resetOkeyPrototypeTurn() {
@@ -10889,15 +10873,6 @@ function App() {
                             aria-describedby="okey-prototype-turn-status"
                           >
                             Tas At (Prototip)
-                          </button>
-                          <button
-                            type="button"
-                            className="my-action-btn soft"
-                            onClick={advanceOkeyPrototypeTurn}
-                            disabled={!okeyPrototypeCanAdvanceTurn || okeyPrototypeTurnPhase !== "draw" || okeyPrototypeSeatRackTiles.length !== 14}
-                            aria-describedby="okey-prototype-turn-status"
-                          >
-                            Turu Ilerle (Prototip)
                           </button>
                           <button
                             type="button"
