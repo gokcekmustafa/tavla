@@ -490,6 +490,7 @@
 }
 
 .my-game-coming-room-shell {
+  --okey-proto-tile-scale: 1;
   margin-top: 10px;
   border-radius: 8px;
   border: 1px solid rgba(36, 132, 161, 0.72);
@@ -1332,10 +1333,10 @@
 }
 
 .my-game-coming-prototype-board-center-pile-btn .my-game-coming-prototype-rack-tile {
-  min-width: 20px;
-  height: 20px;
-  font-size: 0.66rem;
-  padding: 0 5px;
+  min-width: calc(20px * var(--okey-proto-tile-scale, 1));
+  height: calc(20px * var(--okey-proto-tile-scale, 1));
+  font-size: calc(0.66rem * var(--okey-proto-tile-scale, 1));
+  padding: 0 calc(5px * var(--okey-proto-tile-scale, 1));
 }
 
 .my-game-coming-prototype-board-center-melds {
@@ -1397,10 +1398,10 @@
 }
 
 .my-game-coming-prototype-board-center-meld-btn-tiles .my-game-coming-prototype-rack-tile {
-  min-width: 18px;
-  height: 18px;
-  font-size: 0.63rem;
-  padding: 0 4px;
+  min-width: calc(18px * var(--okey-proto-tile-scale, 1));
+  height: calc(18px * var(--okey-proto-tile-scale, 1));
+  font-size: calc(0.63rem * var(--okey-proto-tile-scale, 1));
+  padding: 0 calc(4px * var(--okey-proto-tile-scale, 1));
 }
 
 @keyframes my-game-prototype-board-suggest-pulse {
@@ -1498,6 +1499,32 @@
   font-weight: 700;
 }
 
+.my-game-coming-prototype-rack-scale {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.my-game-coming-prototype-rack-scale label {
+  color: #d9eefb;
+  font-size: 0.69rem;
+  font-weight: 700;
+}
+
+.my-game-coming-prototype-rack-scale input[type="range"] {
+  width: 100%;
+  accent-color: #8fd9ff;
+}
+
+.my-game-coming-prototype-rack-scale span {
+  color: #fff1c7;
+  font-size: 0.69rem;
+  font-weight: 700;
+  min-width: 34px;
+  text-align: right;
+}
+
 .my-game-coming-prototype-rack-seat-summary {
   display: flex;
   flex-wrap: wrap;
@@ -1523,18 +1550,18 @@
 
 .my-game-coming-prototype-rack-tile {
   appearance: none;
-  min-width: 22px;
-  height: 22px;
+  min-width: calc(22px * var(--okey-proto-tile-scale, 1));
+  height: calc(22px * var(--okey-proto-tile-scale, 1));
   border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.71rem;
+  font-size: calc(0.71rem * var(--okey-proto-tile-scale, 1));
   font-weight: 700;
   color: #fff;
   cursor: pointer;
-  padding: 0 6px;
+  padding: 0 calc(6px * var(--okey-proto-tile-scale, 1));
 }
 
 .my-game-coming-prototype-rack-tile:disabled {

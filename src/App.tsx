@@ -3060,6 +3060,7 @@ function App() {
   const [okeyPrototypeAttachTargetMeldId, setOkeyPrototypeAttachTargetMeldId] = useState("");
   const [okeyPrototypeDealSeedDraft, setOkeyPrototypeDealSeedDraft] = useState(() => String(Date.now()));
   const [okeyPrototypeBoardMaskOthers, setOkeyPrototypeBoardMaskOthers] = useState(true);
+  const [okeyPrototypeTileScalePct, setOkeyPrototypeTileScalePct] = useState(100);
   const [okeyPrototypeWinnerSeat, setOkeyPrototypeWinnerSeat] = useState<OkeyPrototypeSeatNo | null>(null);
   const [okeyPrototypeHandDrawn, setOkeyPrototypeHandDrawn] = useState(false);
   const [okeyPrototypeSeatHandWins, setOkeyPrototypeSeatHandWins] = useState<Record<OkeyPrototypeSeatNo, number>>(() => createDefaultOkeyPrototypeSeatWinState());
@@ -3341,6 +3342,7 @@ function App() {
   const okeyPrototypeSeatScoreSummaryText = OKEY_PROTOTYPE_SEATS
     .map((seatNo) => `K${seatNo}: ${okeyPrototypeSeatHandWins[seatNo] ?? 0}`)
     .join(" | ");
+  const okeyPrototypeTileScale = Math.max(85, Math.min(130, okeyPrototypeTileScalePct)) / 100;
   const okeyPrototypeNextTurnSeat = useMemo(() => {
     const seats = okeyPrototypeActiveTurnSeats;
     if (seats.length === 0) return okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
@@ -10797,7 +10799,10 @@ function App() {
               </div>
             </div>
             {okeyPrototypeRoomSketchOpen ? (
-              <section className="my-game-coming-room-shell">
+              <section
+                className="my-game-coming-room-shell"
+                style={{ "--okey-proto-tile-scale": String(okeyPrototypeTileScale) } as CSSProperties}
+              >
                 <div className="my-game-coming-room-head">
                   <h3>101 Oda Taslagi</h3>
                   <span>Izole Prototip</span>
@@ -11608,6 +11613,24 @@ function App() {
                         <div className="my-game-coming-prototype-rack-head">
                           <strong>Tas Dizilimi (Prototip)</strong>
                           <span>Koltuk {okeyPrototypeSeatNoForRack}: {okeyPrototypeSeatRackTiles.length} tas</span>
+                        </div>
+                        <div className="my-game-coming-prototype-rack-scale">
+                          <label htmlFor="okey-prototype-scale-range">Tas Boyutu</label>
+                          <input
+                            id="okey-prototype-scale-range"
+                            type="range"
+                            min={85}
+                            max={130}
+                            step={5}
+                            value={okeyPrototypeTileScalePct}
+                            onChange={(e) => {
+                              const parsed = Number.parseInt(e.target.value, 10);
+                              if (!Number.isFinite(parsed)) return;
+                              setOkeyPrototypeTileScalePct(parsed);
+                            }}
+                            aria-label="101 prototip tas boyutu"
+                          />
+                          <span>%{okeyPrototypeTileScalePct}</span>
                         </div>
                         <div className="my-game-coming-prototype-rack-seat-summary" role="status" aria-live="polite" aria-atomic="true">
                           {okeyPrototypeRackSeatSummaries.map((item) => (
