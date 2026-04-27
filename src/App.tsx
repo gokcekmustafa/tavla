@@ -9743,6 +9743,8 @@ function App() {
                           className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
                           onClick={() => jumpOkeyPrototypeTableSelection("first")}
                           disabled={okeyPrototypeSelectedTableIndex <= 0}
+                          title="Ilk masaya git"
+                          aria-label="Ilk masaya git"
                         >
                           Ilk Masa
                         </button>
@@ -9751,6 +9753,8 @@ function App() {
                           className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
                           onClick={() => moveOkeyPrototypeTableSelection(-1)}
                           disabled={okeyPrototypeSelectedTableIndex <= 0}
+                          title="Onceki masaya git"
+                          aria-label="Onceki masaya git"
                         >
                           Onceki Masa
                         </button>
@@ -9759,6 +9763,8 @@ function App() {
                           className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
                           onClick={() => moveOkeyPrototypeTableSelection(1)}
                           disabled={okeyPrototypeSelectedTableIndex < 0 || okeyPrototypeSelectedTableIndex >= okeyPrototypeVisibleTableSketchRows.length - 1}
+                          title="Sonraki masaya git"
+                          aria-label="Sonraki masaya git"
                         >
                           Sonraki Masa
                         </button>
@@ -9767,6 +9773,8 @@ function App() {
                           className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
                           onClick={pickRandomOkeyPrototypeTable}
                           disabled={okeyPrototypeVisibleTableSketchRows.length < 2}
+                          title="Rastgele masa sec"
+                          aria-label="Rastgele masa sec"
                         >
                           Rastgele Masa
                         </button>
@@ -9775,6 +9783,8 @@ function App() {
                           className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
                           onClick={pickRandomOkeyPrototypeFreeSeatTable}
                           disabled={okeyPrototypeRandomFreeSeatTableCandidates.length === 0}
+                          title="Rastgele bos koltuklu masa sec"
+                          aria-label="Rastgele bos koltuklu masa sec"
                         >
                           Rastgele Bos
                         </button>
@@ -9783,6 +9793,8 @@ function App() {
                           className="my-action-btn soft my-game-coming-table-sketch-nav-btn"
                           onClick={() => jumpOkeyPrototypeTableSelection("last")}
                           disabled={okeyPrototypeSelectedTableIndex < 0 || okeyPrototypeSelectedTableIndex >= okeyPrototypeVisibleTableSketchRows.length - 1}
+                          title="Son masaya git"
+                          aria-label="Son masaya git"
                         >
                           Son Masa
                         </button>
