@@ -13106,6 +13106,11 @@ function TavlaApp() {
               </div>
               <div className="my-room-picker-actions">
                 <button className="my-action-btn" type="button" onClick={onQuickPlay}>{activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}</button>
+                {isTavlaSelectedGame ? (
+                  <button className="my-action-btn soft" type="button" onClick={startBotGame}>
+                    {activeDesign.texts.lobbyBotMode || "Bota Karsi"}
+                  </button>
+                ) : null}
                 <button className="my-action-btn soft" type="button" onClick={() => void loadLobbyRoomsFromService()} disabled={lobbyRoomsBusy}>
                   {lobbyRoomsBusy ? "Yukleniyor..." : "Listeyi Yenile"}
                 </button>
@@ -13150,9 +13155,6 @@ function TavlaApp() {
                   </button>
                   <button className="my-top-btn my-btn-play" onClick={onQuickPlay} style={{ order: lobbyHeaderActionOrder.indexOf("quickPlay") }}>
                     {activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}
-                  </button>
-                  <button className="my-top-btn my-btn-bot" onClick={startBotGame}>
-                    {activeDesign.texts.lobbyBotMode || "Bota Karsi"}
                   </button>
                 </div>
               ) : null}
