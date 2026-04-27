@@ -72,6 +72,7 @@ const checks = [
       && hasApp("className=\"my-game-coming-table-sketch-search-row\"")
       && hasApp("className=\"my-game-coming-table-sketch-search-input\"")
       && hasApp("maxLength={2}")
+      && hasApp("title=\"Masa numarasina gore arama yapar\"")
       && hasApp("aria-describedby=\"okey-prototype-table-search-meta\"")
       && hasApp("onKeyDown={(e) => {")
       && hasApp("if (e.key !== \"Enter\") return;")

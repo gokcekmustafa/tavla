@@ -9645,6 +9645,7 @@ function App() {
                           placeholder="Masa No (or. 3)"
                           inputMode="numeric"
                           maxLength={2}
+                          title="Masa numarasina gore arama yapar"
                           aria-describedby="okey-prototype-table-search-meta"
                         />
                         <button
