@@ -424,6 +424,7 @@ const MEMBER_SESSION_KEY = "tavla.member.session.v1";
 const ACTIVE_LOBBY_ID_KEY = "tavla.active.lobby.id.v1";
 const ROOM_PICKER_SESSION_KEY = "tavla.room.picker.session.v1";
 const GAME_SELECTION_SESSION_KEY = "tavla.game.selection.session.v1";
+const ROOT_GAME_CHOICE_KEY = "tavla.root.selected.game.v1";
 const OKEY_PROTOTYPE_TILE_SCALE_SESSION_KEY = "tavla.okey.prototype.tile.scale.pct.v1";
 const OKEY_PROTOTYPE_AUTO_SORT_SESSION_KEY = "tavla.okey.prototype.auto.sort.mode.v1";
 const LEAVE_NOTICE_REJECT_PREFIX = "LEAVE_REJECT|";
@@ -2728,6 +2729,8 @@ function loadSelectedGameIdFromSession(): GameId | null {
   if (typeof window === "undefined") return null;
   const raw = safeStorageGetItem(window.sessionStorage, GAME_SELECTION_SESSION_KEY);
   if (raw === "tavla" || raw === "okey101") return raw;
+  const rootRaw = safeStorageGetItem(window.sessionStorage, ROOT_GAME_CHOICE_KEY);
+  if (rootRaw === "tavla" || rootRaw === "okey101") return rootRaw;
   return null;
 }
 
@@ -3167,7 +3170,9 @@ function TavlaApp() {
   const [roomPickerLiveCounts, setRoomPickerLiveCounts] = useState<Record<string, LobbyRoomCounts>>({});
   const [lobbyRoomsBusy, setLobbyRoomsBusy] = useState(false);
   const [lobbyRoomsError, setLobbyRoomsError] = useState("");
-  const [selectedGameId, setSelectedGameId] = useState<GameId>("tavla");
+  const [selectedGameId, setSelectedGameId] = useState<GameId>(
+    () => readGameIdFromUrl() ?? loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID,
+  );
   const [gamePickerOpen, setGamePickerOpen] = useState<boolean>(() => {
     const entryScreen = readEntryScreenFromUrl();
     if (entryScreen === "game") return true;
@@ -3324,13 +3329,9 @@ function TavlaApp() {
   const [okeyPrototypeDrawHandCount, setOkeyPrototypeDrawHandCount] = useState(0);
   const [okeyPrototypeLastHandSummary, setOkeyPrototypeLastHandSummary] = useState("");
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
-  const canAccessOkeyPrototype = false;
+  const canAccessOkeyPrototype = true;
   const effectiveSelectedGameId: GameId = selectedGameId;
   const isTavlaSelectedGame = effectiveSelectedGameId === "tavla";
-  useEffect(() => {
-    if (selectedGameId === "tavla") return;
-    setSelectedGameId("tavla");
-  }, [selectedGameId]);
   const okeyPrototypeRoomStatsById = useMemo(() => {
     return OKEY_PROTOTYPE_ROOMS.reduce<Record<string, { activeTables: number; players: number }>>((acc, room) => {
       const roomTables = okeyPrototypeTablesByRoom[room.id] ?? [];
@@ -7837,20 +7838,18 @@ function TavlaApp() {
   }
 
   function onSelectGame(gameId: GameId) {
-    if (gameId !== "tavla") {
-      setSelectedGameId("tavla");
-      saveSelectedGameIdToSession("tavla");
-      setLobbyNotice("Bu uygulama sadece Tavla icin aciktir.");
+    if (gameId === "okey101" && !canAccessOkeyPrototype) {
+      setLobbyNotice("101 Okey su anda kullanima acik degil.");
       return;
     }
-    setSelectedGameId("tavla");
-    saveSelectedGameIdToSession("tavla");
-    setOkeyPrototypeRoomSketchOpen(false);
+    setSelectedGameId(gameId);
+    saveSelectedGameIdToSession(gameId);
+    setOkeyPrototypeRoomSketchOpen(gameId === "okey101");
     setGamePickerOpen(false);
     setRoomPickerOpen(true);
     setViewMode("lobby");
-    setLobbyNotice("Oda secerek oyuna devam et.");
-    pushEntryScreenHistory("room", "tavla");
+    setLobbyNotice(gameId === "tavla" ? "Oda secerek oyuna devam et." : "101 odalari listelendi.");
+    pushEntryScreenHistory("room", gameId);
   }
 
   function goToGameSelection() {

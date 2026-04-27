@@ -3301,6 +3301,10 @@
   background: linear-gradient(180deg, #5f8655, #47653f);
 }
 
+.my-action-btn.my-btn-bot {
+  background: linear-gradient(180deg, #8f52bf, #6b3497);
+}
+
 .my-action-btn.danger {
   background: linear-gradient(180deg, #d54b33, #a9301c);
 }
