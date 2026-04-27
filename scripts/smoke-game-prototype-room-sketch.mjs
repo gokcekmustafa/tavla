@@ -127,6 +127,7 @@ const checks = [
       && hasApp("Aktif filtre yok.")
       && hasApp("onClick={() => clearOkeyPrototypeFilterChip(filter.key, filter.label)}")
       && hasApp("className=\"my-game-coming-table-sketch-selected\"")
+      && hasApp("className=\"my-game-coming-table-sketch-selected\" aria-live=\"polite\" role=\"status\"")
       && hasApp("className=\"my-game-coming-table-sketch-nav\"")
       && hasApp("className=\"my-game-coming-table-sketch-nav-indicator\"")
       && hasApp("{okeyPrototypeSelectedTablePosition}/{okeyPrototypeVisibleTableSketchRows.length}")

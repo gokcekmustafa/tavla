@@ -9729,7 +9729,7 @@ function App() {
                       <p className="my-game-coming-table-sketch-filter-empty">Aktif filtre yok.</p>
                     )}
                     {okeyPrototypeSelectedTable ? (
-                      <p className="my-game-coming-table-sketch-selected">
+                      <p className="my-game-coming-table-sketch-selected" aria-live="polite" role="status">
                         Secili Masa: {okeyPrototypeSelectedTable.tableNo} | Durum: {okeyPrototypeSelectedTable.active ? "Aktif" : "Bekliyor"} | Dolu Koltuk: {okeyPrototypeSelectedTable.seated}/4
                       </p>
                     ) : null}
