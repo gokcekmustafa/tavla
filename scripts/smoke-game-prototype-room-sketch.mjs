@@ -194,6 +194,8 @@ const checks = [
       && hasApp("Filtreleri Temizle ve Tekrar Dene")
       && hasApp("okeyPrototypeVisibleTableSketchRows.map((row) => (")
       && hasApp("className={`my-game-coming-table-sketch-card ${row.active ? \"active\" : \"waiting\"} ${okeyPrototypeSelectedTableId === row.id ? \"selected\" : \"\"}`}")
+      && hasApp("title={`Masa ${row.tableNo}, durum ${row.active ? \"aktif\" : \"bekliyor\"}, dolu koltuk ${row.seated}/4`}")
+      && hasApp("aria-label={`Masa ${row.tableNo}, durum ${row.active ? \"aktif\" : \"bekliyor\"}, dolu koltuk ${row.seated}/4`}")
       && hasApp("appendOkeyPrototypeAction(`Masa secildi: ${row.tableNo}`);"),
   },
   {
