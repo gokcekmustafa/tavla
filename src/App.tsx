@@ -9644,6 +9644,7 @@ function App() {
                           }}
                           placeholder="Masa No (or. 3)"
                           inputMode="numeric"
+                          pattern="[0-9]*"
                           enterKeyHint="search"
                           autoComplete="off"
                           maxLength={2}
