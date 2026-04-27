@@ -1607,6 +1607,35 @@
   color: #fff2ca;
 }
 
+.my-game-coming-prototype-rack-autosort {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.my-game-coming-prototype-rack-autosort label {
+  color: #d9eefb;
+  font-size: 0.69rem;
+  font-weight: 700;
+}
+
+.my-game-coming-prototype-rack-autosort select {
+  min-height: 28px;
+  border-radius: 7px;
+  border: 1px solid rgba(90, 180, 208, 0.64);
+  background: rgba(8, 84, 106, 0.56);
+  color: #e2f4ff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0 8px;
+}
+
+.my-game-coming-prototype-rack-autosort select:focus-visible {
+  outline: 2px solid rgba(152, 219, 244, 0.82);
+  outline-offset: 1px;
+}
+
 .my-game-coming-prototype-rack-seat-summary {
   display: flex;
   flex-wrap: wrap;

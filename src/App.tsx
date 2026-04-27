@@ -370,6 +370,7 @@ type OkeyPrototypeMeldEntry = {
 type OkeyPrototypeSeatOpenedState = Record<OkeyPrototypeSeatNo, boolean>;
 type OkeyPrototypeScenarioKind = "opening" | "attach" | "finish" | "draw-end";
 type OkeyPrototypeRackSortMode = "color" | "value";
+type OkeyPrototypeAutoSortMode = "off" | OkeyPrototypeRackSortMode;
 type OkeyPrototypeDealState = {
   rackState: OkeyPrototypeRackState;
   wallTiles: OkeyPrototypeTile[];
@@ -3093,6 +3094,7 @@ function App() {
   const [okeyPrototypeDealSeedDraft, setOkeyPrototypeDealSeedDraft] = useState(() => String(Date.now()));
   const [okeyPrototypeBoardMaskOthers, setOkeyPrototypeBoardMaskOthers] = useState(true);
   const [okeyPrototypeTileScalePct, setOkeyPrototypeTileScalePct] = useState(() => loadOkeyPrototypeTileScalePctFromSession());
+  const [okeyPrototypeAutoSortMode, setOkeyPrototypeAutoSortMode] = useState<OkeyPrototypeAutoSortMode>("off");
   const [okeyPrototypeWinnerSeat, setOkeyPrototypeWinnerSeat] = useState<OkeyPrototypeSeatNo | null>(null);
   const [okeyPrototypeHandDrawn, setOkeyPrototypeHandDrawn] = useState(false);
   const [okeyPrototypeSeatHandWins, setOkeyPrototypeSeatHandWins] = useState<Record<OkeyPrototypeSeatNo, number>>(() => createDefaultOkeyPrototypeSeatWinState());
@@ -6615,7 +6617,11 @@ function App() {
     setOkeyPrototypeWallTiles((current) => current.slice(1));
     setOkeyPrototypeRackState((current) => ({
       ...current,
-      [seatNo]: [...(current[seatNo] ?? []), tile],
+      [seatNo]: (() => {
+        const nextRack = [...(current[seatNo] ?? []), tile];
+        if (okeyPrototypeAutoSortMode === "off") return nextRack;
+        return sortOkeyPrototypeRackTiles(nextRack, okeyPrototypeAutoSortMode, okeyPrototypeOkeyTile);
+      })(),
     }));
     setOkeyPrototypeTurnPhase("discard");
     setOkeyPrototypeDiscardDraftTileId(tile.id);
@@ -6662,7 +6668,11 @@ function App() {
     setOkeyPrototypeDiscardPile((current) => current.slice(1));
     setOkeyPrototypeRackState((current) => ({
       ...current,
-      [seatNo]: [...(current[seatNo] ?? []), tile],
+      [seatNo]: (() => {
+        const nextRack = [...(current[seatNo] ?? []), tile];
+        if (okeyPrototypeAutoSortMode === "off") return nextRack;
+        return sortOkeyPrototypeRackTiles(nextRack, okeyPrototypeAutoSortMode, okeyPrototypeOkeyTile);
+      })(),
     }));
     setOkeyPrototypeTurnPhase("discard");
     setOkeyPrototypeDiscardDraftTileId(tile.id);
@@ -11787,6 +11797,24 @@ function App() {
                           >
                             Buyuk (%115)
                           </button>
+                        </div>
+                        <div className="my-game-coming-prototype-rack-autosort">
+                          <label htmlFor="okey-prototype-autosort-select">Otomatik Sirala</label>
+                          <select
+                            id="okey-prototype-autosort-select"
+                            value={okeyPrototypeAutoSortMode}
+                            onChange={(e) => {
+                              const nextValue = e.target.value === "color" || e.target.value === "value"
+                                ? e.target.value
+                                : "off";
+                              setOkeyPrototypeAutoSortMode(nextValue);
+                            }}
+                            aria-label="101 prototip otomatik siralama secimi"
+                          >
+                            <option value="off">Kapali</option>
+                            <option value="color">Renk Sirasi</option>
+                            <option value="value">Deger Sirasi</option>
+                          </select>
                         </div>
                         <div className="my-game-coming-prototype-rack-seat-summary" role="status" aria-live="polite" aria-atomic="true">
                           {okeyPrototypeRackSeatSummaries.map((item) => (
