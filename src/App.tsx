@@ -9935,7 +9935,7 @@ function App() {
                           Temizle
                         </button>
                       </div>
-                      <div className="my-game-coming-prototype-log-list">
+                      <div className="my-game-coming-prototype-log-list" role="log" aria-live="polite" aria-relevant="additions text">
                         {okeyPrototypeActionLog.length === 0 ? (
                           <p className="my-game-coming-prototype-log-empty">Henuz kayitli prototip aksiyonu yok.</p>
                         ) : (
