@@ -3392,6 +3392,10 @@ function App() {
     okeyPrototypeVisibleTableSketchRows.find((row) => row.id === okeyPrototypeSelectedTableId)
     ?? okeyPrototypeVisibleTableSketchRows[0]
     ?? null;
+  const okeyPrototypeLobbyRows = useMemo(() => {
+    const reservedTableId = okeyPrototypeSeatReservation?.tableId ?? "";
+    return okeyPrototypeVisibleTableSketchRows.filter((row) => row.active || row.id === reservedTableId);
+  }, [okeyPrototypeSeatReservation?.tableId, okeyPrototypeVisibleTableSketchRows]);
   const okeyPrototypeSelectedTableIndex = useMemo(() => {
     if (!okeyPrototypeSelectedTable) return -1;
     return okeyPrototypeVisibleTableSketchRows.findIndex((row) => row.id === okeyPrototypeSelectedTable.id);
@@ -5661,8 +5665,37 @@ function App() {
   // if (!guardTavlaOnlyAction()) return;
 
   function onOpenTable() {
-    if (selectedGameId !== "tavla" && !canAccessOkeyPrototype) return;
-    const openGameView = selectedGameId === "tavla";
+    if (selectedGameId !== "tavla") {
+      if (!canAccessOkeyPrototype) return;
+      const hasExistingReservation = Boolean(okeyPrototypeSeatReservation);
+      const targetTable = hasExistingReservation
+        ? (
+          okeyPrototypeVisibleTableSketchRows.find((row) => row.id === okeyPrototypeSeatReservation?.tableId)
+          ?? okeyPrototypeSelectedTable
+          ?? okeyPrototypeVisibleTableSketchRows[0]
+          ?? null
+        )
+        : (
+          okeyPrototypeVisibleTableSketchRows.find((row) => !row.active || row.seated < 4)
+          ?? okeyPrototypeVisibleTableSketchRows[0]
+          ?? null
+        );
+      if (!targetTable) {
+        setLobbyNotice("Bu odada masa bulunamadi.");
+        return;
+      }
+      const targetSeat = hasExistingReservation
+        ? Math.max(1, Math.min(4, okeyPrototypeSeatReservation?.seatNo ?? okeyPrototypeSeatDraft))
+        : (
+          okeyPrototypeAvailableSeatNos[0]
+          ?? okeyPrototypeSeatDraft
+          ?? 1
+        );
+      reserveOkeyPrototypeSeat(targetTable, targetSeat, "Masaya oturuldu");
+      setLobbyNotice(`Masa ${targetTable.tableNo} açıldı. Oyuncular bekleniyor.`);
+      return;
+    }
+    const openGameView = true;
     const latest = getCurrentLobbyState();
     const existing = findSessionSeat(latest.tables, appSessionId);
     if (existing) {
@@ -5683,8 +5716,44 @@ function App() {
   }
 
   function onQuickPlay() {
-    if (selectedGameId !== "tavla" && !canAccessOkeyPrototype) return;
-    const openGameView = selectedGameId === "tavla";
+    if (selectedGameId !== "tavla") {
+      if (!canAccessOkeyPrototype) return;
+      const hasExistingReservation = Boolean(okeyPrototypeSeatReservation);
+      const targetTable = hasExistingReservation
+        ? (
+          okeyPrototypeVisibleTableSketchRows.find((row) => row.id === okeyPrototypeSeatReservation?.tableId)
+          ?? okeyPrototypeSelectedTable
+          ?? okeyPrototypeVisibleTableSketchRows[0]
+          ?? null
+        )
+        : (
+          okeyPrototypeVisibleTableSketchRows
+            .filter((row) => row.seated < 4)
+            .sort((left, right) => {
+              if (right.seated !== left.seated) return right.seated - left.seated;
+              if (left.active !== right.active) return left.active ? -1 : 1;
+              return left.tableNo - right.tableNo;
+            })[0]
+          ?? null
+        );
+      if (!targetTable) {
+        setLobbyNotice("Bos koltuklu masa bulunamadi.");
+        return;
+      }
+      const occupiedSeatNos = Array.from(
+        { length: Math.max(0, Math.min(4, targetTable.seated)) },
+        (_, index) => index + 1,
+      );
+      const targetSeat = hasExistingReservation
+        ? Math.max(1, Math.min(4, okeyPrototypeSeatReservation?.seatNo ?? okeyPrototypeSeatDraft))
+        : (
+          ([1, 2, 3, 4].find((seatNo) => !occupiedSeatNos.includes(seatNo)) ?? okeyPrototypeSeatDraft ?? 1)
+        );
+      reserveOkeyPrototypeSeat(targetTable, targetSeat, "Hizli oturuldu");
+      setLobbyNotice(`Masa ${targetTable.tableNo} bulundu. Koltuk ${targetSeat} için oturdun.`);
+      return;
+    }
+    const openGameView = true;
     const latest = getCurrentLobbyState();
     const existing = findSessionSeat(latest.tables, appSessionId);
     if (existing) {
@@ -9172,6 +9241,40 @@ function App() {
         </div>
       </div>
     );
+  }
+
+  function getOkeyLobbyOccupiedSeatNos(row: { id: string; seated: number }) {
+    const occupiedSeatCount = Math.max(0, Math.min(4, row.seated));
+    const occupiedSeatNos = Array.from({ length: occupiedSeatCount }, (_, index) => index + 1);
+    if (okeyPrototypeSeatReservation?.tableId === row.id) {
+      const mySeatNo = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo));
+      if (!occupiedSeatNos.includes(mySeatNo)) {
+        occupiedSeatNos.push(mySeatNo);
+      }
+    }
+    return occupiedSeatNos.sort((left, right) => left - right);
+  }
+
+  function getOkeyLobbySeatProfile(row: { id: string; tableNo: number }, seatNo: OkeyPrototypeSeatNo) {
+    const isMine = okeyPrototypeSeatReservation?.tableId === row.id && okeyPrototypeSeatReservation.seatNo === seatNo;
+    if (isMine) {
+      return {
+        mine: true,
+        displayName: currentProfile.displayName,
+        gender: currentProfile.gender,
+        avatarId: currentProfile.avatarId,
+      };
+    }
+    const seed = hashOkeyPrototypeText(`${row.id}:${seatNo}:lobby-seat`);
+    const randomName = OKEY_PROTOTYPE_OPPONENT_NAMES[seed % OKEY_PROTOTYPE_OPPONENT_NAMES.length] ?? "Misafir";
+    const avatarId = AVATAR_PRESETS[seed % AVATAR_PRESETS.length]?.id ?? DEFAULT_AVATAR_BY_GENDER.unknown;
+    const gender = AVATAR_PRESET_BY_ID[avatarId]?.gender ?? "unknown";
+    return {
+      mine: false,
+      displayName: `${randomName}_${(seed % 89) + 11}`,
+      gender,
+      avatarId,
+    };
   }
 
   async function handleLegacyMatchFinished(message: LegacyMatchFinishedMessage) {
@@ -12838,107 +12941,171 @@ function App() {
             ) : null}
 
             <div className={`my-lobby-table-zone ${isTavlaSelectedGame ? "" : "my-lobby-table-zone-okey"}`}>
-              {openedTables.length === 0 ? (
-                <div className="my-empty-state my-empty-state-lobby">
-                  <p className="my-empty-state-sub my-empty-state-sub-link">
-                    <button type="button" className="my-empty-state-action-btn" onClick={onOpenTable}>Masa Aç</button>
-                    {" "}butonu ile ilk masayı açabilirsin.
-                  </p>
-                  <p className="my-empty-state-title">Henüz açık masa yok.</p>
-                  <p className="my-empty-state-sub"><span className="my-empty-state-action">Masa Aç</span> butonu ile ilk masayı açabilirsin.</p>
-                </div>
+              {isTavlaSelectedGame ? (
+                openedTables.length === 0 ? (
+                  <div className="my-empty-state my-empty-state-lobby">
+                    <p className="my-empty-state-sub my-empty-state-sub-link">
+                      <button type="button" className="my-empty-state-action-btn" onClick={onOpenTable}>Masa Aç</button>
+                      {" "}butonu ile ilk masayı açabilirsin.
+                    </p>
+                    <p className="my-empty-state-title">Henüz açık masa yok.</p>
+                    <p className="my-empty-state-sub"><span className="my-empty-state-action">Masa Aç</span> butonu ile ilk masayı açabilirsin.</p>
+                  </div>
+                ) : (
+                  <div className="my-table-grid">
+                    {openedTables.map((table) => {
+                      const status = tableStatus(table);
+                      const tableHasOpenSeat = Boolean(getOpenSeat(table));
+                      const tableOwnerName =
+                        (table.white?.userId === table.ownerUserId ? table.white.displayName : null)
+                        ?? (table.black?.userId === table.ownerUserId ? table.black.displayName : null)
+                        ?? "Masa Sahibi";
+                      const isOwnerHere = isTableOwnerForUser(table, currentProfile.userId);
+                      const mySeatHere: Seat | null =
+                        table.white?.sessionId === appSessionId
+                          ? "white"
+                          : table.black?.sessionId === appSessionId
+                            ? "black"
+                            : null;
+                      const canWatchTable = !table.isPrivate && !mySeatHere && !myCurrentSeat && Boolean(table.white || table.black);
+                      const showWatchEye = !table.isPrivate;
+                      const canAdminClose = isAdmin;
+
+                      return (
+                        <article key={table.id} className={`my-table-card ${status} ${isTavlaSelectedGame ? "" : "my-table-card-okey"}`}>
+                          <button
+                            className="my-watch-eye-btn"
+                            onClick={() => watchTableAsSpectator(table)}
+                            disabled={!canWatchTable}
+                            title={canWatchTable ? "Masayı izleyici olarak aç" : table.isPrivate ? "Özel masalar izleyiciye kapalı" : "İzlemek için masada oturmamalısın"}
+                            style={showWatchEye ? undefined : { display: "none" }}
+                            aria-label="Masayı izle"
+                          >
+                            👁
+                          </button>
+                          <div className="my-table-card-head">
+                            <strong>Masa {table.id}</strong>
+                            <span className="my-table-status">
+                              {status === "full" ? "Dolu" : status === "waiting" ? "Bekliyor" : "Bos"}
+                            </span>
+                          </div>
+                          <div className="my-table-meta-row">
+                            <span>Sahip: {tableOwnerName}</span>
+                            {table.isPrivate ? <span className="my-private-badge">Özel</span> : null}
+                          </div>
+
+                          <div className="my-table-board">
+                            <div className="my-seat-slot white">{seatCell(table, "white")}</div>
+                            <div className="my-board-mid">{table.id}</div>
+                            <div className="my-seat-slot black">{seatCell(table, "black")}</div>
+                          </div>
+                          <div className="my-table-seat-names">
+                            <span>Beyaz: {table.white?.displayName ?? "-"}</span>
+                            <span>Siyah: {table.black?.displayName ?? "-"}</span>
+                          </div>
+
+                          <div className="my-table-footer">
+                            <span className="my-table-code">Kod: {table.roomCode}</span>
+                            {mySeatHere || canAdminClose ? (
+                              <div className="my-mini-actions">
+                                {mySeatHere && isTavlaSelectedGame ? (
+                                  <button className="my-action-btn" onClick={() => goToTable(table, mySeatHere)}>
+                                    Masaya Git
+                                  </button>
+                                ) : null}
+                                {mySeatHere && isOwnerHere ? (
+                                  <button
+                                    className="my-action-btn soft"
+                                    onClick={() => openInvitePicker(table)}
+                                    disabled={!tableHasOpenSeat}
+                                    title={tableHasOpenSeat ? "Oyuncu davet et" : "Masa dolu olduğu için davet kapalı"}
+                                  >
+                                    Davet Et
+                                  </button>
+                                ) : null}
+                                {mySeatHere && isOwnerHere ? (
+                                  <button
+                                    className={`my-action-btn ${table.isPrivate ? "" : "soft"}`}
+                                    onClick={() => setTablePrivateMode(table.id, !table.isPrivate)}
+                                  >
+                                    {table.isPrivate ? "Özeli Kapat" : "Özel Yap"}
+                                  </button>
+                                ) : null}
+                                {canAdminClose ? (
+                                  <button className="my-action-btn danger" onClick={() => adminCloseTable(table.id)}>
+                                    Masayı Kapat
+                                  </button>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )
               ) : (
-                <div className="my-table-grid">
-                  {openedTables.map((table) => {
-                    const status = tableStatus(table);
-                    const tableHasOpenSeat = Boolean(getOpenSeat(table));
-                    const tableOwnerName =
-                      (table.white?.userId === table.ownerUserId ? table.white.displayName : null)
-                      ?? (table.black?.userId === table.ownerUserId ? table.black.displayName : null)
-                      ?? "Masa Sahibi";
-                    const isOwnerHere = isTableOwnerForUser(table, currentProfile.userId);
-                    const mySeatHere: Seat | null =
-                      table.white?.sessionId === appSessionId
-                        ? "white"
-                        : table.black?.sessionId === appSessionId
-                          ? "black"
-                          : null;
-                    const canWatchTable = !table.isPrivate && !mySeatHere && !myCurrentSeat && Boolean(table.white || table.black);
-                    const showWatchEye = !table.isPrivate;
-                    const canAdminClose = isAdmin;
-
-                    return (
-                      <article key={table.id} className={`my-table-card ${status} ${isTavlaSelectedGame ? "" : "my-table-card-okey"}`}>
-                        <button
-                          className="my-watch-eye-btn"
-                          onClick={() => watchTableAsSpectator(table)}
-                          disabled={!canWatchTable}
-                          title={canWatchTable ? "Masayı izleyici olarak aç" : table.isPrivate ? "Özel masalar izleyiciye kapalı" : "İzlemek için masada oturmamalısın"}
-                          style={showWatchEye ? undefined : { display: "none" }}
-                          aria-label="Masayı izle"
-                        >
-                          👁
-                        </button>
-                        <div className="my-table-card-head">
-                          <strong>Masa {table.id}</strong>
-                          <span className="my-table-status">
-                            {status === "full" ? "Dolu" : status === "waiting" ? "Bekliyor" : "Bos"}
-                          </span>
-                        </div>
-                        <div className="my-table-meta-row">
-                          <span>Sahip: {tableOwnerName}</span>
-                          {table.isPrivate ? <span className="my-private-badge">Özel</span> : null}
-                        </div>
-
-                        <div className="my-table-board">
-                          <div className="my-seat-slot white">{seatCell(table, "white")}</div>
-                          <div className="my-board-mid">{table.id}</div>
-                          <div className="my-seat-slot black">{seatCell(table, "black")}</div>
-                        </div>
-                        <div className="my-table-seat-names">
-                          <span>Beyaz: {table.white?.displayName ?? "-"}</span>
-                          <span>Siyah: {table.black?.displayName ?? "-"}</span>
-                        </div>
-
-                        <div className="my-table-footer">
-                          <span className="my-table-code">Kod: {table.roomCode}</span>
-                          {mySeatHere || canAdminClose ? (
-                            <div className="my-mini-actions">
-                              {mySeatHere && isTavlaSelectedGame ? (
-                                <button className="my-action-btn" onClick={() => goToTable(table, mySeatHere)}>
-                                  Masaya Git
-                                </button>
-                              ) : null}
-                              {mySeatHere && isOwnerHere ? (
-                                <button
-                                  className="my-action-btn soft"
-                                  onClick={() => openInvitePicker(table)}
-                                  disabled={!tableHasOpenSeat}
-                                  title={tableHasOpenSeat ? "Oyuncu davet et" : "Masa dolu olduğu için davet kapalı"}
-                                >
-                                  Davet Et
-                                </button>
-                              ) : null}
-                              {mySeatHere && isOwnerHere ? (
-                                <button
-                                  className={`my-action-btn ${table.isPrivate ? "" : "soft"}`}
-                                  onClick={() => setTablePrivateMode(table.id, !table.isPrivate)}
-                                >
-                                  {table.isPrivate ? "Özeli Kapat" : "Özel Yap"}
-                                </button>
-                              ) : null}
-                              {canAdminClose ? (
-                                <button className="my-action-btn danger" onClick={() => adminCloseTable(table.id)}>
-                                  Masayı Kapat
-                                </button>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
+                okeyPrototypeLobbyRows.length === 0 ? (
+                  <div className="my-empty-state my-empty-state-lobby">
+                    <p className="my-empty-state-title">Henüz açık masa yok.</p>
+                    <p className="my-empty-state-sub">
+                      <span className="my-empty-state-action">Yeni Masa Aç</span> ile ilk 101 masasını açabilirsin.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="my-okey-lobby-grid">
+                    {okeyPrototypeLobbyRows.map((row) => {
+                      const occupiedSeatNos = getOkeyLobbyOccupiedSeatNos(row);
+                      const mySeatNo = okeyPrototypeSeatReservation?.tableId === row.id
+                        ? Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo))
+                        : null;
+                      const seatLockedByOtherTable = Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatReservation.tableId !== row.id);
+                      return (
+                        <article key={`okey-lobby-table-${row.id}`} className={`my-okey-lobby-card ${row.active ? "active" : "waiting"} ${mySeatNo ? "mine" : ""}`}>
+                          <div className="my-okey-lobby-card-head">
+                            <strong>Masa {row.tableNo}</strong>
+                            <span>{row.active ? "Açık" : "Bekliyor"}</span>
+                          </div>
+                          <div className="my-okey-lobby-board">
+                            {OKEY_PROTOTYPE_SEATS.map((seatNo) => {
+                              const occupied = occupiedSeatNos.includes(seatNo);
+                              const seatProfile = occupied ? getOkeyLobbySeatProfile(row, seatNo) : null;
+                              const seatMine = mySeatNo === seatNo;
+                              return (
+                                <div key={`okey-lobby-seat-${row.id}-${seatNo}`} className={`my-okey-lobby-seat seat-${seatNo} ${occupied ? "occupied" : "empty"} ${seatMine ? "mine" : ""}`}>
+                                  {occupied && seatProfile ? (
+                                    <div className="my-okey-lobby-seat-occupant">
+                                      <AvatarBadge avatarId={seatProfile.avatarId} gender={seatProfile.gender} size="sm" />
+                                      <span title={seatProfile.displayName}>{seatProfile.displayName}</span>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="my-otur-btn my-okey-otur-btn"
+                                      onClick={() => {
+                                        reserveOkeyPrototypeSeat(row, seatNo, "Masaya oturuldu");
+                                        setLobbyNotice(`Masa ${row.tableNo} / Koltuk ${seatNo} seçildi.`);
+                                      }}
+                                      disabled={seatLockedByOtherTable}
+                                      title={seatLockedByOtherTable ? "Önce mevcut 101 masandan ayrılmalısın." : `Masa ${row.tableNo}, Koltuk ${seatNo}`}
+                                    >
+                                      OTUR
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            <div className="my-okey-lobby-center">{row.tableNo}</div>
+                          </div>
+                          <div className="my-okey-lobby-card-foot">
+                            <span>{occupiedSeatNos.length}/4 Dolu</span>
+                            <span>OP: {Math.max(1, Math.ceil(occupiedSeatNos.length / 2))}</span>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )
               )}
             </div>
 

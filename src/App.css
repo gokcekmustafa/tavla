@@ -2401,6 +2401,167 @@
   gap: 6px;
 }
 
+.my-okey-lobby-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+  gap: 9px;
+  min-height: 100%;
+  align-content: start;
+}
+
+.my-okey-lobby-card {
+  border-radius: 11px;
+  border: 2px solid rgba(7, 84, 108, 0.86);
+  background: linear-gradient(180deg, #edc75b, #d39d2c 70%, #c2871f);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 238, 181, 0.65),
+    0 2px 6px rgba(16, 33, 40, 0.24);
+  padding: 7px 7px 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.my-okey-lobby-card.waiting {
+  box-shadow:
+    inset 0 0 0 2px rgba(78, 195, 246, 0.46),
+    0 2px 6px rgba(16, 33, 40, 0.24);
+}
+
+.my-okey-lobby-card.active {
+  box-shadow:
+    inset 0 0 0 2px rgba(74, 186, 105, 0.5),
+    0 2px 6px rgba(16, 33, 40, 0.24);
+}
+
+.my-okey-lobby-card.mine {
+  border-color: rgba(41, 130, 67, 0.92);
+}
+
+.my-okey-lobby-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #2d1f05;
+  font-weight: 900;
+  min-height: 22px;
+  line-height: 1;
+  font-size: 0.86rem;
+}
+
+.my-okey-lobby-card-head span {
+  font-size: 0.72rem;
+  background: rgba(255, 251, 232, 0.74);
+  border-radius: 999px;
+  border: 1px solid rgba(108, 74, 12, 0.38);
+  padding: 2px 7px;
+}
+
+.my-okey-lobby-board {
+  position: relative;
+  min-height: 132px;
+  border-radius: 9px;
+  border: 2px solid rgba(97, 76, 35, 0.8);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(247, 241, 215, 0.94), rgba(225, 205, 156, 0.9) 57%, rgba(197, 154, 82, 0.84) 100%),
+    linear-gradient(90deg, rgba(246, 236, 205, 0.94), rgba(227, 202, 150, 0.9));
+  box-shadow: inset 0 1px 0 rgba(255, 241, 202, 0.74);
+}
+
+.my-okey-lobby-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  border: 3px solid rgba(95, 57, 16, 0.8);
+  background:
+    radial-gradient(circle at 30% 28%, rgba(208, 145, 81, 0.95), rgba(123, 75, 28, 0.96) 55%, rgba(85, 48, 17, 0.98) 100%);
+  color: #f4e6bf;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 1.5rem;
+  text-shadow: 0 1px 0 rgba(58, 32, 9, 0.8);
+}
+
+.my-okey-lobby-seat {
+  position: absolute;
+  width: 78px;
+  min-height: 54px;
+  display: grid;
+  place-items: center;
+}
+
+.my-okey-lobby-seat.seat-1 {
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.my-okey-lobby-seat.seat-2 {
+  top: 50%;
+  left: 5px;
+  transform: translateY(-50%);
+}
+
+.my-okey-lobby-seat.seat-3 {
+  top: 50%;
+  right: 5px;
+  transform: translateY(-50%);
+}
+
+.my-okey-lobby-seat.seat-4 {
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.my-okey-lobby-seat.occupied.mine .my-okey-lobby-seat-occupant {
+  box-shadow: 0 0 0 2px rgba(43, 151, 90, 0.72);
+}
+
+.my-okey-lobby-seat-occupant {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  border-radius: 8px;
+  padding: 2px 3px;
+  background: rgba(24, 24, 24, 0.16);
+}
+
+.my-okey-lobby-seat-occupant span {
+  display: block;
+  max-width: 72px;
+  color: #2f2207;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.my-okey-otur-btn {
+  min-height: 31px;
+  min-width: 72px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  padding: 0 8px;
+}
+
+.my-okey-lobby-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #2f2208;
+  font-weight: 900;
+  font-size: 0.8rem;
+}
+
 .my-lobby-controls {
   display: grid;
   grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr) 180px minmax(190px, 1fr);
@@ -4814,6 +4975,15 @@
 
   .my-table-grid {
     grid-template-columns: 1fr;
+  }
+
+  .my-okey-lobby-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .my-okey-lobby-seat {
+    width: 74px;
+    min-height: 50px;
   }
 
   .my-game-frame iframe {
