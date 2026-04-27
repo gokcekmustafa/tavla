@@ -192,6 +192,8 @@ const checks = [
       && hasApp("Henuz kayitli prototip aksiyonu yok.")
       && hasApp("className=\"my-game-coming-table-sketch-grid\"")
       && hasApp("id=\"okey-prototype-table-sketch-grid\"")
+      && hasApp("role=\"region\"")
+      && hasApp("aria-label={`Masa kart listesi. Gorunen masa: ${okeyPrototypeVisibleTableSketchRows.length}`}")
       && hasApp("className=\"my-game-coming-table-sketch-empty-state\"")
       && hasApp("Aramaya uygun masa bulunamadi.")
       && hasApp("title=\"Filtreleri temizleyip masa listesini yeniler\"")

@@ -9948,7 +9948,12 @@ function App() {
                         )}
                       </div>
                     </div>
-                    <div id="okey-prototype-table-sketch-grid" className="my-game-coming-table-sketch-grid">
+                    <div
+                      id="okey-prototype-table-sketch-grid"
+                      className="my-game-coming-table-sketch-grid"
+                      role="region"
+                      aria-label={`Masa kart listesi. Gorunen masa: ${okeyPrototypeVisibleTableSketchRows.length}`}
+                    >
                       {okeyPrototypeVisibleTableSketchRows.length === 0 ? (
                         <div className="my-game-coming-table-sketch-empty-state">
                           <p className="my-game-coming-table-sketch-empty">Aramaya uygun masa bulunamadi.</p>
