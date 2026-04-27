@@ -457,6 +457,7 @@ const OKEY_PROTOTYPE_ROOMS = [
   { id: "okey-4", name: "Akdeniz", activeTables: 1, players: 5, level: "Baslangic" },
 ] as const;
 const OKEY_PROTOTYPE_TOTAL_TILE_COUNT = 106;
+const OKEY_PROTOTYPE_OPENING_TARGET_POINTS = 101;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = [1, 2, 3, 4];
 const OKEY_PROTOTYPE_TILE_COLORS: readonly OkeyPrototypeTileColor[] = ["kirmizi", "mavi", "sari", "siyah"];
 
@@ -506,6 +507,10 @@ function evaluateOkeyPrototypeMeldDraft(tiles: OkeyPrototypeTile[]) {
     }
   }
   return { valid: true, kind: "seri" as OkeyPrototypeMeldKind, reason: "" };
+}
+
+function getOkeyPrototypeMeldPoints(tiles: OkeyPrototypeTile[]) {
+  return tiles.reduce((sum, tile) => sum + tile.value, 0);
 }
 
 function createDefaultOkeyPrototypeSeatOpenedState(): OkeyPrototypeSeatOpenedState {
@@ -2757,6 +2762,7 @@ function App() {
   const [okeyPrototypeTurnRound, setOkeyPrototypeTurnRound] = useState(1);
   const [okeyPrototypeTurnPhase, setOkeyPrototypeTurnPhase] = useState<OkeyPrototypeTurnPhase>("draw");
   const [okeyPrototypeTurnLockedAfterMeld, setOkeyPrototypeTurnLockedAfterMeld] = useState(false);
+  const [okeyPrototypeTurnOpeningPoints, setOkeyPrototypeTurnOpeningPoints] = useState(0);
   const [okeyPrototypeSeatOpenedState, setOkeyPrototypeSeatOpenedState] = useState<OkeyPrototypeSeatOpenedState>(() => createDefaultOkeyPrototypeSeatOpenedState());
   const [okeyPrototypeRackState, setOkeyPrototypeRackState] = useState<OkeyPrototypeRackState>(() => createOkeyPrototypeRackState());
   const [okeyPrototypeDiscardPile, setOkeyPrototypeDiscardPile] = useState<OkeyPrototypeDiscardEntry[]>([]);
@@ -2953,6 +2959,9 @@ function App() {
   const okeyPrototypeDrawPileRemaining = Math.max(0, OKEY_PROTOTYPE_TOTAL_TILE_COUNT - (okeyPrototypeRackTileCount + okeyPrototypeDiscardPile.length));
   const okeyPrototypeCanAdvanceTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable);
   const okeyPrototypeCurrentSeatOpened = okeyPrototypeSeatOpenedState[okeyPrototypeTurnSeat as OkeyPrototypeSeatNo] ?? false;
+  const okeyPrototypeOpeningRemainingPoints = Math.max(0, OKEY_PROTOTYPE_OPENING_TARGET_POINTS - okeyPrototypeTurnOpeningPoints);
+  const okeyPrototypeDiscardBlockedByOpening = !okeyPrototypeCurrentSeatOpened
+    && okeyPrototypeTurnOpeningPoints < OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
   const okeyPrototypeSeatOpenedSummary = OKEY_PROTOTYPE_SEATS.map((seatNo) => ({
     seatNo,
     opened: okeyPrototypeSeatOpenedState[seatNo] ?? false,
@@ -2962,7 +2971,10 @@ function App() {
     && okeyPrototypeTurnPhase === "draw"
     && okeyPrototypeSeatRackTiles.length < 15
     && okeyPrototypeDrawPileRemaining > 0;
-  const okeyPrototypeCanDiscardTile = okeyPrototypeCanAdvanceTurn && okeyPrototypeTurnPhase === "discard" && okeyPrototypeSeatRackTiles.length > 0;
+  const okeyPrototypeCanDiscardTile = okeyPrototypeCanAdvanceTurn
+    && okeyPrototypeTurnPhase === "discard"
+    && okeyPrototypeSeatRackTiles.length > 0
+    && !okeyPrototypeDiscardBlockedByOpening;
   const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
   const [roomChatUnread, setRoomChatUnread] = useState(0);
   const [adminQuery, setAdminQuery] = useState("");
@@ -5752,6 +5764,7 @@ function App() {
     setOkeyPrototypeTurnSeat(nextSeat);
     setOkeyPrototypeTurnPhase("draw");
     setOkeyPrototypeTurnLockedAfterMeld(false);
+    setOkeyPrototypeTurnOpeningPoints(0);
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
     if (nextSeat === 1) {
@@ -5818,6 +5831,7 @@ function App() {
       return;
     }
     const selectedIds = new Set(okeyPrototypeMeldDraftTiles.map((tile) => tile.id));
+    const meldPoints = getOkeyPrototypeMeldPoints(okeyPrototypeMeldDraftTiles);
     setOkeyPrototypeRackState((current) => ({
       ...current,
       [seatNo]: (current[seatNo] ?? []).filter((tile) => !selectedIds.has(tile.id)),
@@ -5834,11 +5848,17 @@ function App() {
     setOkeyPrototypeMeldDraftTileIds([]);
     setOkeyPrototypeTurnLockedAfterMeld(true);
     if (!okeyPrototypeSeatOpenedState[seatNo]) {
-      setOkeyPrototypeSeatOpenedState((current) => ({
-        ...current,
-        [seatNo]: true,
-      }));
-      appendOkeyPrototypeAction(`El acildi: Koltuk ${seatNo}`);
+      const nextOpeningPoints = okeyPrototypeTurnOpeningPoints + meldPoints;
+      setOkeyPrototypeTurnOpeningPoints(nextOpeningPoints);
+      if (nextOpeningPoints >= OKEY_PROTOTYPE_OPENING_TARGET_POINTS) {
+        setOkeyPrototypeSeatOpenedState((current) => ({
+          ...current,
+          [seatNo]: true,
+        }));
+        appendOkeyPrototypeAction(`El acildi: Koltuk ${seatNo} (${nextOpeningPoints}/${OKEY_PROTOTYPE_OPENING_TARGET_POINTS})`);
+      } else {
+        appendOkeyPrototypeAction(`Acilis puani: ${nextOpeningPoints}/${OKEY_PROTOTYPE_OPENING_TARGET_POINTS}`);
+      }
     }
     appendOkeyPrototypeAction(`Per acildi: ${validation.kind} (${meldEntry.tiles.map((tile) => `${tile.color}-${tile.value}`).join(", ")})`);
   }
@@ -5874,6 +5894,10 @@ function App() {
 
   function discardOkeyPrototypeTile() {
     if (!okeyPrototypeCanAdvanceTurn) return;
+    if (okeyPrototypeDiscardBlockedByOpening) {
+      appendOkeyPrototypeAction(`Gecersiz hamle: Once ${okeyPrototypeOpeningRemainingPoints} puan daha acilis peri acmalisin.`);
+      return;
+    }
     if (okeyPrototypeTurnPhase !== "discard") {
       appendOkeyPrototypeAction("Gecersiz hamle: Once tas cekmelisin.");
       return;
@@ -5938,6 +5962,7 @@ function App() {
     setOkeyPrototypeTurnRound(1);
     setOkeyPrototypeTurnPhase("draw");
     setOkeyPrototypeTurnLockedAfterMeld(false);
+    setOkeyPrototypeTurnOpeningPoints(0);
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
     setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
@@ -5949,6 +5974,7 @@ function App() {
     setOkeyPrototypeRackState(createOkeyPrototypeRackState(seed));
     setOkeyPrototypeDiscardPile([]);
     setOkeyPrototypeTurnLockedAfterMeld(false);
+    setOkeyPrototypeTurnOpeningPoints(0);
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
     setOkeyPrototypeOpenedMelds([]);
@@ -10281,6 +10307,7 @@ function App() {
                             setOkeyPrototypeTurnRound(1);
                             setOkeyPrototypeTurnPhase("draw");
                             setOkeyPrototypeTurnLockedAfterMeld(false);
+                            setOkeyPrototypeTurnOpeningPoints(0);
                             setOkeyPrototypeDiscardPile([]);
                             setOkeyPrototypeDiscardDraftTileId("");
                             setOkeyPrototypeMeldDraftTileIds([]);
@@ -10305,6 +10332,7 @@ function App() {
                             setOkeyPrototypeTurnRound(1);
                             setOkeyPrototypeTurnPhase("draw");
                             setOkeyPrototypeTurnLockedAfterMeld(false);
+                            setOkeyPrototypeTurnOpeningPoints(0);
                             setOkeyPrototypeDiscardPile([]);
                             setOkeyPrototypeDiscardDraftTileId("");
                             setOkeyPrototypeMeldDraftTileIds([]);
@@ -10338,6 +10366,11 @@ function App() {
                         <p className="my-game-coming-prototype-turn-open-status" role="status" aria-live="polite" aria-atomic="true">
                           El Durumu: Koltuk {okeyPrototypeTurnSeat} {okeyPrototypeCurrentSeatOpened ? "ACIK" : "KAPALI"}
                         </p>
+                        {!okeyPrototypeCurrentSeatOpened ? (
+                          <p className="my-game-coming-prototype-turn-opening-points" role="status" aria-live="polite" aria-atomic="true">
+                            Acilis Puani: {okeyPrototypeTurnOpeningPoints}/{OKEY_PROTOTYPE_OPENING_TARGET_POINTS}
+                          </p>
+                        ) : null}
                         <p
                           id="okey-prototype-turn-status"
                           className="my-game-coming-prototype-turn-status"
@@ -10430,6 +10463,11 @@ function App() {
                               : "Atilacak tasi rafdan sec.")
                             : "Tas secimi icin once Tas Cek adimini tamamla."}
                         </p>
+                        {okeyPrototypeDiscardBlockedByOpening ? (
+                          <p className="my-game-coming-prototype-rack-opening-warning" role="status" aria-live="polite" aria-atomic="true">
+                            Tas atmak icin once {okeyPrototypeOpeningRemainingPoints} puan daha acilis peri acmalisin.
+                          </p>
+                        ) : null}
                         <p className="my-game-coming-prototype-meld-draft-status" role="status" aria-live="polite" aria-atomic="true">
                           {okeyPrototypeMeldDraftTiles.length === 0
                             ? "Per taslagi: henuz secim yok."

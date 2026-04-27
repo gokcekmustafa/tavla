@@ -1072,6 +1072,14 @@
   font-weight: 700;
 }
 
+.my-game-coming-prototype-turn-opening-points {
+  margin: 0;
+  color: #ffeec2;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
 .my-game-coming-prototype-turn-lock {
   margin: 0;
   color: #ffd3b0;
@@ -1200,6 +1208,14 @@
   color: #d6edf8;
   font-size: 0.71rem;
   line-height: 1.22;
+}
+
+.my-game-coming-prototype-rack-opening-warning {
+  margin: 0;
+  color: #ffd4b2;
+  font-size: 0.7rem;
+  line-height: 1.22;
+  font-weight: 700;
 }
 
 .my-game-coming-prototype-meld-draft-status {
