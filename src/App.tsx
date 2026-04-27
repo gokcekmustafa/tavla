@@ -10906,20 +10906,25 @@ function App() {
                         </div>
                         <div className="my-game-coming-prototype-rack-tiles" aria-label={`Koltuk ${okeyPrototypeSeatNoForRack} tas dizilimi`}>
                           {okeyPrototypeSeatRackTiles.map((tile) => (
+                            (() => {
+                              const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+                              return (
                             <button
                               key={tile.id}
                               type="button"
-                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""}`}
+                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""}`}
                               onClick={() => {
                                 selectOkeyPrototypeDiscardDraft(tile.id);
                                 toggleOkeyPrototypeMeldDraftTile(tile.id);
                               }}
                               disabled={!okeyPrototypeCanDiscardTile}
                               aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
-                              title={formatOkeyPrototypeTile(tile)}
+                              title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
                             >
                               {renderOkeyPrototypeTileFace(tile)}
                             </button>
+                              );
+                            })()
                           ))}
                         </div>
                         <p className="my-game-coming-prototype-rack-discard-status" role="status" aria-live="polite" aria-atomic="true">
@@ -11007,9 +11012,17 @@ function App() {
                             <span className="my-game-coming-prototype-discard-empty">Tas atildikca burada gorunecek.</span>
                           ) : (
                             okeyPrototypeDiscardPreview.map((entry) => (
-                              <span key={entry.id} className={`my-game-coming-prototype-rack-tile tile-${entry.tile.color}`}>
-                                {renderOkeyPrototypeTileFace(entry.tile)}
-                              </span>
+                              (() => {
+                                const tileIsJoker = isOkeyPrototypeJokerTile(entry.tile, okeyPrototypeOkeyTile);
+                                return (
+                                  <span
+                                    key={entry.id}
+                                    className={`my-game-coming-prototype-rack-tile tile-${entry.tile.color} ${tileIsJoker ? "joker-tile" : ""}`}
+                                  >
+                                    {renderOkeyPrototypeTileFace(entry.tile)}
+                                  </span>
+                                );
+                              })()
                             ))
                           )}
                         </div>
@@ -11048,9 +11061,17 @@ function App() {
                                 </header>
                                 <div className="my-game-coming-prototype-meld-item-tiles">
                                   {meld.tiles.map((tile) => (
-                                  <span key={`${meld.id}-${tile.id}`} className={`my-game-coming-prototype-rack-tile tile-${tile.color}`}>
-                                      {renderOkeyPrototypeTileFace(tile)}
-                                    </span>
+                                    (() => {
+                                      const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+                                      return (
+                                        <span
+                                          key={`${meld.id}-${tile.id}`}
+                                          className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${tileIsJoker ? "joker-tile" : ""}`}
+                                        >
+                                          {renderOkeyPrototypeTileFace(tile)}
+                                        </span>
+                                      );
+                                    })()
                                   ))}
                                 </div>
                               </article>

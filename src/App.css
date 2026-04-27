@@ -1195,6 +1195,11 @@
   box-shadow: 0 0 0 1px rgba(134, 212, 160, 0.34) inset;
 }
 
+.my-game-coming-prototype-rack-tile.joker-tile {
+  border-color: rgba(255, 234, 160, 0.96);
+  box-shadow: 0 0 0 1px rgba(252, 221, 131, 0.4) inset;
+}
+
 .my-game-coming-prototype-rack-tile.tile-kirmizi {
   background: linear-gradient(180deg, #d04a43, #9e2e2b);
 }
