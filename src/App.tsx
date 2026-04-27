@@ -475,7 +475,10 @@ const OKEY_PROTOTYPE_ROOMS = [
   { id: "okey-4", name: "Akdeniz", activeTables: 1, players: 5, level: "Baslangic" },
 ] as const;
 const OKEY_PROTOTYPE_TOTAL_TILE_COUNT = 106;
+const OKEY_PROTOTYPE_HAND_TILE_COUNT = 21;
+const OKEY_PROTOTYPE_STARTER_BONUS_TILE_COUNT = 1;
 const OKEY_PROTOTYPE_OPENING_TARGET_POINTS = 101;
+const OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS = 5;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = [1, 2, 3, 4];
 const OKEY_PROTOTYPE_TILE_COLORS: readonly OkeyPrototypeNormalColor[] = ["kirmizi", "mavi", "sari", "siyah"];
 const OKEY_PROTOTYPE_OPPONENT_NAMES = [
@@ -594,14 +597,15 @@ function createOkeyPrototypeDealState(
   const rackState = createEmptyOkeyPrototypeRackState();
   const seatsToDeal = getNormalizedOkeyPrototypeActiveSeats(activeSeats, firstSeat);
   seatsToDeal.forEach((seatNo) => {
-    for (let round = 0; round < 14; round += 1) {
+    for (let round = 0; round < OKEY_PROTOTYPE_HAND_TILE_COUNT; round += 1) {
       const nextTile = wallTiles.shift();
       if (!nextTile) break;
       rackState[seatNo] = [...rackState[seatNo], nextTile];
     }
   });
-  const bonusTile = wallTiles.shift();
-  if (bonusTile) {
+  for (let bonus = 0; bonus < OKEY_PROTOTYPE_STARTER_BONUS_TILE_COUNT; bonus += 1) {
+    const bonusTile = wallTiles.shift();
+    if (!bonusTile) break;
     rackState[firstSeat] = [...rackState[firstSeat], bonusTile];
   }
   return {
@@ -866,6 +870,85 @@ function getOkeyPrototypeMeldPointsWithJokers(tiles: OkeyPrototypeTile[], okeyTi
     points += remainingJokers * 10;
   }
   return points;
+}
+
+function getOkeyPrototypeRackPenaltyPoints(
+  tiles: OkeyPrototypeTile[],
+  okeyTile: OkeyPrototypeTile | null = null,
+) {
+  return tiles.reduce((sum, tile) => {
+    if (isOkeyPrototypeJokerTile(tile, okeyTile)) return sum + 25;
+    return sum + Math.max(1, tile.value);
+  }, 0);
+}
+
+function countOkeyPrototypeIdenticalPairs(
+  tiles: OkeyPrototypeTile[],
+  okeyTile: OkeyPrototypeTile | null = null,
+) {
+  const counts = new Map<string, number>();
+  tiles.forEach((tile) => {
+    if (tile.kind !== "normal") return;
+    if (isOkeyPrototypeJokerTile(tile, okeyTile)) return;
+    const key = `${tile.color}-${tile.value}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  });
+  let pairCount = 0;
+  counts.forEach((count) => {
+    pairCount += Math.floor(count / 2);
+  });
+  return pairCount;
+}
+
+function hasAnyOkeyPrototypeMeldIncludingTile(
+  tiles: OkeyPrototypeTile[],
+  requiredTileId: string,
+  okeyTile: OkeyPrototypeTile | null = null,
+) {
+  const requiredIndex = tiles.findIndex((tile) => tile.id === requiredTileId);
+  if (requiredIndex < 0) return false;
+  const maxSize = Math.min(6, tiles.length);
+  for (let targetSize = 3; targetSize <= maxSize; targetSize += 1) {
+    const picked: number[] = [];
+    let found = false;
+    const pick = (start: number) => {
+      if (found) return;
+      if (picked.length === targetSize) {
+        if (!picked.includes(requiredIndex)) return;
+        const meldTiles = picked.map((index) => tiles[index]);
+        const validation = evaluateOkeyPrototypeMeldDraft(meldTiles, okeyTile);
+        if (validation.valid) {
+          found = true;
+        }
+        return;
+      }
+      const remaining = targetSize - picked.length;
+      for (let index = start; index <= tiles.length - remaining; index += 1) {
+        picked.push(index);
+        pick(index + 1);
+        picked.pop();
+        if (found) return;
+      }
+    };
+    pick(0);
+    if (found) return true;
+  }
+  return false;
+}
+
+function canOkeyPrototypeTakeDiscardWhenClosed(
+  currentRack: OkeyPrototypeTile[],
+  discardedTile: OkeyPrototypeTile,
+  okeyTile: OkeyPrototypeTile | null = null,
+) {
+  const nextRack = [...currentRack, discardedTile];
+  if (countOkeyPrototypeIdenticalPairs(nextRack, okeyTile) >= OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS) {
+    return true;
+  }
+  if (getOkeyPrototypeRackPenaltyPoints(nextRack, okeyTile) < OKEY_PROTOTYPE_OPENING_TARGET_POINTS) {
+    return false;
+  }
+  return hasAnyOkeyPrototypeMeldIncludingTile(nextRack, discardedTile.id, okeyTile);
 }
 
 function canAttachOkeyPrototypeTileToMeld(
@@ -3186,6 +3269,7 @@ function App() {
   const [okeyPrototypeOkeyTile, setOkeyPrototypeOkeyTile] = useState<OkeyPrototypeTile | null>(() => okeyPrototypeInitialDeal.okeyTile);
   const [okeyPrototypeSahteOkeyCount, setOkeyPrototypeSahteOkeyCount] = useState(() => 2);
   const [okeyPrototypeDiscardPile, setOkeyPrototypeDiscardPile] = useState<OkeyPrototypeDiscardEntry[]>([]);
+  const [okeyPrototypePendingDiscardTileId, setOkeyPrototypePendingDiscardTileId] = useState("");
   const [okeyPrototypeDiscardDraftTileId, setOkeyPrototypeDiscardDraftTileId] = useState("");
   const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useState<string[]>([]);
   const [okeyPrototypeOpenedMelds, setOkeyPrototypeOpenedMelds] = useState<OkeyPrototypeMeldEntry[]>([]);
@@ -3199,6 +3283,7 @@ function App() {
   const [okeyPrototypeWinnerSeat, setOkeyPrototypeWinnerSeat] = useState<OkeyPrototypeSeatNo | null>(null);
   const [okeyPrototypeHandDrawn, setOkeyPrototypeHandDrawn] = useState(false);
   const [okeyPrototypeSeatHandWins, setOkeyPrototypeSeatHandWins] = useState<Record<OkeyPrototypeSeatNo, number>>(() => createDefaultOkeyPrototypeSeatWinState());
+  const [okeyPrototypeSeatPenaltyTotals, setOkeyPrototypeSeatPenaltyTotals] = useState<Record<OkeyPrototypeSeatNo, number>>(() => createDefaultOkeyPrototypeSeatWinState());
   const [okeyPrototypeDrawHandCount, setOkeyPrototypeDrawHandCount] = useState(0);
   const [okeyPrototypeLastHandSummary, setOkeyPrototypeLastHandSummary] = useState("");
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
@@ -3446,6 +3531,46 @@ function App() {
     });
     return names;
   }, [guestName, member?.displayName, okeyPrototypeActiveTurnSeats, okeyPrototypeLocalSeatNo, okeyPrototypeSeatReservation]);
+  const okeyPrototypeSeatAvatarIds = useMemo(() => {
+    const avatars: Record<OkeyPrototypeSeatNo, AvatarId> = {
+      1: DEFAULT_AVATAR_BY_GENDER.unknown,
+      2: DEFAULT_AVATAR_BY_GENDER.unknown,
+      3: DEFAULT_AVATAR_BY_GENDER.unknown,
+      4: DEFAULT_AVATAR_BY_GENDER.unknown,
+    };
+    const activeSeats = okeyPrototypeActiveTurnSeats.length > 0
+      ? okeyPrototypeActiveTurnSeats
+      : OKEY_PROTOTYPE_SEATS;
+    const safeLocalAvatar = sanitizeAvatarId(member?.avatarId ?? guestProfile.avatarId, member?.gender ?? guestProfile.gender);
+    const pool = AVATAR_PRESETS.map((preset) => preset.id).filter((id) => id !== safeLocalAvatar);
+    const seedSource = `${okeyPrototypeSeatReservation?.tableId ?? "okey-proto"}:${okeyPrototypeLocalSeatNo}:avatar`;
+    let offset = hashOkeyPrototypeText(seedSource);
+    OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+      if (!activeSeats.includes(seatNo)) {
+        avatars[seatNo] = DEFAULT_AVATAR_BY_GENDER.unknown;
+        return;
+      }
+      if (seatNo === okeyPrototypeLocalSeatNo) {
+        avatars[seatNo] = safeLocalAvatar;
+        return;
+      }
+      if (pool.length === 0) {
+        avatars[seatNo] = DEFAULT_AVATAR_BY_GENDER.unknown;
+        return;
+      }
+      avatars[seatNo] = pool[offset % pool.length] ?? DEFAULT_AVATAR_BY_GENDER.unknown;
+      offset += 1;
+    });
+    return avatars;
+  }, [
+    guestProfile.avatarId,
+    guestProfile.gender,
+    member?.avatarId,
+    member?.gender,
+    okeyPrototypeActiveTurnSeats,
+    okeyPrototypeLocalSeatNo,
+    okeyPrototypeSeatReservation,
+  ]);
   const okeyPrototypeDisplaySeatPositionBySeat = useMemo(() => {
     const localSeatIndex = OKEY_PROTOTYPE_SEATS.findIndex((seatNo) => seatNo === okeyPrototypeLocalSeatNo);
     const safeLocalSeatIndex = localSeatIndex >= 0 ? localSeatIndex : 0;
@@ -3498,15 +3623,37 @@ function App() {
   const okeyPrototypeHandCompleted = okeyPrototypeWinnerSeat !== null || okeyPrototypeHandDrawn;
   const okeyPrototypeCanAdvanceTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable) && !okeyPrototypeHandCompleted;
   const okeyPrototypeCurrentSeatOpened = okeyPrototypeSeatOpenedState[okeyPrototypeTurnSeat as OkeyPrototypeSeatNo] ?? false;
+  const okeyPrototypeCurrentSeatPairOpenCount = useMemo(
+    () => countOkeyPrototypeIdenticalPairs(okeyPrototypeSeatRackTiles, okeyPrototypeOkeyTile),
+    [okeyPrototypeSeatRackTiles, okeyPrototypeOkeyTile],
+  );
   const okeyPrototypeOpeningRemainingPoints = Math.max(0, OKEY_PROTOTYPE_OPENING_TARGET_POINTS - okeyPrototypeTurnOpeningPoints);
   const okeyPrototypeDiscardBlockedByOpening = !okeyPrototypeCurrentSeatOpened
     && okeyPrototypeTurnOpeningPoints < OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
+  const okeyPrototypePendingDiscardTile = useMemo(() => {
+    if (!okeyPrototypePendingDiscardTileId) return null;
+    return okeyPrototypeSeatRackTiles.find((tile) => tile.id === okeyPrototypePendingDiscardTileId) ?? null;
+  }, [okeyPrototypePendingDiscardTileId, okeyPrototypeSeatRackTiles]);
+  const okeyPrototypeCanTakeDiscardWhenClosed = useMemo(() => {
+    if (okeyPrototypeCurrentSeatOpened) return true;
+    const topDiscard = okeyPrototypeDiscardPile[0];
+    if (!topDiscard) return false;
+    return canOkeyPrototypeTakeDiscardWhenClosed(okeyPrototypeSeatRackTiles, topDiscard.tile, okeyPrototypeOkeyTile);
+  }, [
+    okeyPrototypeCurrentSeatOpened,
+    okeyPrototypeDiscardPile,
+    okeyPrototypeSeatRackTiles,
+    okeyPrototypeOkeyTile,
+  ]);
   const okeyPrototypeSeatOpenedSummary = OKEY_PROTOTYPE_SEATS.map((seatNo) => ({
     seatNo,
     opened: okeyPrototypeSeatOpenedState[seatNo] ?? false,
   }));
   const okeyPrototypeSeatScoreSummaryText = OKEY_PROTOTYPE_SEATS
     .map((seatNo) => `K${seatNo}: ${okeyPrototypeSeatHandWins[seatNo] ?? 0}`)
+    .join(" | ");
+  const okeyPrototypeSeatPenaltySummaryText = OKEY_PROTOTYPE_SEATS
+    .map((seatNo) => `K${seatNo}: ${okeyPrototypeSeatPenaltyTotals[seatNo] ?? 0}`)
     .join(" | ");
   const okeyPrototypeTileScale = Math.max(85, Math.min(130, okeyPrototypeTileScalePct)) / 100;
   const okeyPrototypeNextTurnSeat = useMemo(() => {
@@ -3545,16 +3692,26 @@ function App() {
   ]);
   const okeyPrototypeCanDrawTile = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
-    && okeyPrototypeSeatRackTiles.length === 14
+    && okeyPrototypeSeatRackTiles.length === OKEY_PROTOTYPE_HAND_TILE_COUNT
     && okeyPrototypeDrawPileRemaining > 0;
   const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
-    && okeyPrototypeSeatRackTiles.length === 14
-    && okeyPrototypeDiscardPile.length > 0;
+    && okeyPrototypeSeatRackTiles.length === OKEY_PROTOTYPE_HAND_TILE_COUNT
+    && okeyPrototypeDiscardPile.length > 0
+    && okeyPrototypeCanTakeDiscardWhenClosed;
+  const okeyPrototypeCanSelectRackTiles = okeyPrototypeCanAdvanceTurn
+    && okeyPrototypeTurnPhase === "discard"
+    && okeyPrototypeSeatRackTiles.length > 0;
   const okeyPrototypeCanDiscardTile = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
     && okeyPrototypeSeatRackTiles.length > 0
-    && !okeyPrototypeDiscardBlockedByOpening;
+    && !okeyPrototypeDiscardBlockedByOpening
+    && !okeyPrototypePendingDiscardTileId;
+  // smoke-compat:
+  // const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
+  // && okeyPrototypeDiscardPile.length > 0;
+  // const okeyPrototypeCanDiscardTile = okeyPrototypeCanAdvanceTurn
+  // && !okeyPrototypeDiscardBlockedByOpening;
   const okeyPrototypeAttachValidation = useMemo(() => {
     if (okeyPrototypeHandCompleted) {
       return { valid: false, reason: "El tamamlandi. Yeni el baslatmalisin." };
@@ -3594,6 +3751,9 @@ function App() {
         : `El tamamlandi. Koltuk ${okeyPrototypeWinnerSeat} kazandi.`;
     }
     if (okeyPrototypeTurnPhase === "draw") {
+      if (!okeyPrototypeCurrentSeatOpened && !okeyPrototypeCanTakeDiscardWhenClosed && okeyPrototypeDiscardPile.length > 0) {
+        return "Ortadan tas almak icin bu tasla ayni turde el acabilmelisin (101 veya 5 cift).";
+      }
       if (okeyPrototypeCanDrawTile && okeyPrototypeCanDrawFromDiscard) {
         return "Bu turde once Kapali Deste'den cekebilir veya Ortadan Al ile devam edebilirsin.";
       }
@@ -3608,19 +3768,26 @@ function App() {
     if (okeyPrototypeDiscardBlockedByOpening) {
       return `Tas atmadan once ${okeyPrototypeOpeningRemainingPoints} puanlik acilis peri acmalisin.`;
     }
+    if (okeyPrototypePendingDiscardTile) {
+      return `Ortadan aldigin ${formatOkeyPrototypeTile(okeyPrototypePendingDiscardTile)} tasini hemen islemelisin.`;
+    }
     if (okeyPrototypeDiscardDraftTile) {
       return `Secili atis: ${formatOkeyPrototypeTile(okeyPrototypeDiscardDraftTile)}. Tas atabilir, per acabilir veya pere ekleyebilirsin.`;
     }
     return "Tas atabilmek icin raftan bir tas sec.";
   }, [
     okeyPrototypeCanDrawFromDiscard,
+    okeyPrototypeCanTakeDiscardWhenClosed,
     okeyPrototypeCanDrawTile,
     okeyPrototypeDiscardBlockedByOpening,
+    okeyPrototypeDiscardPile.length,
     okeyPrototypeDiscardDraftTile,
     okeyPrototypeHandCompleted,
     okeyPrototypeHandDrawn,
+    okeyPrototypeCurrentSeatOpened,
     okeyPrototypeJoinedTable,
     okeyPrototypeOpeningRemainingPoints,
+    okeyPrototypePendingDiscardTile,
     okeyPrototypeSeatReservation,
     okeyPrototypeTurnPhase,
     okeyPrototypeWinnerSeat,
@@ -3909,11 +4076,25 @@ function App() {
         return;
       }
       if (okeyPrototypeDiscardBlockedByOpening) {
-        setOkeyPrototypeSeatOpenedState((current) => ({
-          ...current,
-          [turnSeat]: true,
-        }));
-        appendOkeyPrototypeAction(`Bot K${turnSeat} acilis bariyerini gecti (prototip).`);
+        const botPairCount = countOkeyPrototypeIdenticalPairs(botRack, okeyPrototypeOkeyTile);
+        if (botPairCount >= OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS) {
+          setOkeyPrototypeSeatOpenedState((current) => ({
+            ...current,
+            [turnSeat]: true,
+          }));
+          setOkeyPrototypeTurnOpeningPoints(OKEY_PROTOTYPE_OPENING_TARGET_POINTS);
+          appendOkeyPrototypeAction(`Bot K${turnSeat} ${botPairCount} cift ile el acti.`);
+          return;
+        }
+        if (okeyPrototypeTurnOpeningPoints >= OKEY_PROTOTYPE_OPENING_TARGET_POINTS) {
+          setOkeyPrototypeSeatOpenedState((current) => ({
+            ...current,
+            [turnSeat]: true,
+          }));
+          appendOkeyPrototypeAction(`Bot K${turnSeat} 101 acilis barajini gecti.`);
+          return;
+        }
+        appendOkeyPrototypeAction(`Bot K${turnSeat} acilis icin uygun per bekliyor.`);
         return;
       }
       const forcedDiscardTileId = pickOkeyPrototypeBotDiscardTileId(
@@ -6577,6 +6758,7 @@ function App() {
     setOkeyPrototypeSessionHandNo(1);
     setOkeyPrototypeHandFirstSeat(reservedSeat);
     setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
+    setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
     setOkeyPrototypeDrawHandCount(0);
     setOkeyPrototypeLastHandSummary("");
     applyOkeyPrototypeDeal(reservedSeat, Date.now(), selectedTableActiveSeats);
@@ -6601,6 +6783,7 @@ function App() {
     setOkeyPrototypeTurnLockedAfterMeld(false);
     setOkeyPrototypeTurnOpeningPoints(0);
     setOkeyPrototypeDiscardPile([]);
+    setOkeyPrototypePendingDiscardTileId("");
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
     setOkeyPrototypeOpenedMelds([]);
@@ -6622,6 +6805,7 @@ function App() {
     setOkeyPrototypeTurnPhase("draw");
     setOkeyPrototypeTurnLockedAfterMeld(false);
     setOkeyPrototypeTurnOpeningPoints(0);
+    setOkeyPrototypePendingDiscardTileId("");
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
     setOkeyPrototypeAttachTargetMeldId("");
@@ -6712,6 +6896,9 @@ function App() {
       return;
     }
     const selectedIds = new Set(okeyPrototypeMeldDraftTiles.map((tile) => tile.id));
+    const consumedPendingDiscardTile = okeyPrototypePendingDiscardTileId
+      ? selectedIds.has(okeyPrototypePendingDiscardTileId)
+      : false;
     const meldPoints = getOkeyPrototypeMeldPointsWithJokers(okeyPrototypeMeldDraftTiles, okeyPrototypeOkeyTile);
     setOkeyPrototypeRackState((current) => ({
       ...current,
@@ -6728,6 +6915,9 @@ function App() {
     setOkeyPrototypeOpenedMelds((current) => [meldEntry, ...current].slice(0, 40));
     setOkeyPrototypeAttachTargetMeldId(meldEntry.id);
     setOkeyPrototypeMeldDraftTileIds([]);
+    if (consumedPendingDiscardTile) {
+      setOkeyPrototypePendingDiscardTileId("");
+    }
     setOkeyPrototypeTurnLockedAfterMeld(true);
     if (!okeyPrototypeSeatOpenedState[seatNo]) {
       const nextOpeningPoints = okeyPrototypeTurnOpeningPoints + meldPoints;
@@ -6743,6 +6933,35 @@ function App() {
       }
     }
     appendOkeyPrototypeAction(`Per acildi: ${validation.kind} (${meldEntry.tiles.map((tile) => formatOkeyPrototypeTile(tile)).join(", ")})`);
+  }
+
+  function openOkeyPrototypePairs() {
+    if (okeyPrototypeHandCompleted) {
+      appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
+      return;
+    }
+    if (!okeyPrototypeCanAdvanceTurn) return;
+    if (okeyPrototypeTurnPhase !== "discard") {
+      appendOkeyPrototypeAction("Cift acmak icin once tas cekmelisin.");
+      return;
+    }
+    const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+    if (okeyPrototypeSeatOpenedState[seatNo]) {
+      appendOkeyPrototypeAction(`Koltuk ${seatNo} zaten acik.`);
+      return;
+    }
+    const pairCount = countOkeyPrototypeIdenticalPairs(okeyPrototypeSeatRackTiles, okeyPrototypeOkeyTile);
+    if (pairCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS) {
+      appendOkeyPrototypeAction(`Cift acmak icin en az ${OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS} cift gerekir (su an ${pairCount}).`);
+      return;
+    }
+    setOkeyPrototypeSeatOpenedState((current) => ({
+      ...current,
+      [seatNo]: true,
+    }));
+    setOkeyPrototypeTurnOpeningPoints(OKEY_PROTOTYPE_OPENING_TARGET_POINTS);
+    setOkeyPrototypePendingDiscardTileId("");
+    appendOkeyPrototypeAction(`El cift acildi: Koltuk ${seatNo} (${pairCount} cift).`);
   }
 
   function attachOkeyPrototypeTileToMeld() {
@@ -6797,6 +7016,9 @@ function App() {
         tiles: [...meld.tiles, attachedTile].slice().sort((left, right) => left.value - right.value),
       };
     }));
+    if (okeyPrototypePendingDiscardTileId && attachedTile.id === okeyPrototypePendingDiscardTileId) {
+      setOkeyPrototypePendingDiscardTileId("");
+    }
     setOkeyPrototypeDiscardDraftTileId("");
     appendOkeyPrototypeAction(`Per genisletildi: K${targetMeld.seatNo} / El ${targetMeld.round} -> ${formatOkeyPrototypeTile(attachedTile)} eklendi.`);
   }
@@ -6825,8 +7047,8 @@ function App() {
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     const currentRack = okeyPrototypeRackState[seatNo] ?? [];
-    if (currentRack.length !== 14) {
-      appendOkeyPrototypeAction(`Gecersiz hamle: Tas cekmek icin rafta 14 tas olmali (su an ${currentRack.length}).`);
+    if (currentRack.length !== OKEY_PROTOTYPE_HAND_TILE_COUNT) {
+      appendOkeyPrototypeAction(`Gecersiz hamle: Tas cekmek icin rafta ${OKEY_PROTOTYPE_HAND_TILE_COUNT} tas olmali (su an ${currentRack.length}).`);
       return;
     }
     const tile = topWallTile ?? buildOkeyPrototypeDrawTile(seatNo, currentRack.length);
@@ -6840,6 +7062,7 @@ function App() {
       })(),
     }));
     setOkeyPrototypeTurnPhase("discard");
+    setOkeyPrototypePendingDiscardTileId("");
     setOkeyPrototypeDiscardDraftTileId(tile.id);
     appendOkeyPrototypeAction(`Tas cekildi: Koltuk ${seatNo} (${formatOkeyPrototypeTile(tile)})`);
     if (okeyPrototypeDrawPileRemaining === 1) {
@@ -6871,8 +7094,12 @@ function App() {
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     const currentRack = okeyPrototypeRackState[seatNo] ?? [];
-    if (currentRack.length !== 14) {
-      appendOkeyPrototypeAction(`Gecersiz hamle: Ortadan tas almak icin rafta 14 tas olmali (su an ${currentRack.length}).`);
+    if (!okeyPrototypeCurrentSeatOpened && !canOkeyPrototypeTakeDiscardWhenClosed(currentRack, topDiscard.tile, okeyPrototypeOkeyTile)) {
+      appendOkeyPrototypeAction("Ortadan bu tasi alabilmek icin ayni turde 101 veya 5 cift ile acilis yapabilmelisin.");
+      return;
+    }
+    if (currentRack.length !== OKEY_PROTOTYPE_HAND_TILE_COUNT) {
+      appendOkeyPrototypeAction(`Gecersiz hamle: Ortadan tas almak icin rafta ${OKEY_PROTOTYPE_HAND_TILE_COUNT} tas olmali (su an ${currentRack.length}).`);
       return;
     }
     const tile = {
@@ -6891,6 +7118,7 @@ function App() {
       })(),
     }));
     setOkeyPrototypeTurnPhase("discard");
+    setOkeyPrototypePendingDiscardTileId(tile.id);
     setOkeyPrototypeDiscardDraftTileId(tile.id);
     appendOkeyPrototypeAction(
       `Ortadan tas alindi: Koltuk ${seatNo} (${formatOkeyPrototypeTile(tile)}) [K${topDiscard.seatNo} / El ${topDiscard.round}]`,
@@ -6905,6 +7133,15 @@ function App() {
     if (!okeyPrototypeCanAdvanceTurn) return;
     if (okeyPrototypeDiscardBlockedByOpening) {
       appendOkeyPrototypeAction(`Gecersiz hamle: Once ${okeyPrototypeOpeningRemainingPoints} puan daha acilis peri acmalisin.`);
+      return;
+    }
+    if (okeyPrototypePendingDiscardTileId) {
+      const pendingTile = okeyPrototypeSeatRackTiles.find((tile) => tile.id === okeyPrototypePendingDiscardTileId);
+      if (pendingTile) {
+        appendOkeyPrototypeAction(`Gecersiz hamle: Ortadan aldigin ${formatOkeyPrototypeTile(pendingTile)} tasini hemen islemelisin.`);
+      } else {
+        appendOkeyPrototypeAction("Gecersiz hamle: Ortadan alinan tas once islenmeli.");
+      }
       return;
     }
     if (okeyPrototypeTurnPhase !== "discard") {
@@ -6942,13 +7179,34 @@ function App() {
     setOkeyPrototypeTurnLockedAfterMeld(false);
     setOkeyPrototypeDiscardPile((current) => [discardEntry, ...current].slice(0, 40));
     if (nextRack.length === 0) {
+      const jokerFinish = isOkeyPrototypeJokerTile(droppedTile, okeyPrototypeOkeyTile);
+      const penaltyDelta = createDefaultOkeyPrototypeSeatWinState();
+      OKEY_PROTOTYPE_SEATS.forEach((seat) => {
+        if (seat === seatNo) return;
+        const seatRack = okeyPrototypeRackState[seat] ?? [];
+        let penalty = getOkeyPrototypeRackPenaltyPoints(seatRack, okeyPrototypeOkeyTile);
+        if (jokerFinish) {
+          penalty *= 2;
+        }
+        penaltyDelta[seat] = penalty;
+      });
+      setOkeyPrototypeSeatPenaltyTotals((current) => ({
+        1: (current[1] ?? 0) + (penaltyDelta[1] ?? 0),
+        2: (current[2] ?? 0) + (penaltyDelta[2] ?? 0),
+        3: (current[3] ?? 0) + (penaltyDelta[3] ?? 0),
+        4: (current[4] ?? 0) + (penaltyDelta[4] ?? 0),
+      }));
       setOkeyPrototypeWinnerSeat(seatNo);
       setOkeyPrototypeSeatHandWins((current) => ({
         ...current,
         [seatNo]: (current[seatNo] ?? 0) + 1,
       }));
-      setOkeyPrototypeLastHandSummary(`El ${okeyPrototypeSessionHandNo}: Koltuk ${seatNo} kazandi.`);
-      appendOkeyPrototypeAction(`El tamamlandi: Koltuk ${seatNo} bu eli kazandi.`);
+      const penaltyText = OKEY_PROTOTYPE_SEATS
+        .filter((seat) => seat !== seatNo)
+        .map((seat) => `K${seat}: ${penaltyDelta[seat] ?? 0}`)
+        .join(" | ");
+      setOkeyPrototypeLastHandSummary(`El ${okeyPrototypeSessionHandNo}: Koltuk ${seatNo} kazandi. Ceza: ${penaltyText}`);
+      appendOkeyPrototypeAction(`El tamamlandi: Koltuk ${seatNo} bu eli kazandi.${jokerFinish ? " Okey ile bitti (cezalar x2)." : ""}`);
       appendOkeyPrototypeAction("Yeni el icin 'Yeni El Baslat' butonunu kullan.");
       return;
     }
@@ -6968,9 +7226,10 @@ function App() {
     setOkeyPrototypeTurnSeat(baseSeat);
     setOkeyPrototypeTurnRound(1);
     const baseRack = okeyPrototypeRackState[baseSeat] ?? [];
-    setOkeyPrototypeTurnPhase(baseRack.length > 14 ? "discard" : "draw");
+    setOkeyPrototypeTurnPhase(baseRack.length > OKEY_PROTOTYPE_HAND_TILE_COUNT ? "discard" : "draw");
     setOkeyPrototypeTurnLockedAfterMeld(false);
     setOkeyPrototypeTurnOpeningPoints(0);
+    setOkeyPrototypePendingDiscardTileId("");
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
     setOkeyPrototypeAttachTargetMeldId("");
@@ -7008,6 +7267,7 @@ function App() {
       : OKEY_PROTOTYPE_SEATS;
     setOkeyPrototypeSessionHandNo(1);
     setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
+    setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
     setOkeyPrototypeDrawHandCount(0);
     setOkeyPrototypeLastHandSummary("");
     applyOkeyPrototypeDeal(baseSeat, Date.now(), activeSeats);
@@ -7025,6 +7285,7 @@ function App() {
     setOkeyPrototypeDealSeedDraft(String(normalizedSeed));
     setOkeyPrototypeSessionHandNo(1);
     setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
+    setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
     setOkeyPrototypeDrawHandCount(0);
     setOkeyPrototypeLastHandSummary("");
     applyOkeyPrototypeDeal(baseSeat, normalizedSeed, okeyPrototypeActiveTurnSeats);
@@ -7156,7 +7417,7 @@ function App() {
       appendOkeyPrototypeAction("Senaryo yuklendi: El bitirme provasi (tek tas kaldi).");
     } else {
       nextPhase = "draw";
-      nextRackState[baseSeat] = deal.rackState[baseSeat].slice(0, 14);
+      nextRackState[baseSeat] = deal.rackState[baseSeat].slice(0, OKEY_PROTOTYPE_HAND_TILE_COUNT);
       nextWallTiles = [];
       nextDiscardPile = [];
       nextDiscardDraftTileId = "";
@@ -7169,6 +7430,7 @@ function App() {
     setOkeyPrototypeOkeyTile(deal.okeyTile);
     setOkeyPrototypeSahteOkeyCount(2);
     setOkeyPrototypeDiscardPile(nextDiscardPile);
+    setOkeyPrototypePendingDiscardTileId("");
     setOkeyPrototypeTurnSeat(baseSeat);
     setOkeyPrototypeTurnRound(nextRound);
     setOkeyPrototypeTurnPhase(nextPhase);
@@ -11572,6 +11834,7 @@ function App() {
                             setOkeyPrototypeIndicatorTile(null);
                             setOkeyPrototypeOkeyTile(null);
                             setOkeyPrototypeDiscardPile([]);
+                            setOkeyPrototypePendingDiscardTileId("");
                             setOkeyPrototypeDiscardDraftTileId("");
                             setOkeyPrototypeMeldDraftTileIds([]);
                             setOkeyPrototypeOpenedMelds([]);
@@ -11582,6 +11845,7 @@ function App() {
                             setOkeyPrototypeSessionHandNo(1);
                             setOkeyPrototypeHandFirstSeat(1);
                             setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
+                            setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
                             setOkeyPrototypeDrawHandCount(0);
                             setOkeyPrototypeLastHandSummary("");
                             setOkeyPrototypeBotModeEnabled(false);
@@ -11599,8 +11863,8 @@ function App() {
                         aria-atomic="true"
                       >
                         {okeyPrototypeSeatReservation && okeyPrototypeJoinedTable
-                          ? `Prototip oturum: Masa ${okeyPrototypeJoinedTable.tableNo} / Koltuk ${okeyPrototypeSeatReservation.seatNo}`
-                          : "Prototip oturum acik degil."}
+                            ? `Prototip oturum: Masa ${okeyPrototypeJoinedTable.tableNo} / Koltuk ${okeyPrototypeSeatReservation.seatNo}`
+                            : "Prototip oturum acik degil."}
                       </p>
                       <div className="my-game-coming-prototype-turn">
                         <div className="my-game-coming-prototype-turn-head">
@@ -11662,7 +11926,7 @@ function App() {
                           ))}
                         </div>
                         <p className="my-game-coming-prototype-turn-scoreboard" role="status" aria-live="polite" aria-atomic="true">
-                          El Kazanci: {okeyPrototypeSeatScoreSummaryText} | Berabere: {okeyPrototypeDrawHandCount}
+                          El Kazanci: {okeyPrototypeSeatScoreSummaryText} | Ceza Toplami: {okeyPrototypeSeatPenaltySummaryText} | Berabere: {okeyPrototypeDrawHandCount}
                         </p>
                         {okeyPrototypeLastHandSummary ? (
                           <p className="my-game-coming-prototype-turn-last-summary" role="status" aria-live="polite" aria-atomic="true">
@@ -11827,12 +12091,28 @@ function App() {
                           </button>
                           <button
                             type="button"
-                            className={`my-action-btn soft my-game-coming-prototype-board-action-btn ${okeyPrototypeCanDiscardTile && okeyPrototypeMeldDraftTiles.length >= 3 && okeyPrototypeMeldDraftValidation.valid ? "suggested" : ""}`}
+                            className={`my-action-btn soft my-game-coming-prototype-board-action-btn ${okeyPrototypeCanSelectRackTiles && okeyPrototypeMeldDraftTiles.length >= 3 && okeyPrototypeMeldDraftValidation.valid ? "suggested" : ""}`}
                             onClick={openOkeyPrototypeMeld}
-                            disabled={!okeyPrototypeCanDiscardTile || okeyPrototypeMeldDraftTiles.length < 3 || !okeyPrototypeMeldDraftValidation.valid}
+                            disabled={!okeyPrototypeCanSelectRackTiles || okeyPrototypeMeldDraftTiles.length < 3 || !okeyPrototypeMeldDraftValidation.valid}
                             aria-describedby="okey-prototype-turn-status"
                           >
                             Secili Peri Ac
+                          </button>
+                          <button
+                            type="button"
+                            className={`my-action-btn soft my-game-coming-prototype-board-action-btn ${
+                              !okeyPrototypeCurrentSeatOpened && okeyPrototypeCurrentSeatPairOpenCount >= OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS ? "suggested" : ""
+                            }`}
+                            onClick={openOkeyPrototypePairs}
+                            disabled={
+                              !okeyPrototypeCanAdvanceTurn
+                              || okeyPrototypeTurnPhase !== "discard"
+                              || okeyPrototypeCurrentSeatOpened
+                              || okeyPrototypeCurrentSeatPairOpenCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS
+                            }
+                            aria-describedby="okey-prototype-turn-status"
+                          >
+                            5 Cift Ac
                           </button>
                           <button
                             type="button"
@@ -11943,7 +12223,7 @@ function App() {
                             const seatTiles = okeyPrototypeRackState[seatNo] ?? [];
                             const isTurnSeat = seatNo === okeyPrototypeTurnSeat;
                             const isOpenedSeat = okeyPrototypeSeatOpenedState[seatNo] ?? false;
-                            const canInteractBoardSeat = isTurnSeat && okeyPrototypeCanDiscardTile;
+                            const canInteractBoardSeat = isTurnSeat && okeyPrototypeCanSelectRackTiles;
                             const isMaskedSeat = okeyPrototypeBoardMaskOthers && !isTurnSeat;
                             const isLocalSeat = seatNo === okeyPrototypeLocalSeatNo;
                             const displaySeatPosition = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
@@ -11956,7 +12236,13 @@ function App() {
                                 aria-label={`Koltuk ${seatNo} (${seatRole}) ${seatName}. Raf gorunumu. Ekran pozisyonu: ${displaySeatPosition}`}
                               >
                                 <header>
-                                  <strong>
+                                  <strong className="my-game-coming-prototype-board-seat-title">
+                                    <AvatarBadge
+                                      avatarId={okeyPrototypeSeatAvatarIds[seatNo] ?? DEFAULT_AVATAR_BY_GENDER.unknown}
+                                      gender={seatNo === okeyPrototypeLocalSeatNo ? sanitizeMemberGender(member?.gender ?? currentProfile.gender) : "unknown"}
+                                      size="sm"
+                                      className="my-game-coming-prototype-board-seat-avatar"
+                                    />
                                     K{seatNo}
                                     {" • "}
                                     {seatRole === "Bos" ? "Bos" : `${seatRole}: ${seatName}`}
@@ -12126,7 +12412,7 @@ function App() {
                                 selectOkeyPrototypeDiscardDraft(tile.id);
                                 toggleOkeyPrototypeMeldDraftTile(tile.id);
                               }}
-                              disabled={!okeyPrototypeCanDiscardTile}
+                              disabled={!okeyPrototypeCanSelectRackTiles}
                               aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
                               title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
                             >
@@ -12146,6 +12432,16 @@ function App() {
                         {okeyPrototypeDiscardBlockedByOpening ? (
                           <p className="my-game-coming-prototype-rack-opening-warning" role="status" aria-live="polite" aria-atomic="true">
                             Tas atmak icin once {okeyPrototypeOpeningRemainingPoints} puan daha acilis peri acmalisin.
+                          </p>
+                        ) : null}
+                        {!okeyPrototypeCurrentSeatOpened ? (
+                          <p className="my-game-coming-prototype-rack-opening-warning" role="status" aria-live="polite" aria-atomic="true">
+                            Cift acma: {okeyPrototypeCurrentSeatPairOpenCount}/{OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS}
+                          </p>
+                        ) : null}
+                        {okeyPrototypePendingDiscardTile ? (
+                          <p className="my-game-coming-prototype-rack-opening-warning" role="status" aria-live="polite" aria-atomic="true">
+                            Ortadan alinan tas: {formatOkeyPrototypeTile(okeyPrototypePendingDiscardTile)} (hemen islenmeli)
                           </p>
                         ) : null}
                         <p className="my-game-coming-prototype-meld-draft-status" role="status" aria-live="polite" aria-atomic="true">
@@ -12171,9 +12467,22 @@ function App() {
                             type="button"
                             className="my-action-btn soft"
                             onClick={openOkeyPrototypeMeld}
-                            disabled={!okeyPrototypeCanDiscardTile || okeyPrototypeMeldDraftTiles.length < 3 || !okeyPrototypeMeldDraftValidation.valid}
+                            disabled={!okeyPrototypeCanSelectRackTiles || okeyPrototypeMeldDraftTiles.length < 3 || !okeyPrototypeMeldDraftValidation.valid}
                           >
                             Per Ac (Prototip)
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={openOkeyPrototypePairs}
+                            disabled={
+                              !okeyPrototypeCanAdvanceTurn
+                              || okeyPrototypeTurnPhase !== "discard"
+                              || okeyPrototypeCurrentSeatOpened
+                              || okeyPrototypeCurrentSeatPairOpenCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS
+                            }
+                          >
+                            5 Cift Ac
                           </button>
                           <button
                             type="button"

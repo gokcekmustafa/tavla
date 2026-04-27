@@ -1489,6 +1489,20 @@
   line-height: 1.2;
 }
 
+.my-game-coming-prototype-board-seat-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-board-seat-avatar {
+  flex: 0 0 auto;
+}
+
+.my-game-coming-prototype-board-seat-title > span {
+  display: inline-block;
+}
+
 .my-game-coming-prototype-board-seat header span {
   color: #c7e8f9;
   font-size: 0.66rem;
@@ -4942,17 +4956,58 @@
     inset 0 -1px 0 rgba(5, 58, 43, 0.44),
     0 9px 18px rgba(0, 0, 0, 0.24);
   padding: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 210px;
+  grid-template-areas:
+    "head head"
+    "hint hint"
+    "grid side";
+  gap: 10px;
 }
 
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-head-controls {
   display: none;
 }
 
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-head {
+  grid-area: head;
+}
+
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
-  display: none;
+  grid-area: side;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-content: start;
+  gap: 6px;
+  border: 1px solid rgba(129, 79, 26, 0.86);
+  border-radius: 12px;
+  padding: 8px;
+  background: linear-gradient(180deg, rgba(132, 85, 31, 0.95), rgba(92, 57, 19, 0.98));
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status > span {
+  border-radius: 7px;
+  border: 1px solid rgba(215, 171, 105, 0.35);
+  background: rgba(47, 29, 10, 0.42);
+  padding: 4px 6px;
+  color: #f8e6c8;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-action-btn,
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-clear-btn {
+  border-radius: 8px;
+  border: 1px solid rgba(223, 177, 115, 0.5);
+  background: linear-gradient(180deg, rgba(9, 74, 97, 0.96), rgba(7, 56, 73, 0.98));
+  color: #f2fbff;
+  font-size: 0.74rem;
+  font-weight: 800;
+  min-height: 30px;
 }
 
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-hint {
+  grid-area: hint;
   margin-top: 2px;
   border-radius: 8px;
   border: 1px solid rgba(119, 184, 163, 0.6);
@@ -4962,6 +5017,7 @@
 }
 
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
+  grid-area: grid;
   grid-template-columns: minmax(160px, 1fr) minmax(220px, 1.35fr) minmax(160px, 1fr);
   grid-template-areas:
     "seat-1 seat-1 seat-1"
@@ -5045,6 +5101,27 @@
   background: linear-gradient(180deg, rgba(235, 214, 177, 0.95), rgba(210, 183, 136, 0.96));
 }
 
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-actions {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-actions .my-action-btn {
+  min-height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(190, 142, 82, 0.62);
+  background: linear-gradient(180deg, rgba(15, 85, 110, 0.96), rgba(11, 64, 84, 0.98));
+  color: #f5fcff;
+  font-size: 0.73rem;
+  font-weight: 800;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-actions .my-action-btn:nth-child(n + 6) {
+  display: none;
+}
+
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile {
   min-width: calc(28px * var(--okey-proto-tile-scale, 1));
   height: calc(32px * var(--okey-proto-tile-scale, 1));
@@ -5072,6 +5149,15 @@
 }
 
 @media (max-width: 920px) {
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "head"
+      "hint"
+      "side"
+      "grid";
+  }
+
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -5087,5 +5173,9 @@
     min-width: calc(24px * var(--okey-proto-tile-scale, 1));
     height: calc(28px * var(--okey-proto-tile-scale, 1));
     font-size: calc(0.74rem * var(--okey-proto-tile-scale, 1));
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-actions {
+    grid-template-columns: 1fr;
   }
 }
