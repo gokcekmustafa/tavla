@@ -425,6 +425,7 @@ const MEMBER_SESSION_KEY = "tavla.member.session.v1";
 const ACTIVE_LOBBY_ID_KEY = "tavla.active.lobby.id.v1";
 const ROOM_PICKER_SESSION_KEY = "tavla.room.picker.session.v1";
 const GAME_SELECTION_SESSION_KEY = "tavla.game.selection.session.tavla.v1";
+const ROOT_GAME_CHOICE_KEY = "tavla.root.selected.game.v1";
 const OKEY_PROTOTYPE_TILE_SCALE_SESSION_KEY = "tavla.okey.prototype.tile.scale.pct.v1";
 const OKEY_PROTOTYPE_AUTO_SORT_SESSION_KEY = "tavla.okey.prototype.auto.sort.mode.v1";
 const LEAVE_NOTICE_REJECT_PREFIX = "LEAVE_REJECT|";
@@ -3170,12 +3171,7 @@ function TavlaApp() {
   const [lobbyRoomsError, setLobbyRoomsError] = useState("");
   const [roomPickerFilter, setRoomPickerFilter] = useState<RoomPickerFilter>("all");
   const [selectedGameId, setSelectedGameId] = useState<GameId>("tavla");
-  const [gamePickerOpen, setGamePickerOpen] = useState<boolean>(() => {
-    const entryScreen = readEntryScreenFromUrl();
-    if (entryScreen === "game") return true;
-    if (entryScreen === "room" || entryScreen === "lobby") return false;
-    return !(readGameIdFromUrl() ?? loadSelectedGameIdFromSession());
-  });
+  const [gamePickerOpen, setGamePickerOpen] = useState<boolean>(false);
   const [roomPickerOpen, setRoomPickerOpen] = useState<boolean>(() => {
     const selectedGame = readGameIdFromUrl() ?? loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID;
     const entryScreen = readEntryScreenFromUrl();
@@ -7862,12 +7858,12 @@ function TavlaApp() {
       setLobbyNotice("Anasayfaya donmek icin once masadan kalkmalisin.");
       return;
     }
-    setOkeyPrototypeRoomSketchOpen(false);
-    setViewMode("lobby");
-    setRoomPickerOpen(false);
-    setGamePickerOpen(true);
-    setLobbyNotice("Anasayfaya donuldu.");
-    pushEntryScreenHistory("game", effectiveSelectedGameId);
+    if (typeof window !== "undefined") {
+      safeStorageRemoveItem(window.sessionStorage, ROOT_GAME_CHOICE_KEY);
+      safeStorageRemoveItem(window.sessionStorage, GAME_SELECTION_SESSION_KEY);
+      window.location.assign(window.location.pathname);
+      return;
+    }
   }
 
   function goToLobbyFromTableView() {
@@ -10373,8 +10369,8 @@ function TavlaApp() {
       const entry = readEntryScreenFromUrl();
       if (entry === "game") {
         setViewMode("lobby");
-        setRoomPickerOpen(false);
-        setGamePickerOpen(true);
+        setRoomPickerOpen(true);
+        setGamePickerOpen(false);
         return;
       }
       if (entry === "room") {

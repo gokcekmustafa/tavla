@@ -424,6 +424,7 @@ const MEMBER_SESSION_KEY = "tavla.member.session.v1";
 const ACTIVE_LOBBY_ID_KEY = "tavla.active.lobby.id.v1";
 const ROOM_PICKER_SESSION_KEY = "tavla.room.picker.session.v1";
 const GAME_SELECTION_SESSION_KEY = "tavla.game.selection.session.okey101.v1";
+const ROOT_GAME_CHOICE_KEY = "tavla.root.selected.game.v1";
 const OKEY_PROTOTYPE_TILE_SCALE_SESSION_KEY = "tavla.okey.prototype.tile.scale.pct.v1";
 const OKEY_PROTOTYPE_AUTO_SORT_SESSION_KEY = "tavla.okey.prototype.auto.sort.mode.v1";
 const LEAVE_NOTICE_REJECT_PREFIX = "LEAVE_REJECT|";
@@ -7851,12 +7852,12 @@ function Okey101App() {
       setLobbyNotice("Anasayfaya donmek icin once masadan kalkmalisin.");
       return;
     }
-    setOkeyPrototypeRoomSketchOpen(false);
-    setViewMode("lobby");
-    setRoomPickerOpen(false);
-    setGamePickerOpen(true);
-    setLobbyNotice("Anasayfaya donuldu.");
-    pushEntryScreenHistory("game", effectiveSelectedGameId);
+    if (typeof window !== "undefined") {
+      safeStorageRemoveItem(window.sessionStorage, ROOT_GAME_CHOICE_KEY);
+      safeStorageRemoveItem(window.sessionStorage, GAME_SELECTION_SESSION_KEY);
+      window.location.assign(window.location.pathname);
+      return;
+    }
   }
 
   function goToLobbyFromTableView() {
