@@ -71,6 +71,7 @@ const checks = [
       && hasApp("className=\"my-game-coming-table-sketch-search\"")
       && hasApp("className=\"my-game-coming-table-sketch-search-row\"")
       && hasApp("className=\"my-game-coming-table-sketch-search-input\"")
+      && hasApp("enterKeyHint=\"search\"")
       && hasApp("autoComplete=\"off\"")
       && hasApp("maxLength={2}")
       && hasApp("title=\"Masa numarasina gore arama yapar\"")
