@@ -1194,6 +1194,11 @@
   min-height: 24px;
 }
 
+.my-game-coming-prototype-board-seat-tiles .my-game-coming-prototype-rack-tile:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
 .my-game-coming-prototype-board-seat-empty {
   color: #c8e5f5;
   font-size: 0.67rem;

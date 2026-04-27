@@ -11211,6 +11211,7 @@ function App() {
                             const seatTiles = okeyPrototypeRackState[seatNo] ?? [];
                             const isTurnSeat = seatNo === okeyPrototypeTurnSeat;
                             const isOpenedSeat = okeyPrototypeSeatOpenedState[seatNo] ?? false;
+                            const canInteractBoardSeat = isTurnSeat && okeyPrototypeCanDiscardTile;
                             return (
                               <article
                                 key={`okey-proto-board-seat-${seatNo}`}
@@ -11227,14 +11228,24 @@ function App() {
                                   ) : (
                                     seatTiles.map((tile) => {
                                       const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+                                      const isDiscardSelected = okeyPrototypeDiscardDraftTileId === tile.id;
+                                      const isMeldSelected = okeyPrototypeMeldDraftTileIds.includes(tile.id);
                                       return (
-                                        <span
+                                        <button
                                           key={`okey-proto-board-seat-${seatNo}-${tile.id}`}
-                                          className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${tileIsJoker ? "joker-tile" : ""}`}
+                                          type="button"
+                                          className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${isDiscardSelected ? "discard-selected" : ""} ${isMeldSelected ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""}`}
+                                          onClick={() => {
+                                            if (!canInteractBoardSeat) return;
+                                            selectOkeyPrototypeDiscardDraft(tile.id);
+                                            toggleOkeyPrototypeMeldDraftTile(tile.id);
+                                          }}
+                                          disabled={!canInteractBoardSeat}
+                                          aria-pressed={isDiscardSelected}
                                           title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
                                         >
                                           {renderOkeyPrototypeTileFace(tile)}
-                                        </span>
+                                        </button>
                                       );
                                     })
                                   )}
