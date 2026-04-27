@@ -9623,6 +9623,8 @@ function App() {
                         className="my-game-coming-table-sketch-sort-select"
                         value={okeyPrototypeTableSort}
                         onChange={(e) => setOkeyPrototypeTableSort(e.target.value as "tableNo" | "occupancy" | "status")}
+                        title="Masa listesini siralar"
+                        aria-label="Masa listesi siralama secimi"
                       >
                         <option value="tableNo">Masa No</option>
                         <option value="occupancy">Doluluk</option>
