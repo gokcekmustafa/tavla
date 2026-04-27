@@ -9650,6 +9650,7 @@ function App() {
                           maxLength={2}
                           title="Masa numarasina gore arama yapar"
                           aria-describedby="okey-prototype-table-search-meta"
+                          aria-controls="okey-prototype-table-sketch-grid"
                         />
                         <button
                           type="button"
@@ -9915,7 +9916,7 @@ function App() {
                         )}
                       </div>
                     </div>
-                    <div className="my-game-coming-table-sketch-grid">
+                    <div id="okey-prototype-table-sketch-grid" className="my-game-coming-table-sketch-grid">
                       {okeyPrototypeVisibleTableSketchRows.length === 0 ? (
                         <div className="my-game-coming-table-sketch-empty-state">
                           <p className="my-game-coming-table-sketch-empty">Aramaya uygun masa bulunamadi.</p>
