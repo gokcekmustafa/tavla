@@ -81,6 +81,7 @@ const checks = [
       && hasApp("className=\"my-game-coming-table-sketch-sort-select\"")
       && hasApp("title=\"Masa listesini siralar\"")
       && hasApp("aria-label=\"Masa listesi siralama secimi\"")
+      && hasApp("aria-controls=\"okey-prototype-table-sketch-grid\"")
       && hasApp("const okeyPrototypeVisibleTableSketchRows = useMemo(() => {")
       && hasApp("className=\"my-game-coming-table-sketch-search\"")
       && hasApp("className=\"my-game-coming-table-sketch-search-row\"")

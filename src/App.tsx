@@ -9637,6 +9637,7 @@ function App() {
                         onChange={(e) => setOkeyPrototypeTableSort(e.target.value as "tableNo" | "occupancy" | "status")}
                         title="Masa listesini siralar"
                         aria-label="Masa listesi siralama secimi"
+                        aria-controls="okey-prototype-table-sketch-grid"
                       >
                         <option value="tableNo">Masa No</option>
                         <option value="occupancy">Doluluk</option>
