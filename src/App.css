@@ -1117,6 +1117,7 @@
 }
 
 .my-game-coming-prototype-rack-tile {
+  appearance: none;
   min-width: 22px;
   height: 22px;
   border-radius: 6px;
@@ -1127,6 +1128,18 @@
   font-size: 0.71rem;
   font-weight: 700;
   color: #fff;
+  cursor: pointer;
+  padding: 0 6px;
+}
+
+.my-game-coming-prototype-rack-tile:disabled {
+  cursor: default;
+  opacity: 0.88;
+}
+
+.my-game-coming-prototype-rack-tile.selected {
+  border-color: rgba(249, 224, 154, 0.92);
+  box-shadow: 0 0 0 1px rgba(248, 218, 147, 0.36) inset;
 }
 
 .my-game-coming-prototype-rack-tile.tile-kirmizi {
@@ -1151,6 +1164,13 @@
 
 .my-game-coming-prototype-rack-actions .my-action-btn {
   min-height: 30px;
+}
+
+.my-game-coming-prototype-rack-discard-status {
+  margin: 0;
+  color: #d6edf8;
+  font-size: 0.71rem;
+  line-height: 1.22;
 }
 
 .my-game-coming-prototype-discard {

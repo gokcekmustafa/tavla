@@ -2714,6 +2714,7 @@ function App() {
   const [okeyPrototypeTurnPhase, setOkeyPrototypeTurnPhase] = useState<OkeyPrototypeTurnPhase>("draw");
   const [okeyPrototypeRackState, setOkeyPrototypeRackState] = useState<OkeyPrototypeRackState>(() => createOkeyPrototypeRackState());
   const [okeyPrototypeDiscardPile, setOkeyPrototypeDiscardPile] = useState<OkeyPrototypeDiscardEntry[]>([]);
+  const [okeyPrototypeDiscardDraftTileId, setOkeyPrototypeDiscardDraftTileId] = useState("");
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
   const isTavlaSelectedGame = selectedGameId === "tavla";
   const okeyPrototypeFilteredRooms = useMemo(() => {
@@ -2875,6 +2876,10 @@ function App() {
   const okeyPrototypeSeatRackTiles = useMemo(() => {
     return okeyPrototypeRackState[okeyPrototypeSeatNoForRack] ?? [];
   }, [okeyPrototypeRackState, okeyPrototypeSeatNoForRack]);
+  const okeyPrototypeDiscardDraftTile = useMemo(() => {
+    if (!okeyPrototypeDiscardDraftTileId) return null;
+    return okeyPrototypeSeatRackTiles.find((tile) => tile.id === okeyPrototypeDiscardDraftTileId) ?? null;
+  }, [okeyPrototypeDiscardDraftTileId, okeyPrototypeSeatRackTiles]);
   const okeyPrototypeRackSeatSummaries = useMemo(() => {
     return OKEY_PROTOTYPE_SEATS.map((seatNo) => {
       const tiles = okeyPrototypeRackState[seatNo] ?? [];
@@ -3067,6 +3072,13 @@ function App() {
     if (exists) return;
     setOkeyPrototypeSeatReservation(null);
   }, [okeyPrototypeSeatReservation, okeyPrototypeTableSketchRows]);
+
+  useEffect(() => {
+    if (!okeyPrototypeDiscardDraftTileId) return;
+    const exists = okeyPrototypeSeatRackTiles.some((tile) => tile.id === okeyPrototypeDiscardDraftTileId);
+    if (exists) return;
+    setOkeyPrototypeDiscardDraftTileId("");
+  }, [okeyPrototypeDiscardDraftTileId, okeyPrototypeSeatRackTiles]);
 
   useEffect(() => {
     const currentLobbyId = sanitizeLobbyId(activeLobbyId);
@@ -5663,12 +5675,25 @@ function App() {
     const nextSeat = (okeyPrototypeTurnSeat % 4 + 1) as 1 | 2 | 3 | 4;
     setOkeyPrototypeTurnSeat(nextSeat);
     setOkeyPrototypeTurnPhase("draw");
+    setOkeyPrototypeDiscardDraftTileId("");
     if (nextSeat === 1) {
       const nextRound = okeyPrototypeTurnRound + 1;
       setOkeyPrototypeTurnRound(nextRound);
       return { nextSeat, nextRound };
     }
     return { nextSeat, nextRound: okeyPrototypeTurnRound };
+  }
+
+  function selectOkeyPrototypeDiscardDraft(tileId: string) {
+    if (!okeyPrototypeCanAdvanceTurn) return;
+    if (okeyPrototypeTurnPhase !== "discard") {
+      appendOkeyPrototypeAction("Gecersiz hamle: Tas secmek icin once tas cekmelisin.");
+      return;
+    }
+    const tile = okeyPrototypeSeatRackTiles.find((entry) => entry.id === tileId);
+    if (!tile) return;
+    setOkeyPrototypeDiscardDraftTileId(tileId);
+    appendOkeyPrototypeAction(`Atilacak tas secildi: ${tile.color}-${tile.value}`);
   }
 
   function drawOkeyPrototypeTile() {
@@ -5689,6 +5714,7 @@ function App() {
       [seatNo]: [...(current[seatNo] ?? []), tile],
     }));
     setOkeyPrototypeTurnPhase("discard");
+    setOkeyPrototypeDiscardDraftTileId(tile.id);
     appendOkeyPrototypeAction(`Tas cekildi: Koltuk ${seatNo} (${tile.color}-${tile.value})`);
   }
 
@@ -5704,7 +5730,15 @@ function App() {
       appendOkeyPrototypeAction("Gecersiz hamle: Atacak tas yok.");
       return;
     }
-    const droppedTile = currentRack[currentRack.length - 1];
+    let droppedTile = currentRack[currentRack.length - 1];
+    let nextRack = currentRack.slice(0, -1);
+    if (okeyPrototypeDiscardDraftTileId) {
+      const selectedIndex = currentRack.findIndex((tile) => tile.id === okeyPrototypeDiscardDraftTileId);
+      if (selectedIndex >= 0) {
+        droppedTile = currentRack[selectedIndex];
+        nextRack = currentRack.filter((_, index) => index !== selectedIndex);
+      }
+    }
     const discardEntry: OkeyPrototypeDiscardEntry = {
       id: `okey-proto-discard-${seatNo}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       seatNo,
@@ -5714,8 +5748,9 @@ function App() {
     };
     setOkeyPrototypeRackState((current) => ({
       ...current,
-      [seatNo]: (current[seatNo] ?? []).slice(0, -1),
+      [seatNo]: nextRack,
     }));
+    setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeDiscardPile((current) => [discardEntry, ...current].slice(0, 40));
     const next = moveOkeyPrototypeTurnToNextSeat();
     appendOkeyPrototypeAction(
@@ -5743,6 +5778,7 @@ function App() {
     setOkeyPrototypeTurnSeat(baseSeat);
     setOkeyPrototypeTurnRound(1);
     setOkeyPrototypeTurnPhase("draw");
+    setOkeyPrototypeDiscardDraftTileId("");
     appendOkeyPrototypeAction(`Tur sifirlandi: Koltuk ${baseSeat}`);
   }
 
@@ -5750,6 +5786,7 @@ function App() {
     const seed = Date.now();
     setOkeyPrototypeRackState(createOkeyPrototypeRackState(seed));
     setOkeyPrototypeDiscardPile([]);
+    setOkeyPrototypeDiscardDraftTileId("");
     appendOkeyPrototypeAction("Tas dizilimi yenilendi.");
   }
 
@@ -10078,6 +10115,7 @@ function App() {
                             setOkeyPrototypeTurnRound(1);
                             setOkeyPrototypeTurnPhase("draw");
                             setOkeyPrototypeDiscardPile([]);
+                            setOkeyPrototypeDiscardDraftTileId("");
                             appendOkeyPrototypeAction(`Masaya oturuldu: Masa ${okeyPrototypeSelectedTable.tableNo}, Koltuk ${reservedSeat}`);
                           }}
                           disabled={!okeyPrototypeSelectedTable || okeyPrototypeAvailableSeatNos.length === 0}
@@ -10097,6 +10135,7 @@ function App() {
                             setOkeyPrototypeTurnRound(1);
                             setOkeyPrototypeTurnPhase("draw");
                             setOkeyPrototypeDiscardPile([]);
+                            setOkeyPrototypeDiscardDraftTileId("");
                           }}
                           disabled={!okeyPrototypeSeatReservation}
                         >
@@ -10183,11 +10222,26 @@ function App() {
                         </div>
                         <div className="my-game-coming-prototype-rack-tiles" aria-label={`Koltuk ${okeyPrototypeSeatNoForRack} tas dizilimi`}>
                           {okeyPrototypeSeatRackTiles.map((tile) => (
-                            <span key={tile.id} className={`my-game-coming-prototype-rack-tile tile-${tile.color}`}>
+                            <button
+                              key={tile.id}
+                              type="button"
+                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "selected" : ""}`}
+                              onClick={() => selectOkeyPrototypeDiscardDraft(tile.id)}
+                              disabled={!okeyPrototypeCanDiscardTile}
+                              aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
+                              title={`${tile.color} ${tile.value}`}
+                            >
                               {tile.value}
-                            </span>
+                            </button>
                           ))}
                         </div>
+                        <p className="my-game-coming-prototype-rack-discard-status" role="status" aria-live="polite" aria-atomic="true">
+                          {okeyPrototypeTurnPhase === "discard"
+                            ? (okeyPrototypeDiscardDraftTile
+                              ? `Atilacak tas: ${okeyPrototypeDiscardDraftTile.color}-${okeyPrototypeDiscardDraftTile.value}`
+                              : "Atilacak tasi rafdan sec.")
+                            : "Tas secimi icin once Tas Cek adimini tamamla."}
+                        </p>
                         <div className="my-game-coming-prototype-rack-actions">
                           <button
                             type="button"
