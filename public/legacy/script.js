@@ -10,7 +10,7 @@ const BOT_DIFFICULTY_HARD = "hard";
 const BOT_THINK_DELAY_BY_LEVEL = {
   [BOT_DIFFICULTY_EASY]: 980,
   [BOT_DIFFICULTY_MEDIUM]: BOT_DELAY_MS,
-  [BOT_DIFFICULTY_HARD]: 640,
+  [BOT_DIFFICULTY_HARD]: 420,
 };
 const BOT_DICE_OUTCOMES = buildBotDiceOutcomes();
 const LOG_LIMIT = 140;
@@ -2988,7 +2988,7 @@ function buildBotDiceOutcomes() {
 
 function chooseBotMoveHard(state, player, moves, dice) {
   const turnDice = Array.isArray(dice) ? [...dice] : [];
-  const searchDepth = Math.min(4, Math.max(1, turnDice.length));
+  const searchDepth = Math.min(6, Math.max(2, turnDice.length + 1));
   const planMemo = new Map();
   const replyMemo = new Map();
   const replyTurnMemo = new Map();
@@ -3009,12 +3009,16 @@ function chooseBotMoveHard(state, player, moves, dice) {
     const boardEval = evaluateBoardStateForBot(nextState, player);
     const opponentReply = estimateOpponentTurnScore(nextState, player, replyMemo, replyTurnMemo);
     const safetyEdge = (countBlots(nextState, opponentOf(player)) - countBlots(nextState, player)) * 1.15;
+    const tacticalEdge =
+      (countHomeMadePoints(nextState, player) - countHomeMadePoints(state, player)) * 2.2
+      + (countBlockedEntryPoints(nextState, opponentOf(player)) - countBlockedEntryPoints(state, opponentOf(player))) * 1.8;
     const total =
-      quick * 0.48
-      + continuation * 1.04
-      + boardEval * 0.72
-      - opponentReply * 0.4
-      + safetyEdge;
+      quick * 0.42
+      + continuation * 1.12
+      + boardEval * 0.78
+      - opponentReply * 0.52
+      + safetyEdge
+      + tacticalEdge;
 
     if (total > bestScore || (total === bestScore && move.die > best.die)) {
       bestScore = total;
@@ -3056,7 +3060,7 @@ function getHardTurnPlanScore(state, player, dice, depth, memo) {
     })
     .sort((a, b) => b.quick - a.quick);
 
-  const beamWidth = depth >= 3 ? 6 : 10;
+  const beamWidth = depth >= 3 ? 10 : 14;
   const candidates = ranked.slice(0, Math.min(beamWidth, ranked.length));
 
   let best = -Infinity;
@@ -3122,7 +3126,7 @@ function estimateBestTurnScoreForDice(state, player, dice, memo) {
     })
     .sort((a, b) => b.quick - a.quick);
 
-  const beamWidth = usableDice.length > 2 ? 4 : 6;
+  const beamWidth = usableDice.length > 2 ? 6 : 8;
   const candidates = ranked.slice(0, Math.min(beamWidth, ranked.length));
 
   let best = -Infinity;

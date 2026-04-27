@@ -142,7 +142,8 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const initialMode = params.get("mode");
-    const initialDifficulty = (params.get("bot_difficulty") || params.get("difficulty") || "medium").toLowerCase();
+    const defaultDifficulty = initialMode === "bot" ? "hard" : "medium";
+    const initialDifficulty = (params.get("bot_difficulty") || params.get("difficulty") || defaultDifficulty).toLowerCase();
     window.__BOOT_MODE__ = initialMode === "bot" ? "bot" : "local";
     window.__BOOT_BOT_DIFFICULTY__ = ["easy", "medium", "hard"].includes(initialDifficulty) ? initialDifficulty : "medium";
   </script>

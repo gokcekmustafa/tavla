@@ -4344,6 +4344,9 @@ function TavlaApp() {
   const iframeUrl = useMemo(() => {
     const qp = new URLSearchParams();
     qp.set("mode", isRoomMode ? "local" : mode);
+    if (!isRoomMode && mode === "bot") {
+      qp.set("bot_difficulty", "hard");
+    }
     qp.set("t", String(iframeKey));
     qp.set("guest", safeGuestName);
     qp.set("sync_ws", REALTIME_WS_BASE_URL);
@@ -13147,6 +13150,9 @@ function TavlaApp() {
                   </button>
                   <button className="my-top-btn my-btn-play" onClick={onQuickPlay} style={{ order: lobbyHeaderActionOrder.indexOf("quickPlay") }}>
                     {activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}
+                  </button>
+                  <button className="my-top-btn my-btn-bot" onClick={startBotGame}>
+                    {activeDesign.texts.lobbyBotMode || "Bota Karsi"}
                   </button>
                 </div>
               ) : null}
