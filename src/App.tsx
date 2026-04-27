@@ -11229,6 +11229,33 @@ function App() {
                           </span>
                           <button
                             type="button"
+                            className="my-action-btn soft my-game-coming-prototype-board-action-btn"
+                            onClick={discardOkeyPrototypeTile}
+                            disabled={!okeyPrototypeCanDiscardTile || !okeyPrototypeDiscardDraftTile}
+                            aria-describedby="okey-prototype-turn-status"
+                          >
+                            Secili Tasi At
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft my-game-coming-prototype-board-action-btn"
+                            onClick={openOkeyPrototypeMeld}
+                            disabled={!okeyPrototypeCanDiscardTile || okeyPrototypeMeldDraftTiles.length < 3 || !okeyPrototypeMeldDraftValidation.valid}
+                            aria-describedby="okey-prototype-turn-status"
+                          >
+                            Secili Peri Ac
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft my-game-coming-prototype-board-action-btn"
+                            onClick={attachOkeyPrototypeTileToMeld}
+                            disabled={!okeyPrototypeAttachValidation.valid}
+                            aria-describedby="okey-prototype-turn-status"
+                          >
+                            Secili Pere Ekle
+                          </button>
+                          <button
+                            type="button"
                             className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
                             onClick={clearOkeyPrototypeTileSelections}
                             disabled={!okeyPrototypeDiscardDraftTileId && okeyPrototypeMeldDraftTileIds.length === 0}

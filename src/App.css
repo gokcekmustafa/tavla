@@ -1168,6 +1168,13 @@
   padding: 2px 8px;
 }
 
+.my-game-coming-prototype-board-action-btn {
+  min-height: 26px;
+  font-size: 0.66rem;
+  padding: 0 10px;
+  border-radius: 7px;
+}
+
 .my-game-coming-prototype-board-clear-btn {
   min-height: 26px;
   font-size: 0.66rem;
