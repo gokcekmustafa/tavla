@@ -11201,6 +11201,49 @@ function App() {
                           </button>
                         </div>
                       </div>
+                      <div className="my-game-coming-prototype-board">
+                        <div className="my-game-coming-prototype-board-head">
+                          <strong>Masa Onizleme (Prototip)</strong>
+                          <span>Aktif tur: K{okeyPrototypeTurnSeat}</span>
+                        </div>
+                        <div className="my-game-coming-prototype-board-grid" aria-label="101 okey masa onizleme">
+                          {OKEY_PROTOTYPE_SEATS.map((seatNo) => {
+                            const seatTiles = okeyPrototypeRackState[seatNo] ?? [];
+                            const isTurnSeat = seatNo === okeyPrototypeTurnSeat;
+                            const isOpenedSeat = okeyPrototypeSeatOpenedState[seatNo] ?? false;
+                            return (
+                              <article
+                                key={`okey-proto-board-seat-${seatNo}`}
+                                className={`my-game-coming-prototype-board-seat ${isTurnSeat ? "active" : ""}`}
+                                aria-label={`Koltuk ${seatNo} raf gorunumu`}
+                              >
+                                <header>
+                                  <strong>K{seatNo}</strong>
+                                  <span>{isOpenedSeat ? "ACIK" : "KAPALI"} | {seatTiles.length} tas</span>
+                                </header>
+                                <div className="my-game-coming-prototype-board-seat-tiles">
+                                  {seatTiles.length === 0 ? (
+                                    <span className="my-game-coming-prototype-board-seat-empty">Bos koltuk</span>
+                                  ) : (
+                                    seatTiles.map((tile) => {
+                                      const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+                                      return (
+                                        <span
+                                          key={`okey-proto-board-seat-${seatNo}-${tile.id}`}
+                                          className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${tileIsJoker ? "joker-tile" : ""}`}
+                                          title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
+                                        >
+                                          {renderOkeyPrototypeTileFace(tile)}
+                                        </span>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </div>
                       <div className="my-game-coming-prototype-rack">
                         <div className="my-game-coming-prototype-rack-head">
                           <strong>Tas Dizilimi (Prototip)</strong>
