@@ -124,6 +124,7 @@ const checks = [
       && hasApp("className=\"my-game-coming-table-sketch-filter-chip-btn\"")
       && hasApp("title={`${filter.label} filtresini kaldir`}")
       && hasApp("className=\"my-game-coming-table-sketch-filter-empty\"")
+      && hasApp("className=\"my-game-coming-table-sketch-filter-empty\" aria-live=\"polite\" role=\"status\"")
       && hasApp("Aktif filtre yok.")
       && hasApp("onClick={() => clearOkeyPrototypeFilterChip(filter.key, filter.label)}")
       && hasApp("className=\"my-game-coming-table-sketch-selected\"")

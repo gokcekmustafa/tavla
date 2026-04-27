@@ -9726,7 +9726,7 @@ function App() {
                         ))}
                       </div>
                     ) : (
-                      <p className="my-game-coming-table-sketch-filter-empty">Aktif filtre yok.</p>
+                      <p className="my-game-coming-table-sketch-filter-empty" aria-live="polite" role="status">Aktif filtre yok.</p>
                     )}
                     {okeyPrototypeSelectedTable ? (
                       <p className="my-game-coming-table-sketch-selected" aria-live="polite" role="status">
