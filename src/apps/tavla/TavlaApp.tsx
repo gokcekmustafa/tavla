@@ -13107,7 +13107,7 @@ function TavlaApp() {
               <div className="my-room-picker-actions">
                 <button className="my-action-btn" type="button" onClick={onQuickPlay}>{activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}</button>
                 {isTavlaSelectedGame ? (
-                  <button className="my-action-btn soft" type="button" onClick={startBotGame}>
+                  <button className="my-action-btn my-btn-bot" type="button" onClick={startBotGame}>
                     {activeDesign.texts.lobbyBotMode || "Bota Karsi"}
                   </button>
                 ) : null}
