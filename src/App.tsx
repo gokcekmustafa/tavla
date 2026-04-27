@@ -9888,6 +9888,7 @@ function App() {
                         <button
                           type="button"
                           className="my-action-btn"
+                          aria-describedby="okey-prototype-seat-status"
                           onClick={() => {
                             if (!okeyPrototypeSelectedTable) return;
                             if (okeyPrototypeAvailableSeatNos.length === 0) return;
@@ -9904,6 +9905,7 @@ function App() {
                         <button
                           type="button"
                           className="my-action-btn soft"
+                          aria-describedby="okey-prototype-seat-status"
                           onClick={() => {
                             if (okeyPrototypeSeatReservation && okeyPrototypeJoinedTable) {
                               appendOkeyPrototypeAction(`Masadan ayrildi: Masa ${okeyPrototypeJoinedTable.tableNo}, Koltuk ${okeyPrototypeSeatReservation.seatNo}`);
@@ -9915,7 +9917,13 @@ function App() {
                           Masadan Ayril (Prototip)
                         </button>
                       </div>
-                      <p className="my-game-coming-table-seat-status">
+                      <p
+                        id="okey-prototype-seat-status"
+                        className="my-game-coming-table-seat-status"
+                        role="status"
+                        aria-live="polite"
+                        aria-atomic="true"
+                      >
                         {okeyPrototypeSeatReservation && okeyPrototypeJoinedTable
                           ? `Prototip oturum: Masa ${okeyPrototypeJoinedTable.tableNo} / Koltuk ${okeyPrototypeSeatReservation.seatNo}`
                           : "Prototip oturum acik degil."}
