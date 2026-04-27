@@ -109,6 +109,7 @@ const checks = [
       && hasApp("className=\"my-game-coming-table-sketch-search-meta\"")
       && hasApp("id=\"okey-prototype-table-search-meta\"")
       && hasApp("aria-live=\"polite\"")
+      && hasApp("role=\"status\"")
       && hasApp("Sonuc: {okeyPrototypeVisibleTableSketchRows.length} masa | Enter: Ilk Sonuc")
       && hasApp("className=\"my-action-btn soft my-game-coming-table-sketch-reset-btn\"")
       && hasApp("title=\"Tum masa filtrelerini temizler\"")
