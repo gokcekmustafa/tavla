@@ -9647,6 +9647,7 @@ function App() {
                           pattern="[0-9]*"
                           enterKeyHint="search"
                           autoComplete="off"
+                          spellCheck={false}
                           maxLength={2}
                           title="Masa numarasina gore arama yapar"
                           aria-describedby="okey-prototype-table-search-meta"

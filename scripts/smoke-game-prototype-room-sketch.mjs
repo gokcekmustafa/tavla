@@ -74,6 +74,7 @@ const checks = [
       && hasApp("pattern=\"[0-9]*\"")
       && hasApp("enterKeyHint=\"search\"")
       && hasApp("autoComplete=\"off\"")
+      && hasApp("spellCheck={false}")
       && hasApp("maxLength={2}")
       && hasApp("title=\"Masa numarasina gore arama yapar\"")
       && hasApp("aria-describedby=\"okey-prototype-table-search-meta\"")
