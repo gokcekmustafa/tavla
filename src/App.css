@@ -231,6 +231,159 @@
   }
 }
 
+/* 101 Prototype Visual Sprint - Step 2 (detail pass + readability) */
+.my-game-coming-prototype-board {
+  position: relative;
+  overflow: hidden;
+}
+
+.my-game-coming-prototype-board::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      100deg,
+      rgba(255, 226, 176, 0.08) 0px,
+      rgba(255, 226, 176, 0.08) 2px,
+      rgba(94, 57, 22, 0.02) 2px,
+      rgba(94, 57, 22, 0.02) 6px
+    );
+  mix-blend-mode: soft-light;
+  opacity: 0.72;
+}
+
+.my-game-coming-prototype-board > * {
+  position: relative;
+  z-index: 1;
+}
+
+.my-game-coming-prototype-board-grid {
+  align-items: stretch;
+}
+
+.my-game-coming-prototype-board-seat header strong {
+  color: #f4fbff;
+  font-size: 0.74rem;
+}
+
+.my-game-coming-prototype-board-seat header span {
+  color: #e1f4ff;
+  font-size: 0.68rem;
+}
+
+.my-game-coming-prototype-board-center p,
+.my-game-coming-prototype-board-center-meld-btn > span,
+.my-game-coming-prototype-board-center-melds > p {
+  font-size: 0.7rem;
+}
+
+.my-game-coming-prototype-board-center-melds-list {
+  max-height: 138px;
+}
+
+.my-game-coming-prototype-board-center-melds-list::-webkit-scrollbar,
+.my-game-coming-prototype-log-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.my-game-coming-prototype-board-center-melds-list::-webkit-scrollbar-thumb,
+.my-game-coming-prototype-log-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(210, 175, 118, 0.5);
+}
+
+.my-game-coming-prototype-board-center-melds-list::-webkit-scrollbar-track,
+.my-game-coming-prototype-log-list::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(21, 81, 94, 0.4);
+}
+
+.my-game-coming-prototype-turn-head strong,
+.my-game-coming-prototype-rack-head strong,
+.my-game-coming-prototype-melds-head strong,
+.my-game-coming-prototype-discard-head strong,
+.my-game-coming-prototype-log-head strong {
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+}
+
+.my-game-coming-prototype-turn-status,
+.my-game-coming-prototype-rack-discard-status,
+.my-game-coming-prototype-discard-status,
+.my-game-coming-prototype-meld-draft-status,
+.my-game-coming-prototype-meld-attach-status {
+  font-size: 0.73rem;
+  line-height: 1.28;
+}
+
+.my-game-coming-prototype-rack-tiles,
+.my-game-coming-prototype-board-seat-tiles,
+.my-game-coming-prototype-meld-item-tiles,
+.my-game-coming-prototype-discard-tiles {
+  gap: 5px;
+}
+
+.my-game-coming-prototype-rack-tile {
+  min-width: calc(25px * var(--okey-proto-tile-scale, 1));
+  height: calc(26px * var(--okey-proto-tile-scale, 1));
+  font-size: calc(0.75rem * var(--okey-proto-tile-scale, 1));
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.my-game-coming-prototype-rack-tile:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 4px 10px rgba(0, 0, 0, 0.24);
+}
+
+.my-game-coming-prototype-rack-tile.tile-kirmizi {
+  color: #be2424;
+  border-color: rgba(162, 54, 54, 0.55);
+}
+
+.my-game-coming-prototype-rack-tile.tile-mavi {
+  color: #2f5ea4;
+  border-color: rgba(65, 101, 154, 0.54);
+}
+
+.my-game-coming-prototype-rack-tile.tile-sari {
+  color: #8e6a18;
+  border-color: rgba(141, 111, 45, 0.56);
+}
+
+.my-game-coming-prototype-rack-tile.tile-siyah {
+  color: #2d3340;
+  border-color: rgba(74, 80, 94, 0.6);
+}
+
+.my-game-coming-prototype-rack-actions .my-action-btn,
+.my-game-coming-prototype-turn-actions .my-action-btn,
+.my-game-coming-prototype-log-head .my-action-btn {
+  min-height: 32px;
+  font-size: 0.72rem;
+}
+
+.my-game-coming-table-sketch-grid {
+  gap: 7px;
+}
+
+@media (max-width: 920px) {
+  .my-game-coming-prototype-board-center-melds-list,
+  .my-game-coming-prototype-log-list {
+    max-height: 118px;
+  }
+
+  .my-game-coming-prototype-rack-tile {
+    min-width: calc(23px * var(--okey-proto-tile-scale, 1));
+    height: calc(24px * var(--okey-proto-tile-scale, 1));
+    font-size: calc(0.72rem * var(--okey-proto-tile-scale, 1));
+  }
+}
+
 .my-shell {
   min-height: 100svh;
   display: grid;
