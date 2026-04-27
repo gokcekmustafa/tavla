@@ -387,6 +387,7 @@ const MEMBER_SESSION_KEY = "tavla.member.session.v1";
 const ACTIVE_LOBBY_ID_KEY = "tavla.active.lobby.id.v1";
 const ROOM_PICKER_SESSION_KEY = "tavla.room.picker.session.v1";
 const GAME_SELECTION_SESSION_KEY = "tavla.game.selection.session.v1";
+const OKEY_PROTOTYPE_TILE_SCALE_SESSION_KEY = "tavla.okey.prototype.tile.scale.pct.v1";
 const LEAVE_NOTICE_REJECT_PREFIX = "LEAVE_REJECT|";
 const LOBBY_STATE_KEY_PREFIX = "tavla.lobby.state.v3";
 const LOBBY_SYNC_CHANNEL_PREFIX = "tavla.lobby.sync.v3";
@@ -2529,6 +2530,21 @@ function saveSelectedGameIdToSession(gameId: GameId) {
   safeStorageSetItem(window.sessionStorage, GAME_SELECTION_SESSION_KEY, gameId);
 }
 
+function normalizeOkeyPrototypeTileScalePct(value: number) {
+  if (!Number.isFinite(value)) return 100;
+  const clamped = Math.max(85, Math.min(130, Math.round(value)));
+  return Math.round(clamped / 5) * 5;
+}
+
+function loadOkeyPrototypeTileScalePctFromSession() {
+  if (typeof window === "undefined") return 100;
+  const raw = safeStorageGetItem(window.sessionStorage, OKEY_PROTOTYPE_TILE_SCALE_SESSION_KEY);
+  if (!raw) return 100;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return 100;
+  return normalizeOkeyPrototypeTileScalePct(parsed);
+}
+
 function readEntryScreenFromUrl(): EntryScreen | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
@@ -3076,7 +3092,7 @@ function App() {
   const [okeyPrototypeAttachTargetMeldId, setOkeyPrototypeAttachTargetMeldId] = useState("");
   const [okeyPrototypeDealSeedDraft, setOkeyPrototypeDealSeedDraft] = useState(() => String(Date.now()));
   const [okeyPrototypeBoardMaskOthers, setOkeyPrototypeBoardMaskOthers] = useState(true);
-  const [okeyPrototypeTileScalePct, setOkeyPrototypeTileScalePct] = useState(100);
+  const [okeyPrototypeTileScalePct, setOkeyPrototypeTileScalePct] = useState(() => loadOkeyPrototypeTileScalePctFromSession());
   const [okeyPrototypeWinnerSeat, setOkeyPrototypeWinnerSeat] = useState<OkeyPrototypeSeatNo | null>(null);
   const [okeyPrototypeHandDrawn, setOkeyPrototypeHandDrawn] = useState(false);
   const [okeyPrototypeSeatHandWins, setOkeyPrototypeSeatHandWins] = useState<Record<OkeyPrototypeSeatNo, number>>(() => createDefaultOkeyPrototypeSeatWinState());
@@ -3698,6 +3714,16 @@ function App() {
     if (exists) return;
     setOkeyPrototypeAttachTargetMeldId("");
   }, [okeyPrototypeAttachTargetMeldId, okeyPrototypeOpenedMelds]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const normalized = normalizeOkeyPrototypeTileScalePct(okeyPrototypeTileScalePct);
+    if (normalized !== okeyPrototypeTileScalePct) {
+      setOkeyPrototypeTileScalePct(normalized);
+      return;
+    }
+    safeStorageSetItem(window.sessionStorage, OKEY_PROTOTYPE_TILE_SCALE_SESSION_KEY, String(normalized));
+  }, [okeyPrototypeTileScalePct]);
 
   useEffect(() => {
     if (okeyPrototypeHandCompleted) return;
@@ -11733,11 +11759,34 @@ function App() {
                             onChange={(e) => {
                               const parsed = Number.parseInt(e.target.value, 10);
                               if (!Number.isFinite(parsed)) return;
-                              setOkeyPrototypeTileScalePct(parsed);
+                              setOkeyPrototypeTileScalePct(normalizeOkeyPrototypeTileScalePct(parsed));
                             }}
                             aria-label="101 prototip tas boyutu"
                           />
                           <span>%{okeyPrototypeTileScalePct}</span>
+                        </div>
+                        <div className="my-game-coming-prototype-rack-scale-presets">
+                          <button
+                            type="button"
+                            className={`my-action-btn soft my-game-coming-prototype-rack-scale-btn ${okeyPrototypeTileScalePct === 95 ? "active" : ""}`}
+                            onClick={() => setOkeyPrototypeTileScalePct(95)}
+                          >
+                            Kucuk (%95)
+                          </button>
+                          <button
+                            type="button"
+                            className={`my-action-btn soft my-game-coming-prototype-rack-scale-btn ${okeyPrototypeTileScalePct === 100 ? "active" : ""}`}
+                            onClick={() => setOkeyPrototypeTileScalePct(100)}
+                          >
+                            Standart (%100)
+                          </button>
+                          <button
+                            type="button"
+                            className={`my-action-btn soft my-game-coming-prototype-rack-scale-btn ${okeyPrototypeTileScalePct === 115 ? "active" : ""}`}
+                            onClick={() => setOkeyPrototypeTileScalePct(115)}
+                          >
+                            Buyuk (%115)
+                          </button>
                         </div>
                         <div className="my-game-coming-prototype-rack-seat-summary" role="status" aria-live="polite" aria-atomic="true">
                           {okeyPrototypeRackSeatSummaries.map((item) => (

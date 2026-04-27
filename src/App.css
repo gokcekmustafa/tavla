@@ -1588,6 +1588,25 @@
   text-align: right;
 }
 
+.my-game-coming-prototype-rack-scale-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-rack-scale-btn {
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 0.66rem;
+  border-radius: 7px;
+}
+
+.my-game-coming-prototype-rack-scale-btn.active {
+  border-color: rgba(245, 225, 156, 0.86);
+  background: rgba(124, 98, 34, 0.42);
+  color: #fff2ca;
+}
+
 .my-game-coming-prototype-rack-seat-summary {
   display: flex;
   flex-wrap: wrap;
