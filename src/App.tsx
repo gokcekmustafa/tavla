@@ -3108,6 +3108,7 @@ function App() {
   const [okeyPrototypeBoardMaskOthers, setOkeyPrototypeBoardMaskOthers] = useState(true);
   const [okeyPrototypeTileScalePct, setOkeyPrototypeTileScalePct] = useState(() => loadOkeyPrototypeTileScalePctFromSession());
   const [okeyPrototypeAutoSortMode, setOkeyPrototypeAutoSortMode] = useState<OkeyPrototypeAutoSortMode>(() => loadOkeyPrototypeAutoSortModeFromSession());
+  const [okeyPrototypeBotModeEnabled, setOkeyPrototypeBotModeEnabled] = useState(false);
   const [okeyPrototypeWinnerSeat, setOkeyPrototypeWinnerSeat] = useState<OkeyPrototypeSeatNo | null>(null);
   const [okeyPrototypeHandDrawn, setOkeyPrototypeHandDrawn] = useState(false);
   const [okeyPrototypeSeatHandWins, setOkeyPrototypeSeatHandWins] = useState<Record<OkeyPrototypeSeatNo, number>>(() => createDefaultOkeyPrototypeSeatWinState());
@@ -3426,6 +3427,11 @@ function App() {
     if (currentIndex < 0) return seats[0];
     return seats[(currentIndex + 1) % seats.length] ?? seats[0];
   }, [okeyPrototypeActiveTurnSeats, okeyPrototypeTurnSeat]);
+  const okeyPrototypeIsBotTurn = okeyPrototypeBotModeEnabled
+    && Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable)
+    && !okeyPrototypeHandCompleted
+    && okeyPrototypeTurnSeat !== okeyPrototypeLocalSeatNo
+    && okeyPrototypeActiveTurnSeats.includes(okeyPrototypeTurnSeat as OkeyPrototypeSeatNo);
   const okeyPrototypeTurnQueue = useMemo(() => {
     const seats = okeyPrototypeActiveTurnSeats.length > 0
       ? okeyPrototypeActiveTurnSeats
@@ -3774,6 +3780,51 @@ function App() {
       return changed ? next : current;
     });
   }, [okeyPrototypeAutoSortMode, okeyPrototypeOkeyTile, okeyPrototypeSeatReservation]);
+
+  useEffect(() => {
+    if (!okeyPrototypeBotModeEnabled) return;
+    if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) return;
+    if (okeyPrototypeHandCompleted) return;
+    const turnSeat = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+    if (turnSeat === okeyPrototypeLocalSeatNo) return;
+    if (!okeyPrototypeActiveTurnSeats.includes(turnSeat)) return;
+    const delay = okeyPrototypeTurnPhase === "draw" ? 650 : 800;
+    const timer = window.setTimeout(() => {
+      if (okeyPrototypeHandCompleted) return;
+      if (okeyPrototypeTurnPhase === "draw") {
+        if (okeyPrototypeCanDrawFromDiscard && (!okeyPrototypeCanDrawTile || Math.random() < 0.35)) {
+          drawOkeyPrototypeTileFromDiscard();
+          return;
+        }
+        if (okeyPrototypeCanDrawTile) {
+          drawOkeyPrototypeTile();
+        }
+        return;
+      }
+      if (okeyPrototypeDiscardBlockedByOpening) {
+        setOkeyPrototypeSeatOpenedState((current) => ({
+          ...current,
+          [turnSeat]: true,
+        }));
+        appendOkeyPrototypeAction(`Bot K${turnSeat} acilis bariyerini gecti (prototip).`);
+        return;
+      }
+      discardOkeyPrototypeTile();
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [
+    okeyPrototypeActiveTurnSeats,
+    okeyPrototypeBotModeEnabled,
+    okeyPrototypeCanDrawFromDiscard,
+    okeyPrototypeCanDrawTile,
+    okeyPrototypeDiscardBlockedByOpening,
+    okeyPrototypeHandCompleted,
+    okeyPrototypeJoinedTable,
+    okeyPrototypeLocalSeatNo,
+    okeyPrototypeSeatReservation,
+    okeyPrototypeTurnPhase,
+    okeyPrototypeTurnSeat,
+  ]);
 
   useEffect(() => {
     if (okeyPrototypeHandCompleted) return;
@@ -11379,6 +11430,7 @@ function App() {
                             setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
                             setOkeyPrototypeDrawHandCount(0);
                             setOkeyPrototypeLastHandSummary("");
+                            setOkeyPrototypeBotModeEnabled(false);
                           }}
                           disabled={!okeyPrototypeSeatReservation}
                         >
@@ -11861,6 +11913,25 @@ function App() {
                             <option value="color">Renk Sirasi</option>
                             <option value="value">Deger Sirasi</option>
                           </select>
+                        </div>
+                        <div className="my-game-coming-prototype-rack-bot-mode">
+                          <button
+                            type="button"
+                            className={`my-action-btn soft my-game-coming-prototype-rack-bot-btn ${okeyPrototypeBotModeEnabled ? "active" : ""}`}
+                            onClick={() => setOkeyPrototypeBotModeEnabled((current) => !current)}
+                            disabled={!okeyPrototypeSeatReservation}
+                          >
+                            {okeyPrototypeBotModeEnabled ? "Bot Modu: Acik" : "Bot Modu: Kapali"}
+                          </button>
+                          <p role="status" aria-live="polite" aria-atomic="true">
+                            {!okeyPrototypeSeatReservation
+                              ? "Bot modu icin once masaya otur."
+                              : okeyPrototypeIsBotTurn
+                              ? `Bot K${okeyPrototypeTurnSeat} hamle yapiyor...`
+                              : okeyPrototypeBotModeEnabled
+                              ? "Rakip koltuklar sira geldiginde otomatik oynar."
+                              : "Bot testini acmak icin butonu kullan."}
+                          </p>
                         </div>
                         <div className="my-game-coming-prototype-rack-seat-summary" role="status" aria-live="polite" aria-atomic="true">
                           {okeyPrototypeRackSeatSummaries.map((item) => (
