@@ -194,6 +194,8 @@ const checks = [
       && hasApp("id=\"okey-prototype-table-sketch-grid\"")
       && hasApp("className=\"my-game-coming-table-sketch-empty-state\"")
       && hasApp("Aramaya uygun masa bulunamadi.")
+      && hasApp("title=\"Filtreleri temizleyip masa listesini yeniler\"")
+      && hasApp("aria-label=\"Filtreleri temizle ve tekrar dene\"")
       && hasApp("Filtreleri Temizle ve Tekrar Dene")
       && hasApp("okeyPrototypeVisibleTableSketchRows.map((row) => (")
       && hasApp("className={`my-game-coming-table-sketch-card ${row.active ? \"active\" : \"waiting\"} ${okeyPrototypeSelectedTableId === row.id ? \"selected\" : \"\"}`}")

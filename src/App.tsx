@@ -9957,6 +9957,8 @@ function App() {
                               type="button"
                               className="my-action-btn soft my-game-coming-table-sketch-empty-reset-btn"
                               onClick={resetOkeyPrototypeTableFilters}
+                              title="Filtreleri temizleyip masa listesini yeniler"
+                              aria-label="Filtreleri temizle ve tekrar dene"
                             >
                               Filtreleri Temizle ve Tekrar Dene
                             </button>
