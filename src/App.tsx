@@ -355,6 +355,15 @@ type OkeyPrototypeDiscardEntry = {
   round: number;
   at: number;
 };
+type OkeyPrototypeMeldKind = "seri" | "set";
+type OkeyPrototypeMeldEntry = {
+  id: string;
+  seatNo: OkeyPrototypeSeatNo;
+  round: number;
+  tiles: OkeyPrototypeTile[];
+  kind: OkeyPrototypeMeldKind;
+  at: number;
+};
 
 const GUEST_STORAGE_KEY = "tavla.guestName";
 const GUEST_ID_STORAGE_KEY = "tavla.guest.id.v1";
@@ -472,6 +481,30 @@ function createOkeyPrototypeRackState(seed = 0): OkeyPrototypeRackState {
     racks[seatNo] = tiles;
   });
   return racks;
+}
+
+function evaluateOkeyPrototypeMeldDraft(tiles: OkeyPrototypeTile[]) {
+  if (tiles.length < 3) {
+    return { valid: false, kind: null as OkeyPrototypeMeldKind | null, reason: "En az 3 tas secmelisin." };
+  }
+  const sameValue = tiles.every((tile) => tile.value === tiles[0]?.value);
+  if (sameValue) {
+    const colors = new Set(tiles.map((tile) => tile.color));
+    if (colors.size === tiles.length) {
+      return { valid: true, kind: "set" as OkeyPrototypeMeldKind, reason: "" };
+    }
+  }
+  const sameColor = tiles.every((tile) => tile.color === tiles[0]?.color);
+  if (!sameColor) {
+    return { valid: false, kind: null as OkeyPrototypeMeldKind | null, reason: "Seri icin tum taslar ayni renkte olmali." };
+  }
+  const sortedValues = tiles.map((tile) => tile.value).sort((a, b) => a - b);
+  for (let index = 1; index < sortedValues.length; index += 1) {
+    if (sortedValues[index] !== sortedValues[index - 1] + 1) {
+      return { valid: false, kind: null as OkeyPrototypeMeldKind | null, reason: "Seri icin degerler ardisik olmali." };
+    }
+  }
+  return { valid: true, kind: "seri" as OkeyPrototypeMeldKind, reason: "" };
 }
 
 function normalizeHttpOrigin(rawValue: string | undefined) {
@@ -2716,6 +2749,8 @@ function App() {
   const [okeyPrototypeRackState, setOkeyPrototypeRackState] = useState<OkeyPrototypeRackState>(() => createOkeyPrototypeRackState());
   const [okeyPrototypeDiscardPile, setOkeyPrototypeDiscardPile] = useState<OkeyPrototypeDiscardEntry[]>([]);
   const [okeyPrototypeDiscardDraftTileId, setOkeyPrototypeDiscardDraftTileId] = useState("");
+  const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useState<string[]>([]);
+  const [okeyPrototypeOpenedMelds, setOkeyPrototypeOpenedMelds] = useState<OkeyPrototypeMeldEntry[]>([]);
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
   const isTavlaSelectedGame = selectedGameId === "tavla";
   const okeyPrototypeFilteredRooms = useMemo(() => {
@@ -2881,6 +2916,15 @@ function App() {
     if (!okeyPrototypeDiscardDraftTileId) return null;
     return okeyPrototypeSeatRackTiles.find((tile) => tile.id === okeyPrototypeDiscardDraftTileId) ?? null;
   }, [okeyPrototypeDiscardDraftTileId, okeyPrototypeSeatRackTiles]);
+  const okeyPrototypeMeldDraftTiles = useMemo(() => {
+    if (okeyPrototypeMeldDraftTileIds.length === 0) return [];
+    return okeyPrototypeMeldDraftTileIds
+      .map((tileId) => okeyPrototypeSeatRackTiles.find((tile) => tile.id === tileId) ?? null)
+      .filter((tile): tile is OkeyPrototypeTile => Boolean(tile));
+  }, [okeyPrototypeMeldDraftTileIds, okeyPrototypeSeatRackTiles]);
+  const okeyPrototypeMeldDraftValidation = useMemo(() => {
+    return evaluateOkeyPrototypeMeldDraft(okeyPrototypeMeldDraftTiles);
+  }, [okeyPrototypeMeldDraftTiles]);
   const okeyPrototypeRackSeatSummaries = useMemo(() => {
     return OKEY_PROTOTYPE_SEATS.map((seatNo) => {
       const tiles = okeyPrototypeRackState[seatNo] ?? [];
@@ -2893,6 +2937,7 @@ function App() {
   const okeyPrototypeRackTileCount = okeyPrototypeRackSeatSummaries.reduce((sum, item) => sum + item.tileCount, 0);
   const okeyPrototypeLastDiscard = okeyPrototypeDiscardPile[0] ?? null;
   const okeyPrototypeDiscardPreview = okeyPrototypeDiscardPile.slice(0, 8);
+  const okeyPrototypeOpenedMeldPreview = okeyPrototypeOpenedMelds.slice(0, 8);
   const okeyPrototypeDrawPileRemaining = Math.max(0, OKEY_PROTOTYPE_TOTAL_TILE_COUNT - (okeyPrototypeRackTileCount + okeyPrototypeDiscardPile.length));
   const okeyPrototypeCanAdvanceTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable);
   const okeyPrototypeNextTurnSeat = okeyPrototypeTurnSeat === 4 ? 1 : (okeyPrototypeTurnSeat + 1) as 1 | 2 | 3 | 4;
@@ -3085,6 +3130,14 @@ function App() {
     if (exists) return;
     setOkeyPrototypeDiscardDraftTileId("");
   }, [okeyPrototypeDiscardDraftTileId, okeyPrototypeSeatRackTiles]);
+
+  useEffect(() => {
+    if (okeyPrototypeMeldDraftTileIds.length === 0) return;
+    const rackTileIds = new Set(okeyPrototypeSeatRackTiles.map((tile) => tile.id));
+    const filtered = okeyPrototypeMeldDraftTileIds.filter((tileId) => rackTileIds.has(tileId));
+    if (filtered.length === okeyPrototypeMeldDraftTileIds.length) return;
+    setOkeyPrototypeMeldDraftTileIds(filtered);
+  }, [okeyPrototypeMeldDraftTileIds, okeyPrototypeSeatRackTiles]);
 
   useEffect(() => {
     const currentLobbyId = sanitizeLobbyId(activeLobbyId);
@@ -5682,6 +5735,7 @@ function App() {
     setOkeyPrototypeTurnSeat(nextSeat);
     setOkeyPrototypeTurnPhase("draw");
     setOkeyPrototypeDiscardDraftTileId("");
+    setOkeyPrototypeMeldDraftTileIds([]);
     if (nextSeat === 1) {
       const nextRound = okeyPrototypeTurnRound + 1;
       setOkeyPrototypeTurnRound(nextRound);
@@ -5700,6 +5754,62 @@ function App() {
     if (!tile) return;
     setOkeyPrototypeDiscardDraftTileId(tileId);
     appendOkeyPrototypeAction(`Atilacak tas secildi: ${tile.color}-${tile.value}`);
+  }
+
+  function toggleOkeyPrototypeMeldDraftTile(tileId: string) {
+    if (!okeyPrototypeCanAdvanceTurn) return;
+    if (okeyPrototypeTurnPhase !== "discard") {
+      appendOkeyPrototypeAction("Gecersiz hamle: Per acmak icin once tas cekmelisin.");
+      return;
+    }
+    const tile = okeyPrototypeSeatRackTiles.find((entry) => entry.id === tileId);
+    if (!tile) return;
+    setOkeyPrototypeMeldDraftTileIds((current) => {
+      if (current.includes(tileId)) {
+        return current.filter((entry) => entry !== tileId);
+      }
+      return [...current, tileId];
+    });
+  }
+
+  function clearOkeyPrototypeMeldDraft() {
+    if (okeyPrototypeMeldDraftTileIds.length === 0) return;
+    setOkeyPrototypeMeldDraftTileIds([]);
+    appendOkeyPrototypeAction("Per taslagi temizlendi.");
+  }
+
+  function openOkeyPrototypeMeld() {
+    if (!okeyPrototypeCanAdvanceTurn) return;
+    if (okeyPrototypeTurnPhase !== "discard") {
+      appendOkeyPrototypeAction("Gecersiz hamle: Per acmak icin once tas cekmelisin.");
+      return;
+    }
+    if (okeyPrototypeMeldDraftTiles.length < 3) {
+      appendOkeyPrototypeAction("Gecersiz hamle: Per acmak icin en az 3 tas sec.");
+      return;
+    }
+    const validation = evaluateOkeyPrototypeMeldDraft(okeyPrototypeMeldDraftTiles);
+    if (!validation.valid || !validation.kind) {
+      appendOkeyPrototypeAction(`Gecersiz per: ${validation.reason}`);
+      return;
+    }
+    const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+    const selectedIds = new Set(okeyPrototypeMeldDraftTiles.map((tile) => tile.id));
+    setOkeyPrototypeRackState((current) => ({
+      ...current,
+      [seatNo]: (current[seatNo] ?? []).filter((tile) => !selectedIds.has(tile.id)),
+    }));
+    const meldEntry: OkeyPrototypeMeldEntry = {
+      id: `okey-proto-meld-${seatNo}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      seatNo,
+      round: okeyPrototypeTurnRound,
+      tiles: okeyPrototypeMeldDraftTiles.slice().sort((left, right) => left.value - right.value),
+      kind: validation.kind,
+      at: Date.now(),
+    };
+    setOkeyPrototypeOpenedMelds((current) => [meldEntry, ...current].slice(0, 40));
+    setOkeyPrototypeMeldDraftTileIds([]);
+    appendOkeyPrototypeAction(`Per acildi: ${validation.kind} (${meldEntry.tiles.map((tile) => `${tile.color}-${tile.value}`).join(", ")})`);
   }
 
   function drawOkeyPrototypeTile() {
@@ -5792,6 +5902,7 @@ function App() {
     setOkeyPrototypeTurnRound(1);
     setOkeyPrototypeTurnPhase("draw");
     setOkeyPrototypeDiscardDraftTileId("");
+    setOkeyPrototypeMeldDraftTileIds([]);
     appendOkeyPrototypeAction(`Tur sifirlandi: Koltuk ${baseSeat}`);
   }
 
@@ -5800,6 +5911,8 @@ function App() {
     setOkeyPrototypeRackState(createOkeyPrototypeRackState(seed));
     setOkeyPrototypeDiscardPile([]);
     setOkeyPrototypeDiscardDraftTileId("");
+    setOkeyPrototypeMeldDraftTileIds([]);
+    setOkeyPrototypeOpenedMelds([]);
     appendOkeyPrototypeAction("Tas dizilimi yenilendi.");
   }
 
@@ -10129,6 +10242,8 @@ function App() {
                             setOkeyPrototypeTurnPhase("draw");
                             setOkeyPrototypeDiscardPile([]);
                             setOkeyPrototypeDiscardDraftTileId("");
+                            setOkeyPrototypeMeldDraftTileIds([]);
+                            setOkeyPrototypeOpenedMelds([]);
                             appendOkeyPrototypeAction(`Masaya oturuldu: Masa ${okeyPrototypeSelectedTable.tableNo}, Koltuk ${reservedSeat}`);
                           }}
                           disabled={!okeyPrototypeSelectedTable || okeyPrototypeAvailableSeatNos.length === 0}
@@ -10149,6 +10264,8 @@ function App() {
                             setOkeyPrototypeTurnPhase("draw");
                             setOkeyPrototypeDiscardPile([]);
                             setOkeyPrototypeDiscardDraftTileId("");
+                            setOkeyPrototypeMeldDraftTileIds([]);
+                            setOkeyPrototypeOpenedMelds([]);
                           }}
                           disabled={!okeyPrototypeSeatReservation}
                         >
@@ -10241,8 +10358,11 @@ function App() {
                             <button
                               key={tile.id}
                               type="button"
-                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "selected" : ""}`}
-                              onClick={() => selectOkeyPrototypeDiscardDraft(tile.id)}
+                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""}`}
+                              onClick={() => {
+                                selectOkeyPrototypeDiscardDraft(tile.id);
+                                toggleOkeyPrototypeMeldDraftTile(tile.id);
+                              }}
                               disabled={!okeyPrototypeCanDiscardTile}
                               aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
                               title={`${tile.color} ${tile.value}`}
@@ -10258,7 +10378,28 @@ function App() {
                               : "Atilacak tasi rafdan sec.")
                             : "Tas secimi icin once Tas Cek adimini tamamla."}
                         </p>
+                        <p className="my-game-coming-prototype-meld-draft-status" role="status" aria-live="polite" aria-atomic="true">
+                          {okeyPrototypeMeldDraftTiles.length === 0
+                            ? "Per taslagi: henuz secim yok."
+                            : `Per taslagi: ${okeyPrototypeMeldDraftTiles.length} tas | ${okeyPrototypeMeldDraftValidation.valid ? `Uygun ${okeyPrototypeMeldDraftValidation.kind}` : okeyPrototypeMeldDraftValidation.reason}`}
+                        </p>
                         <div className="my-game-coming-prototype-rack-actions">
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={openOkeyPrototypeMeld}
+                            disabled={!okeyPrototypeCanDiscardTile || okeyPrototypeMeldDraftTiles.length < 3 || !okeyPrototypeMeldDraftValidation.valid}
+                          >
+                            Per Ac (Prototip)
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={clearOkeyPrototypeMeldDraft}
+                            disabled={okeyPrototypeMeldDraftTiles.length === 0}
+                          >
+                            Per Taslagini Temizle
+                          </button>
                           <button
                             type="button"
                             className="my-action-btn soft"
@@ -10292,6 +10433,33 @@ function App() {
                               <span key={entry.id} className={`my-game-coming-prototype-rack-tile tile-${entry.tile.color}`}>
                                 {entry.tile.value}
                               </span>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                      <div className="my-game-coming-prototype-melds">
+                        <div className="my-game-coming-prototype-melds-head">
+                          <strong>Acilan Perler (Prototip)</strong>
+                          <span>{okeyPrototypeOpenedMelds.length} per</span>
+                        </div>
+                        <div className="my-game-coming-prototype-melds-list" aria-label="Acilan per listesi">
+                          {okeyPrototypeOpenedMeldPreview.length === 0 ? (
+                            <span className="my-game-coming-prototype-melds-empty">Henuz acilan per yok.</span>
+                          ) : (
+                            okeyPrototypeOpenedMeldPreview.map((meld) => (
+                              <article key={meld.id} className="my-game-coming-prototype-meld-item">
+                                <header>
+                                  <strong>K{meld.seatNo} | El {meld.round}</strong>
+                                  <span>{meld.kind}</span>
+                                </header>
+                                <div className="my-game-coming-prototype-meld-item-tiles">
+                                  {meld.tiles.map((tile) => (
+                                    <span key={`${meld.id}-${tile.id}`} className={`my-game-coming-prototype-rack-tile tile-${tile.color}`}>
+                                      {tile.value}
+                                    </span>
+                                  ))}
+                                </div>
+                              </article>
                             ))
                           )}
                         </div>

@@ -1145,9 +1145,14 @@
   opacity: 0.88;
 }
 
-.my-game-coming-prototype-rack-tile.selected {
+.my-game-coming-prototype-rack-tile.discard-selected {
   border-color: rgba(249, 224, 154, 0.92);
   box-shadow: 0 0 0 1px rgba(248, 218, 147, 0.36) inset;
+}
+
+.my-game-coming-prototype-rack-tile.meld-selected {
+  border-color: rgba(158, 222, 175, 0.92);
+  box-shadow: 0 0 0 1px rgba(134, 212, 160, 0.34) inset;
 }
 
 .my-game-coming-prototype-rack-tile.tile-kirmizi {
@@ -1179,6 +1184,84 @@
   color: #d6edf8;
   font-size: 0.71rem;
   line-height: 1.22;
+}
+
+.my-game-coming-prototype-meld-draft-status {
+  margin: 0;
+  color: #d7f1dd;
+  font-size: 0.71rem;
+  line-height: 1.22;
+}
+
+.my-game-coming-prototype-melds {
+  border-radius: 7px;
+  border: 1px solid rgba(86, 178, 206, 0.58);
+  background: rgba(8, 80, 101, 0.42);
+  padding: 7px;
+  display: grid;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-melds-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.my-game-coming-prototype-melds-head strong {
+  color: #eaf8ff;
+  font-size: 0.74rem;
+}
+
+.my-game-coming-prototype-melds-head span {
+  color: #fff3cf;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.my-game-coming-prototype-melds-list {
+  display: grid;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-melds-empty {
+  color: #d3e9f5;
+  font-size: 0.7rem;
+}
+
+.my-game-coming-prototype-meld-item {
+  border-radius: 6px;
+  border: 1px solid rgba(97, 188, 213, 0.62);
+  background: rgba(8, 84, 106, 0.58);
+  padding: 5px 6px;
+  display: grid;
+  gap: 5px;
+}
+
+.my-game-coming-prototype-meld-item header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.my-game-coming-prototype-meld-item header strong {
+  color: #dff4ff;
+  font-size: 0.69rem;
+}
+
+.my-game-coming-prototype-meld-item header span {
+  color: #fff2ca;
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.my-game-coming-prototype-meld-item-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .my-game-coming-prototype-discard {
