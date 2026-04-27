@@ -3279,6 +3279,24 @@ function App() {
     });
     return labels;
   }, [okeyPrototypeActiveTurnSeats, okeyPrototypeLocalSeatNo]);
+  const okeyPrototypeDisplaySeatPositionBySeat = useMemo(() => {
+    const localSeatIndex = OKEY_PROTOTYPE_SEATS.findIndex((seatNo) => seatNo === okeyPrototypeLocalSeatNo);
+    const safeLocalSeatIndex = localSeatIndex >= 0 ? localSeatIndex : 0;
+    const bottomSeatIndex = OKEY_PROTOTYPE_SEATS.findIndex((seatNo) => seatNo === 3);
+    const safeBottomSeatIndex = bottomSeatIndex >= 0 ? bottomSeatIndex : 2;
+    const offset = safeBottomSeatIndex - safeLocalSeatIndex;
+    const positions: Record<OkeyPrototypeSeatNo, OkeyPrototypeSeatNo> = {
+      1: 1,
+      2: 2,
+      3: 3,
+      4: 4,
+    };
+    OKEY_PROTOTYPE_SEATS.forEach((seatNo, index) => {
+      const shiftedIndex = (index + offset + OKEY_PROTOTYPE_SEATS.length) % OKEY_PROTOTYPE_SEATS.length;
+      positions[seatNo] = OKEY_PROTOTYPE_SEATS[shiftedIndex] ?? seatNo;
+    });
+    return positions;
+  }, [okeyPrototypeLocalSeatNo]);
   const okeyPrototypeDiscardDraftTile = useMemo(() => {
     if (!okeyPrototypeDiscardDraftTileId) return null;
     return okeyPrototypeSeatRackTiles.find((tile) => tile.id === okeyPrototypeDiscardDraftTileId) ?? null;
@@ -11532,11 +11550,12 @@ function App() {
                             const canInteractBoardSeat = isTurnSeat && okeyPrototypeCanDiscardTile;
                             const isMaskedSeat = okeyPrototypeBoardMaskOthers && !isTurnSeat;
                             const isLocalSeat = seatNo === okeyPrototypeLocalSeatNo;
+                            const displaySeatPosition = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
                             return (
                               <article
                                 key={`okey-proto-board-seat-${seatNo}`}
-                                className={`my-game-coming-prototype-board-seat seat-${seatNo} ${isTurnSeat ? "active" : ""} ${isLocalSeat ? "self" : ""}`}
-                                aria-label={`Koltuk ${seatNo} (${okeyPrototypeSeatRoleLabels[seatNo]}) raf gorunumu`}
+                                className={`my-game-coming-prototype-board-seat seat-${displaySeatPosition} ${isTurnSeat ? "active" : ""} ${isLocalSeat ? "self" : ""}`}
+                                aria-label={`Koltuk ${seatNo} (${okeyPrototypeSeatRoleLabels[seatNo]}) raf gorunumu. Ekran pozisyonu: ${displaySeatPosition}`}
                               >
                                 <header>
                                   <strong>K{seatNo} • {okeyPrototypeSeatRoleLabels[seatNo]}</strong>
