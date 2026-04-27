@@ -5389,3 +5389,198 @@
     font-size: calc(0.74rem * var(--okey-proto-tile-scale, 1));
   }
 }
+
+/* 101 Okey Mynet-inspired visual pass */
+.my-game-coming-room-shell {
+  border: 1px solid rgba(22, 96, 124, 0.92);
+  background:
+    linear-gradient(180deg, rgba(14, 134, 164, 0.96), rgba(10, 107, 132, 0.97));
+  box-shadow:
+    inset 0 1px 0 rgba(190, 236, 248, 0.24),
+    0 10px 22px rgba(0, 0, 0, 0.2);
+}
+
+.my-game-coming-table-sketch {
+  border: 1px solid rgba(20, 98, 126, 0.92);
+  background: linear-gradient(180deg, rgba(8, 115, 143, 0.96), rgba(8, 96, 122, 0.97));
+}
+
+.my-game-coming-table-sketch-grid {
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+}
+
+.my-game-coming-table-sketch-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 176px;
+  border: 1px solid rgba(178, 123, 28, 0.86);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(230, 179, 67, 0.96), rgba(202, 145, 37, 0.97));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 188, 0.62),
+    0 5px 13px rgba(0, 0, 0, 0.2);
+  padding: 10px;
+}
+
+.my-game-coming-table-sketch-card::before {
+  content: "";
+  position: absolute;
+  inset: 40px 20px 30px 20px;
+  border-radius: 11px;
+  border: 1px solid rgba(121, 72, 21, 0.4);
+  background:
+    linear-gradient(90deg, rgba(119, 64, 19, 0.88) 0 14%, rgba(249, 240, 218, 0.94) 14% 86%, rgba(119, 64, 19, 0.88) 86% 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 245, 218, 0.66),
+    inset 0 -1px 0 rgba(92, 53, 15, 0.44);
+}
+
+.my-game-coming-table-sketch-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.my-game-coming-table-sketch-card strong {
+  color: #3a2308;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.my-game-coming-table-sketch-card em {
+  border-radius: 999px;
+  border: 1px solid rgba(118, 71, 22, 0.4);
+  background: rgba(252, 236, 199, 0.78);
+  color: #5e3b12;
+  padding: 2px 8px;
+}
+
+.my-game-coming-table-sketch-card p {
+  color: #3a2308;
+  font-weight: 700;
+  font-size: 0.74rem;
+}
+
+.my-game-coming-prototype-board {
+  border: 1px solid rgba(121, 72, 20, 0.92);
+  border-radius: 14px;
+  background:
+    linear-gradient(165deg, rgba(128, 74, 21, 0.98), rgba(89, 51, 14, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 226, 165, 0.3),
+    inset 0 -1px 0 rgba(56, 31, 8, 0.42),
+    0 9px 20px rgba(0, 0, 0, 0.27);
+}
+
+.my-game-coming-prototype-board-seat {
+  border: 1px solid rgba(27, 121, 151, 0.82);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(15, 125, 154, 0.92), rgba(11, 97, 122, 0.94));
+}
+
+.my-game-coming-prototype-board-center {
+  border: 1px solid rgba(25, 111, 139, 0.84);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(19, 134, 166, 0.9), rgba(12, 95, 120, 0.95));
+}
+
+.my-game-coming-prototype-board-seat-tiles {
+  border: 1px solid rgba(168, 123, 46, 0.64);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(241, 226, 194, 0.94), rgba(220, 198, 154, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 247, 226, 0.66),
+    inset 0 -1px 0 rgba(175, 137, 68, 0.32);
+  padding: 4px;
+}
+
+.my-game-coming-prototype-rack-tile {
+  position: relative;
+  min-width: calc(27px * var(--okey-proto-tile-scale, 1));
+  height: calc(31px * var(--okey-proto-tile-scale, 1));
+  border: 1px solid rgba(121, 88, 44, 0.84);
+  border-radius: 6px;
+  background: linear-gradient(180deg, #fffefa, #f2e4c7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 2px 5px rgba(0, 0, 0, 0.22);
+  color: #5d3d16;
+  font-size: calc(0.8rem * var(--okey-proto-tile-scale, 1));
+  font-weight: 900;
+}
+
+.my-game-coming-prototype-rack-tile::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(4px * var(--okey-proto-tile-scale, 1));
+  height: calc(4px * var(--okey-proto-tile-scale, 1));
+  border-radius: 999px;
+  background: rgba(90, 90, 90, 0.52);
+}
+
+.my-game-coming-prototype-rack-tile.tile-kirmizi {
+  background: linear-gradient(180deg, #fffefa, #f2e4c7);
+  color: #c22727;
+}
+
+.my-game-coming-prototype-rack-tile.tile-kirmizi::before {
+  background: #c22727;
+}
+
+.my-game-coming-prototype-rack-tile.tile-mavi {
+  background: linear-gradient(180deg, #fffefa, #f2e4c7);
+  color: #2c61a7;
+}
+
+.my-game-coming-prototype-rack-tile.tile-mavi::before {
+  background: #2c61a7;
+}
+
+.my-game-coming-prototype-rack-tile.tile-sari {
+  background: linear-gradient(180deg, #fffefa, #f2e4c7);
+  color: #906c18;
+}
+
+.my-game-coming-prototype-rack-tile.tile-sari::before {
+  background: #906c18;
+}
+
+.my-game-coming-prototype-rack-tile.tile-siyah {
+  background: linear-gradient(180deg, #fffefa, #f2e4c7);
+  color: #2e3543;
+}
+
+.my-game-coming-prototype-rack-tile.tile-siyah::before {
+  background: #2e3543;
+}
+
+.my-game-coming-prototype-rack-tile.tile-sahte,
+.my-game-coming-prototype-rack-tile.joker-tile {
+  background: linear-gradient(180deg, #fff4dc, #edd29d);
+  color: #875514;
+}
+
+.my-game-coming-prototype-rack-tile.tile-sahte::before,
+.my-game-coming-prototype-rack-tile.joker-tile::before {
+  background: #875514;
+}
+
+@media (max-width: 920px) {
+  .my-game-coming-table-sketch-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .my-game-coming-table-sketch-card {
+    min-height: 160px;
+  }
+
+  .my-game-coming-prototype-rack-tile {
+    min-width: calc(24px * var(--okey-proto-tile-scale, 1));
+    height: calc(28px * var(--okey-proto-tile-scale, 1));
+    font-size: calc(0.74rem * var(--okey-proto-tile-scale, 1));
+  }
+}
