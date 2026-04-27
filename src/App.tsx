@@ -3191,7 +3191,7 @@ function App() {
   const [okeyPrototypeOpenedMelds, setOkeyPrototypeOpenedMelds] = useState<OkeyPrototypeMeldEntry[]>([]);
   const [okeyPrototypeAttachTargetMeldId, setOkeyPrototypeAttachTargetMeldId] = useState("");
   const [okeyPrototypeDealSeedDraft, setOkeyPrototypeDealSeedDraft] = useState(() => String(Date.now()));
-  const [okeyPrototypeBoardMaskOthers, setOkeyPrototypeBoardMaskOthers] = useState(true);
+  const [okeyPrototypeBoardMaskOthers, setOkeyPrototypeBoardMaskOthers] = useState(false);
   const [okeyPrototypeTileScalePct, setOkeyPrototypeTileScalePct] = useState(() => loadOkeyPrototypeTileScalePctFromSession());
   const [okeyPrototypeAutoSortMode, setOkeyPrototypeAutoSortMode] = useState<OkeyPrototypeAutoSortMode>(() => loadOkeyPrototypeAutoSortModeFromSession());
   const [okeyPrototypeBotModeEnabled, setOkeyPrototypeBotModeEnabled] = useState(false);

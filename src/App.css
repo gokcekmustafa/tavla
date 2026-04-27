@@ -5315,8 +5315,77 @@
     gap: 3px;
   }
 
-  .my-room-chat-list {
+.my-room-chat-list {
     max-height: 220px;
     min-height: 170px;
+  }
+}
+
+/* 101 board tile visibility hotfix */
+.my-game-coming-prototype-board-seat-tiles {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-height: 34px;
+  padding-bottom: 2px;
+}
+
+.my-game-coming-prototype-board-seat-tiles::-webkit-scrollbar {
+  height: 6px;
+}
+
+.my-game-coming-prototype-board-seat-tiles::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(210, 175, 118, 0.5);
+}
+
+.my-game-coming-prototype-rack-tile {
+  min-width: calc(26px * var(--okey-proto-tile-scale, 1));
+  height: calc(30px * var(--okey-proto-tile-scale, 1));
+  border-radius: 6px;
+  border: 1px solid rgba(130, 95, 56, 0.75);
+  background: linear-gradient(180deg, #fffdf5, #f3e6cb);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 2px 5px rgba(0, 0, 0, 0.2);
+  color: #6b4a23;
+  font-size: calc(0.78rem * var(--okey-proto-tile-scale, 1));
+  font-weight: 800;
+}
+
+.my-game-coming-prototype-rack-tile.tile-kirmizi {
+  background: linear-gradient(180deg, #fffdf5, #f3e6cb);
+  color: #bb2424;
+}
+
+.my-game-coming-prototype-rack-tile.tile-mavi {
+  background: linear-gradient(180deg, #fffdf5, #f3e6cb);
+  color: #2f5fa4;
+}
+
+.my-game-coming-prototype-rack-tile.tile-sari {
+  background: linear-gradient(180deg, #fffdf5, #f3e6cb);
+  color: #8e6d1f;
+}
+
+.my-game-coming-prototype-rack-tile.tile-siyah {
+  background: linear-gradient(180deg, #fffdf5, #f3e6cb);
+  color: #2f3642;
+}
+
+.my-game-coming-prototype-rack-tile.tile-sahte,
+.my-game-coming-prototype-rack-tile.joker-tile {
+  background: linear-gradient(180deg, #fff3d8, #eed6a1);
+  color: #8f5b15;
+}
+
+@media (max-width: 920px) {
+  .my-game-coming-prototype-rack-tile {
+    min-width: calc(23px * var(--okey-proto-tile-scale, 1));
+    height: calc(27px * var(--okey-proto-tile-scale, 1));
+    font-size: calc(0.74rem * var(--okey-proto-tile-scale, 1));
   }
 }
