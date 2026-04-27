@@ -1138,6 +1138,12 @@
   gap: 8px;
 }
 
+.my-game-coming-prototype-board-head-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .my-game-coming-prototype-board-head strong {
   color: #eaf8ff;
   font-size: 0.74rem;
@@ -1147,6 +1153,13 @@
   color: #fff3cd;
   font-size: 0.7rem;
   font-weight: 700;
+}
+
+.my-game-coming-prototype-board-mode-btn {
+  min-height: 26px;
+  font-size: 0.66rem;
+  padding: 0 10px;
+  border-radius: 7px;
 }
 
 .my-game-coming-prototype-board-status {
@@ -1285,6 +1298,12 @@
 .my-game-coming-prototype-board-seat-tiles .my-game-coming-prototype-rack-tile:disabled {
   opacity: 1;
   cursor: default;
+}
+
+.my-game-coming-prototype-board-seat-masked-tile {
+  border-color: rgba(230, 244, 255, 0.3);
+  background: linear-gradient(180deg, #7f98aa, #506273);
+  color: rgba(245, 251, 255, 0.88);
 }
 
 .my-game-coming-prototype-board-seat-empty {

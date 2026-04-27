@@ -3048,6 +3048,7 @@ function App() {
   const [okeyPrototypeOpenedMelds, setOkeyPrototypeOpenedMelds] = useState<OkeyPrototypeMeldEntry[]>([]);
   const [okeyPrototypeAttachTargetMeldId, setOkeyPrototypeAttachTargetMeldId] = useState("");
   const [okeyPrototypeDealSeedDraft, setOkeyPrototypeDealSeedDraft] = useState(() => String(Date.now()));
+  const [okeyPrototypeBoardMaskOthers, setOkeyPrototypeBoardMaskOthers] = useState(true);
   const [okeyPrototypeWinnerSeat, setOkeyPrototypeWinnerSeat] = useState<OkeyPrototypeSeatNo | null>(null);
   const [okeyPrototypeHandDrawn, setOkeyPrototypeHandDrawn] = useState(false);
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
@@ -11211,7 +11212,17 @@ function App() {
                       <div className="my-game-coming-prototype-board">
                         <div className="my-game-coming-prototype-board-head">
                           <strong>Masa Onizleme (Prototip)</strong>
-                          <span>Aktif tur: K{okeyPrototypeTurnSeat}</span>
+                          <div className="my-game-coming-prototype-board-head-controls">
+                            <span>Aktif tur: K{okeyPrototypeTurnSeat}</span>
+                            <button
+                              type="button"
+                              className="my-action-btn soft my-game-coming-prototype-board-mode-btn"
+                              onClick={() => setOkeyPrototypeBoardMaskOthers((prev) => !prev)}
+                              aria-describedby="okey-prototype-turn-status"
+                            >
+                              {okeyPrototypeBoardMaskOthers ? "Acik Masa Gorunumu" : "Gizli Masa Gorunumu"}
+                            </button>
+                          </div>
                         </div>
                         <div className="my-game-coming-prototype-board-status" role="status" aria-live="polite" aria-atomic="true">
                           <span>
@@ -11305,6 +11316,7 @@ function App() {
                             const isTurnSeat = seatNo === okeyPrototypeTurnSeat;
                             const isOpenedSeat = okeyPrototypeSeatOpenedState[seatNo] ?? false;
                             const canInteractBoardSeat = isTurnSeat && okeyPrototypeCanDiscardTile;
+                            const isMaskedSeat = okeyPrototypeBoardMaskOthers && !isTurnSeat;
                             return (
                               <article
                                 key={`okey-proto-board-seat-${seatNo}`}
@@ -11318,6 +11330,16 @@ function App() {
                                 <div className="my-game-coming-prototype-board-seat-tiles">
                                   {seatTiles.length === 0 ? (
                                     <span className="my-game-coming-prototype-board-seat-empty">Bos koltuk</span>
+                                  ) : isMaskedSeat ? (
+                                    seatTiles.map((tile) => (
+                                      <span
+                                        key={`okey-proto-board-seat-${seatNo}-${tile.id}`}
+                                        className="my-game-coming-prototype-rack-tile tile-sahte my-game-coming-prototype-board-seat-masked-tile"
+                                        title={`K${seatNo} kapali tas`}
+                                      >
+                                        ?
+                                      </span>
+                                    ))
                                   ) : (
                                     seatTiles.map((tile) => {
                                       const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
