@@ -3020,7 +3020,7 @@ function App() {
   const [roomChatTab, setRoomChatTab] = useState<"table" | "lobby">("table");
   const [roomTableChatInput, setRoomTableChatInput] = useState("");
   const [roomLobbyChatInput, setRoomLobbyChatInput] = useState("");
-  const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(false);
+  const [okeyPrototypeRoomSketchOpen, setOkeyPrototypeRoomSketchOpen] = useState(true);
   const [okeyPrototypeRoomFilter, setOkeyPrototypeRoomFilter] = useState<"all" | "fast" | "busy">("all");
   const [okeyPrototypeSelectedRoomId, setOkeyPrototypeSelectedRoomId] = useState<string>(OKEY_PROTOTYPE_ROOMS[0]?.id ?? "");
   const [okeyPrototypeTableFilter, setOkeyPrototypeTableFilter] = useState<"all" | "active" | "waiting">("all");
@@ -6732,7 +6732,7 @@ function App() {
     setSelectedGameId(gameId);
     saveSelectedGameIdToSession(gameId);
     if (gameId !== "tavla") {
-      setOkeyPrototypeRoomSketchOpen(false);
+      setOkeyPrototypeRoomSketchOpen(true);
       setGamePickerOpen(false);
       setRoomPickerOpen(false);
       setViewMode("lobby");
