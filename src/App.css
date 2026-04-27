@@ -1188,6 +1188,25 @@
   border-radius: 7px;
 }
 
+.my-game-coming-prototype-board-hint {
+  margin: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(106, 191, 214, 0.6);
+  background: rgba(8, 84, 106, 0.54);
+  color: #d8f1ff;
+  font-size: 0.67rem;
+  font-weight: 700;
+  line-height: 1.3;
+  padding: 5px 8px;
+}
+
+.my-game-coming-prototype-board-action-btn.suggested,
+.my-game-coming-prototype-board-center-pile-btn.suggested {
+  border-color: rgba(248, 226, 158, 0.9);
+  box-shadow: 0 0 0 1px rgba(247, 220, 136, 0.25) inset;
+  animation: my-game-prototype-board-suggest-pulse 1.2s ease-in-out infinite;
+}
+
 .my-game-coming-prototype-board-clear-btn {
   min-height: 26px;
   font-size: 0.66rem;
@@ -1291,6 +1310,16 @@
   height: 20px;
   font-size: 0.66rem;
   padding: 0 5px;
+}
+
+@keyframes my-game-prototype-board-suggest-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px rgba(247, 220, 136, 0.2) inset, 0 0 0 0 rgba(248, 226, 158, 0.16);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(247, 220, 136, 0.36) inset, 0 0 0 4px rgba(248, 226, 158, 0.07);
+  }
 }
 
 .my-game-coming-prototype-board-seat header {

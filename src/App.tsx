@@ -3323,6 +3323,47 @@ function App() {
     okeyPrototypeOkeyTile,
     okeyPrototypeTurnPhase,
   ]);
+  const okeyPrototypeBoardHintText = useMemo(() => {
+    if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) {
+      return "Masa secip koltuk alarak tahta testine baslayabilirsin.";
+    }
+    if (okeyPrototypeHandCompleted) {
+      return okeyPrototypeHandDrawn
+        ? "El berabere bitti. Yeni El Baslat ile yeni dagitima gecebilirsin."
+        : `El tamamlandi. Koltuk ${okeyPrototypeWinnerSeat} kazandi.`;
+    }
+    if (okeyPrototypeTurnPhase === "draw") {
+      if (okeyPrototypeCanDrawTile && okeyPrototypeCanDrawFromDiscard) {
+        return "Bu turde once Kapali Deste'den cekebilir veya Ortadan Al ile devam edebilirsin.";
+      }
+      if (okeyPrototypeCanDrawTile) {
+        return "Bu turde Kapali Deste'den tas cekerek devam et.";
+      }
+      if (okeyPrototypeCanDrawFromDiscard) {
+        return "Bu turde sadece Ortadan Al secenegi uygun.";
+      }
+      return "Cekilecek tas kalmadiysa el berabere tamamlanir.";
+    }
+    if (okeyPrototypeDiscardBlockedByOpening) {
+      return `Tas atmadan once ${okeyPrototypeOpeningRemainingPoints} puanlik acilis peri acmalisin.`;
+    }
+    if (okeyPrototypeDiscardDraftTile) {
+      return `Secili atis: ${formatOkeyPrototypeTile(okeyPrototypeDiscardDraftTile)}. Tas atabilir, per acabilir veya pere ekleyebilirsin.`;
+    }
+    return "Tas atabilmek icin raftan bir tas sec.";
+  }, [
+    okeyPrototypeCanDrawFromDiscard,
+    okeyPrototypeCanDrawTile,
+    okeyPrototypeDiscardBlockedByOpening,
+    okeyPrototypeDiscardDraftTile,
+    okeyPrototypeHandCompleted,
+    okeyPrototypeHandDrawn,
+    okeyPrototypeJoinedTable,
+    okeyPrototypeOpeningRemainingPoints,
+    okeyPrototypeSeatReservation,
+    okeyPrototypeTurnPhase,
+    okeyPrototypeWinnerSeat,
+  ]);
   const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
   const [roomChatUnread, setRoomChatUnread] = useState(0);
   const [adminQuery, setAdminQuery] = useState("");
@@ -11240,7 +11281,7 @@ function App() {
                           </span>
                           <button
                             type="button"
-                            className="my-action-btn soft my-game-coming-prototype-board-action-btn"
+                            className={`my-action-btn soft my-game-coming-prototype-board-action-btn ${okeyPrototypeCanDiscardTile && okeyPrototypeDiscardDraftTile ? "suggested" : ""}`}
                             onClick={discardOkeyPrototypeTile}
                             disabled={!okeyPrototypeCanDiscardTile || !okeyPrototypeDiscardDraftTile}
                             aria-describedby="okey-prototype-turn-status"
@@ -11249,7 +11290,7 @@ function App() {
                           </button>
                           <button
                             type="button"
-                            className="my-action-btn soft my-game-coming-prototype-board-action-btn"
+                            className={`my-action-btn soft my-game-coming-prototype-board-action-btn ${okeyPrototypeCanDiscardTile && okeyPrototypeMeldDraftTiles.length >= 3 && okeyPrototypeMeldDraftValidation.valid ? "suggested" : ""}`}
                             onClick={openOkeyPrototypeMeld}
                             disabled={!okeyPrototypeCanDiscardTile || okeyPrototypeMeldDraftTiles.length < 3 || !okeyPrototypeMeldDraftValidation.valid}
                             aria-describedby="okey-prototype-turn-status"
@@ -11258,7 +11299,7 @@ function App() {
                           </button>
                           <button
                             type="button"
-                            className="my-action-btn soft my-game-coming-prototype-board-action-btn"
+                            className={`my-action-btn soft my-game-coming-prototype-board-action-btn ${okeyPrototypeAttachValidation.valid ? "suggested" : ""}`}
                             onClick={attachOkeyPrototypeTileToMeld}
                             disabled={!okeyPrototypeAttachValidation.valid}
                             aria-describedby="okey-prototype-turn-status"
@@ -11275,12 +11316,15 @@ function App() {
                             Secimi Temizle
                           </button>
                         </div>
+                        <p className="my-game-coming-prototype-board-hint" role="status" aria-live="polite" aria-atomic="true">
+                          {okeyPrototypeBoardHintText}
+                        </p>
                         <div className="my-game-coming-prototype-board-grid" aria-label="101 okey masa onizleme">
                           <section className="my-game-coming-prototype-board-center" aria-label="Masa merkezi ve ortak bilgiler">
                             <div className="my-game-coming-prototype-board-center-piles">
                               <button
                                 type="button"
-                                className="my-action-btn soft my-game-coming-prototype-board-center-pile-btn"
+                                className={`my-action-btn soft my-game-coming-prototype-board-center-pile-btn ${okeyPrototypeCanDrawTile ? "suggested" : ""}`}
                                 onClick={drawOkeyPrototypeTile}
                                 disabled={!okeyPrototypeCanDrawTile}
                                 aria-describedby="okey-prototype-turn-status"
@@ -11290,7 +11334,7 @@ function App() {
                               </button>
                               <button
                                 type="button"
-                                className="my-action-btn soft my-game-coming-prototype-board-center-pile-btn"
+                                className={`my-action-btn soft my-game-coming-prototype-board-center-pile-btn ${okeyPrototypeCanDrawFromDiscard ? "suggested" : ""}`}
                                 onClick={drawOkeyPrototypeTileFromDiscard}
                                 disabled={!okeyPrototypeCanDrawFromDiscard}
                                 aria-describedby="okey-prototype-turn-status"
