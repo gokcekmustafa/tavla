@@ -2995,6 +2995,7 @@ function App() {
   const [okeyPrototypeOpenedMelds, setOkeyPrototypeOpenedMelds] = useState<OkeyPrototypeMeldEntry[]>([]);
   const [okeyPrototypeAttachTargetMeldId, setOkeyPrototypeAttachTargetMeldId] = useState("");
   const [okeyPrototypeWinnerSeat, setOkeyPrototypeWinnerSeat] = useState<OkeyPrototypeSeatNo | null>(null);
+  const [okeyPrototypeHandDrawn, setOkeyPrototypeHandDrawn] = useState(false);
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
   const isTavlaSelectedGame = selectedGameId === "tavla";
   const okeyPrototypeFilteredRooms = useMemo(() => {
@@ -3190,7 +3191,7 @@ function App() {
   const okeyPrototypeOpenedMeldPreview = okeyPrototypeOpenedMelds.slice(0, 8);
   const okeyPrototypeDrawPileRemaining = okeyPrototypeWallTiles.length;
   const okeyPrototypeSahteInWall = okeyPrototypeWallTiles.filter((tile) => tile.kind === "sahte").length;
-  const okeyPrototypeHandCompleted = okeyPrototypeWinnerSeat !== null;
+  const okeyPrototypeHandCompleted = okeyPrototypeWinnerSeat !== null || okeyPrototypeHandDrawn;
   const okeyPrototypeCanAdvanceTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable) && !okeyPrototypeHandCompleted;
   const okeyPrototypeCurrentSeatOpened = okeyPrototypeSeatOpenedState[okeyPrototypeTurnSeat as OkeyPrototypeSeatNo] ?? false;
   const okeyPrototypeOpeningRemainingPoints = Math.max(0, OKEY_PROTOTYPE_OPENING_TARGET_POINTS - okeyPrototypeTurnOpeningPoints);
@@ -6053,6 +6054,7 @@ function App() {
     setOkeyPrototypeAttachTargetMeldId("");
     setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
     setOkeyPrototypeWinnerSeat(null);
+    setOkeyPrototypeHandDrawn(false);
   }
 
   function moveOkeyPrototypeTurnToNextSeat() {
@@ -6245,6 +6247,11 @@ function App() {
     }
     const topWallTile = okeyPrototypeWallTiles[0] ?? null;
     if (!topWallTile || okeyPrototypeDrawPileRemaining <= 0) {
+      if (okeyPrototypeDiscardPile.length === 0) {
+        setOkeyPrototypeHandDrawn(true);
+        appendOkeyPrototypeAction("El berabere bitti: Ortada ve kapali destede tas kalmadi.");
+        return;
+      }
       appendOkeyPrototypeAction("Gecersiz hamle: Kapali destede tas kalmadi.");
       return;
     }
@@ -6280,6 +6287,11 @@ function App() {
     }
     const topDiscard = okeyPrototypeDiscardPile[0];
     if (!topDiscard) {
+      if (okeyPrototypeDrawPileRemaining <= 0) {
+        setOkeyPrototypeHandDrawn(true);
+        appendOkeyPrototypeAction("El berabere bitti: Ortada ve kapali destede tas kalmadi.");
+        return;
+      }
       appendOkeyPrototypeAction("Gecersiz hamle: Ortada alinacak tas yok.");
       return;
     }
@@ -6376,6 +6388,15 @@ function App() {
       appendOkeyPrototypeAction("Gecersiz hamle: Tur devri icin once tas atmalisin.");
       return;
     }
+    if (okeyPrototypeCanDrawTile || okeyPrototypeCanDrawFromDiscard) {
+      appendOkeyPrototypeAction("Gecersiz hamle: Tur devri icin once tas cekmelisin.");
+      return;
+    }
+    if (okeyPrototypeDrawPileRemaining <= 0 && okeyPrototypeDiscardPile.length === 0) {
+      setOkeyPrototypeHandDrawn(true);
+      appendOkeyPrototypeAction("El berabere bitti: Ortada ve kapali destede tas kalmadi.");
+      return;
+    }
     if (okeyPrototypeSeatRackTiles.length !== 14) {
       appendOkeyPrototypeAction(`Gecersiz hamle: Tur devri icin rafta 14 tas olmali (su an ${okeyPrototypeSeatRackTiles.length}).`);
       return;
@@ -6398,6 +6419,7 @@ function App() {
     setOkeyPrototypeAttachTargetMeldId("");
     setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
     setOkeyPrototypeWinnerSeat(null);
+    setOkeyPrototypeHandDrawn(false);
     appendOkeyPrototypeAction(`Tur sifirlandi: Koltuk ${baseSeat}`);
   }
 
@@ -10768,6 +10790,7 @@ function App() {
                             setOkeyPrototypeAttachTargetMeldId("");
                             setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
                             setOkeyPrototypeWinnerSeat(null);
+                            setOkeyPrototypeHandDrawn(false);
                           }}
                           disabled={!okeyPrototypeSeatReservation}
                         >
@@ -10819,7 +10842,9 @@ function App() {
                           aria-live="polite"
                           aria-atomic="true"
                         >
-                          {okeyPrototypeHandCompleted
+                          {okeyPrototypeHandDrawn
+                            ? "El berabere bitti: Ortada ve kapali destede tas kalmadi."
+                            : okeyPrototypeHandCompleted
                             ? `El tamamlandi: Koltuk ${okeyPrototypeWinnerSeat} kazandi.`
                             : okeyPrototypeCanAdvanceTurn
                             ? `Aktif tur: Koltuk ${okeyPrototypeTurnSeat} | Faz: ${okeyPrototypeTurnPhase === "draw" ? "Tas Cek" : "Tas At"} | Siradaki: Koltuk ${okeyPrototypeNextTurnSeat}`
@@ -10832,7 +10857,9 @@ function App() {
                         ) : null}
                         {okeyPrototypeHandCompleted ? (
                           <p className="my-game-coming-prototype-turn-complete" role="status" aria-live="polite" aria-atomic="true">
-                            El tamamlandi: Koltuk {okeyPrototypeWinnerSeat} kazandi. Yeni El Baslat ile devam edebilirsin.
+                            {okeyPrototypeHandDrawn
+                              ? "El berabere bitti. Yeni El Baslat ile devam edebilirsin."
+                              : `El tamamlandi: Koltuk ${okeyPrototypeWinnerSeat} kazandi. Yeni El Baslat ile devam edebilirsin.`}
                           </p>
                         ) : null}
                         <div className="my-game-coming-prototype-turn-actions">
