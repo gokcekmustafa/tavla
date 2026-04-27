@@ -474,6 +474,14 @@ const OKEY_PROTOTYPE_TOTAL_TILE_COUNT = 106;
 const OKEY_PROTOTYPE_OPENING_TARGET_POINTS = 101;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = [1, 2, 3, 4];
 const OKEY_PROTOTYPE_TILE_COLORS: readonly OkeyPrototypeNormalColor[] = ["kirmizi", "mavi", "sari", "siyah"];
+const OKEY_PROTOTYPE_OPPONENT_NAMES = [
+  "TasUstasi",
+  "PerciBey",
+  "SeriKral",
+  "MasaRitmi",
+  "DiziAvcisi",
+  "CiftOkey",
+] as const;
 
 function createOkeyPrototypeSeededRandom(seed = 0) {
   let state = (Math.abs(Math.trunc(seed)) || 1) >>> 0;
@@ -481,6 +489,14 @@ function createOkeyPrototypeSeededRandom(seed = 0) {
     state = (state * 1664525 + 1013904223) >>> 0;
     return state / 4294967296;
   };
+}
+
+function hashOkeyPrototypeText(input: string) {
+  let hash = 0;
+  for (let index = 0; index < input.length; index += 1) {
+    hash = ((hash << 5) - hash + input.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash);
 }
 
 function shuffleOkeyPrototypeDeck(tiles: OkeyPrototypeTile[], seed = 0) {
@@ -3280,6 +3296,35 @@ function App() {
     });
     return labels;
   }, [okeyPrototypeActiveTurnSeats, okeyPrototypeLocalSeatNo]);
+  const okeyPrototypeSeatDisplayNames = useMemo(() => {
+    const names: Record<OkeyPrototypeSeatNo, string> = {
+      1: "Bos",
+      2: "Bos",
+      3: "Bos",
+      4: "Bos",
+    };
+    const activeSeats = okeyPrototypeActiveTurnSeats.length > 0
+      ? okeyPrototypeActiveTurnSeats
+      : OKEY_PROTOTYPE_SEATS;
+    const localName = sanitizeGuestName(member?.displayName ?? guestName) || "Sen";
+    const seedSource = `${okeyPrototypeSeatReservation?.tableId ?? "okey-proto"}:${okeyPrototypeLocalSeatNo}`;
+    const startIndex = hashOkeyPrototypeText(seedSource) % OKEY_PROTOTYPE_OPPONENT_NAMES.length;
+    let rivalOffset = 0;
+    OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+      if (!activeSeats.includes(seatNo)) {
+        names[seatNo] = "Bos";
+        return;
+      }
+      if (seatNo === okeyPrototypeLocalSeatNo) {
+        names[seatNo] = localName;
+        return;
+      }
+      const poolIndex = (startIndex + rivalOffset) % OKEY_PROTOTYPE_OPPONENT_NAMES.length;
+      names[seatNo] = OKEY_PROTOTYPE_OPPONENT_NAMES[poolIndex] ?? `Rakip${seatNo}`;
+      rivalOffset += 1;
+    });
+    return names;
+  }, [guestName, member?.displayName, okeyPrototypeActiveTurnSeats, okeyPrototypeLocalSeatNo, okeyPrototypeSeatReservation]);
   const okeyPrototypeDisplaySeatPositionBySeat = useMemo(() => {
     const localSeatIndex = OKEY_PROTOTYPE_SEATS.findIndex((seatNo) => seatNo === okeyPrototypeLocalSeatNo);
     const safeLocalSeatIndex = localSeatIndex >= 0 ? localSeatIndex : 0;
@@ -11556,14 +11601,20 @@ function App() {
                             const isMaskedSeat = okeyPrototypeBoardMaskOthers && !isTurnSeat;
                             const isLocalSeat = seatNo === okeyPrototypeLocalSeatNo;
                             const displaySeatPosition = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
+                            const seatRole = okeyPrototypeSeatRoleLabels[seatNo];
+                            const seatName = okeyPrototypeSeatDisplayNames[seatNo];
                             return (
                               <article
                                 key={`okey-proto-board-seat-${seatNo}`}
                                 className={`my-game-coming-prototype-board-seat seat-${displaySeatPosition} ${isTurnSeat ? "active" : ""} ${isLocalSeat ? "self" : ""}`}
-                                aria-label={`Koltuk ${seatNo} (${okeyPrototypeSeatRoleLabels[seatNo]}) raf gorunumu. Ekran pozisyonu: ${displaySeatPosition}`}
+                                aria-label={`Koltuk ${seatNo} (${seatRole}) ${seatName}. Raf gorunumu. Ekran pozisyonu: ${displaySeatPosition}`}
                               >
                                 <header>
-                                  <strong>K{seatNo} • {okeyPrototypeSeatRoleLabels[seatNo]}</strong>
+                                  <strong>
+                                    K{seatNo}
+                                    {" • "}
+                                    {seatRole === "Bos" ? "Bos" : `${seatRole}: ${seatName}`}
+                                  </strong>
                                   <span>{isTurnSeat ? "SIRA | " : ""}{isOpenedSeat ? "ACIK" : "KAPALI"} | {seatTiles.length} tas</span>
                                 </header>
                                 <div className="my-game-coming-prototype-board-seat-tiles">

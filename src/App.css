@@ -1424,6 +1424,7 @@
 .my-game-coming-prototype-board-seat header strong {
   color: #dff4ff;
   font-size: 0.72rem;
+  line-height: 1.2;
 }
 
 .my-game-coming-prototype-board-seat header span {
