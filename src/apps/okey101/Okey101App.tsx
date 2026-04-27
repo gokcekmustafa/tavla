@@ -3168,12 +3168,7 @@ function Okey101App() {
   const [lobbyRoomsBusy, setLobbyRoomsBusy] = useState(false);
   const [lobbyRoomsError, setLobbyRoomsError] = useState("");
   const [selectedGameId, setSelectedGameId] = useState<GameId>("okey101");
-  const [gamePickerOpen, setGamePickerOpen] = useState<boolean>(() => {
-    const entryScreen = readEntryScreenFromUrl();
-    if (entryScreen === "game") return true;
-    if (entryScreen === "room" || entryScreen === "lobby") return false;
-    return !(readGameIdFromUrl() ?? loadSelectedGameIdFromSession());
-  });
+  const [gamePickerOpen, setGamePickerOpen] = useState<boolean>(false);
   const [roomPickerOpen, setRoomPickerOpen] = useState<boolean>(() => {
     const selectedGame = readGameIdFromUrl() ?? loadSelectedGameIdFromSession() ?? DEFAULT_GAME_ID;
     const entryScreen = readEntryScreenFromUrl();
@@ -3325,6 +3320,7 @@ function Okey101App() {
   const [okeyPrototypeLastHandSummary, setOkeyPrototypeLastHandSummary] = useState("");
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
   const canAccessOkeyPrototype = true;
+  const useTavlaLikeOkeyLayout = true;
   const effectiveSelectedGameId: GameId = selectedGameId;
   const isTavlaSelectedGame = effectiveSelectedGameId === "tavla";
   useEffect(() => {
@@ -10366,8 +10362,8 @@ function Okey101App() {
       const entry = readEntryScreenFromUrl();
       if (entry === "game") {
         setViewMode("lobby");
-        setRoomPickerOpen(false);
-        setGamePickerOpen(true);
+        setRoomPickerOpen(true);
+        setGamePickerOpen(false);
         return;
       }
       if (entry === "room") {
@@ -13093,8 +13089,8 @@ function Okey101App() {
             ) : null}
           </section>
         ) : showRoomPicker ? (
-          <section className={`my-entry-page my-room-picker-page ${isTavlaSelectedGame ? "" : "my-room-picker-page-okey"}`}>
-            <div className={`my-room-picker-topbar ${isTavlaSelectedGame ? "" : "my-room-picker-topbar-okey"}`}>
+          <section className={`my-entry-page my-room-picker-page ${(isTavlaSelectedGame || useTavlaLikeOkeyLayout) ? "" : "my-room-picker-page-okey"}`}>
+            <div className={`my-room-picker-topbar ${(isTavlaSelectedGame || useTavlaLikeOkeyLayout) ? "" : "my-room-picker-topbar-okey"}`}>
               <div className="my-room-picker-tabs">
                 <button className="my-room-picker-tab" type="button" onClick={goToGameSelection}>Anasayfa</button>
                 <button className="my-room-picker-tab active" type="button">Tum Odalar</button>
@@ -13113,7 +13109,7 @@ function Okey101App() {
                 <button
                   key={room.id}
                   type="button"
-                  className={`my-room-picker-card ${activeLobbyId === room.id ? "active" : ""} ${isTavlaSelectedGame ? "" : "my-room-picker-card-okey"}`}
+                  className={`my-room-picker-card ${activeLobbyId === room.id ? "active" : ""} ${(isTavlaSelectedGame || useTavlaLikeOkeyLayout) ? "" : "my-room-picker-card-okey"}`}
                   onClick={() => selectLobbyRoom(room.id)}
                 >
                   <div className="my-room-picker-card-head">
@@ -13128,14 +13124,14 @@ function Okey101App() {
             {lobbyRoomsError ? <p className="my-error">{lobbyRoomsError}</p> : null}
           </section>
         ) : (
-          <section className={`my-lobby-layout ${isTavlaSelectedGame ? "" : "my-lobby-layout-okey"}`}>
-          <div className={`my-lobby-main ${isTavlaSelectedGame ? "" : "my-lobby-main-okey"}`}>
+          <section className={`my-lobby-layout ${(isTavlaSelectedGame || useTavlaLikeOkeyLayout) ? "" : "my-lobby-layout-okey"}`}>
+          <div className={`my-lobby-main ${(isTavlaSelectedGame || useTavlaLikeOkeyLayout) ? "" : "my-lobby-main-okey"}`}>
             <div className="my-lobby-header">
               <div className="my-lobby-title">
                 <h2>{activeLobbyName}</h2>
                 <p>Açık masalar</p>
               </div>
-              {!roomSession && isTavlaSelectedGame ? (
+              {!roomSession ? (
                 <div className="my-lobby-header-actions">
                   <button
                     className="my-top-btn my-btn-open my-design-label-btn"
@@ -13152,7 +13148,7 @@ function Okey101App() {
               ) : null}
             </div>
 
-            {!isTavlaSelectedGame && !roomSession ? (
+            {!isTavlaSelectedGame && !roomSession && !useTavlaLikeOkeyLayout ? (
               <section className="my-okey-lobby-controls" aria-label="101 masa acma bolumu">
                 <h3>101 Masa Açma</h3>
                 <p>Yeni masa açtığında masa sahibi olursun. Masada 4 oyuncu dolunca oyun başlar.</p>
@@ -13185,8 +13181,8 @@ function Okey101App() {
               </div>
             ) : null}
 
-            <div className={`my-lobby-table-zone ${isTavlaSelectedGame ? "" : "my-lobby-table-zone-okey"}`}>
-              {isTavlaSelectedGame ? (
+            <div className={`my-lobby-table-zone ${(isTavlaSelectedGame || useTavlaLikeOkeyLayout) ? "" : "my-lobby-table-zone-okey"}`}>
+              {(isTavlaSelectedGame || useTavlaLikeOkeyLayout) ? (
                 openedTables.length === 0 ? (
                   <div className="my-empty-state my-empty-state-lobby">
                     <p className="my-empty-state-sub my-empty-state-sub-link">
@@ -13217,7 +13213,7 @@ function Okey101App() {
                       const canAdminClose = isAdmin;
 
                       return (
-                        <article key={table.id} className={`my-table-card ${status} ${isTavlaSelectedGame ? "" : "my-table-card-okey"}`}>
+                        <article key={table.id} className={`my-table-card ${status} ${(isTavlaSelectedGame || useTavlaLikeOkeyLayout) ? "" : "my-table-card-okey"}`}>
                           <button
                             className="my-watch-eye-btn"
                             onClick={() => watchTableAsSpectator(table)}
@@ -13419,7 +13415,7 @@ function Okey101App() {
             </section>
           </div>
 
-          <aside className={`my-lobby-side ${isTavlaSelectedGame ? "" : "my-lobby-side-okey"}`}>
+          <aside className={`my-lobby-side ${(isTavlaSelectedGame || useTavlaLikeOkeyLayout) ? "" : "my-lobby-side-okey"}`}>
             <section className="my-side-card my-side-card-online">
               <h3>Oyuncu Listesi</h3>
               <div className="my-online-head">
