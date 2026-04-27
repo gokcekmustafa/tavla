@@ -9659,6 +9659,7 @@ function App() {
                           onClick={selectFirstOkeyPrototypeSearchResult}
                           disabled={okeyPrototypeTableSearch.trim().length === 0 || okeyPrototypeVisibleTableSketchRows.length === 0}
                           title="Arama sonucundaki ilk masayi secer"
+                          aria-label="Arama sonucundaki ilk masayi sec"
                         >
                           Ilk Sonuc
                         </button>
@@ -9672,6 +9673,7 @@ function App() {
                           }}
                           disabled={okeyPrototypeTableSearch.trim().length === 0}
                           title="Masa arama kutusunu temizler"
+                          aria-label="Masa aramasini temizle"
                         >
                           Temizle
                         </button>
