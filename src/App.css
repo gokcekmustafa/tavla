@@ -1153,6 +1153,51 @@
   min-height: 30px;
 }
 
+.my-game-coming-prototype-discard {
+  border-radius: 7px;
+  border: 1px solid rgba(88, 180, 208, 0.6);
+  background: rgba(7, 78, 98, 0.46);
+  padding: 7px;
+  display: grid;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-discard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.my-game-coming-prototype-discard-head strong {
+  color: #eaf8ff;
+  font-size: 0.74rem;
+}
+
+.my-game-coming-prototype-discard-head span {
+  color: #fff3cf;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.my-game-coming-prototype-discard-status {
+  margin: 0;
+  color: #d6ecf8;
+  font-size: 0.72rem;
+  line-height: 1.22;
+}
+
+.my-game-coming-prototype-discard-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.my-game-coming-prototype-discard-empty {
+  color: #d3e9f5;
+  font-size: 0.7rem;
+}
+
 .my-game-coming-prototype-log {
   border-radius: 7px;
   border: 1px solid rgba(88, 180, 208, 0.66);

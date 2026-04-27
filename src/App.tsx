@@ -348,6 +348,13 @@ type OkeyPrototypeTile = {
 };
 type OkeyPrototypeRackState = Record<OkeyPrototypeSeatNo, OkeyPrototypeTile[]>;
 type OkeyPrototypeTurnPhase = "draw" | "discard";
+type OkeyPrototypeDiscardEntry = {
+  id: string;
+  seatNo: OkeyPrototypeSeatNo;
+  tile: OkeyPrototypeTile;
+  round: number;
+  at: number;
+};
 
 const GUEST_STORAGE_KEY = "tavla.guestName";
 const GUEST_ID_STORAGE_KEY = "tavla.guest.id.v1";
@@ -2706,6 +2713,7 @@ function App() {
   const [okeyPrototypeTurnRound, setOkeyPrototypeTurnRound] = useState(1);
   const [okeyPrototypeTurnPhase, setOkeyPrototypeTurnPhase] = useState<OkeyPrototypeTurnPhase>("draw");
   const [okeyPrototypeRackState, setOkeyPrototypeRackState] = useState<OkeyPrototypeRackState>(() => createOkeyPrototypeRackState());
+  const [okeyPrototypeDiscardPile, setOkeyPrototypeDiscardPile] = useState<OkeyPrototypeDiscardEntry[]>([]);
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
   const isTavlaSelectedGame = selectedGameId === "tavla";
   const okeyPrototypeFilteredRooms = useMemo(() => {
@@ -2876,6 +2884,8 @@ function App() {
       };
     });
   }, [okeyPrototypeRackState]);
+  const okeyPrototypeLastDiscard = okeyPrototypeDiscardPile[0] ?? null;
+  const okeyPrototypeDiscardPreview = okeyPrototypeDiscardPile.slice(0, 8);
   const okeyPrototypeCanAdvanceTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable);
   const okeyPrototypeNextTurnSeat = okeyPrototypeTurnSeat === 4 ? 1 : (okeyPrototypeTurnSeat + 1) as 1 | 2 | 3 | 4;
   const okeyPrototypeCanDrawTile = okeyPrototypeCanAdvanceTurn && okeyPrototypeTurnPhase === "draw" && okeyPrototypeSeatRackTiles.length < 15;
@@ -5695,10 +5705,18 @@ function App() {
       return;
     }
     const droppedTile = currentRack[currentRack.length - 1];
+    const discardEntry: OkeyPrototypeDiscardEntry = {
+      id: `okey-proto-discard-${seatNo}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      seatNo,
+      tile: droppedTile,
+      round: okeyPrototypeTurnRound,
+      at: Date.now(),
+    };
     setOkeyPrototypeRackState((current) => ({
       ...current,
       [seatNo]: (current[seatNo] ?? []).slice(0, -1),
     }));
+    setOkeyPrototypeDiscardPile((current) => [discardEntry, ...current].slice(0, 40));
     const next = moveOkeyPrototypeTurnToNextSeat();
     appendOkeyPrototypeAction(
       `Tas atildi: Koltuk ${seatNo} (${droppedTile.color}-${droppedTile.value}) -> Siradaki Koltuk ${next.nextSeat} (El ${next.nextRound})`,
@@ -5731,6 +5749,7 @@ function App() {
   function refreshOkeyPrototypeRackState() {
     const seed = Date.now();
     setOkeyPrototypeRackState(createOkeyPrototypeRackState(seed));
+    setOkeyPrototypeDiscardPile([]);
     appendOkeyPrototypeAction("Tas dizilimi yenilendi.");
   }
 
@@ -10058,6 +10077,7 @@ function App() {
                             setOkeyPrototypeTurnSeat(reservedSeat);
                             setOkeyPrototypeTurnRound(1);
                             setOkeyPrototypeTurnPhase("draw");
+                            setOkeyPrototypeDiscardPile([]);
                             appendOkeyPrototypeAction(`Masaya oturuldu: Masa ${okeyPrototypeSelectedTable.tableNo}, Koltuk ${reservedSeat}`);
                           }}
                           disabled={!okeyPrototypeSelectedTable || okeyPrototypeAvailableSeatNos.length === 0}
@@ -10076,6 +10096,7 @@ function App() {
                             setOkeyPrototypeTurnSeat(1);
                             setOkeyPrototypeTurnRound(1);
                             setOkeyPrototypeTurnPhase("draw");
+                            setOkeyPrototypeDiscardPile([]);
                           }}
                           disabled={!okeyPrototypeSeatReservation}
                         >
@@ -10176,6 +10197,33 @@ function App() {
                           >
                             Taslari Yeniden Dagit (Prototip)
                           </button>
+                        </div>
+                      </div>
+                      <div className="my-game-coming-prototype-discard">
+                        <div className="my-game-coming-prototype-discard-head">
+                          <strong>Orta Alan (Prototip)</strong>
+                          <span>{okeyPrototypeDiscardPile.length} atilan tas</span>
+                        </div>
+                        <p
+                          className="my-game-coming-prototype-discard-status"
+                          role="status"
+                          aria-live="polite"
+                          aria-atomic="true"
+                        >
+                          {okeyPrototypeLastDiscard
+                            ? `Son atilan: Koltuk ${okeyPrototypeLastDiscard.seatNo} (${okeyPrototypeLastDiscard.tile.color}-${okeyPrototypeLastDiscard.tile.value}) / El ${okeyPrototypeLastDiscard.round}`
+                            : "Henuz orta alana atilan tas yok."}
+                        </p>
+                        <div className="my-game-coming-prototype-discard-tiles" aria-label="Orta alandaki son atilan taslar">
+                          {okeyPrototypeDiscardPreview.length === 0 ? (
+                            <span className="my-game-coming-prototype-discard-empty">Tas atildikca burada gorunecek.</span>
+                          ) : (
+                            okeyPrototypeDiscardPreview.map((entry) => (
+                              <span key={entry.id} className={`my-game-coming-prototype-rack-tile tile-${entry.tile.color}`}>
+                                {entry.tile.value}
+                              </span>
+                            ))
+                          )}
                         </div>
                       </div>
                     </div>
