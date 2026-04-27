@@ -15,6 +15,222 @@
   --design-room-board-min-height: 500px;
 }
 
+/* 101 Prototype Visual Sprint - Step 1 (layout + board/table look) */
+.my-game-coming-room-shell {
+  border-radius: 14px;
+  border: 1px solid rgba(142, 96, 38, 0.82);
+  background:
+    radial-gradient(circle at 12% 8%, rgba(255, 230, 168, 0.16), transparent 36%),
+    radial-gradient(circle at 88% 12%, rgba(255, 197, 103, 0.14), transparent 38%),
+    linear-gradient(135deg, rgba(115, 73, 28, 0.95), rgba(83, 52, 20, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 232, 181, 0.32),
+    inset 0 -1px 0 rgba(46, 27, 10, 0.35),
+    0 8px 22px rgba(0, 0, 0, 0.24);
+  padding: 12px;
+  gap: 10px;
+}
+
+.my-game-coming-room-head h3 {
+  color: #fff3d6;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+}
+
+.my-game-coming-room-head span {
+  border-color: rgba(247, 213, 152, 0.72);
+  background: rgba(157, 101, 36, 0.48);
+  color: #fff3d8;
+}
+
+.my-game-coming-room-selected,
+.my-game-coming-table-sketch {
+  border-radius: 12px;
+  border: 1px solid rgba(214, 170, 105, 0.45);
+  background:
+    linear-gradient(180deg, rgba(28, 92, 106, 0.93), rgba(20, 71, 82, 0.96));
+  box-shadow: inset 0 1px 0 rgba(183, 228, 239, 0.18);
+}
+
+.my-game-coming-room-card,
+.my-game-coming-table-sketch-card {
+  border-radius: 10px;
+  border: 1px solid rgba(218, 183, 124, 0.28);
+  background:
+    linear-gradient(180deg, rgba(16, 106, 127, 0.86), rgba(11, 83, 100, 0.9));
+  box-shadow: inset 0 1px 0 rgba(219, 243, 251, 0.12);
+}
+
+.my-game-coming-room-card:hover,
+.my-game-coming-table-sketch-card:hover {
+  border-color: rgba(247, 214, 154, 0.84);
+  transform: translateY(-1px);
+}
+
+.my-game-coming-prototype-turn,
+.my-game-coming-prototype-rack,
+.my-game-coming-prototype-melds,
+.my-game-coming-prototype-discard,
+.my-game-coming-prototype-log {
+  border-radius: 12px;
+  border: 1px solid rgba(214, 171, 105, 0.46);
+  background:
+    linear-gradient(180deg, rgba(23, 92, 106, 0.95), rgba(15, 69, 81, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(183, 227, 237, 0.18),
+    0 3px 12px rgba(0, 0, 0, 0.17);
+  padding: 9px;
+  gap: 7px;
+}
+
+.my-game-coming-prototype-board {
+  border-radius: 14px;
+  border: 1px solid rgba(140, 94, 37, 0.86);
+  background:
+    linear-gradient(165deg, rgba(133, 84, 34, 0.95), rgba(94, 57, 22, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 227, 169, 0.28),
+    inset 0 -1px 0 rgba(58, 33, 12, 0.36),
+    0 8px 20px rgba(0, 0, 0, 0.26);
+  padding: 10px;
+}
+
+.my-game-coming-prototype-board-head strong {
+  color: #fff4d3;
+  font-size: 0.78rem;
+}
+
+.my-game-coming-prototype-board-status span {
+  border-color: rgba(247, 214, 155, 0.54);
+  background: rgba(102, 67, 28, 0.54);
+  color: #fff2cf;
+}
+
+.my-game-coming-prototype-board-grid {
+  grid-template-columns: minmax(175px, 1fr) minmax(240px, 1.35fr) minmax(175px, 1fr);
+  gap: 10px;
+  min-height: 360px;
+}
+
+.my-game-coming-prototype-board-seat {
+  border-radius: 10px;
+  border: 1px solid rgba(214, 176, 118, 0.4);
+  background:
+    linear-gradient(180deg, rgba(21, 100, 118, 0.93), rgba(15, 72, 85, 0.95));
+  box-shadow: inset 0 1px 0 rgba(194, 233, 243, 0.15);
+  padding: 8px;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-board-seat.active {
+  border-color: rgba(249, 219, 157, 0.92);
+  box-shadow:
+    inset 0 0 0 1px rgba(249, 219, 157, 0.38),
+    0 0 0 1px rgba(255, 236, 191, 0.12);
+}
+
+.my-game-coming-prototype-board-seat.self {
+  border-color: rgba(160, 226, 189, 0.9);
+  box-shadow:
+    inset 0 0 0 1px rgba(160, 226, 189, 0.34),
+    0 0 0 1px rgba(201, 243, 222, 0.1);
+}
+
+.my-game-coming-prototype-board-center {
+  border-radius: 12px;
+  border: 1px solid rgba(225, 186, 127, 0.44);
+  background:
+    radial-gradient(circle at 50% 28%, rgba(42, 126, 145, 0.9), rgba(18, 80, 94, 0.94));
+  box-shadow: inset 0 1px 0 rgba(192, 232, 243, 0.2);
+  padding: 9px;
+}
+
+.my-game-coming-prototype-board-center-pile-btn,
+.my-game-coming-prototype-board-center-meld-btn {
+  border-radius: 9px;
+  border-color: rgba(224, 183, 122, 0.5);
+  background: rgba(17, 98, 117, 0.78);
+  box-shadow: inset 0 1px 0 rgba(194, 232, 242, 0.14);
+}
+
+.my-game-coming-prototype-rack-tile {
+  min-width: calc(24px * var(--okey-proto-tile-scale, 1));
+  height: calc(25px * var(--okey-proto-tile-scale, 1));
+  border-radius: 7px;
+  border: 1px solid rgba(116, 84, 43, 0.58);
+  background: linear-gradient(180deg, #fffaf0, #f0e2c6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+  font-size: calc(0.73rem * var(--okey-proto-tile-scale, 1));
+  color: #6f4a22;
+  padding: 0 calc(6px * var(--okey-proto-tile-scale, 1));
+}
+
+.my-game-coming-prototype-rack-tile.discard-selected {
+  border-color: rgba(249, 214, 141, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(249, 214, 141, 0.5),
+    0 0 0 2px rgba(249, 214, 141, 0.14);
+  transform: translateY(-1px);
+}
+
+.my-game-coming-prototype-rack-tile.meld-selected {
+  border-color: rgba(154, 221, 176, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(154, 221, 176, 0.5),
+    0 0 0 2px rgba(154, 221, 176, 0.14);
+  transform: translateY(-1px);
+}
+
+.my-game-coming-prototype-rack-tile.joker-tile {
+  border-color: rgba(247, 197, 103, 0.98);
+  background: linear-gradient(180deg, #fff4d4, #efd39a);
+  color: #8f5a16;
+}
+
+.my-game-coming-prototype-rack-tile.tile-kirmizi {
+  color: #b52d2d;
+}
+
+.my-game-coming-prototype-rack-tile.tile-mavi {
+  color: #2c62a2;
+}
+
+.my-game-coming-prototype-rack-tile.tile-sari {
+  color: #8d6a1e;
+}
+
+.my-game-coming-prototype-rack-tile.tile-siyah {
+  color: #2f3640;
+}
+
+.my-game-coming-prototype-rack-tile.tile-sahte {
+  background: linear-gradient(180deg, #fff1c2, #ebc97f);
+  color: #8f5a16;
+}
+
+.my-game-coming-prototype-board-seat-masked-tile {
+  border-color: rgba(224, 197, 158, 0.44);
+  background: linear-gradient(180deg, #b8a17b, #927856);
+  color: rgba(255, 245, 225, 0.92);
+}
+
+@media (max-width: 920px) {
+  .my-game-coming-room-shell {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .my-game-coming-prototype-board {
+    padding: 8px;
+  }
+
+  .my-game-coming-prototype-board-grid {
+    min-height: 0;
+  }
+}
+
 .my-shell {
   min-height: 100svh;
   display: grid;
