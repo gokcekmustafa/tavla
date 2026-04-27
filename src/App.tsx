@@ -3202,7 +3202,9 @@ function App() {
   const [okeyPrototypeDrawHandCount, setOkeyPrototypeDrawHandCount] = useState(0);
   const [okeyPrototypeLastHandSummary, setOkeyPrototypeLastHandSummary] = useState("");
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
-  const isTavlaSelectedGame = selectedGameId === "tavla";
+  const canAccessOkeyPrototype = member?.role === "admin";
+  const effectiveSelectedGameId: GameId = canAccessOkeyPrototype ? selectedGameId : "tavla";
+  const isTavlaSelectedGame = effectiveSelectedGameId === "tavla";
   const okeyPrototypeFilteredRooms = useMemo(() => {
     if (okeyPrototypeRoomFilter === "fast") {
       return OKEY_PROTOTYPE_ROOMS.filter((room) => room.level === "Hizli");
@@ -4450,7 +4452,7 @@ function App() {
   }, [roomStartState]);
   const roomWhiteSeat = currentRoomTable?.white ?? null;
   const roomBlackSeat = currentRoomTable?.black ?? null;
-  const isAdmin = member?.role === "admin";
+  const isAdmin = canAccessOkeyPrototype;
   const lobbyDraft = sanitizeChatText(lobbyChatInput);
   const selectedAdminUser = useMemo(
     () => adminUsers.find((row) => row.id === adminSelectedUserId) ?? null,
@@ -5468,6 +5470,7 @@ function App() {
 
   function guardTavlaOnlyAction() {
     if (selectedGameId === "tavla") return true;
+    if (!canAccessOkeyPrototype) return true;
     setLobbyNotice("Bu ozellik su an sadece Tavla icin aktif.");
     return false;
   }
@@ -7182,6 +7185,17 @@ function App() {
   }
 
   function onSelectGame(gameId: GameId) {
+    if (gameId === "okey101" && !canAccessOkeyPrototype) {
+      setSelectedGameId("tavla");
+      saveSelectedGameIdToSession("tavla");
+      setOkeyPrototypeRoomSketchOpen(false);
+      setGamePickerOpen(false);
+      setRoomPickerOpen(true);
+      setViewMode("lobby");
+      setLobbyNotice("101 Okey prototipi sadece admin kullanicisi icin acik.");
+      pushEntryScreenHistory("room", "tavla");
+      return;
+    }
     setSelectedGameId(gameId);
     saveSelectedGameIdToSession(gameId);
     if (gameId !== "tavla") {
@@ -7211,7 +7225,7 @@ function App() {
     setRoomPickerOpen(false);
     setGamePickerOpen(true);
     setLobbyNotice("Anasayfaya donuldu.");
-    pushEntryScreenHistory("game", selectedGameId);
+    pushEntryScreenHistory("game", effectiveSelectedGameId);
   }
 
   function goToLobbyFromTableView() {
@@ -7240,7 +7254,7 @@ function App() {
     }
     setGamePickerOpen(false);
     setRoomPickerOpen(true);
-    pushEntryScreenHistory("room", selectedGameId);
+    pushEntryScreenHistory("room", effectiveSelectedGameId);
   }
 
   function rememberRoomPickerSelection(lobbyId: string) {
@@ -7262,7 +7276,7 @@ function App() {
     setGamePickerOpen(false);
     setViewMode("lobby");
     setRoomPickerOpen(false);
-    pushEntryScreenHistory("lobby", selectedGameId);
+    pushEntryScreenHistory("lobby", effectiveSelectedGameId);
     const roomName = lobbyRooms.find((room) => room.id === safeId)?.name || DEFAULT_LOBBY_NAME;
     setLobbyNotice(`${sanitizeLobbyName(roomName)} odasına girildi.`);
   }
@@ -9578,6 +9592,20 @@ function App() {
   }, [isRoomMode, mode]);
 
   useEffect(() => {
+    if (canAccessOkeyPrototype) return;
+    if (selectedGameId !== "okey101") return;
+    setSelectedGameId("tavla");
+    saveSelectedGameIdToSession("tavla");
+    setOkeyPrototypeRoomSketchOpen(false);
+    if (!roomSession) {
+      setViewMode("lobby");
+      setGamePickerOpen(false);
+      setRoomPickerOpen(true);
+    }
+    setLobbyNotice("101 Okey prototipi sadece admin kullanicisi icin acik.");
+  }, [canAccessOkeyPrototype, selectedGameId, roomSession]);
+
+  useEffect(() => {
     const prev = lobbyPrevChatCountRef.current;
     const next = lobbyChatRows.length;
     const added = Math.max(0, next - prev);
@@ -9676,6 +9704,10 @@ function App() {
       const gameFromUrl = readGameIdFromUrl() ?? DEFAULT_GAME_ID;
       setSelectedGameId(gameFromUrl);
       saveSelectedGameIdToSession(gameFromUrl);
+      if (!canAccessOkeyPrototype && gameFromUrl === "okey101") {
+        setSelectedGameId("tavla");
+        saveSelectedGameIdToSession("tavla");
+      }
       const entry = readEntryScreenFromUrl();
       if (entry === "game") {
         setViewMode("lobby");
@@ -9699,7 +9731,7 @@ function App() {
     return () => {
       window.removeEventListener("popstate", onPopState);
     };
-  }, [roomSession]);
+  }, [canAccessOkeyPrototype, roomSession]);
 
   useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
@@ -11008,7 +11040,7 @@ function App() {
             <div className="my-game-picker-grid">
               <button
                 type="button"
-                className={`my-game-picker-card game-tavla ${selectedGameId === "tavla" ? "active" : ""}`}
+                className={`my-game-picker-card game-tavla ${isTavlaSelectedGame ? "active" : ""}`}
                 onClick={() => onSelectGame("tavla")}
               >
                 <span className="my-game-picker-thumb" aria-hidden="true" />
@@ -11016,16 +11048,18 @@ function App() {
                 <strong>Klasik Tavla</strong>
                 <p>Online masa, bot modu ve mevcut sistemle devam et.</p>
               </button>
-              <button
-                type="button"
-                className={`my-game-picker-card game-okey ${selectedGameId === "okey101" ? "active" : ""}`}
-                onClick={() => onSelectGame("okey101")}
-              >
-                <span className="my-game-picker-thumb" aria-hidden="true" />
-                <span className="my-game-picker-badge">Prototip</span>
-                <strong>101 Okey</strong>
-                <p>Izole gelistirme alaniyla 101 Okey altyapisini guvenli sekilde baslat.</p>
-              </button>
+              {canAccessOkeyPrototype ? (
+                <button
+                  type="button"
+                  className={`my-game-picker-card game-okey ${selectedGameId === "okey101" ? "active" : ""}`}
+                  onClick={() => onSelectGame("okey101")}
+                >
+                  <span className="my-game-picker-thumb" aria-hidden="true" />
+                  <span className="my-game-picker-badge">Prototip</span>
+                  <strong>101 Okey</strong>
+                  <p>Izole gelistirme alaniyla 101 Okey altyapisini guvenli sekilde baslat.</p>
+                </button>
+              ) : null}
               <article className="my-game-picker-card game-batak disabled">
                 <span className="my-game-picker-thumb" aria-hidden="true" />
                 <span className="my-game-picker-badge">Yakinda</span>
