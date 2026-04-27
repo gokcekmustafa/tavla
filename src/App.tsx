@@ -2746,6 +2746,7 @@ function App() {
   const [okeyPrototypeTurnSeat, setOkeyPrototypeTurnSeat] = useState<1 | 2 | 3 | 4>(1);
   const [okeyPrototypeTurnRound, setOkeyPrototypeTurnRound] = useState(1);
   const [okeyPrototypeTurnPhase, setOkeyPrototypeTurnPhase] = useState<OkeyPrototypeTurnPhase>("draw");
+  const [okeyPrototypeTurnLockedAfterMeld, setOkeyPrototypeTurnLockedAfterMeld] = useState(false);
   const [okeyPrototypeRackState, setOkeyPrototypeRackState] = useState<OkeyPrototypeRackState>(() => createOkeyPrototypeRackState());
   const [okeyPrototypeDiscardPile, setOkeyPrototypeDiscardPile] = useState<OkeyPrototypeDiscardEntry[]>([]);
   const [okeyPrototypeDiscardDraftTileId, setOkeyPrototypeDiscardDraftTileId] = useState("");
@@ -5734,6 +5735,7 @@ function App() {
     const nextSeat = (okeyPrototypeTurnSeat % 4 + 1) as 1 | 2 | 3 | 4;
     setOkeyPrototypeTurnSeat(nextSeat);
     setOkeyPrototypeTurnPhase("draw");
+    setOkeyPrototypeTurnLockedAfterMeld(false);
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
     if (nextSeat === 1) {
@@ -5794,6 +5796,11 @@ function App() {
       return;
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+    const nextTileCountAfterMeld = okeyPrototypeSeatRackTiles.length - okeyPrototypeMeldDraftTiles.length;
+    if (nextTileCountAfterMeld < 1) {
+      appendOkeyPrototypeAction("Gecersiz per: Turu bitirmek icin en az 1 tas elde kalmali.");
+      return;
+    }
     const selectedIds = new Set(okeyPrototypeMeldDraftTiles.map((tile) => tile.id));
     setOkeyPrototypeRackState((current) => ({
       ...current,
@@ -5809,6 +5816,7 @@ function App() {
     };
     setOkeyPrototypeOpenedMelds((current) => [meldEntry, ...current].slice(0, 40));
     setOkeyPrototypeMeldDraftTileIds([]);
+    setOkeyPrototypeTurnLockedAfterMeld(true);
     appendOkeyPrototypeAction(`Per acildi: ${validation.kind} (${meldEntry.tiles.map((tile) => `${tile.color}-${tile.value}`).join(", ")})`);
   }
 
@@ -5874,6 +5882,7 @@ function App() {
       [seatNo]: nextRack,
     }));
     setOkeyPrototypeDiscardDraftTileId("");
+    setOkeyPrototypeTurnLockedAfterMeld(false);
     setOkeyPrototypeDiscardPile((current) => [discardEntry, ...current].slice(0, 40));
     const next = moveOkeyPrototypeTurnToNextSeat();
     appendOkeyPrototypeAction(
@@ -5883,6 +5892,10 @@ function App() {
 
   function advanceOkeyPrototypeTurn() {
     if (!okeyPrototypeCanAdvanceTurn) return;
+    if (okeyPrototypeTurnLockedAfterMeld) {
+      appendOkeyPrototypeAction("Tur kilidi aktif: Per actiktan sonra tasi atmadan tur devredemezsin.");
+      return;
+    }
     if (okeyPrototypeTurnPhase !== "draw") {
       appendOkeyPrototypeAction("Gecersiz hamle: Tur devri icin once tas atmalisin.");
       return;
@@ -5901,6 +5914,7 @@ function App() {
     setOkeyPrototypeTurnSeat(baseSeat);
     setOkeyPrototypeTurnRound(1);
     setOkeyPrototypeTurnPhase("draw");
+    setOkeyPrototypeTurnLockedAfterMeld(false);
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
     appendOkeyPrototypeAction(`Tur sifirlandi: Koltuk ${baseSeat}`);
@@ -5910,6 +5924,7 @@ function App() {
     const seed = Date.now();
     setOkeyPrototypeRackState(createOkeyPrototypeRackState(seed));
     setOkeyPrototypeDiscardPile([]);
+    setOkeyPrototypeTurnLockedAfterMeld(false);
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
     setOkeyPrototypeOpenedMelds([]);
@@ -10240,6 +10255,7 @@ function App() {
                             setOkeyPrototypeTurnSeat(reservedSeat);
                             setOkeyPrototypeTurnRound(1);
                             setOkeyPrototypeTurnPhase("draw");
+                            setOkeyPrototypeTurnLockedAfterMeld(false);
                             setOkeyPrototypeDiscardPile([]);
                             setOkeyPrototypeDiscardDraftTileId("");
                             setOkeyPrototypeMeldDraftTileIds([]);
@@ -10262,6 +10278,7 @@ function App() {
                             setOkeyPrototypeTurnSeat(1);
                             setOkeyPrototypeTurnRound(1);
                             setOkeyPrototypeTurnPhase("draw");
+                            setOkeyPrototypeTurnLockedAfterMeld(false);
                             setOkeyPrototypeDiscardPile([]);
                             setOkeyPrototypeDiscardDraftTileId("");
                             setOkeyPrototypeMeldDraftTileIds([]);
@@ -10302,6 +10319,11 @@ function App() {
                             ? `Aktif tur: Koltuk ${okeyPrototypeTurnSeat} | Faz: ${okeyPrototypeTurnPhase === "draw" ? "Tas Cek" : "Tas At"} | Siradaki: Koltuk ${okeyPrototypeNextTurnSeat}`
                             : "Tur dongusu icin once bir masaya otur."}
                         </p>
+                        {okeyPrototypeTurnLockedAfterMeld ? (
+                          <p className="my-game-coming-prototype-turn-lock" role="status" aria-live="polite" aria-atomic="true">
+                            Tur kilidi aktif: Per actin. Turu devretmek icin once tas atmalisin.
+                          </p>
+                        ) : null}
                         <div className="my-game-coming-prototype-turn-actions">
                           <button
                             type="button"
