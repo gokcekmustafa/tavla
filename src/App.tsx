@@ -11122,6 +11122,7 @@ function App() {
             {okeyPrototypeRoomSketchOpen ? (
               <section
                 className="my-game-coming-room-shell"
+                data-table-active={okeyPrototypeSeatReservation ? "true" : "false"}
                 style={{ "--okey-proto-tile-scale": String(okeyPrototypeTileScale) } as CSSProperties}
               >
                 <div className="my-game-coming-room-head">
