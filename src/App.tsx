@@ -339,6 +339,15 @@ type RoomPickerSessionState = {
   confirmedAt: number;
 };
 
+type OkeyPrototypeSeatNo = 1 | 2 | 3 | 4;
+type OkeyPrototypeTileColor = "kirmizi" | "mavi" | "sari" | "siyah";
+type OkeyPrototypeTile = {
+  id: string;
+  color: OkeyPrototypeTileColor;
+  value: number;
+};
+type OkeyPrototypeRackState = Record<OkeyPrototypeSeatNo, OkeyPrototypeTile[]>;
+
 const GUEST_STORAGE_KEY = "tavla.guestName";
 const GUEST_ID_STORAGE_KEY = "tavla.guest.id.v1";
 const GUEST_PROFILE_SESSION_KEY = "tavla.guest.profile.session.v1";
@@ -429,6 +438,32 @@ const OKEY_PROTOTYPE_ROOMS = [
   { id: "okey-3", name: "Anadolu", activeTables: 6, players: 24, level: "Turnuva" },
   { id: "okey-4", name: "Akdeniz", activeTables: 1, players: 5, level: "Baslangic" },
 ] as const;
+const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = [1, 2, 3, 4];
+const OKEY_PROTOTYPE_TILE_COLORS: readonly OkeyPrototypeTileColor[] = ["kirmizi", "mavi", "sari", "siyah"];
+
+function createOkeyPrototypeRackState(seed = 0): OkeyPrototypeRackState {
+  const safeSeed = Math.abs(Math.trunc(seed)) % 13;
+  const racks: OkeyPrototypeRackState = {
+    1: [],
+    2: [],
+    3: [],
+    4: [],
+  };
+  OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+    const seatOffset = seatNo * 3 + safeSeed;
+    const tiles = Array.from({ length: 14 }, (_, index) => {
+      const value = ((index + seatOffset) % 13) + 1;
+      const color = OKEY_PROTOTYPE_TILE_COLORS[(index + seatNo + safeSeed) % OKEY_PROTOTYPE_TILE_COLORS.length];
+      return {
+        id: `okey-proto-${seatNo}-${index}-${safeSeed}`,
+        color,
+        value,
+      };
+    });
+    racks[seatNo] = tiles;
+  });
+  return racks;
+}
 
 function normalizeHttpOrigin(rawValue: string | undefined) {
   const trimmed = rawValue?.trim();
@@ -2668,6 +2703,7 @@ function App() {
   const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: number } | null>(null);
   const [okeyPrototypeTurnSeat, setOkeyPrototypeTurnSeat] = useState<1 | 2 | 3 | 4>(1);
   const [okeyPrototypeTurnRound, setOkeyPrototypeTurnRound] = useState(1);
+  const [okeyPrototypeRackState, setOkeyPrototypeRackState] = useState<OkeyPrototypeRackState>(() => createOkeyPrototypeRackState());
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
   const isTavlaSelectedGame = selectedGameId === "tavla";
   const okeyPrototypeFilteredRooms = useMemo(() => {
@@ -2820,6 +2856,24 @@ function App() {
     if (!okeyPrototypeSeatReservation) return null;
     return okeyPrototypeTableSketchRows.find((row) => row.id === okeyPrototypeSeatReservation.tableId) ?? null;
   }, [okeyPrototypeSeatReservation, okeyPrototypeTableSketchRows]);
+  const okeyPrototypeSeatNoForRack = useMemo(() => {
+    if (okeyPrototypeSeatReservation) {
+      return Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
+    }
+    return okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+  }, [okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
+  const okeyPrototypeSeatRackTiles = useMemo(() => {
+    return okeyPrototypeRackState[okeyPrototypeSeatNoForRack] ?? [];
+  }, [okeyPrototypeRackState, okeyPrototypeSeatNoForRack]);
+  const okeyPrototypeRackSeatSummaries = useMemo(() => {
+    return OKEY_PROTOTYPE_SEATS.map((seatNo) => {
+      const tiles = okeyPrototypeRackState[seatNo] ?? [];
+      return {
+        seatNo,
+        tileCount: tiles.length,
+      };
+    });
+  }, [okeyPrototypeRackState]);
   const okeyPrototypeCanAdvanceTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable);
   const okeyPrototypeNextTurnSeat = okeyPrototypeTurnSeat === 4 ? 1 : (okeyPrototypeTurnSeat + 1) as 1 | 2 | 3 | 4;
   const [roomChatAutoScroll, setRoomChatAutoScroll] = useState(true);
@@ -5599,6 +5653,12 @@ function App() {
     setOkeyPrototypeTurnSeat(baseSeat);
     setOkeyPrototypeTurnRound(1);
     appendOkeyPrototypeAction(`Tur sifirlandi: Koltuk ${baseSeat}`);
+  }
+
+  function refreshOkeyPrototypeRackState() {
+    const seed = Date.now();
+    setOkeyPrototypeRackState(createOkeyPrototypeRackState(seed));
+    appendOkeyPrototypeAction("Tas dizilimi yenilendi.");
   }
 
   function onSelectGame(gameId: GameId) {
@@ -9992,6 +10052,36 @@ function App() {
                             aria-describedby="okey-prototype-turn-status"
                           >
                             Turu Sifirla (Prototip)
+                          </button>
+                        </div>
+                      </div>
+                      <div className="my-game-coming-prototype-rack">
+                        <div className="my-game-coming-prototype-rack-head">
+                          <strong>Tas Dizilimi (Prototip)</strong>
+                          <span>Koltuk {okeyPrototypeSeatNoForRack}: {okeyPrototypeSeatRackTiles.length} tas</span>
+                        </div>
+                        <div className="my-game-coming-prototype-rack-seat-summary" role="status" aria-live="polite" aria-atomic="true">
+                          {okeyPrototypeRackSeatSummaries.map((item) => (
+                            <p key={`rack-seat-${item.seatNo}`}>
+                              K{item.seatNo}: {item.tileCount}
+                            </p>
+                          ))}
+                        </div>
+                        <div className="my-game-coming-prototype-rack-tiles" aria-label={`Koltuk ${okeyPrototypeSeatNoForRack} tas dizilimi`}>
+                          {okeyPrototypeSeatRackTiles.map((tile) => (
+                            <span key={tile.id} className={`my-game-coming-prototype-rack-tile tile-${tile.color}`}>
+                              {tile.value}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="my-game-coming-prototype-rack-actions">
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={refreshOkeyPrototypeRackState}
+                            aria-describedby="okey-prototype-turn-status"
+                          >
+                            Taslari Yeniden Dagit (Prototip)
                           </button>
                         </div>
                       </div>

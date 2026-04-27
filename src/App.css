@@ -1066,6 +1066,93 @@
   min-height: 30px;
 }
 
+.my-game-coming-prototype-rack {
+  border-radius: 7px;
+  border: 1px solid rgba(86, 178, 206, 0.6);
+  background: rgba(8, 80, 101, 0.44);
+  padding: 7px;
+  display: grid;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-rack-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.my-game-coming-prototype-rack-head strong {
+  color: #eaf8ff;
+  font-size: 0.74rem;
+}
+
+.my-game-coming-prototype-rack-head span {
+  color: #fff3cf;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.my-game-coming-prototype-rack-seat-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-rack-seat-summary p {
+  margin: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(98, 189, 215, 0.66);
+  background: rgba(8, 84, 106, 0.62);
+  color: #d8f1ff;
+  font-size: 0.69rem;
+  line-height: 1.2;
+  padding: 2px 8px;
+}
+
+.my-game-coming-prototype-rack-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.my-game-coming-prototype-rack-tile {
+  min-width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.71rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.my-game-coming-prototype-rack-tile.tile-kirmizi {
+  background: linear-gradient(180deg, #d04a43, #9e2e2b);
+}
+
+.my-game-coming-prototype-rack-tile.tile-mavi {
+  background: linear-gradient(180deg, #4a8fcb, #2d5e90);
+}
+
+.my-game-coming-prototype-rack-tile.tile-sari {
+  background: linear-gradient(180deg, #c79f3d, #8f7028);
+}
+
+.my-game-coming-prototype-rack-tile.tile-siyah {
+  background: linear-gradient(180deg, #4a5866, #2a323b);
+}
+
+.my-game-coming-prototype-rack-actions {
+  display: grid;
+}
+
+.my-game-coming-prototype-rack-actions .my-action-btn {
+  min-height: 30px;
+}
+
 .my-game-coming-prototype-log {
   border-radius: 7px;
   border: 1px solid rgba(88, 180, 208, 0.66);
