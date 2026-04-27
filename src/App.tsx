@@ -11277,11 +11277,37 @@ function App() {
                         </div>
                         <div className="my-game-coming-prototype-board-grid" aria-label="101 okey masa onizleme">
                           <section className="my-game-coming-prototype-board-center" aria-label="Masa merkezi ve ortak bilgiler">
-                            <p>
-                              Kapali Deste:
-                              {" "}
-                              <strong>{okeyPrototypeDrawPileRemaining}</strong>
-                            </p>
+                            <div className="my-game-coming-prototype-board-center-piles">
+                              <button
+                                type="button"
+                                className="my-action-btn soft my-game-coming-prototype-board-center-pile-btn"
+                                onClick={drawOkeyPrototypeTile}
+                                disabled={!okeyPrototypeCanDrawTile}
+                                aria-describedby="okey-prototype-turn-status"
+                              >
+                                <span>Kapali Deste</span>
+                                <strong>{okeyPrototypeDrawPileRemaining}</strong>
+                              </button>
+                              <button
+                                type="button"
+                                className="my-action-btn soft my-game-coming-prototype-board-center-pile-btn"
+                                onClick={drawOkeyPrototypeTileFromDiscard}
+                                disabled={!okeyPrototypeCanDrawFromDiscard}
+                                aria-describedby="okey-prototype-turn-status"
+                              >
+                                <span>Ortadan Al</span>
+                                {okeyPrototypeLastDiscard ? (
+                                  <span
+                                    className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeLastDiscard.tile.color} ${isOkeyPrototypeJokerTile(okeyPrototypeLastDiscard.tile, okeyPrototypeOkeyTile) ? "joker-tile" : ""}`}
+                                    title={`${formatOkeyPrototypeTile(okeyPrototypeLastDiscard.tile)} | K${okeyPrototypeLastDiscard.seatNo}`}
+                                  >
+                                    {renderOkeyPrototypeTileFace(okeyPrototypeLastDiscard.tile)}
+                                  </span>
+                                ) : (
+                                  <span className="my-game-coming-prototype-board-seat-empty">-</span>
+                                )}
+                              </button>
+                            </div>
                             <p>
                               Acik Per:
                               {" "}
@@ -11297,19 +11323,6 @@ function App() {
                               {" "}
                               {okeyPrototypeOkeyTile ? formatOkeyPrototypeTile(okeyPrototypeOkeyTile) : "-"}
                             </p>
-                            <div className="my-game-coming-prototype-board-center-discard">
-                              <span>Son Atilan:</span>
-                              {okeyPrototypeLastDiscard ? (
-                                <span
-                                  className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeLastDiscard.tile.color} ${isOkeyPrototypeJokerTile(okeyPrototypeLastDiscard.tile, okeyPrototypeOkeyTile) ? "joker-tile" : ""}`}
-                                  title={`${formatOkeyPrototypeTile(okeyPrototypeLastDiscard.tile)} | K${okeyPrototypeLastDiscard.seatNo}`}
-                                >
-                                  {renderOkeyPrototypeTileFace(okeyPrototypeLastDiscard.tile)}
-                                </span>
-                              ) : (
-                                <span className="my-game-coming-prototype-board-seat-empty">-</span>
-                              )}
-                            </div>
                           </section>
                           {OKEY_PROTOTYPE_SEATS.map((seatNo) => {
                             const seatTiles = okeyPrototypeRackState[seatNo] ?? [];

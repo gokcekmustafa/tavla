@@ -1258,16 +1258,39 @@
   color: #fff4c7;
 }
 
-.my-game-coming-prototype-board-center-discard {
-  display: flex;
-  align-items: center;
+.my-game-coming-prototype-board-center-piles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
 }
 
-.my-game-coming-prototype-board-center-discard > span:first-child {
-  color: #d6eefb;
-  font-size: 0.67rem;
+.my-game-coming-prototype-board-center-pile-btn {
+  min-height: 48px;
+  border-radius: 8px;
+  padding: 6px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+}
+
+.my-game-coming-prototype-board-center-pile-btn > span:first-child {
+  color: #d8eefb;
+  font-size: 0.65rem;
   font-weight: 700;
+}
+
+.my-game-coming-prototype-board-center-pile-btn > strong {
+  color: #fff3ca;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.my-game-coming-prototype-board-center-pile-btn .my-game-coming-prototype-rack-tile {
+  min-width: 20px;
+  height: 20px;
+  font-size: 0.66rem;
+  padding: 0 5px;
 }
 
 .my-game-coming-prototype-board-seat header {
@@ -1321,6 +1344,10 @@
       "seat-2"
       "seat-3"
       "seat-4";
+  }
+
+  .my-game-coming-prototype-board-center-piles {
+    grid-template-columns: 1fr;
   }
 }
 
