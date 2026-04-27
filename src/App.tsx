@@ -11317,6 +11317,25 @@ function App() {
                           <strong>Tur Yonetimi (Prototip)</strong>
                           <span>Seri El {okeyPrototypeSessionHandNo} | Tur {okeyPrototypeTurnRound} | Faz: {okeyPrototypeTurnPhase === "draw" ? "Tas Cek" : "Tas At"}</span>
                         </div>
+                        <div className="my-game-coming-prototype-turn-phase-strip" aria-label="Tur fazlari">
+                          <span
+                            className={`my-game-coming-prototype-turn-phase-chip ${
+                              !okeyPrototypeHandCompleted && okeyPrototypeTurnPhase === "draw" ? "active" : "waiting"
+                            }`}
+                          >
+                            1. Tas Cek
+                          </span>
+                          <span
+                            className={`my-game-coming-prototype-turn-phase-chip ${
+                              !okeyPrototypeHandCompleted && okeyPrototypeTurnPhase === "discard" ? "active" : "waiting"
+                            }`}
+                          >
+                            2. Tas At
+                          </span>
+                          {okeyPrototypeHandCompleted ? (
+                            <span className="my-game-coming-prototype-turn-phase-chip complete">El Tamam</span>
+                          ) : null}
+                        </div>
                         <p className="my-game-coming-prototype-turn-pile-status" role="status" aria-live="polite" aria-atomic="true">
                           Kapali Deste: {okeyPrototypeDrawPileRemaining} tas
                         </p>

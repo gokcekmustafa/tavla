@@ -1055,6 +1055,39 @@
   font-weight: 700;
 }
 
+.my-game-coming-prototype-turn-phase-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-turn-phase-chip {
+  border-radius: 999px;
+  border: 1px solid rgba(96, 186, 213, 0.56);
+  background: rgba(8, 83, 104, 0.45);
+  color: #cfe8ff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 2px 8px;
+}
+
+.my-game-coming-prototype-turn-phase-chip.active {
+  border-color: rgba(245, 225, 156, 0.9);
+  background: rgba(124, 98, 34, 0.45);
+  color: #fff2ca;
+}
+
+.my-game-coming-prototype-turn-phase-chip.waiting {
+  opacity: 0.9;
+}
+
+.my-game-coming-prototype-turn-phase-chip.complete {
+  border-color: rgba(141, 219, 173, 0.85);
+  background: rgba(31, 94, 63, 0.4);
+  color: #ddf7e7;
+}
+
 .my-game-coming-prototype-turn-status {
   margin: 0;
   color: #d6ecf8;
