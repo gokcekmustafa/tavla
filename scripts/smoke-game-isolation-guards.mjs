@@ -2,38 +2,54 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const appPath = resolve("src", "App.tsx");
-const source = readFileSync(appPath, "utf8");
+const tavlaAppPath = resolve("src", "apps", "tavla", "TavlaApp.tsx");
+const okeyAppPath = resolve("src", "apps", "okey101", "Okey101App.tsx");
+const shellSource = readFileSync(appPath, "utf8");
+const tavlaSource = readFileSync(tavlaAppPath, "utf8");
+const okeySource = readFileSync(okeyAppPath, "utf8");
 
-function has(text) {
+function hasIn(text, source) {
   return source.includes(text);
 }
 
-function count(text) {
+function countIn(text, source) {
   if (!text) return 0;
   return source.split(text).length - 1;
 }
 
 const checks = [
   {
-    label: "Tavla-ozel aksiyon guard fonksiyonu mevcut",
+    label: "Tavla uygulamasinda tavla-ozel guard fonksiyonu mevcut",
     test: () =>
-      has("function guardTavlaOnlyAction()")
-      && has("if (selectedGameId === \"tavla\") return true;")
-      && has("setLobbyNotice(\"Bu ozellik su an sadece Tavla icin aktif.\");"),
+      hasIn("function guardTavlaOnlyAction()", tavlaSource)
+      && hasIn("if (selectedGameId === \"tavla\") return true;", tavlaSource)
+      && hasIn("setLobbyNotice(\"Bu ozellik su an sadece Tavla icin aktif.\");", tavlaSource),
   },
   {
-    label: "Masa ac hizli oyna koda katil guard ile korunuyor",
+    label: "Tavla masa aksiyonlari guard ile korunuyor",
     test: () =>
-      has("function onOpenTable()")
-      && has("function onQuickPlay()")
-      && has("function onJoinByCode()")
-      && count("if (!guardTavlaOnlyAction()) return;") >= 3,
+      hasIn("function onOpenTable()", tavlaSource)
+      && hasIn("function onQuickPlay()", tavlaSource)
+      && hasIn("function onJoinByCode()", tavlaSource)
+      && countIn("if (!guardTavlaOnlyAction()) return;", tavlaSource) >= 3,
   },
   {
-    label: "Bot moduna gecis guard ile korunuyor",
+    label: "Tavla bot moduna gecis guard ile korunuyor",
     test: () =>
-      has("async function startBotGame()")
-      && count("if (!guardTavlaOnlyAction()) return;") >= 4,
+      hasIn("async function startBotGame()", tavlaSource)
+      && countIn("if (!guardTavlaOnlyAction()) return;", tavlaSource) >= 4,
+  },
+  {
+    label: "Shell app tavla ve 101 uygulamalarini ayri route ile aciyor",
+    test: () =>
+      hasIn("import TavlaApp from \"./apps/tavla/TavlaApp\";", shellSource)
+      && hasIn("import Okey101App from \"./apps/okey101/Okey101App\";", shellSource)
+      && hasIn("if (path.startsWith(\"/tavla\")) return <TavlaApp />;", shellSource)
+      && hasIn("if (path.startsWith(\"/okey101\") || path.startsWith(\"/okey\")) return <Okey101App />;", shellSource),
+  },
+  {
+    label: "101 uygulamasi ayri dosyada mevcut",
+    test: () => hasIn("function Okey101App()", okeySource) && hasIn("const effectiveSelectedGameId: GameId = selectedGameId;", okeySource),
   },
 ];
 
