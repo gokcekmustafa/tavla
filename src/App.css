@@ -1184,8 +1184,12 @@
 
 .my-game-coming-prototype-board-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 6px;
+  grid-template-columns: minmax(170px, 1fr) minmax(210px, 1.2fr) minmax(170px, 1fr);
+  grid-template-areas:
+    "seat-1 seat-1 seat-1"
+    "seat-4 center seat-2"
+    "seat-3 seat-3 seat-3";
+  gap: 8px;
 }
 
 .my-game-coming-prototype-board-seat {
@@ -1197,9 +1201,60 @@
   gap: 5px;
 }
 
+.my-game-coming-prototype-board-seat.seat-1 {
+  grid-area: seat-1;
+}
+
+.my-game-coming-prototype-board-seat.seat-2 {
+  grid-area: seat-2;
+}
+
+.my-game-coming-prototype-board-seat.seat-3 {
+  grid-area: seat-3;
+}
+
+.my-game-coming-prototype-board-seat.seat-4 {
+  grid-area: seat-4;
+}
+
 .my-game-coming-prototype-board-seat.active {
   border-color: rgba(245, 227, 164, 0.88);
   box-shadow: 0 0 0 1px rgba(246, 220, 138, 0.24) inset;
+}
+
+.my-game-coming-prototype-board-center {
+  grid-area: center;
+  border-radius: 9px;
+  border: 1px solid rgba(108, 191, 215, 0.56);
+  background: radial-gradient(circle at 50% 40%, rgba(11, 102, 127, 0.72), rgba(7, 72, 90, 0.86));
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.my-game-coming-prototype-board-center p {
+  margin: 0;
+  color: #ddf2ff;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.my-game-coming-prototype-board-center strong {
+  color: #fff4c7;
+}
+
+.my-game-coming-prototype-board-center-discard {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.my-game-coming-prototype-board-center-discard > span:first-child {
+  color: #d6eefb;
+  font-size: 0.67rem;
+  font-weight: 700;
 }
 
 .my-game-coming-prototype-board-seat header {
@@ -1236,6 +1291,18 @@
   color: #c8e5f5;
   font-size: 0.67rem;
   line-height: 1.2;
+}
+
+@media (max-width: 920px) {
+  .my-game-coming-prototype-board-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "center"
+      "seat-1"
+      "seat-2"
+      "seat-3"
+      "seat-4";
+  }
 }
 
 .my-game-coming-prototype-rack {
