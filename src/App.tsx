@@ -2941,11 +2941,14 @@ function App() {
     return okeyPrototypeTableSketchRows.find((row) => row.id === okeyPrototypeSeatReservation.tableId) ?? null;
   }, [okeyPrototypeSeatReservation, okeyPrototypeTableSketchRows]);
   const okeyPrototypeSeatNoForRack = useMemo(() => {
+    if (okeyPrototypeSeatReservation && okeyPrototypeJoinedTable) {
+      return okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+    }
     if (okeyPrototypeSeatReservation) {
       return Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
     }
     return okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
-  }, [okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
+  }, [okeyPrototypeJoinedTable, okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
   const okeyPrototypeSeatRackTiles = useMemo(() => {
     return okeyPrototypeRackState[okeyPrototypeSeatNoForRack] ?? [];
   }, [okeyPrototypeRackState, okeyPrototypeSeatNoForRack]);
