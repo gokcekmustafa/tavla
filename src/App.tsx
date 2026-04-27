@@ -9605,6 +9605,9 @@ function App() {
                       <button
                         type="button"
                         className={`my-game-coming-table-sketch-filter ${okeyPrototypeOnlyWithFreeSeats ? "active" : ""}`}
+                        aria-pressed={okeyPrototypeOnlyWithFreeSeats}
+                        title={okeyPrototypeOnlyWithFreeSeats ? "Bos koltuk filtresini kapat" : "Bos koltuk filtresini ac"}
+                        aria-label={okeyPrototypeOnlyWithFreeSeats ? "Bos koltuk filtresini kapat" : "Bos koltuk filtresini ac"}
                         onClick={() => {
                           setOkeyPrototypeOnlyWithFreeSeats((current) => {
                             const next = !current;
