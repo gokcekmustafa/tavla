@@ -9929,6 +9929,8 @@ function App() {
                           className="my-action-btn soft"
                           onClick={() => setOkeyPrototypeActionLog([])}
                           disabled={okeyPrototypeActionLog.length === 0}
+                          title="Prototip olay gecmisini temizler"
+                          aria-label="Prototip olay gecmisini temizle"
                         >
                           Temizle
                         </button>

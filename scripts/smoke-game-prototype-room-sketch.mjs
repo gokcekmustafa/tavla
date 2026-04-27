@@ -184,6 +184,8 @@ const checks = [
       && hasApp("Masadan Ayril (Prototip)")
       && hasApp("className=\"my-game-coming-table-seat-status\"")
       && hasApp("className=\"my-game-coming-prototype-log\"")
+      && hasApp("title=\"Prototip olay gecmisini temizler\"")
+      && hasApp("aria-label=\"Prototip olay gecmisini temizle\"")
       && hasApp("className=\"my-game-coming-prototype-log-list\"")
       && hasApp("className=\"my-game-coming-prototype-log-entry\"")
       && hasApp("Henuz kayitli prototip aksiyonu yok.")
