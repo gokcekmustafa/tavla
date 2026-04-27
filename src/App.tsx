@@ -9584,6 +9584,9 @@ function App() {
                       <button
                         type="button"
                         className={`my-game-coming-table-sketch-filter ${okeyPrototypeTableFilter === "all" ? "active" : ""}`}
+                        aria-pressed={okeyPrototypeTableFilter === "all"}
+                        title="Tum masa filtrelerini goster"
+                        aria-label="Tum masa filtrelerini goster"
                         onClick={() => setOkeyPrototypeTableFilter("all")}
                       >
                         Tumu
@@ -9591,6 +9594,9 @@ function App() {
                       <button
                         type="button"
                         className={`my-game-coming-table-sketch-filter ${okeyPrototypeTableFilter === "active" ? "active" : ""}`}
+                        aria-pressed={okeyPrototypeTableFilter === "active"}
+                        title="Sadece aktif masalari goster"
+                        aria-label="Sadece aktif masalari goster"
                         onClick={() => setOkeyPrototypeTableFilter("active")}
                       >
                         Aktif
@@ -9598,6 +9604,9 @@ function App() {
                       <button
                         type="button"
                         className={`my-game-coming-table-sketch-filter ${okeyPrototypeTableFilter === "waiting" ? "active" : ""}`}
+                        aria-pressed={okeyPrototypeTableFilter === "waiting"}
+                        title="Sadece bekleyen masalari goster"
+                        aria-label="Sadece bekleyen masalari goster"
                         onClick={() => setOkeyPrototypeTableFilter("waiting")}
                       >
                         Bekleyen
