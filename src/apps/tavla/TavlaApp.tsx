@@ -4716,7 +4716,7 @@ function TavlaApp() {
   }, [roomStartState]);
   const roomWhiteSeat = currentRoomTable?.white ?? null;
   const roomBlackSeat = currentRoomTable?.black ?? null;
-  const isAdmin = canAccessOkeyPrototype;
+  const isAdmin = member?.role === "admin";
   const lobbyDraft = sanitizeChatText(lobbyChatInput);
   const selectedAdminUser = useMemo(
     () => adminUsers.find((row) => row.id === adminSelectedUserId) ?? null,
@@ -5439,14 +5439,38 @@ function TavlaApp() {
         ? existingSeat.table.id === table.id || (code && existingSeat.table.roomCode === code)
         : false;
       const existingUserSeat = findUserSeat(cleaned, currentProfile.userId);
-      const userSeatedInAnotherSession = Boolean(
-        existingUserSeat
-        && existingUserSeat.sessionId !== appSessionId,
-      );
-      if (userSeatedInAnotherSession) {
-        seatBlocked = true;
-        blockReason = "duplicate-user";
-        return current;
+      if (existingUserSeat && existingUserSeat.sessionId !== appSessionId) {
+        const now = Date.now();
+        const otherSessionStillActive = current.presence.some((entry) => (
+          entry.sessionId === existingUserSeat.sessionId
+          && sanitizeLobbyId(entry.lobbyId) === activeLobbyId
+          && now - normalizeActivityTimestamp(entry.touchedAt, now, HEARTBEAT_MS * 2, entry.sessionId) <= HEARTBEAT_MS * 2
+        ));
+        if (otherSessionStillActive) {
+          seatBlocked = true;
+          blockReason = "duplicate-user";
+          return current;
+        }
+        const staleSeatIndex = tables.findIndex(
+          (row) => row.id === existingUserSeat.table.id || row.roomCode === existingUserSeat.table.roomCode,
+        );
+        if (staleSeatIndex >= 0) {
+          const staleTable = tables[staleSeatIndex];
+          const clearedStaleSeat = existingUserSeat.seat === "white"
+            ? {
+              ...staleTable,
+              white: null,
+              whiteClearToken: createSeatClearToken(existingUserSeat.sessionId || "stale-white"),
+            }
+            : {
+              ...staleTable,
+              black: null,
+              blackClearToken: createSeatClearToken(existingUserSeat.sessionId || "stale-black"),
+            };
+          tables[staleSeatIndex] = normalizeTableAccess(
+            normalizeTableStartGate(resetTableSeriesProgress(resetTableStartGate(clearedStaleSeat))),
+          );
+        }
       }
       if (existingSeat && !isSameTable) {
         seatBlocked = true;
