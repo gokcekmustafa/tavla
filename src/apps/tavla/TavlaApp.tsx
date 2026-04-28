@@ -464,10 +464,12 @@ const ENABLE_WS_DEBUG_LOGS = false;
 const WS_PREOPEN_FAIL_DISABLE_THRESHOLD = 3;
 const WS_DISABLE_DURATION_MS = 2 * 60 * 1000;
 const HTTP_SYNC_TIMEOUT_MS = 8_000;
-const HTTP_SYNC_THROTTLE_MS = 900;
-const HTTP_SYNC_MIRROR_MIN_INTERVAL_MS = 8_000;
-const HTTP_SYNC_RUN_INTERVAL_MS = 4_000;
-const HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS = 10_000;
+const HTTP_SYNC_THROTTLE_MS = 700;
+const HTTP_SYNC_MIRROR_MIN_INTERVAL_MS = 4_000;
+const HTTP_SYNC_RUN_INTERVAL_MS = 2_500;
+const HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS = 7_000;
+const HTTP_SYNC_OFFLINE_RUN_INTERVAL_MS = 1_600;
+const HTTP_SYNC_OFFLINE_BACKGROUND_RUN_INTERVAL_MS = 5_000;
 const HTTP_SYNC_ERROR_BACKOFF_MIN_MS = 1_500;
 const HTTP_SYNC_ERROR_BACKOFF_MAX_MS = 30_000;
 const ROOM_START_GATE_RESYNC_DELAY_MS = 700;
@@ -475,8 +477,8 @@ const FLOW_EVENT_LOG_LIMIT = 120;
 const FLOW_EVENT_DEDUPE_DEFAULT_MS = 2_500;
 const ENABLE_FLOW_DEBUG_LOGS = false;
 const DIAGNOSTICS_MODE_STORAGE_KEY = "tavla.diag.mode.v1";
-const ROOM_PICKER_REFRESH_INTERVAL_MS = 6_000;
-const ROOM_PICKER_REMOTE_REFRESH_MIN_MS = 12_000;
+const ROOM_PICKER_REFRESH_INTERVAL_MS = 4_000;
+const ROOM_PICKER_REMOTE_REFRESH_MIN_MS = 8_000;
 const ROOM_PICKER_REMOTE_FETCH_TIMEOUT_MS = 4_000;
 const ROOM_PICKER_REMOTE_ERROR_BACKOFF_MIN_MS = 6_000;
 const ROOM_PICKER_REMOTE_ERROR_BACKOFF_MAX_MS = 90_000;
@@ -9864,7 +9866,11 @@ function TavlaApp() {
 
     const scheduleNext = () => {
       if (cancelled) return;
-      const intervalMs = document.hidden ? HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS : HTTP_SYNC_RUN_INTERVAL_MS;
+      const socket = realtimeSocketRef.current;
+      const wsOpen = Boolean(socket && socket.readyState === WebSocket.OPEN);
+      const intervalMs = document.hidden
+        ? (wsOpen ? HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS : HTTP_SYNC_OFFLINE_BACKGROUND_RUN_INTERVAL_MS)
+        : (wsOpen ? HTTP_SYNC_RUN_INTERVAL_MS : HTTP_SYNC_OFFLINE_RUN_INTERVAL_MS);
       timer = window.setTimeout(() => {
         void tick();
       }, intervalMs);
@@ -9884,7 +9890,7 @@ function TavlaApp() {
           await syncRealtimeViaHttp("http-write-heartbeat");
           return;
         }
-        if (now - realtimeLastPullAtRef.current >= 10_000) {
+        if (now - realtimeLastPullAtRef.current >= 6_000) {
           await pullRealtimeViaHttp("http-read-backup");
         }
         return;
