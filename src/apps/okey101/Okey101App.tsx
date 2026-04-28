@@ -13099,17 +13099,21 @@ function Okey101App() {
         ) : showRoomPicker ? (
           <section className={`my-entry-page my-room-picker-page ${isTavlaSelectedGame ? "" : "my-room-picker-page-okey"}`}>
             <div className={`my-room-picker-topbar ${isTavlaSelectedGame ? "" : "my-room-picker-topbar-okey"}`}>
-              <div className="my-room-picker-tabs">
-                <button className="my-room-picker-tab" type="button" onClick={goToGameSelection}>Anasayfa</button>
+              <div className="my-room-picker-home-row">
+                <button className="my-room-picker-tab my-room-picker-home-tab" type="button" onClick={goToGameSelection}>
+                  Anasayfa
+                </button>
+                <div className="my-room-picker-actions">
+                  <button className="my-action-btn" type="button" onClick={onQuickPlay}>{activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}</button>
+                  <button className="my-action-btn soft" type="button" onClick={() => void loadLobbyRoomsFromService()} disabled={lobbyRoomsBusy}>
+                    {lobbyRoomsBusy ? "Yukleniyor..." : "Listeyi Yenile"}
+                  </button>
+                </div>
+              </div>
+              <div className="my-room-picker-tabs my-room-picker-tabs-secondary">
                 <button className="my-room-picker-tab active" type="button">Tum Odalar</button>
                 <button className="my-room-picker-tab" type="button" disabled>Hizli</button>
                 <button className="my-room-picker-tab" type="button" disabled>Kalabalik</button>
-              </div>
-              <div className="my-room-picker-actions">
-                <button className="my-action-btn" type="button" onClick={onQuickPlay}>{activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}</button>
-                <button className="my-action-btn soft" type="button" onClick={() => void loadLobbyRoomsFromService()} disabled={lobbyRoomsBusy}>
-                  {lobbyRoomsBusy ? "Yukleniyor..." : "Listeyi Yenile"}
-                </button>
               </div>
             </div>
             <div className="my-room-picker-columns">
