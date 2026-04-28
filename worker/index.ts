@@ -21,6 +21,13 @@ type MemberStats = {
   resigns: number;
 };
 
+type GameId = "tavla" | "okey101";
+type MemberGameProfile = {
+  points: number;
+  stats: MemberStats;
+};
+type MemberGameProfiles = Record<GameId, MemberGameProfile>;
+
 type MatchOutcome = "win" | "loss" | "resign";
 type MemberRole = "user" | "admin";
 type MemberGender = "male" | "female" | "unknown";
@@ -133,6 +140,7 @@ type StoredMemberUser = PublicMemberUser & {
   password: string;
   activeSessionKey: string;
   activeSessionAt: number;
+  gameProfiles: MemberGameProfiles;
 };
 
 const AUTH_DO_NAME = "members-v1";
@@ -140,6 +148,8 @@ const AUTH_RULES_KEY = "settings:rules";
 const AUTH_LOBBIES_KEY = "settings:lobbies";
 const AUTH_DESIGN_KEY = "settings:design";
 const DESIGN_HISTORY_LIMIT = 25;
+const DEFAULT_MEMBER_POINTS = 1500;
+const DEFAULT_MEMBER_GAME_ID: GameId = "tavla";
 const DEFAULT_WIN_POINTS = 100;
 const DEFAULT_LOSS_POINTS = 0;
 const DEFAULT_RESIGN_PENALTY_POINTS = 50;
@@ -221,6 +231,12 @@ function sanitizeMemberRole(raw: unknown): MemberRole {
 function sanitizeMemberGender(raw: unknown): MemberGender {
   if (raw === "male" || raw === "female") return raw;
   return "unknown";
+}
+
+function sanitizeGameId(raw: unknown, fallback: GameId = DEFAULT_MEMBER_GAME_ID): GameId {
+  if (raw === "okey101") return "okey101";
+  if (raw === "tavla") return "tavla";
+  return fallback;
 }
 
 function sanitizeAvatarId(raw: unknown, gender: MemberGender = "unknown"): AvatarId {
@@ -393,6 +409,68 @@ function normalizeMemberStats(raw: unknown): MemberStats {
     stats.gamesPlayed = stats.wins + stats.losses;
   }
   return stats;
+}
+
+function createDefaultMemberGameProfile(
+  points = DEFAULT_MEMBER_POINTS,
+  stats: MemberStats = createDefaultMemberStats(),
+): MemberGameProfile {
+  return {
+    points: Math.max(0, sanitizeFinitePoints(points, DEFAULT_MEMBER_POINTS)),
+    stats: normalizeMemberStats(stats),
+  };
+}
+
+function createDefaultMemberGameProfiles(
+  points = DEFAULT_MEMBER_POINTS,
+  stats: MemberStats = createDefaultMemberStats(),
+): MemberGameProfiles {
+  const profile = createDefaultMemberGameProfile(points, stats);
+  return {
+    tavla: createDefaultMemberGameProfile(profile.points, profile.stats),
+    okey101: createDefaultMemberGameProfile(profile.points, profile.stats),
+  };
+}
+
+function normalizeMemberGameProfile(raw: unknown, fallback: MemberGameProfile): MemberGameProfile {
+  const base = createDefaultMemberGameProfile(fallback.points, fallback.stats);
+  if (!raw || typeof raw !== "object") return base;
+  const candidate = raw as Partial<MemberGameProfile>;
+  return {
+    points: Math.max(0, sanitizeFinitePoints(candidate.points, base.points)),
+    stats: normalizeMemberStats(candidate.stats ?? base.stats),
+  };
+}
+
+function normalizeMemberGameProfiles(raw: unknown, fallback?: MemberGameProfiles): MemberGameProfiles {
+  const base = fallback
+    ? {
+      tavla: createDefaultMemberGameProfile(fallback.tavla.points, fallback.tavla.stats),
+      okey101: createDefaultMemberGameProfile(fallback.okey101.points, fallback.okey101.stats),
+    }
+    : createDefaultMemberGameProfiles();
+  if (!raw || typeof raw !== "object") return base;
+  const candidate = raw as Partial<Record<GameId, unknown>>;
+  return {
+    tavla: normalizeMemberGameProfile(candidate.tavla, base.tavla),
+    okey101: normalizeMemberGameProfile(candidate.okey101, base.okey101),
+  };
+}
+
+function withNormalizedGameProfiles(user: StoredMemberUser): StoredMemberUser {
+  const legacyPoints = Math.max(0, sanitizeFinitePoints(user.points, DEFAULT_MEMBER_POINTS));
+  const legacyStats = normalizeMemberStats(user.stats);
+  const profiles = normalizeMemberGameProfiles(
+    user.gameProfiles,
+    createDefaultMemberGameProfiles(legacyPoints, legacyStats),
+  );
+  const defaultProfile = profiles[DEFAULT_MEMBER_GAME_ID];
+  return {
+    ...user,
+    points: defaultProfile.points,
+    stats: defaultProfile.stats,
+    gameProfiles: profiles,
+  };
 }
 
 function createDefaultGameRules(): GameRules {
@@ -634,21 +712,24 @@ function isDoFreeTierWriteLimitError(error: unknown) {
   return getErrorMessage(error).includes("Exceeded allowed rows written in Durable Objects free tier");
 }
 
-function toPublicUser(user: StoredMemberUser): PublicMemberUser {
-  const gender = sanitizeMemberGender(user.gender);
+function toPublicUser(user: StoredMemberUser, gameId: GameId = DEFAULT_MEMBER_GAME_ID): PublicMemberUser {
+  const normalizedUser = withNormalizedGameProfiles(user);
+  const targetGameId = sanitizeGameId(gameId, DEFAULT_MEMBER_GAME_ID);
+  const scopedProfile = normalizedUser.gameProfiles[targetGameId];
+  const gender = sanitizeMemberGender(normalizedUser.gender);
   return {
-    id: user.id,
-    username: user.username,
-    displayName: user.displayName,
-    email: user.email,
+    id: normalizedUser.id,
+    username: normalizedUser.username,
+    displayName: normalizedUser.displayName,
+    email: normalizedUser.email,
     gender,
-    avatarId: sanitizeAvatarId(user.avatarId, gender),
-    points: user.points,
-    createdAt: user.createdAt,
-    stats: normalizeMemberStats(user.stats),
-    role: sanitizeMemberRole(user.role),
-    isBlocked: sanitizeBoolean(user.isBlocked, false),
-    permissions: normalizeMemberPermissions(user.permissions),
+    avatarId: sanitizeAvatarId(normalizedUser.avatarId, gender),
+    points: scopedProfile.points,
+    createdAt: normalizedUser.createdAt,
+    stats: normalizeMemberStats(scopedProfile.stats),
+    role: sanitizeMemberRole(normalizedUser.role),
+    isBlocked: sanitizeBoolean(normalizedUser.isBlocked, false),
+    permissions: normalizeMemberPermissions(normalizedUser.permissions),
   };
 }
 
@@ -667,7 +748,13 @@ function normalizeStoredMemberUser(raw: unknown): StoredMemberUser | null {
     || `u${Date.now().toString(36).slice(-6)}`;
   const gender = sanitizeMemberGender(candidate.gender);
   const activeSessionKey = sanitizeMemberSessionKey(candidate.activeSessionKey);
-  return {
+  const legacyPoints = Math.max(0, sanitizeFinitePoints(candidate.points, DEFAULT_MEMBER_POINTS));
+  const legacyStats = normalizeMemberStats(candidate.stats);
+  const gameProfiles = normalizeMemberGameProfiles(
+    (raw as { gameProfiles?: unknown }).gameProfiles,
+    createDefaultMemberGameProfiles(legacyPoints, legacyStats),
+  );
+  const normalized: StoredMemberUser = {
     id,
     username,
     displayName,
@@ -675,15 +762,17 @@ function normalizeStoredMemberUser(raw: unknown): StoredMemberUser | null {
     gender,
     avatarId: sanitizeAvatarId(candidate.avatarId, gender),
     password,
-    points: Math.max(0, sanitizeFinitePoints(candidate.points, 1500)),
+    points: legacyPoints,
     createdAt: Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now(),
-    stats: normalizeMemberStats(candidate.stats),
+    stats: legacyStats,
     role: sanitizeMemberRole(candidate.role),
     isBlocked: sanitizeBoolean(candidate.isBlocked, false),
     permissions: normalizeMemberPermissions(candidate.permissions),
     activeSessionKey,
     activeSessionAt: Number.isFinite(candidate.activeSessionAt) ? Number(candidate.activeSessionAt) : 0,
+    gameProfiles,
   };
+  return withNormalizedGameProfiles(normalized);
 }
 
 function parseRealtimeMessage(raw: string): RealtimeMessage | null {
@@ -959,13 +1048,17 @@ export class AuthStore {
   }
 
   private listTransientUsers(): StoredMemberUser[] {
-    return [...this.transientUsersById.values()].map((user) => ({
-      ...user,
-      stats: normalizeMemberStats(user.stats),
-      role: sanitizeMemberRole(user.role),
-      isBlocked: sanitizeBoolean(user.isBlocked, false),
-      permissions: normalizeMemberPermissions(user.permissions),
-    }));
+    return [...this.transientUsersById.values()].map((user) => {
+      const normalizedUser = withNormalizedGameProfiles(user);
+      return {
+        ...normalizedUser,
+        stats: normalizeMemberStats(normalizedUser.stats),
+        gameProfiles: normalizeMemberGameProfiles(normalizedUser.gameProfiles),
+        role: sanitizeMemberRole(normalizedUser.role),
+        isBlocked: sanitizeBoolean(normalizedUser.isBlocked, false),
+        permissions: normalizeMemberPermissions(normalizedUser.permissions),
+      };
+    });
   }
 
   private findTransientByEmail(email: string): StoredMemberUser | null {
@@ -1175,17 +1268,19 @@ export class AuthStore {
   }
 
   private async putUser(user: StoredMemberUser, _previous?: StoredMemberUser | null) {
-    const gender = sanitizeMemberGender(user.gender);
+    const normalizedScopedUser = withNormalizedGameProfiles(user);
+    const gender = sanitizeMemberGender(normalizedScopedUser.gender);
     const normalized: StoredMemberUser = {
-      ...user,
+      ...normalizedScopedUser,
       gender,
-      avatarId: sanitizeAvatarId(user.avatarId, gender),
-      role: sanitizeMemberRole(user.role),
-      isBlocked: sanitizeBoolean(user.isBlocked, false),
-      permissions: normalizeMemberPermissions(user.permissions),
-      stats: normalizeMemberStats(user.stats),
-      activeSessionKey: sanitizeMemberSessionKey(user.activeSessionKey),
-      activeSessionAt: Number.isFinite(user.activeSessionAt) ? Number(user.activeSessionAt) : 0,
+      avatarId: sanitizeAvatarId(normalizedScopedUser.avatarId, gender),
+      role: sanitizeMemberRole(normalizedScopedUser.role),
+      isBlocked: sanitizeBoolean(normalizedScopedUser.isBlocked, false),
+      permissions: normalizeMemberPermissions(normalizedScopedUser.permissions),
+      stats: normalizeMemberStats(normalizedScopedUser.stats),
+      gameProfiles: normalizeMemberGameProfiles(normalizedScopedUser.gameProfiles),
+      activeSessionKey: sanitizeMemberSessionKey(normalizedScopedUser.activeSessionKey),
+      activeSessionAt: Number.isFinite(normalizedScopedUser.activeSessionAt) ? Number(normalizedScopedUser.activeSessionAt) : 0,
     };
     this.transientUsersById.set(normalized.id, normalized);
     try {
@@ -1301,6 +1396,7 @@ export class AuthStore {
     const password = sanitizeMemberPassword(body.password);
     const gender = sanitizeMemberGender(body.gender);
     const avatarId = sanitizeAvatarId(body.avatarId, gender);
+    const gameId = sanitizeGameId(body.gameId, DEFAULT_MEMBER_GAME_ID);
 
     if (!username || username.length < 3) {
       return jsonResponse({ error: "Kullanici adi en az 3 karakter olmali (harf, rakam, alt cizgi)." }, 400);
@@ -1333,6 +1429,7 @@ export class AuthStore {
 
     const role: MemberRole = isPrimaryAdminEmail(email) || (await this.countAdmins()) === 0 ? "admin" : "user";
     const sessionKey = createMemberSessionKey();
+    const defaultGameProfiles = createDefaultMemberGameProfiles(DEFAULT_MEMBER_POINTS, createDefaultMemberStats());
     const user: StoredMemberUser = {
       id: createMemberId(),
       username,
@@ -1341,9 +1438,10 @@ export class AuthStore {
       gender,
       avatarId,
       password,
-      points: 1500,
+      points: defaultGameProfiles[DEFAULT_MEMBER_GAME_ID].points,
       createdAt: Date.now(),
-      stats: createDefaultMemberStats(),
+      stats: defaultGameProfiles[DEFAULT_MEMBER_GAME_ID].stats,
+      gameProfiles: defaultGameProfiles,
       role,
       isBlocked: false,
       permissions: createDefaultMemberPermissions(),
@@ -1352,7 +1450,7 @@ export class AuthStore {
     };
 
     await this.putUser(user);
-    return jsonResponse({ ok: true, user: toPublicUser(user), sessionKey }, 201);
+    return jsonResponse({ ok: true, user: toPublicUser(user, gameId), sessionKey }, 201);
   }
 
   private async handleLogin(request: Request): Promise<Response> {
@@ -1362,6 +1460,7 @@ export class AuthStore {
     }
 
     const body = payload as Record<string, unknown>;
+    const gameId = sanitizeGameId(body.gameId, DEFAULT_MEMBER_GAME_ID);
     const identifier = typeof body.identifier === "string"
       ? body.identifier
       : (typeof body.email === "string" ? body.email : "");
@@ -1386,7 +1485,7 @@ export class AuthStore {
       activeSessionAt: Date.now(),
     };
     await this.putUser(updated, normalized);
-    return jsonResponse({ ok: true, user: toPublicUser(updated), sessionKey }, 200);
+    return jsonResponse({ ok: true, user: toPublicUser(updated, gameId), sessionKey }, 200);
   }
 
   private async handleForgotPassword(request: Request): Promise<Response> {
@@ -1429,6 +1528,7 @@ export class AuthStore {
     const body = payload as Record<string, unknown>;
     const userId = sanitizeMemberId(body.userId);
     const sessionKey = sanitizeMemberSessionKey(body.sessionKey);
+    const gameId = sanitizeGameId(body.gameId, DEFAULT_MEMBER_GAME_ID);
     const currentPassword = sanitizeMemberPassword(body.currentPassword);
     const newPassword = sanitizeMemberPassword(body.newPassword);
     if (!userId || !sessionKey || !currentPassword || !newPassword) {
@@ -1451,7 +1551,7 @@ export class AuthStore {
       password: newPassword,
     };
     await this.putUser(updated, user);
-    return jsonResponse({ ok: true, user: toPublicUser(updated) }, 200);
+    return jsonResponse({ ok: true, user: toPublicUser(updated, gameId) }, 200);
   }
 
   private async handleRules(): Promise<Response> {
@@ -1475,6 +1575,7 @@ export class AuthStore {
   private async handleMe(url: URL): Promise<Response> {
     const userId = sanitizeMemberId(url.searchParams.get("userId"));
     const sessionKey = sanitizeMemberSessionKey(url.searchParams.get("sessionKey"));
+    const gameId = sanitizeGameId(url.searchParams.get("gameId"), DEFAULT_MEMBER_GAME_ID);
     if (!userId || !sessionKey) {
       return jsonResponse({ error: "Gecersiz oturum." }, 400);
     }
@@ -1485,11 +1586,12 @@ export class AuthStore {
     }
 
     const normalized = await this.ensureBootstrapAdmin(user);
-    return jsonResponse({ ok: true, user: toPublicUser(normalized) }, 200);
+    return jsonResponse({ ok: true, user: toPublicUser(normalized, gameId) }, 200);
   }
 
   private async handleProfile(url: URL): Promise<Response> {
     const userId = sanitizeMemberId(url.searchParams.get("userId"));
+    const gameId = sanitizeGameId(url.searchParams.get("gameId"), DEFAULT_MEMBER_GAME_ID);
     if (!userId) {
       return jsonResponse({ error: "Gecersiz kullanici." }, 400);
     }
@@ -1500,7 +1602,7 @@ export class AuthStore {
     }
 
     const normalized = await this.ensureBootstrapAdmin(user);
-    return jsonResponse({ ok: true, user: toPublicUser(normalized) }, 200);
+    return jsonResponse({ ok: true, user: toPublicUser(normalized, gameId) }, 200);
   }
 
   private async handleProfileUpdate(request: Request): Promise<Response> {
@@ -1511,6 +1613,7 @@ export class AuthStore {
     const body = payload as Record<string, unknown>;
     const userId = sanitizeMemberId(body.userId);
     const sessionKey = sanitizeMemberSessionKey(body.sessionKey);
+    const gameId = sanitizeGameId(body.gameId, DEFAULT_MEMBER_GAME_ID);
     if (!userId || !sessionKey) {
       return jsonResponse({ error: "Gecersiz kullanici." }, 400);
     }
@@ -1532,7 +1635,7 @@ export class AuthStore {
     };
     await this.putUser(updated, user);
     const normalized = await this.ensureBootstrapAdmin(updated);
-    return jsonResponse({ ok: true, user: toPublicUser(normalized) }, 200);
+    return jsonResponse({ ok: true, user: toPublicUser(normalized, gameId) }, 200);
   }
 
   private async handleMatch(request: Request): Promise<Response> {
@@ -1545,6 +1648,7 @@ export class AuthStore {
     const userId = sanitizeMemberId(body.userId);
     const outcome = sanitizeMatchOutcome(body.outcome);
     const matchToken = sanitizeMatchToken(body.matchToken);
+    const gameId = sanitizeGameId(body.gameId, DEFAULT_MEMBER_GAME_ID);
     if (!userId || !outcome) {
       return jsonResponse({ error: "Kullanici veya sonuc gecersiz." }, 400);
     }
@@ -1554,12 +1658,12 @@ export class AuthStore {
       return jsonResponse({ error: "Kullanici bulunamadi." }, 404);
     }
 
-    const dedupeKey = matchToken ? `match:${userId}:${matchToken}` : "";
+    const dedupeKey = matchToken ? `match:${gameId}:${userId}:${matchToken}` : "";
     if (dedupeKey) {
       if (this.transientMatchDedupe.has(dedupeKey)) {
         return jsonResponse({
           ok: true,
-          user: toPublicUser(user),
+          user: toPublicUser(user, gameId),
           applied: {
             outcome,
             pointsDelta: 0,
@@ -1572,7 +1676,7 @@ export class AuthStore {
       if (alreadyProcessed) {
         return jsonResponse({
           ok: true,
-          user: toPublicUser(user),
+          user: toPublicUser(user, gameId),
           applied: {
             outcome,
             pointsDelta: 0,
@@ -1583,7 +1687,12 @@ export class AuthStore {
       }
     }
 
-    const stats = normalizeMemberStats(user.stats);
+    const userWithProfiles = withNormalizedGameProfiles(user);
+    const gameProfile = normalizeMemberGameProfile(
+      userWithProfiles.gameProfiles[gameId],
+      createDefaultMemberGameProfile(),
+    );
+    const stats = normalizeMemberStats(gameProfile.stats);
     const rules = await this.getRules();
     const pointsDelta = outcome === "win"
       ? rules.winPoints
@@ -1601,10 +1710,16 @@ export class AuthStore {
       stats.resigns += 1;
     }
 
+    const nextGameProfiles = {
+      ...userWithProfiles.gameProfiles,
+      [gameId]: {
+        points: Math.max(0, gameProfile.points + pointsDelta),
+        stats,
+      },
+    } satisfies MemberGameProfiles;
     const updated: StoredMemberUser = {
-      ...user,
-      points: Math.max(0, user.points + pointsDelta),
-      stats,
+      ...userWithProfiles,
+      gameProfiles: nextGameProfiles,
     };
 
     await this.putUser(updated, user);
@@ -1618,7 +1733,7 @@ export class AuthStore {
     }
     return jsonResponse({
       ok: true,
-      user: toPublicUser(updated),
+      user: toPublicUser(updated, gameId),
       applied: {
         outcome,
         pointsDelta,
@@ -1629,18 +1744,19 @@ export class AuthStore {
   }
 
   private async handleAdminState(url: URL): Promise<Response> {
+    const gameId = sanitizeGameId(url.searchParams.get("gameId"), DEFAULT_MEMBER_GAME_ID);
     const admin = await this.requireAdmin(url.searchParams.get("userId"));
     if (!admin) {
       return jsonResponse({ error: "Admin yetkisi gerekli." }, 403);
     }
 
-    const users = (await this.listUsers()).map((user) => toPublicUser(user));
+    const users = (await this.listUsers()).map((user) => toPublicUser(user, gameId));
     const rules = await this.getRules();
     const lobbies = await this.getLobbies();
     const design = await this.getDesignSettings();
     return jsonResponse({
       ok: true,
-      admin: toPublicUser(admin),
+      admin: toPublicUser(admin, gameId),
       users,
       rules,
       lobbies,
@@ -1656,6 +1772,7 @@ export class AuthStore {
     }
 
     const body = payload as Record<string, unknown>;
+    const gameId = sanitizeGameId(body.gameId, DEFAULT_MEMBER_GAME_ID);
     const admin = await this.requireAdmin(body.adminUserId);
     if (!admin) {
       return jsonResponse({ error: "Admin yetkisi gerekli." }, 403);
@@ -1704,36 +1821,61 @@ export class AuthStore {
         role: nextRole,
       };
       await this.putUser(updated, target);
-      return jsonResponse({ ok: true, user: toPublicUser(updated) }, 200);
+      return jsonResponse({ ok: true, user: toPublicUser(updated, gameId) }, 200);
     }
 
     if (action === "setPoints") {
-      const nextPoints = Math.max(0, sanitizeFinitePoints(body.points, target.points));
+      const targetWithProfiles = withNormalizedGameProfiles(target);
+      const nextPoints = Math.max(0, sanitizeFinitePoints(body.points, targetWithProfiles.gameProfiles[gameId].points));
+      const nextGameProfiles = {
+        ...targetWithProfiles.gameProfiles,
+        [gameId]: {
+          points: nextPoints,
+          stats: normalizeMemberStats(targetWithProfiles.gameProfiles[gameId].stats),
+        },
+      } satisfies MemberGameProfiles;
       const updated: StoredMemberUser = {
-        ...target,
-        points: nextPoints,
+        ...targetWithProfiles,
+        gameProfiles: nextGameProfiles,
       };
       await this.putUser(updated, target);
-      return jsonResponse({ ok: true, user: toPublicUser(updated) }, 200);
+      return jsonResponse({ ok: true, user: toPublicUser(updated, gameId) }, 200);
     }
 
     if (action === "addPoints") {
+      const targetWithProfiles = withNormalizedGameProfiles(target);
       const delta = sanitizeRuleNumber(body.delta, 0, -10_000, 10_000);
+      const currentPoints = targetWithProfiles.gameProfiles[gameId].points;
+      const nextGameProfiles = {
+        ...targetWithProfiles.gameProfiles,
+        [gameId]: {
+          points: Math.max(0, currentPoints + delta),
+          stats: normalizeMemberStats(targetWithProfiles.gameProfiles[gameId].stats),
+        },
+      } satisfies MemberGameProfiles;
       const updated: StoredMemberUser = {
-        ...target,
-        points: Math.max(0, target.points + delta),
+        ...targetWithProfiles,
+        gameProfiles: nextGameProfiles,
       };
       await this.putUser(updated, target);
-      return jsonResponse({ ok: true, user: toPublicUser(updated) }, 200);
+      return jsonResponse({ ok: true, user: toPublicUser(updated, gameId) }, 200);
     }
 
     if (action === "resetStats") {
+      const targetWithProfiles = withNormalizedGameProfiles(target);
+      const nextGameProfiles = {
+        ...targetWithProfiles.gameProfiles,
+        [gameId]: {
+          points: targetWithProfiles.gameProfiles[gameId].points,
+          stats: createDefaultMemberStats(),
+        },
+      } satisfies MemberGameProfiles;
       const updated: StoredMemberUser = {
-        ...target,
-        stats: createDefaultMemberStats(),
+        ...targetWithProfiles,
+        gameProfiles: nextGameProfiles,
       };
       await this.putUser(updated, target);
-      return jsonResponse({ ok: true, user: toPublicUser(updated) }, 200);
+      return jsonResponse({ ok: true, user: toPublicUser(updated, gameId) }, 200);
     }
 
     if (action === "setBlocked") {
@@ -1743,7 +1885,7 @@ export class AuthStore {
         isBlocked: blocked,
       };
       await this.putUser(updated, target);
-      return jsonResponse({ ok: true, user: toPublicUser(updated) }, 200);
+      return jsonResponse({ ok: true, user: toPublicUser(updated, gameId) }, 200);
     }
 
     if (action === "setPermission") {
@@ -1761,7 +1903,7 @@ export class AuthStore {
         permissions: nextPermissions,
       };
       await this.putUser(updated, target);
-      return jsonResponse({ ok: true, user: toPublicUser(updated) }, 200);
+      return jsonResponse({ ok: true, user: toPublicUser(updated, gameId) }, 200);
     }
 
     return jsonResponse({ error: "Bilinmeyen admin islemi." }, 400);

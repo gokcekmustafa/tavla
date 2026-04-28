@@ -6224,6 +6224,7 @@ function Okey101App() {
     try {
       const url = new URL("/api/auth/admin/state", `${RUNTIME_API_BASE_URL}/`);
       url.searchParams.set("userId", userId);
+      url.searchParams.set("gameId", effectiveSelectedGameId);
       const response = await fetch(url.toString(), { method: "GET" });
       const data = (await response.json().catch(() => null)) as {
         users?: unknown;
@@ -6279,6 +6280,7 @@ function Okey101App() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           adminUserId: member.id,
+          gameId: effectiveSelectedGameId,
           targetUserId: safeTargetUserId,
           action,
           ...payload,
@@ -8229,6 +8231,7 @@ function Okey101App() {
       const url = new URL("/api/auth/me", `${RUNTIME_API_BASE_URL}/`);
       url.searchParams.set("userId", session.userId);
       url.searchParams.set("sessionKey", session.sessionKey);
+      url.searchParams.set("gameId", effectiveSelectedGameId);
       const response = await fetch(url.toString(), { method: "GET" });
       if (!response.ok) return null;
       const data = (await response.json().catch(() => null)) as { user?: unknown } | null;
@@ -8271,7 +8274,7 @@ function Okey101App() {
       const response = await apiFetch("/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, displayName, email, gender, avatarId, password }),
+        body: JSON.stringify({ username, displayName, email, gender, avatarId, password, gameId: effectiveSelectedGameId }),
       });
       if (!response.ok) {
         setAuthError(await readApiError(response, "Üyelik açılamadı."));
@@ -8332,7 +8335,7 @@ function Okey101App() {
       const response = await apiFetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ identifier, password }),
+        body: JSON.stringify({ identifier, password, gameId: effectiveSelectedGameId }),
       });
       if (!response.ok) {
         setAuthError(await readApiError(response, "Kullanıcı adı/e-posta veya şifre yanlış."));
@@ -8431,6 +8434,7 @@ function Okey101App() {
         body: JSON.stringify({
           userId: member.id,
           sessionKey: memberSession.sessionKey,
+          gameId: effectiveSelectedGameId,
           currentPassword,
           newPassword,
         }),
@@ -8479,6 +8483,7 @@ function Okey101App() {
         body: JSON.stringify({
           userId: member.id,
           sessionKey: memberSession.sessionKey,
+          gameId: effectiveSelectedGameId,
           avatarId: nextAvatarId,
         }),
       });
@@ -8606,6 +8611,7 @@ function Okey101App() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           userId,
+          gameId: effectiveSelectedGameId,
           outcome,
           pointsDelta: pointsDeltaForOutcome(outcome, gameRules),
           matchToken,
@@ -9275,6 +9281,7 @@ function Okey101App() {
     try {
       const url = new URL("/api/auth/profile", `${RUNTIME_API_BASE_URL}/`);
       url.searchParams.set("userId", userId);
+      url.searchParams.set("gameId", effectiveSelectedGameId);
       const response = await fetch(url.toString(), { method: "GET" });
       const data = (await response.json().catch(() => null)) as { user?: unknown; error?: unknown } | null;
       if (!response.ok) {
