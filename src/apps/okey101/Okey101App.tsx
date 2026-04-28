@@ -3321,7 +3321,7 @@ function Okey101App() {
   const [okeyPrototypeLastHandSummary, setOkeyPrototypeLastHandSummary] = useState("");
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
   const canAccessOkeyPrototype = true;
-  const useTavlaLikeOkeyLayout = true;
+  const useTavlaLikeOkeyLayout = false;
   const effectiveSelectedGameId: GameId = selectedGameId;
   const isTavlaSelectedGame = effectiveSelectedGameId === "tavla";
   useEffect(() => {
@@ -10356,17 +10356,8 @@ function Okey101App() {
     if (typeof window === "undefined") return;
     const onPopState = () => {
       if (roomSession) return;
-      const requestedGameFromUrl = readGameIdFromUrl() ?? DEFAULT_GAME_ID;
-      const gameFromUrl: GameId =
-        !canAccessOkeyPrototype && requestedGameFromUrl === "okey101"
-          ? "tavla"
-          : requestedGameFromUrl;
-      setSelectedGameId(gameFromUrl);
-      saveSelectedGameIdToSession(gameFromUrl);
-      if (!canAccessOkeyPrototype && requestedGameFromUrl === "okey101") {
-        setSelectedGameId("tavla");
-        saveSelectedGameIdToSession("tavla");
-      }
+      setSelectedGameId("okey101");
+      saveSelectedGameIdToSession("okey101");
       const entry = readEntryScreenFromUrl();
       if (entry === "game") {
         setViewMode("lobby");
@@ -10390,7 +10381,7 @@ function Okey101App() {
     return () => {
       window.removeEventListener("popstate", onPopState);
     };
-  }, [canAccessOkeyPrototype, roomSession]);
+  }, [roomSession]);
 
   useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
