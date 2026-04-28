@@ -2275,19 +2275,17 @@
 .my-room-picker-topbar-okey {
   border-color: rgba(69, 126, 88, 0.68);
   background: linear-gradient(180deg, rgba(36, 89, 63, 0.95), rgba(27, 72, 50, 0.96));
-  display: grid;
-  gap: 8px;
+  align-items: flex-start;
 }
 
-.my-room-picker-topbar-okey .my-room-picker-home-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+.my-room-picker-topbar-okey .my-room-picker-topbar-left {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
 }
 
 .my-room-picker-topbar-okey .my-room-picker-home-tab {
-  margin-right: auto;
+  min-width: 112px;
 }
 
 .my-room-picker-topbar-okey .my-room-picker-tabs-secondary {
@@ -4679,8 +4677,25 @@
     align-items: stretch;
   }
 
-  .my-room-picker-topbar-okey .my-room-picker-home-row {
-    flex-direction: column;
+  .my-room-picker-topbar-okey .my-room-picker-topbar-left {
+    width: 100%;
+    justify-items: stretch;
+  }
+
+  .my-room-picker-topbar-okey .my-room-picker-home-tab {
+    width: fit-content;
+  }
+
+  .my-room-picker-topbar-okey .my-room-picker-tabs-secondary {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .my-room-picker-topbar-okey .my-room-picker-tabs-secondary .my-room-picker-tab {
+    width: 100%;
+  }
+
+  .my-room-picker-topbar-okey .my-room-picker-actions {
     align-items: stretch;
   }
 
