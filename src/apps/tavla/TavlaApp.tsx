@@ -465,7 +465,7 @@ const WS_PREOPEN_FAIL_DISABLE_THRESHOLD = 3;
 const WS_DISABLE_DURATION_MS = 2 * 60 * 1000;
 const HTTP_SYNC_TIMEOUT_MS = 8_000;
 const HTTP_SYNC_THROTTLE_MS = 700;
-const HTTP_SYNC_MIRROR_MIN_INTERVAL_MS = 4_000;
+const HTTP_SYNC_MIRROR_MIN_INTERVAL_MS = 1_000;
 const HTTP_SYNC_RUN_INTERVAL_MS = 2_500;
 const HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS = 7_000;
 const HTTP_SYNC_OFFLINE_RUN_INTERVAL_MS = 1_600;
@@ -9890,7 +9890,7 @@ function TavlaApp() {
           await syncRealtimeViaHttp("http-write-heartbeat");
           return;
         }
-        if (now - realtimeLastPullAtRef.current >= 6_000) {
+        if (now - realtimeLastPullAtRef.current >= 2_500) {
           await pullRealtimeViaHttp("http-read-backup");
         }
         return;
