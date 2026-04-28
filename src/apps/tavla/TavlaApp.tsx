@@ -1673,7 +1673,8 @@ function isTableScopedToLobby(table: LobbyTable, presenceRows: LobbyPresenceStat
   const seats = [table.white, table.black].filter((seat): seat is LobbySeatState => Boolean(seat));
   if (seats.length === 0) return false;
 
-  let matchedAnyScopedPresence = false;
+  const now = Date.now();
+  let hasFreshCrossLobbyPresence = false;
 
   for (const row of presenceRows) {
     const rowLobbyId = sanitizeLobbyId(row.lobbyId ?? "");
@@ -1682,11 +1683,14 @@ function isTableScopedToLobby(table: LobbyTable, presenceRows: LobbyPresenceStat
       (seat) => row.sessionId === seat.sessionId || sanitizeGuestId(row.userId) === sanitizeGuestId(seat.userId),
     );
     if (!matchesSeat) continue;
-    matchedAnyScopedPresence = true;
     if (rowLobbyId === safeLobbyId) return true;
+    const safeTouchedAt = normalizeActivityTimestamp(row.touchedAt, now, HEARTBEAT_MS * 2, row.sessionId);
+    if (now - safeTouchedAt <= HEARTBEAT_MS * 2) {
+      hasFreshCrossLobbyPresence = true;
+    }
   }
 
-  if (matchedAnyScopedPresence) return false;
+  if (hasFreshCrossLobbyPresence) return false;
   return true;
 }
 
