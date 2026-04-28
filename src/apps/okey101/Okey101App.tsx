@@ -7031,6 +7031,10 @@ function Okey101App() {
       tableId: tableRow.id,
       seatNo: reservedSeat,
     });
+    setMode("local");
+    setGamePickerOpen(false);
+    setRoomPickerOpen(false);
+    setViewMode("table");
     if (startedNow && nextOccupiedSeatNos.length >= 4) {
       setOkeyPrototypeSessionHandNo(1);
       setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
@@ -7118,6 +7122,9 @@ function Okey101App() {
     }
     appendOkeyPrototypeAction(`${sourceLabel}: Masa ${leftTableNo}, Koltuk ${reservation.seatNo}`);
     resetOkeyPrototypeSeatSessionState();
+    setViewMode("lobby");
+    setRoomPickerOpen(false);
+    setGamePickerOpen(false);
     if (tableClosed) {
       setLobbyNotice(`Masa ${leftTableNo} kapandi.`);
     } else {
@@ -13755,7 +13762,314 @@ function Okey101App() {
             )}
           </header>
 
-          <section className="my-room-main-layout">
+          {!isTavlaSelectedGame ? (
+            <section
+              className="my-game-coming-room-shell"
+              data-table-active={okeyPrototypeSeatReservation ? "true" : "false"}
+              style={{ "--okey-proto-tile-scale": String(okeyPrototypeTileScale) } as CSSProperties}
+            >
+              <div className="my-game-coming-room-head">
+                <h3>
+                  {okeyPrototypeJoinedTable
+                    ? `${activeLobbyName} / Masa ${okeyPrototypeJoinedTable.tableNo}`
+                    : "101 Okey Masasi"}
+                </h3>
+                <span>{okeyPrototypeJoinedTable ? "Canli Masa" : "Masa Bekleniyor"}</span>
+              </div>
+
+              <div className="my-game-coming-prototype-board">
+                <div className="my-game-coming-prototype-board-head">
+                  <strong>Masa Gorunumu</strong>
+                  <div className="my-game-coming-prototype-board-head-controls">
+                    <span>Sira: K{okeyPrototypeTurnSeat}</span>
+                    <span>{okeyPrototypeTurnPhase === "draw" ? "Tas Cek" : "Tas At"}</span>
+                    <button className="my-action-btn soft" type="button" onClick={goToLobbyFromTableView}>
+                      Lobiye Don
+                    </button>
+                    {okeyPrototypeSeatReservation ? (
+                      <button
+                        className="my-action-btn danger"
+                        type="button"
+                        onClick={() => leaveOkeyPrototypeSeat("Masadan kalkildi")}
+                      >
+                        Masadan Kalk
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable ? (
+                  <div className="my-empty-state my-empty-state-lobby">
+                    <p className="my-empty-state-title">Masaya oturman gerekiyor.</p>
+                    <p className="my-empty-state-sub">
+                      Lobiye donup bir masada <span className="my-empty-state-action">OTUR</span> secenegini kullan.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="my-game-coming-prototype-board-status" role="status" aria-live="polite" aria-atomic="true">
+                      <button
+                        type="button"
+                        className={`my-action-btn soft my-game-coming-prototype-board-action-btn ${okeyPrototypeCanDrawTile ? "suggested" : ""}`}
+                        onClick={drawOkeyPrototypeTile}
+                        disabled={!okeyPrototypeCanDrawTile}
+                      >
+                        Kapali Desteden Cek ({okeyPrototypeDrawPileRemaining})
+                      </button>
+                      <button
+                        type="button"
+                        className={`my-action-btn soft my-game-coming-prototype-board-action-btn ${okeyPrototypeCanDrawFromDiscard ? "suggested" : ""}`}
+                        onClick={drawOkeyPrototypeTileFromDiscard}
+                        disabled={!okeyPrototypeCanDrawFromDiscard}
+                      >
+                        Ortadan Al
+                      </button>
+                      <button
+                        type="button"
+                        className={`my-action-btn soft my-game-coming-prototype-board-action-btn ${(okeyPrototypeCanDiscardTile && okeyPrototypeDiscardDraftTile) ? "suggested" : ""}`}
+                        onClick={discardOkeyPrototypeTile}
+                        disabled={!okeyPrototypeCanDiscardTile || !okeyPrototypeDiscardDraftTile}
+                      >
+                        Secili Tasi At
+                      </button>
+                      <button
+                        type="button"
+                        className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
+                        onClick={clearOkeyPrototypeTileSelections}
+                        disabled={!okeyPrototypeDiscardDraftTileId && okeyPrototypeMeldDraftTileIds.length === 0}
+                      >
+                        Secimi Temizle
+                      </button>
+                    </div>
+
+                    <p className="my-game-coming-prototype-board-hint" role="status" aria-live="polite" aria-atomic="true">
+                      {okeyPrototypeBoardHintText}
+                    </p>
+
+                    <div className="my-game-coming-prototype-board-grid" aria-label="101 okey oyun masasi">
+                      <section className="my-game-coming-prototype-board-center" aria-label="Masa merkezi">
+                        <div className="my-game-coming-prototype-board-center-piles">
+                          <span>
+                            Gosterge: {okeyPrototypeIndicatorTile ? formatOkeyPrototypeTile(okeyPrototypeIndicatorTile) : "-"}
+                          </span>
+                          <span>
+                            Okey: {okeyPrototypeOkeyTile ? formatOkeyPrototypeTile(okeyPrototypeOkeyTile) : "-"}
+                          </span>
+                          <span>
+                            Son Atis: {okeyPrototypeLastDiscard ? formatOkeyPrototypeTile(okeyPrototypeLastDiscard.tile) : "-"}
+                          </span>
+                        </div>
+                        <p>Acik Per: <strong>{okeyPrototypeOpenedMelds.length}</strong></p>
+                        <p>Sahte Okey: <strong>{okeyPrototypeSahteOkeyCount}</strong></p>
+                        <p>Deste: <strong>{okeyPrototypeDrawPileRemaining}</strong></p>
+                      </section>
+
+                      {OKEY_PROTOTYPE_SEATS.map((seatNo) => {
+                        const seatTiles = okeyPrototypeRackState[seatNo] ?? [];
+                        const isTurnSeat = seatNo === okeyPrototypeTurnSeat;
+                        const isOpenedSeat = okeyPrototypeSeatOpenedState[seatNo] ?? false;
+                        const isMaskedSeat = okeyPrototypeBoardMaskOthers && seatNo !== okeyPrototypeLocalSeatNo;
+                        const isLocalSeat = seatNo === okeyPrototypeLocalSeatNo;
+                        const displaySeatPosition = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
+                        const seatRole = okeyPrototypeSeatRoleLabels[seatNo];
+                        const seatName = okeyPrototypeSeatDisplayNames[seatNo];
+                        return (
+                          <article
+                            key={`okey-live-seat-${seatNo}`}
+                            className={`my-game-coming-prototype-board-seat seat-${displaySeatPosition} ${isTurnSeat ? "active" : ""} ${isLocalSeat ? "self" : ""}`}
+                          >
+                            <header>
+                              <strong className="my-game-coming-prototype-board-seat-title">
+                                <AvatarBadge
+                                  avatarId={okeyPrototypeSeatAvatarIds[seatNo] ?? DEFAULT_AVATAR_BY_GENDER.unknown}
+                                  gender={seatNo === okeyPrototypeLocalSeatNo ? sanitizeMemberGender(member?.gender ?? currentProfile.gender) : "unknown"}
+                                  size="sm"
+                                  className="my-game-coming-prototype-board-seat-avatar"
+                                />
+                                K{seatNo} - {seatRole === "Bos" ? "Bos" : `${seatRole}: ${seatName}`}
+                              </strong>
+                              <span>{isTurnSeat ? "SIRA | " : ""}{isOpenedSeat ? "ACIK" : "KAPALI"} | {seatTiles.length} tas</span>
+                            </header>
+                            <div className="my-game-coming-prototype-board-seat-tiles">
+                              {seatTiles.length === 0 ? (
+                                <span className="my-game-coming-prototype-board-seat-empty">Bos koltuk</span>
+                              ) : isMaskedSeat ? (
+                                seatTiles.slice(0, 14).map((tile) => (
+                                  <span
+                                    key={`okey-live-seat-mask-${seatNo}-${tile.id}`}
+                                    className="my-game-coming-prototype-rack-tile tile-sahte my-game-coming-prototype-board-seat-masked-tile"
+                                  >
+                                    ?
+                                  </span>
+                                ))
+                              ) : (
+                                seatTiles.map((tile) => {
+                                  const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+                                  return (
+                                    <span
+                                      key={`okey-live-seat-tile-${seatNo}-${tile.id}`}
+                                      className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${tileIsJoker ? "joker-tile" : ""}`}
+                                      title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
+                                    >
+                                      {renderOkeyPrototypeTileFace(tile)}
+                                    </span>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {okeyPrototypeSeatReservation ? (
+                <>
+                  <div className="my-game-coming-prototype-rack">
+                    <div className="my-game-coming-prototype-rack-head">
+                      <strong>Istakalar</strong>
+                      <span>Koltuk {okeyPrototypeSeatNoForRack}: {okeyPrototypeSeatRackTiles.length} tas</span>
+                    </div>
+                    <div className="my-game-coming-prototype-rack-tiles" aria-label={`Koltuk ${okeyPrototypeSeatNoForRack} tas dizilimi`}>
+                      {okeyPrototypeSeatRackTiles.map((tile) => {
+                        const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+                        return (
+                          <button
+                            key={tile.id}
+                            type="button"
+                            className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""}`}
+                            onClick={() => {
+                              selectOkeyPrototypeDiscardDraft(tile.id);
+                              toggleOkeyPrototypeMeldDraftTile(tile.id);
+                            }}
+                            disabled={!okeyPrototypeCanSelectRackTiles}
+                            aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
+                            title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
+                          >
+                            {renderOkeyPrototypeTileFace(tile)}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="my-game-coming-prototype-rack-actions">
+                      <button
+                        type="button"
+                        className="my-action-btn soft"
+                        onClick={openOkeyPrototypeMeld}
+                        disabled={!okeyPrototypeCanSelectRackTiles || okeyPrototypeMeldDraftTiles.length < 3 || !okeyPrototypeMeldDraftValidation.valid}
+                      >
+                        Per Ac
+                      </button>
+                      <button
+                        type="button"
+                        className="my-action-btn soft"
+                        onClick={openOkeyPrototypePairs}
+                        disabled={
+                          !okeyPrototypeCanAdvanceTurn
+                          || okeyPrototypeTurnPhase !== "discard"
+                          || okeyPrototypeCurrentSeatOpened
+                          || okeyPrototypeCurrentSeatPairOpenCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS
+                        }
+                      >
+                        5 Cift Ac
+                      </button>
+                      <button
+                        type="button"
+                        className="my-action-btn soft"
+                        onClick={attachOkeyPrototypeTileToMeld}
+                        disabled={!okeyPrototypeAttachValidation.valid}
+                      >
+                        Pere Ekle
+                      </button>
+                      <button
+                        type="button"
+                        className="my-action-btn soft"
+                        onClick={dealOkeyPrototypeWithSeed}
+                        disabled={!okeyPrototypeSeatReservation}
+                      >
+                        Yeni El
+                      </button>
+                    </div>
+                  </div>
+
+                  <section className="my-chat-card my-room-chat-card">
+                    <div className="my-room-chat-tabs">
+                      <button
+                        className={`my-room-chat-tab ${roomChatTab === "table" ? "active" : ""}`}
+                        onClick={() => setRoomChatTab("table")}
+                      >
+                        Masa Chat
+                      </button>
+                      <button
+                        className={`my-room-chat-tab ${roomChatTab === "lobby" ? "active" : ""}`}
+                        onClick={() => setRoomChatTab("lobby")}
+                      >
+                        Lobi Chat
+                      </button>
+                    </div>
+
+                    <div className="my-chat-compose my-room-chat-compose">
+                      <input
+                        className="my-input"
+                        placeholder={
+                          roomChatTab === "table"
+                            ? canWriteRoomChat ? "Masa sohbetine mesaj yaz..." : "Masa sohbeti icin uye girisi gerekli"
+                            : canWriteRoomChat ? "Lobiye mesaj yaz..." : "Lobiye yazmak icin uye girisi yap"
+                        }
+                        value={roomChatTab === "table" ? roomTableChatInput : roomLobbyChatInput}
+                        maxLength={CHAT_TEXT_MAX}
+                        onChange={(e) => {
+                          if (roomChatTab === "table") {
+                            setRoomTableChatInput(e.target.value);
+                          } else {
+                            setRoomLobbyChatInput(e.target.value);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter") return;
+                          e.preventDefault();
+                          sendActiveRoomChat();
+                        }}
+                        disabled={!canWriteRoomChat}
+                      />
+                      <button
+                        className="my-action-btn"
+                        onClick={sendActiveRoomChat}
+                        disabled={!canWriteRoomChat || !roomChatDraft}
+                      >
+                        {activeDesign.texts.chatSend || "Gonder"}
+                      </button>
+                    </div>
+
+                    <div
+                      ref={roomChatListRef}
+                      className="my-chat-list my-room-chat-list"
+                      onScroll={onRoomChatScroll}
+                      data-unread={roomChatUnread}
+                    >
+                      {roomChatRows.length === 0 ? (
+                        <p className="my-chat-empty">
+                          {roomChatTab === "table" ? "Bu masada henuz sohbet mesaji yok." : "Lobide henuz mesaj yok."}
+                        </p>
+                      ) : (
+                        roomChatRows.map((message) => (
+                          <article key={message.id} className="my-chat-row">
+                            <p>
+                              <strong>{message.displayName}:</strong> {message.text}
+                            </p>
+                          </article>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                </>
+              ) : null}
+            </section>
+          ) : (
+            <section className="my-room-main-layout">
             <aside className="my-game-controls my-room-left-controls">
               <section className="my-side-card my-room-card my-room-menu-card">
                 <h3>Masa Menusu</h3>
@@ -14071,6 +14385,7 @@ function Okey101App() {
               </section>
             </aside>
           </section>
+          )}
         </section>
       )}
 
