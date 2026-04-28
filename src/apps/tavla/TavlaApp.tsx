@@ -11441,7 +11441,7 @@ function TavlaApp() {
                   {activeDesign.texts.lobbyHome || "Ana Sayfa"}
                 </button>
                 <button
-                  className="my-top-btn my-btn-member-alt"
+                  className="my-top-btn my-btn-room-select"
                   style={{ order: lobbyTopButtonOrder.indexOf("roomSelect") }}
                   onClick={openAllRoomsPicker}
                 >
@@ -13112,7 +13112,7 @@ function TavlaApp() {
             <div className={`my-room-picker-topbar ${isTavlaSelectedGame ? "" : "my-room-picker-topbar-okey"}`}>
               <div className="my-room-picker-tabs">
                 <button
-                  className={`my-room-picker-tab ${roomPickerFilter === "all" ? "active" : ""}`}
+                  className={`my-room-picker-tab my-room-picker-tab-roomselect ${roomPickerFilter === "all" ? "active" : ""}`}
                   type="button"
                   onClick={() => setRoomPickerFilter("all")}
                 >

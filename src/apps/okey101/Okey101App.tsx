@@ -11420,6 +11420,11 @@ function Okey101App() {
       {viewMode === "lobby" ? (
         <header className="my-topbar">
           <div className="my-topbar-left">
+            {!roomSession && showRoomPicker ? (
+              <button className="my-top-btn my-btn-member-alt" onClick={goToGameSelection}>
+                {activeDesign.texts.lobbyHome || "Ana Sayfa"}
+              </button>
+            ) : null}
             {!roomSession && !showGamePicker && !showRoomPicker ? (
               <>
                 <button
@@ -11430,7 +11435,7 @@ function Okey101App() {
                   {activeDesign.texts.lobbyHome || "Ana Sayfa"}
                 </button>
                 <button
-                  className="my-top-btn my-btn-member-alt"
+                  className="my-top-btn my-btn-room-select"
                   style={{ order: lobbyTopButtonOrder.indexOf("roomSelect") }}
                   onClick={openAllRoomsPicker}
                 >
@@ -13099,15 +13104,10 @@ function Okey101App() {
         ) : showRoomPicker ? (
           <section className={`my-entry-page my-room-picker-page ${isTavlaSelectedGame ? "" : "my-room-picker-page-okey"}`}>
             <div className={`my-room-picker-topbar ${isTavlaSelectedGame ? "" : "my-room-picker-topbar-okey"}`}>
-              <div className="my-room-picker-topbar-left">
-                <button className="my-room-picker-tab my-room-picker-home-tab" type="button" onClick={goToGameSelection}>
-                  Anasayfa
-                </button>
-                <div className="my-room-picker-tabs my-room-picker-tabs-secondary">
-                  <button className="my-room-picker-tab active" type="button">Tum Odalar</button>
-                  <button className="my-room-picker-tab" type="button" disabled>Hizli</button>
-                  <button className="my-room-picker-tab" type="button" disabled>Kalabalik</button>
-                </div>
+              <div className="my-room-picker-tabs my-room-picker-tabs-secondary">
+                <button className="my-room-picker-tab my-room-picker-tab-roomselect active" type="button">Tum Odalar</button>
+                <button className="my-room-picker-tab" type="button" disabled>Hizli</button>
+                <button className="my-room-picker-tab" type="button" disabled>Kalabalik</button>
               </div>
               <div className="my-room-picker-actions">
                 <button className="my-action-btn" type="button" onClick={onQuickPlay}>{activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}</button>
