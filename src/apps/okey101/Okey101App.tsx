@@ -738,6 +738,101 @@ function sortOkeyPrototypeRackTiles(
   });
 }
 
+function buildOkeyPrototypeRackGroupsForLayout(
+  tiles: OkeyPrototypeTile[],
+  mode: OkeyPrototypeRackSortMode,
+  okeyTile: OkeyPrototypeTile | null = null,
+) {
+  const normalTiles = tiles.filter((tile) => !isOkeyPrototypeJokerTile(tile, okeyTile));
+  const jokerTiles = tiles.filter((tile) => isOkeyPrototypeJokerTile(tile, okeyTile));
+
+  if (mode === "color") {
+    const groups = OKEY_PROTOTYPE_TILE_COLORS
+      .map((color) => (
+        normalTiles
+          .filter((tile) => tile.kind === "normal" && tile.color === color)
+          .sort((left, right) => (left.value - right.value) || left.id.localeCompare(right.id))
+      ))
+      .filter((group) => group.length > 0);
+    if (jokerTiles.length > 0) groups.push(jokerTiles.slice());
+    return groups;
+  }
+
+  const pairMap = new Map<string, OkeyPrototypeTile[]>();
+  normalTiles.forEach((tile) => {
+    const key = `${tile.color}-${tile.value}`;
+    const bucket = pairMap.get(key) ?? [];
+    bucket.push(tile);
+    pairMap.set(key, bucket);
+  });
+  const pairKeys = Array.from(pairMap.keys()).sort((left, right) => {
+    const [leftColor, leftValueText] = left.split("-");
+    const [rightColor, rightValueText] = right.split("-");
+    const leftValue = Number.parseInt(leftValueText ?? "0", 10);
+    const rightValue = Number.parseInt(rightValueText ?? "0", 10);
+    if (leftValue !== rightValue) return leftValue - rightValue;
+    const leftColorIndex = OKEY_PROTOTYPE_TILE_COLORS.findIndex((entry) => entry === leftColor);
+    const rightColorIndex = OKEY_PROTOTYPE_TILE_COLORS.findIndex((entry) => entry === rightColor);
+    return leftColorIndex - rightColorIndex;
+  });
+
+  const pairGroups: OkeyPrototypeTile[][] = [];
+  const leftover: OkeyPrototypeTile[] = [];
+  pairKeys.forEach((key) => {
+    const bucket = (pairMap.get(key) ?? []).slice().sort((left, right) => left.id.localeCompare(right.id));
+    while (bucket.length >= 2) {
+      pairGroups.push([bucket.shift()!, bucket.shift()!]);
+    }
+    leftover.push(...bucket);
+  });
+  leftover.sort((left, right) => {
+    const valueDiff = left.value - right.value;
+    if (valueDiff !== 0) return valueDiff;
+    const leftColorIndex = OKEY_PROTOTYPE_TILE_COLORS.findIndex((entry) => entry === left.color);
+    const rightColorIndex = OKEY_PROTOTYPE_TILE_COLORS.findIndex((entry) => entry === right.color);
+    if (leftColorIndex !== rightColorIndex) return leftColorIndex - rightColorIndex;
+    return left.id.localeCompare(right.id);
+  });
+  if (leftover.length > 0) {
+    pairGroups.push(leftover);
+  }
+  if (jokerTiles.length > 0) {
+    pairGroups.push(jokerTiles.slice());
+  }
+  return pairGroups;
+}
+
+function createOkeyPrototypeRackSlotsFromGroups(groups: OkeyPrototypeTile[][]) {
+  const slots = createEmptyOkeyPrototypeRackSlots();
+  let cursor = 0;
+  const remainingTileIds = groups.flat().map((tile) => tile.id);
+  const placedTileIds = new Set<string>();
+
+  for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+    const group = groups[groupIndex] ?? [];
+    for (const tile of group) {
+      if (cursor >= OKEY_PROTOTYPE_RACK_SLOT_COUNT) break;
+      slots[cursor] = tile.id;
+      placedTileIds.add(tile.id);
+      cursor += 1;
+    }
+    if (groupIndex < groups.length - 1 && cursor < OKEY_PROTOTYPE_RACK_SLOT_COUNT) {
+      cursor += 1;
+    }
+    if (cursor >= OKEY_PROTOTYPE_RACK_SLOT_COUNT) break;
+  }
+
+  remainingTileIds
+    .filter((tileId) => !placedTileIds.has(tileId))
+    .forEach((tileId) => {
+      const emptyIndex = slots.findIndex((slotTileId) => !slotTileId);
+      if (emptyIndex < 0) return;
+      slots[emptyIndex] = tileId;
+      placedTileIds.add(tileId);
+    });
+  return slots;
+}
+
 function getOkeyPrototypeTileUsefulnessScore(
   tile: OkeyPrototypeTile,
   rack: OkeyPrototypeTile[],
@@ -7918,15 +8013,23 @@ function Okey101App() {
     }
     const sortedRack = sortOkeyPrototypeRackTiles(currentRack, mode, okeyPrototypeOkeyTile);
     const orderChanged = sortedRack.some((tile, index) => tile.id !== currentRack[index]?.id);
-    if (!orderChanged) {
-      appendOkeyPrototypeAction(`Raf zaten ${mode === "color" ? "renk" : "deger"} sirasinda.`);
-      return;
+    if (orderChanged) {
+      setOkeyPrototypeRackState((current) => ({
+        ...current,
+        [seatNo]: sortedRack,
+      }));
     }
-    setOkeyPrototypeRackState((current) => ({
+    const grouped = buildOkeyPrototypeRackGroupsForLayout(sortedRack, mode, okeyPrototypeOkeyTile);
+    const nextSlots = createOkeyPrototypeRackSlotsFromGroups(grouped);
+    setOkeyPrototypeRackSlotsBySeat((current) => ({
       ...current,
-      [seatNo]: sortedRack,
+      [seatNo]: nextSlots,
     }));
-    appendOkeyPrototypeAction(`Raf siralandi: K${seatNo} (${mode === "color" ? "renk" : "deger"}).`);
+    appendOkeyPrototypeAction(
+      orderChanged
+        ? `Raf siralandi: K${seatNo} (${mode === "color" ? "renk" : "deger"}).`
+        : `Raf dizilimi yenilendi: K${seatNo} (${mode === "color" ? "seri" : "cift"}).`,
+    );
   }
 
   function sortOkeyPrototypeAsPairs() {
