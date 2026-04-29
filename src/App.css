@@ -5608,3 +5608,152 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 101 - Rekoroyun benzeri tekil masa görünümü (özgün uyarlama) */
+.my-game-coming-room-shell[data-table-active="true"] {
+  border: 1px solid #7b5a1e;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(26, 127, 96, 0.25), rgba(8, 67, 50, 0.34)),
+    linear-gradient(180deg, #0a6b51, #07553f);
+  box-shadow: inset 0 1px 0 rgba(173, 238, 215, 0.2);
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
+  border: 1px solid #3d2a10;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #086346, #07533c);
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-head {
+  background: transparent;
+  border: none;
+  padding: 2px 0 6px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-head strong {
+  font-size: 1.02rem;
+  color: #f4fffb;
+  letter-spacing: 0.01em;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-head-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-head-controls .my-action-btn {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 7px;
+  border: 1px solid #1f8d53;
+  background: linear-gradient(180deg, #1fa84e, #15833d);
+  color: #f5fff7;
+  font-weight: 800;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-head-controls .my-action-btn.danger {
+  border-color: #9a2c2c;
+  background: linear-gradient(180deg, #c93838, #a72828);
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
+  border-color: rgba(205, 166, 105, 0.55);
+  background: linear-gradient(180deg, #6b4a1c, #533711);
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-action-btn,
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-clear-btn {
+  border: 1px solid rgba(230, 198, 142, 0.35);
+  background: linear-gradient(180deg, #40493f, #2f372f);
+  color: #f4f2e9;
+  font-size: 0.84rem;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-center {
+  border: 1px solid rgba(209, 245, 230, 0.35);
+  border-radius: 10px;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 22px),
+    linear-gradient(180deg, rgba(8, 95, 67, 0.88), rgba(8, 81, 58, 0.92));
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-center p {
+  color: #ecfff7;
+  font-weight: 700;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat {
+  border: 1px solid rgba(194, 246, 229, 0.36);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(4, 96, 69, 0.68), rgba(3, 81, 58, 0.75));
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header {
+  display: grid;
+  gap: 2px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header strong {
+  font-size: 0.9rem;
+  color: #f0fff8;
+  font-weight: 800;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header span {
+  color: #d4f2e6;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat:not(.self) .my-game-coming-prototype-board-seat-tiles {
+  max-width: 140px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self .my-game-coming-prototype-board-seat-tiles {
+  display: none;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+  border-color: rgba(120, 73, 24, 0.9);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #9f6a2a, #7b4d1a);
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
+  margin-bottom: 8px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head strong::after {
+  content: "Istaka";
+  font-size: 0.96rem;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-actions .my-action-btn {
+  min-height: 42px;
+  border-radius: 7px;
+  border: 1px solid #5c4a2f;
+  background: linear-gradient(180deg, #1d201c, #131612);
+  color: #f4f3ec;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+}
+
+.my-okey-quick-card {
+  border-color: rgba(34, 127, 158, 0.6);
+  background: linear-gradient(180deg, #0f6f8d, #0b5d78);
+}
+
+@media (max-width: 920px) {
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-actions {
+    grid-template-columns: 1fr;
+  }
+}

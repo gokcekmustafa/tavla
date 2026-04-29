@@ -7709,6 +7709,36 @@ function Okey101App() {
     appendOkeyPrototypeAction(`Raf siralandi: K${seatNo} (${mode === "color" ? "renk" : "deger"}).`);
   }
 
+  function sortOkeyPrototypeAsPairs() {
+    sortOkeyPrototypeRack("value");
+    appendOkeyPrototypeAction("Cift diz uygulandi.");
+  }
+
+  function sortOkeyPrototypeAsSeries() {
+    sortOkeyPrototypeRack("color");
+    appendOkeyPrototypeAction("Seri diz uygulandi.");
+  }
+
+  function openOkeyPrototypeSerialMeld() {
+    if (!okeyPrototypeCanSelectRackTiles) {
+      appendOkeyPrototypeAction("Seri acmak icin once tas cekme adimini tamamlamalisin.");
+      return;
+    }
+    if (okeyPrototypeMeldDraftTiles.length < 3) {
+      appendOkeyPrototypeAction("Seri acmak icin en az 3 tas secmelisin.");
+      return;
+    }
+    if (!okeyPrototypeMeldDraftValidation.valid) {
+      appendOkeyPrototypeAction(`Seri acma gecersiz: ${okeyPrototypeMeldDraftValidation.reason}`);
+      return;
+    }
+    if (okeyPrototypeMeldDraftValidation.kind !== "seri") {
+      appendOkeyPrototypeAction("Secili grup seri degil. Cift/Set icin farkli grup sec.");
+      return;
+    }
+    openOkeyPrototypeMeld();
+  }
+
   function createOkeyPrototypeScenarioTile(
     key: string,
     color: OkeyPrototypeTileColor,
@@ -13868,7 +13898,7 @@ function Okey101App() {
                         const seatTiles = okeyPrototypeRackState[seatNo] ?? [];
                         const isTurnSeat = seatNo === okeyPrototypeTurnSeat;
                         const isOpenedSeat = okeyPrototypeSeatOpenedState[seatNo] ?? false;
-                        const isMaskedSeat = okeyPrototypeBoardMaskOthers && seatNo !== okeyPrototypeLocalSeatNo;
+                        const isMaskedSeat = seatNo !== okeyPrototypeLocalSeatNo;
                         const isLocalSeat = seatNo === okeyPrototypeLocalSeatNo;
                         const displaySeatPosition = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
                         const seatRole = okeyPrototypeSeatRoleLabels[seatNo];
@@ -13959,10 +13989,18 @@ function Okey101App() {
                         <button
                           type="button"
                           className="my-action-btn soft"
-                          onClick={openOkeyPrototypeMeld}
-                          disabled={!okeyPrototypeCanSelectRackTiles || okeyPrototypeMeldDraftTiles.length < 3 || !okeyPrototypeMeldDraftValidation.valid}
+                          onClick={sortOkeyPrototypeAsPairs}
+                          disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
                         >
-                          Per Ac
+                          Çift Diz
+                        </button>
+                        <button
+                          type="button"
+                          className="my-action-btn soft"
+                          onClick={sortOkeyPrototypeAsSeries}
+                          disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                        >
+                          Seri Diz
                         </button>
                         <button
                           type="button"
@@ -13975,30 +14013,30 @@ function Okey101App() {
                             || okeyPrototypeCurrentSeatPairOpenCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS
                           }
                         >
-                          5 Cift Ac
+                          Çift Aç
                         </button>
                         <button
                           type="button"
                           className="my-action-btn soft"
-                          onClick={attachOkeyPrototypeTileToMeld}
-                          disabled={!okeyPrototypeAttachValidation.valid}
+                          onClick={openOkeyPrototypeSerialMeld}
+                          disabled={
+                            !okeyPrototypeCanSelectRackTiles
+                            || okeyPrototypeMeldDraftTiles.length < 3
+                            || !okeyPrototypeMeldDraftValidation.valid
+                            || okeyPrototypeMeldDraftValidation.kind !== "seri"
+                          }
                         >
-                          Pere Ekle
-                        </button>
-                        <button
-                          type="button"
-                          className="my-action-btn soft"
-                          onClick={dealOkeyPrototypeWithSeed}
-                          disabled={!okeyPrototypeSeatReservation}
-                        >
-                          Yeni El
+                          Seri Aç
                         </button>
                       </div>
                     </div>
 
                     <aside className="my-okey-quick-side">
                       <section className="my-okey-quick-card">
-                        <h4>Ozellikler</h4>
+                        <h4>Özellikler</h4>
+                        <button className="my-action-btn soft" type="button" onClick={dealOkeyPrototypeWithSeed}>
+                          Yeni Oyun
+                        </button>
                         <button className="my-action-btn soft" type="button" onClick={goToLobbyFromTableView}>
                           Lobiye Don
                         </button>
