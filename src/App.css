@@ -5906,6 +5906,34 @@
   gap: 6px 10px;
 }
 
+.my-okey-center-seat-discards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.my-okey-center-seat-discard-card {
+  border-radius: 7px;
+  border: 1px solid rgba(183, 219, 206, 0.4);
+  background: rgba(5, 69, 48, 0.4);
+  padding: 5px;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+
+.my-okey-center-seat-discard-card > span:first-child {
+  color: #ddf8ec;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.my-okey-center-seat-discard-card .my-game-coming-prototype-rack-tile {
+  min-width: 22px;
+  height: 32px;
+  font-size: 0.92rem;
+}
+
 .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-summary p {
   margin: 0;
   font-size: 0.77rem;
@@ -5976,6 +6004,10 @@
   display: flex;
   align-items: center;
   min-height: 34px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status .my-game-coming-prototype-board-action-btn {
+  display: none;
 }
 
 .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile {

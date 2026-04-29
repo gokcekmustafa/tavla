@@ -4489,6 +4489,16 @@ function Okey101App() {
       if (okeyPrototypeHandCompleted) return;
       const botRack = okeyPrototypeRackState[turnSeat] ?? [];
       if (okeyPrototypeTurnPhase === "draw") {
+        if (!okeyPrototypeCurrentSeatOpened) {
+          if (okeyPrototypeCanDrawTile) {
+            drawOkeyPrototypeTile();
+            return;
+          }
+          if (okeyPrototypeCanDrawFromDiscard) {
+            drawOkeyPrototypeTileFromDiscard();
+          }
+          return;
+        }
         const topDiscardTile = okeyPrototypeTakeableDiscardEntry?.tile ?? null;
         const prefersDiscard = shouldOkeyPrototypeBotDrawFromDiscard(
           topDiscardTile,
@@ -4520,6 +4530,10 @@ function Okey101App() {
 	          appendOkeyPrototypeAction(`Bot K${turnSeat} ${botPairCount} cift ile el acti.`);
 	        }
 	      }
+      if (okeyPrototypePendingDiscardTileId) {
+        discardOkeyPrototypeTileWithForced(okeyPrototypePendingDiscardTileId);
+        return;
+      }
       const forcedDiscardTileId = pickOkeyPrototypeBotDiscardTileId(
         botRack,
         okeyPrototypeOkeyTile,
@@ -4534,6 +4548,7 @@ function Okey101App() {
     okeyPrototypeBotModeEnabled,
 	    okeyPrototypeCanDrawFromDiscard,
 	    okeyPrototypeCanDrawTile,
+      okeyPrototypePendingDiscardTileId,
 	    okeyPrototypeCurrentSeatOpened,
 	    okeyPrototypeDiscardPile,
 	    okeyPrototypeHandCompleted,
@@ -7751,6 +7766,24 @@ function Okey101App() {
     }, 120);
   }
 
+  function handleOkeyPrototypeDiscardDrop(draggedTileIdFromData = "") {
+    const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
+    if (!sourceTileId) {
+      setOkeyPrototypeRackDragTileId("");
+      return;
+    }
+    if (!okeyPrototypeCanDiscardTile) {
+      setOkeyPrototypeRackDragTileId("");
+      return;
+    }
+    discardOkeyPrototypeTileWithForced(sourceTileId);
+    setOkeyPrototypeRackDragTileId("");
+    okeyPrototypeSuppressRackClickRef.current = true;
+    window.setTimeout(() => {
+      okeyPrototypeSuppressRackClickRef.current = false;
+    }, 120);
+  }
+
   function handleOkeyPrototypeRackTileClick(tileId: string) {
     if (okeyPrototypeSuppressRackClickRef.current) return;
     selectOkeyPrototypeDiscardDraft(tileId);
@@ -8178,15 +8211,6 @@ function Okey101App() {
     }
 	    if (!ensureOkeyPrototypeGameStarted("Tas atma")) return;
 	    if (!okeyPrototypeCanAdvanceTurn) return;
-	    if (okeyPrototypePendingDiscardTileId) {
-      const pendingTile = okeyPrototypeTurnRackTiles.find((tile) => tile.id === okeyPrototypePendingDiscardTileId);
-      if (pendingTile) {
-        appendOkeyPrototypeAction(`Gecersiz hamle: Ortadan aldigin ${formatOkeyPrototypeTile(pendingTile)} tasini hemen islemelisin.`);
-      } else {
-        appendOkeyPrototypeAction("Gecersiz hamle: Ortadan alinan tas once islenmeli.");
-      }
-      return;
-    }
     if (okeyPrototypeTurnPhase !== "discard") {
       appendOkeyPrototypeAction("Gecersiz hamle: Once tas cekmelisin.");
       return;
@@ -8197,9 +8221,13 @@ function Okey101App() {
       appendOkeyPrototypeAction("Gecersiz hamle: Atacak tas yok.");
       return;
     }
+    let normalizedForcedTileId = forcedTileId;
+    if (okeyPrototypePendingDiscardTileId && !normalizedForcedTileId) {
+      normalizedForcedTileId = okeyPrototypePendingDiscardTileId;
+    }
     let droppedTile = currentRack[currentRack.length - 1];
     let nextRack = currentRack.slice(0, -1);
-    const selectedTileId = forcedTileId || okeyPrototypeDiscardDraftTileId;
+    const selectedTileId = normalizedForcedTileId || okeyPrototypeDiscardDraftTileId;
     if (selectedTileId) {
       const selectedIndex = currentRack.findIndex((tile) => tile.id === selectedTileId);
       if (selectedIndex >= 0) {
@@ -8220,6 +8248,9 @@ function Okey101App() {
     }));
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeTurnLockedAfterMeld(false);
+    if (okeyPrototypePendingDiscardTileId) {
+      setOkeyPrototypePendingDiscardTileId("");
+    }
     setOkeyPrototypeDiscardPile((current) => [discardEntry, ...current].slice(0, 40));
     if (nextRack.length === 0) {
       const jokerFinish = isOkeyPrototypeJokerTile(droppedTile, okeyPrototypeOkeyTile);
@@ -14673,6 +14704,32 @@ function Okey101App() {
 	                          <p>Acik Per: <strong>{okeyPrototypeOpenedMelds.length}</strong></p>
 	                          <p>Sahte Okey: <strong>{okeyPrototypeSahteOkeyCount}</strong></p>
 	                        </div>
+                          <div className="my-okey-center-seat-discards" aria-label="Oyuncularin son atislari">
+                            {([1, 2, 3, 4] as OkeyPrototypeSeatNo[]).map((seatNo) => {
+                              const entry = okeyPrototypeDiscardBySeat[seatNo] ?? null;
+                              const tile = entry?.tile ?? null;
+                              const tileIsJoker = tile
+                                ? isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile)
+                                : false;
+                              const displayPos = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
+                              const displayName = okeyPrototypeSeatNameByDisplayPosition[displayPos] || `K${seatNo}`;
+                              return (
+                                <div key={`seat-discard-${seatNo}`} className="my-okey-center-seat-discard-card">
+                                  <span>{displayName}</span>
+                                  {tile ? (
+                                    <span
+                                      className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${tileIsJoker ? "joker-tile" : ""}`}
+                                      title={formatOkeyPrototypeTile(tile)}
+                                    >
+                                      {renderOkeyPrototypeTileFace(tile)}
+                                    </span>
+                                  ) : (
+                                    <strong>-</strong>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
 	                        <div className="my-okey-center-piles-visual" aria-label="Tas cekme ve atma alanlari">
 	                          <button
 	                            type="button"
@@ -14709,9 +14766,20 @@ function Okey101App() {
 	                          </button>
 	                          <button
 	                            type="button"
-	                            className={`my-okey-center-pile-visual right ${(okeyPrototypeCanDiscardTile && okeyPrototypeDiscardDraftTile) ? "suggested" : ""}`}
+	                            className={`my-okey-center-pile-visual right ${okeyPrototypeCanDiscardTile ? "suggested" : ""}`}
 	                            onClick={discardOkeyPrototypeTile}
-	                            disabled={!okeyPrototypeCanDiscardTile || !okeyPrototypeDiscardDraftTile}
+	                            disabled={!okeyPrototypeCanDiscardTile}
+                              onDragOver={(event) => {
+                                if (!okeyPrototypeCanDiscardTile || !okeyPrototypeRackDragTileId) return;
+                                event.preventDefault();
+                                if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+                              }}
+                              onDrop={(event) => {
+                                if (!okeyPrototypeCanDiscardTile) return;
+                                event.preventDefault();
+                                const draggedTileId = event.dataTransfer?.getData("text/plain") ?? "";
+                                handleOkeyPrototypeDiscardDrop(draggedTileId);
+                              }}
 	                          >
 	                            <span>Saga At (Sen)</span>
 	                            {okeyPrototypeLocalSeatDiscardEntry ? (
@@ -14729,7 +14797,7 @@ function Okey101App() {
 	                                ? `Secili: ${formatOkeyPrototypeTile(okeyPrototypeDiscardDraftTile)}`
 	                                : (okeyPrototypeRightSeatDiscardEntry
 	                                  ? `Sag son atis: ${formatOkeyPrototypeTile(okeyPrototypeRightSeatDiscardEntry.tile)}`
-	                                  : "Atmak icin tas sec")}
+	                                  : "Tasi saga surukleyip birak")}
 	                            </small>
 	                          </button>
 	                        </div>
