@@ -13921,26 +13921,6 @@ function Okey101App() {
                         );
                       })}
                     </div>
-
-                    <section className="my-okey-ready-frame-wrap" aria-label="Hazir 101 oyun motoru">
-                      <header className="my-okey-ready-frame-head">
-                        <strong>Oynanabilir 101 (Hazir Motor)</strong>
-                        <span>MIT lisansli kaynak: makalin/Okey101</span>
-                      </header>
-                      <iframe
-                        className="my-okey-ready-frame"
-                        title="Hazir 101 Okey Oyunu"
-                        src="https://makalin.github.io/Okey101/"
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                      />
-                      <p className="my-okey-ready-frame-foot">
-                        Iframe engellenirse yeni sekmede ac:{" "}
-                        <a href="https://makalin.github.io/Okey101/" target="_blank" rel="noreferrer">
-                          makalin.github.io/Okey101
-                        </a>
-                      </p>
-                    </section>
                   </>
                 )}
               </div>
