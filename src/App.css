@@ -6079,9 +6079,23 @@
   gap: 9px;
 }
 
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .my-okey-open-actions-col {
   display: grid;
   gap: 7px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col {
+  display: flex;
+  gap: 8px;
 }
 
 .my-game-coming-room-shell[data-table-active="true"] .my-okey-open-actions-col .my-action-btn {
@@ -6092,6 +6106,13 @@
   color: #f4f0e2;
   font-size: 0.95rem;
   font-weight: 800;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
+  min-height: 30px;
+  padding: 0 11px;
+  border-radius: 6px;
+  font-size: 0.78rem;
 }
 
 .my-okey-rack-score-strip {

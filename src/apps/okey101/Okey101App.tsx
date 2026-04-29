@@ -14334,6 +14334,54 @@ function Okey101App() {
                         <strong>Istakalar</strong>
                         <span>Koltuk {okeyPrototypeSeatNoForRack}: {okeyPrototypeSeatRackTiles.length} tas</span>
                       </div>
+                      <div className="my-game-coming-prototype-rack-actions my-okey-rack-top-actions">
+                        <div className="my-okey-open-actions-col">
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={openOkeyPrototypePairs}
+                            disabled={
+                              !okeyPrototypeCanAdvanceTurn
+                              || okeyPrototypeTurnPhase !== "discard"
+                              || okeyPrototypeCurrentSeatOpened
+                              || okeyPrototypeCurrentSeatPairOpenCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS
+                            }
+                          >
+                            Ã‡ift AÃ§
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={sortOkeyPrototypeAsPairs}
+                            disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                          >
+                            Ã‡ift Diz
+                          </button>
+                        </div>
+                        <div className="my-okey-open-actions-col">
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={openOkeyPrototypeSerialMeld}
+                            disabled={
+                              !okeyPrototypeCanSelectRackTiles
+                              || okeyPrototypeMeldDraftTiles.length < 3
+                              || !okeyPrototypeMeldDraftValidation.valid
+                              || okeyPrototypeMeldDraftValidation.kind !== "seri"
+                            }
+                          >
+                            Seri AÃ§
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={sortOkeyPrototypeAsSeries}
+                            disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                          >
+                            Seri Diz
+                          </button>
+                        </div>
+                      </div>
                       <div className="my-okey-rack-rows" aria-label={`Koltuk ${okeyPrototypeSeatNoForRack} tas dizilimi`}>
                         {okeyPrototypeSeatRackSlotRows.map((rackRow, rowIndex) => (
                           <div key={`rack-row-${rowIndex}`} className="my-game-coming-prototype-rack-tiles my-game-coming-prototype-rack-slots-row">
@@ -14378,54 +14426,6 @@ function Okey101App() {
                         ))}
                       </div>
 
-                      <div className="my-game-coming-prototype-rack-actions">
-                        <div className="my-okey-open-actions-col">
-                          <button
-                            type="button"
-                            className="my-action-btn soft"
-                            onClick={openOkeyPrototypePairs}
-                            disabled={
-                              !okeyPrototypeCanAdvanceTurn
-                              || okeyPrototypeTurnPhase !== "discard"
-                              || okeyPrototypeCurrentSeatOpened
-                              || okeyPrototypeCurrentSeatPairOpenCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS
-                            }
-                          >
-                            Çift Aç
-                          </button>
-                          <button
-                            type="button"
-                            className="my-action-btn soft"
-                            onClick={sortOkeyPrototypeAsPairs}
-                            disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
-                          >
-                            Çift Diz
-                          </button>
-                        </div>
-                        <div className="my-okey-open-actions-col">
-                          <button
-                            type="button"
-                            className="my-action-btn soft"
-                            onClick={openOkeyPrototypeSerialMeld}
-                            disabled={
-                              !okeyPrototypeCanSelectRackTiles
-                              || okeyPrototypeMeldDraftTiles.length < 3
-                              || !okeyPrototypeMeldDraftValidation.valid
-                              || okeyPrototypeMeldDraftValidation.kind !== "seri"
-                            }
-                          >
-                            Seri Aç
-                          </button>
-                          <button
-                            type="button"
-                            className="my-action-btn soft"
-                            onClick={sortOkeyPrototypeAsSeries}
-                            disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
-                          >
-                            Seri Diz
-                          </button>
-                        </div>
-                      </div>
                       <div className="my-okey-rack-score-strip" role="status" aria-live="polite" aria-atomic="true">
                         <span>Grup Puani</span>
                         <strong title={`${okeyPrototypeRackGroupedScore.validGroupCount} gecerli grup`}>
