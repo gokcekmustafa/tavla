@@ -3610,6 +3610,44 @@ function Okey101App() {
     }
     return rows;
   }, [okeyPrototypeSeatRackSlots]);
+  const okeyPrototypeRackGroupedScore = useMemo(() => {
+    let total = 0;
+    let validGroupCount = 0;
+    okeyPrototypeSeatRackSlotRows.forEach((rackRow) => {
+      let currentGroup: OkeyPrototypeTile[] = [];
+      const flushGroup = () => {
+        if (currentGroup.length < 3) {
+          currentGroup = [];
+          return;
+        }
+        const validation = evaluateOkeyPrototypeMeldDraft(currentGroup, okeyPrototypeOkeyTile);
+        if (!validation.valid) {
+          currentGroup = [];
+          return;
+        }
+        total += getOkeyPrototypeMeldPointsWithJokers(currentGroup, okeyPrototypeOkeyTile);
+        validGroupCount += 1;
+        currentGroup = [];
+      };
+      rackRow.forEach((slotTileId) => {
+        if (!slotTileId) {
+          flushGroup();
+          return;
+        }
+        const tile = okeyPrototypeSeatRackTileMap.get(slotTileId);
+        if (!tile) {
+          flushGroup();
+          return;
+        }
+        currentGroup.push(tile);
+      });
+      flushGroup();
+    });
+    return {
+      total,
+      validGroupCount,
+    };
+  }, [okeyPrototypeOkeyTile, okeyPrototypeSeatRackSlotRows, okeyPrototypeSeatRackTileMap]);
   const okeyPrototypeLocalSeatNo = useMemo(() => {
     if (okeyPrototypeSeatReservation) {
       return Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
@@ -14245,6 +14283,12 @@ function Okey101App() {
                             Seri Diz
                           </button>
                         </div>
+                      </div>
+                      <div className="my-okey-rack-score-strip" role="status" aria-live="polite" aria-atomic="true">
+                        <span>Grup Puani</span>
+                        <strong title={`${okeyPrototypeRackGroupedScore.validGroupCount} gecerli grup`}>
+                          {okeyPrototypeRackGroupedScore.total}
+                        </strong>
                       </div>
                     </div>
 

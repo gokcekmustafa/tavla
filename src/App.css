@@ -5991,7 +5991,7 @@
 
 .my-okey-rack-rows {
   display: grid;
-  gap: 6px;
+  gap: 10px;
 }
 
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
@@ -6040,8 +6040,8 @@
   width: calc(44px * var(--okey-proto-tile-scale, 1));
   height: calc(60px * var(--okey-proto-tile-scale, 1));
   border-radius: 7px;
-  border: 1px dashed rgba(126, 90, 39, 0.42);
-  background: rgba(118, 87, 45, 0.12);
+  border: 1px dashed rgba(126, 90, 39, 0.24);
+  background: rgba(118, 87, 45, 0.06);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -6050,7 +6050,7 @@
 
 .my-game-coming-prototype-rack-slot.filled {
   border-style: solid;
-  border-color: rgba(112, 76, 29, 0.38);
+  border-color: rgba(112, 76, 29, 0.26);
   background: transparent;
 }
 
@@ -6092,6 +6092,37 @@
   color: #f4f0e2;
   font-size: 0.95rem;
   font-weight: 800;
+}
+
+.my-okey-rack-score-strip {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.my-okey-rack-score-strip span {
+  color: #f8ecd4;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.my-okey-rack-score-strip strong {
+  min-width: 46px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(132, 216, 255, 0.65);
+  background: linear-gradient(180deg, #2d9bff, #1a67d4);
+  box-shadow:
+    inset 0 1px 0 rgba(206, 236, 255, 0.72),
+    0 3px 8px rgba(3, 27, 68, 0.42);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .my-okey-quick-side {
