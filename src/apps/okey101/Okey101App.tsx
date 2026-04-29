@@ -368,6 +368,8 @@ type OkeyPrototypeMeldEntry = {
   at: number;
 };
 type OkeyPrototypeSeatOpenedState = Record<OkeyPrototypeSeatNo, boolean>;
+type OkeyPrototypeSeatOpenMode = "none" | "seri" | "pair";
+type OkeyPrototypeSeatOpenModes = Record<OkeyPrototypeSeatNo, OkeyPrototypeSeatOpenMode>;
 type OkeyPrototypeScenarioKind = "opening" | "attach" | "finish" | "draw-end";
 type OkeyPrototypeRackSortMode = "color" | "value";
 type OkeyPrototypeAutoSortMode = "off" | OkeyPrototypeRackSortMode;
@@ -1186,6 +1188,15 @@ function createDefaultOkeyPrototypeSeatOpenedState(): OkeyPrototypeSeatOpenedSta
     2: false,
     3: false,
     4: false,
+  };
+}
+
+function createDefaultOkeyPrototypeSeatOpenModes(): OkeyPrototypeSeatOpenModes {
+  return {
+    1: "none",
+    2: "none",
+    3: "none",
+    4: "none",
   };
 }
 
@@ -3466,6 +3477,7 @@ function Okey101App() {
   const [okeyPrototypeTurnLockedAfterMeld, setOkeyPrototypeTurnLockedAfterMeld] = useState(false);
   const [okeyPrototypeTurnOpeningPoints, setOkeyPrototypeTurnOpeningPoints] = useState(0);
   const [okeyPrototypeSeatOpenedState, setOkeyPrototypeSeatOpenedState] = useState<OkeyPrototypeSeatOpenedState>(() => createDefaultOkeyPrototypeSeatOpenedState());
+  const [okeyPrototypeSeatOpenModes, setOkeyPrototypeSeatOpenModes] = useState<OkeyPrototypeSeatOpenModes>(() => createDefaultOkeyPrototypeSeatOpenModes());
   const [okeyPrototypeInitialDeal] = useState<OkeyPrototypeDealState>(() => createOkeyPrototypeDealState(Date.now(), 1));
   const [okeyPrototypeRackState, setOkeyPrototypeRackState] = useState<OkeyPrototypeRackState>(() => okeyPrototypeInitialDeal.rackState);
   const [okeyPrototypeRackSlotsBySeat, setOkeyPrototypeRackSlotsBySeat] = useState<Record<OkeyPrototypeSeatNo, Array<string | null>>>(() => {
@@ -4108,10 +4120,53 @@ function Okey101App() {
       (
         okeyPrototypeMeldDraftTiles.length >= 3
         && okeyPrototypeMeldDraftValidation.valid
-        && okeyPrototypeMeldDraftValidation.kind === "seri"
+        && (
+          okeyPrototypeMeldDraftValidation.kind === "seri"
+          || okeyPrototypeCurrentSeatOpened
+        )
       )
       || okeyPrototypeAutoSerialOpenGroups.length > 0
     );
+  const okeyPrototypeAttachableCounts = useMemo(() => {
+    const next = {
+      set: 0,
+      seri: 0,
+    };
+    if (!okeyPrototypeCanAdvanceTurn || okeyPrototypeTurnPhase !== "discard" || !okeyPrototypeCurrentSeatOpened) {
+      return next;
+    }
+    if (okeyPrototypeOpenedMelds.length === 0 || okeyPrototypeTurnRackTiles.length === 0) {
+      return next;
+    }
+    const turnSeatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+    const turnSeatOpenMode = okeyPrototypeSeatOpenModes[turnSeatNo] ?? "none";
+    okeyPrototypeTurnRackTiles.forEach((tile) => {
+      const canAttachSet = okeyPrototypeOpenedMelds.some((meld) => (
+        meld.kind === "set"
+        && canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile).valid
+      ));
+      if (canAttachSet) next.set += 1;
+      if (turnSeatOpenMode !== "pair") {
+        const canAttachSeri = okeyPrototypeOpenedMelds.some((meld) => (
+          meld.kind === "seri"
+          && canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile).valid
+        ));
+        if (canAttachSeri) next.seri += 1;
+      }
+    });
+    return next;
+  }, [
+    okeyPrototypeCanAdvanceTurn,
+    okeyPrototypeCurrentSeatOpened,
+    okeyPrototypeOkeyTile,
+    okeyPrototypeOpenedMelds,
+    okeyPrototypeSeatOpenModes,
+    okeyPrototypeTurnPhase,
+    okeyPrototypeTurnRackTiles,
+    okeyPrototypeTurnSeat,
+  ]);
+  const okeyPrototypeCanProcessPairs = okeyPrototypeAttachableCounts.set > 0;
+  const okeyPrototypeCanProcessSeries = okeyPrototypeAttachableCounts.seri > 0;
   // smoke-compat:
   // const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
   // && okeyPrototypeDiscardPile.length > 0;
@@ -4526,6 +4581,10 @@ function Okey101App() {
 	            ...current,
 	            [turnSeat]: true,
 	          }));
+            setOkeyPrototypeSeatOpenModes((current) => ({
+              ...current,
+              [turnSeat]: "pair",
+            }));
 	          setOkeyPrototypeTurnOpeningPoints(OKEY_PROTOTYPE_OPENING_TARGET_POINTS);
 	          appendOkeyPrototypeAction(`Bot K${turnSeat} ${botPairCount} cift ile el acti.`);
 	        }
@@ -7338,6 +7397,7 @@ function Okey101App() {
     setOkeyPrototypeOpenedMelds([]);
     setOkeyPrototypeAttachTargetMeldId("");
     setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
+    setOkeyPrototypeSeatOpenModes(createDefaultOkeyPrototypeSeatOpenModes());
     setOkeyPrototypeWinnerSeat(null);
     setOkeyPrototypeHandDrawn(false);
     setOkeyPrototypeSessionHandNo(1);
@@ -7658,6 +7718,7 @@ function Okey101App() {
     setOkeyPrototypeOpenedMelds([]);
     setOkeyPrototypeAttachTargetMeldId("");
     setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
+    setOkeyPrototypeSeatOpenModes(createDefaultOkeyPrototypeSeatOpenModes());
     setOkeyPrototypeWinnerSeat(null);
     setOkeyPrototypeHandDrawn(false);
   }
@@ -7934,6 +7995,10 @@ function Okey101App() {
           ...current,
           [seatNo]: true,
         }));
+        setOkeyPrototypeSeatOpenModes((current) => ({
+          ...current,
+          [seatNo]: "seri",
+        }));
         appendOkeyPrototypeAction(`El acildi: Koltuk ${seatNo} (${nextOpeningPoints}/${OKEY_PROTOTYPE_OPENING_TARGET_POINTS})`);
       } else {
         appendOkeyPrototypeAction(`Acilis puani: ${nextOpeningPoints}/${OKEY_PROTOTYPE_OPENING_TARGET_POINTS}`);
@@ -8033,6 +8098,10 @@ function Okey101App() {
     setOkeyPrototypeSeatOpenedState((current) => ({
       ...current,
       [seatNo]: true,
+    }));
+    setOkeyPrototypeSeatOpenModes((current) => ({
+      ...current,
+      [seatNo]: "pair",
     }));
     setOkeyPrototypeTurnOpeningPoints(OKEY_PROTOTYPE_OPENING_TARGET_POINTS);
     setOkeyPrototypePendingDiscardTileId("");
@@ -8414,14 +8483,82 @@ function Okey101App() {
     );
   }
 
+  function processOkeyPrototypeAttachments(kind: OkeyPrototypeMeldKind, sourceLabel: string) {
+    if (okeyPrototypeHandCompleted) {
+      appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
+      return;
+    }
+    if (!ensureOkeyPrototypeGameStarted(sourceLabel)) return;
+    if (!okeyPrototypeCanAdvanceTurn) return;
+    if (okeyPrototypeTurnPhase !== "discard") {
+      appendOkeyPrototypeAction(`${sourceLabel}: Once tas cekmelisin.`);
+      return;
+    }
+    const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+    if (!okeyPrototypeCurrentSeatOpened) {
+      appendOkeyPrototypeAction(`${sourceLabel}: Islemek icin once elini acmalisin.`);
+      return;
+    }
+    const seatOpenMode = okeyPrototypeSeatOpenModes[seatNo] ?? "none";
+    if (seatOpenMode === "pair" && kind === "seri") {
+      appendOkeyPrototypeAction("Cift acan oyuncu bu elde sadece cift isleyebilir.");
+      return;
+    }
+    const workingRack = okeyPrototypeTurnRackTiles.slice();
+    const workingMelds = okeyPrototypeOpenedMelds.map((meld) => ({
+      ...meld,
+      tiles: meld.tiles.slice(),
+    }));
+    const attachedTileIds = new Set<string>();
+    const updatedMeldById = new Map<string, OkeyPrototypeMeldEntry>();
+    let attachedCount = 0;
+    let guard = 0;
+    while (guard < 80) {
+      guard += 1;
+      let changed = false;
+      for (let tileIndex = 0; tileIndex < workingRack.length; tileIndex += 1) {
+        const tile = workingRack[tileIndex];
+        if (!tile) continue;
+        const targetMeld = workingMelds.find((meld) => {
+          if (meld.kind !== kind) return false;
+          const validation = canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile);
+          return validation.valid;
+        });
+        if (!targetMeld) continue;
+        workingRack.splice(tileIndex, 1);
+        targetMeld.tiles = [...targetMeld.tiles, tile].slice().sort((left, right) => left.value - right.value);
+        updatedMeldById.set(targetMeld.id, targetMeld);
+        attachedTileIds.add(tile.id);
+        attachedCount += 1;
+        changed = true;
+        break;
+      }
+      if (!changed) break;
+    }
+    if (attachedCount === 0) {
+      appendOkeyPrototypeAction(`${sourceLabel}: Islenebilecek tas bulunamadi.`);
+      return;
+    }
+    setOkeyPrototypeRackState((current) => ({
+      ...current,
+      [seatNo]: workingRack,
+    }));
+    setOkeyPrototypeOpenedMelds((current) => current.map((meld) => updatedMeldById.get(meld.id) ?? meld));
+    setOkeyPrototypeDiscardDraftTileId((current) => (current && attachedTileIds.has(current) ? "" : current));
+    setOkeyPrototypeMeldDraftTileIds((current) => current.filter((tileId) => !attachedTileIds.has(tileId)));
+    if (okeyPrototypePendingDiscardTileId && attachedTileIds.has(okeyPrototypePendingDiscardTileId)) {
+      setOkeyPrototypePendingDiscardTileId("");
+    }
+    setOkeyPrototypeTurnLockedAfterMeld(true);
+    appendOkeyPrototypeAction(`${sourceLabel}: ${attachedCount} tas masadaki ${kind === "seri" ? "seri" : "cift"} gruplarina islendi.`);
+  }
+
   function sortOkeyPrototypeAsPairs() {
-    sortOkeyPrototypeRack("value");
-    appendOkeyPrototypeAction("Cift diz uygulandi.");
+    processOkeyPrototypeAttachments("set", "Cift Isleme");
   }
 
   function sortOkeyPrototypeAsSeries() {
-    sortOkeyPrototypeRack("color");
-    appendOkeyPrototypeAction("Seri diz uygulandi.");
+    processOkeyPrototypeAttachments("seri", "Seri Isleme");
   }
 
   function openOkeyPrototypeSerialMeld() {
@@ -8432,7 +8569,7 @@ function Okey101App() {
     if (
       okeyPrototypeMeldDraftTiles.length >= 3
       && okeyPrototypeMeldDraftValidation.valid
-      && okeyPrototypeMeldDraftValidation.kind === "seri"
+      && (okeyPrototypeMeldDraftValidation.kind === "seri" || okeyPrototypeCurrentSeatOpened)
     ) {
       openOkeyPrototypeMeld();
       return;
@@ -8482,6 +8619,7 @@ function Okey101App() {
       [baseSeat]: [],
     };
     const nextSeatOpenedState = createDefaultOkeyPrototypeSeatOpenedState();
+    const nextSeatOpenModes = createDefaultOkeyPrototypeSeatOpenModes();
     let nextPhase: OkeyPrototypeTurnPhase = "discard";
     let nextRound = 1;
     let nextDiscardPile: OkeyPrototypeDiscardEntry[] = [];
@@ -8512,6 +8650,7 @@ function Okey101App() {
       appendOkeyPrototypeAction("Senaryo yuklendi: Acilis provasi (101 ustu per dizilimi hazir).");
     } else if (kind === "attach") {
       nextSeatOpenedState[baseSeat] = true;
+      nextSeatOpenModes[baseSeat] = "seri";
       const attachMeldId = `okey-proto-scn-meld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       nextOpenedMelds = [{
         id: attachMeldId,
@@ -8550,6 +8689,7 @@ function Okey101App() {
       appendOkeyPrototypeAction("Senaryo yuklendi: Pere ekleme provasi (hedef per secili).");
     } else if (kind === "finish") {
       nextSeatOpenedState[baseSeat] = true;
+      nextSeatOpenModes[baseSeat] = "seri";
       nextRackState[baseSeat] = [
         createOkeyPrototypeScenarioTile("finish-last", "mavi", 12),
       ];
@@ -8581,6 +8721,7 @@ function Okey101App() {
     setOkeyPrototypeOpenedMelds(nextOpenedMelds);
     setOkeyPrototypeAttachTargetMeldId(nextAttachTargetMeldId);
     setOkeyPrototypeSeatOpenedState(nextSeatOpenedState);
+    setOkeyPrototypeSeatOpenModes(nextSeatOpenModes);
     setOkeyPrototypeWinnerSeat(null);
     setOkeyPrototypeHandDrawn(false);
     setOkeyPrototypeLastHandSummary("");
@@ -14640,7 +14781,7 @@ function Okey101App() {
                         type="button"
                         className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
                         onClick={sortOkeyPrototypeAsPairs}
-                        disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                        disabled={!okeyPrototypeCanProcessPairs}
                       >
                         Çift İşle
                       </button>
@@ -14648,7 +14789,7 @@ function Okey101App() {
                         type="button"
                         className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
                         onClick={sortOkeyPrototypeAsSeries}
-                        disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                        disabled={!okeyPrototypeCanProcessSeries}
                       >
                         Seri İşle
                       </button>
@@ -14665,13 +14806,32 @@ function Okey101App() {
                             const seatNo = okeyPrototypeSeatByDisplayPosition[displayPosition] ?? displayPosition;
                             const seatName = okeyPrototypeSeatNameByDisplayPosition[displayPosition] || `K${seatNo}`;
                             const seatMelds = (okeyPrototypeOpenedMeldsBySeat[seatNo] ?? []).slice(0, 4);
+                            const seatDiscardEntry = okeyPrototypeDiscardBySeat[seatNo] ?? null;
+                            const seatDiscardTile = seatDiscardEntry?.tile ?? null;
+                            const seatDiscardTileIsJoker = seatDiscardTile
+                              ? isOkeyPrototypeJokerTile(seatDiscardTile, okeyPrototypeOkeyTile)
+                              : false;
                             return (
                               <section
                                 key={`okey-center-seat-area-${displayPosition}-${seatNo}`}
                                 className={`my-okey-center-seat-area pos-${displayPosition}`}
                                 aria-label={`${seatName} acik taslari`}
                               >
-                                <span className="my-okey-center-seat-name">{seatName}</span>
+                                <div className="my-okey-center-seat-head">
+                                  <span className="my-okey-center-seat-name">{seatName}</span>
+                                  <div className="my-okey-center-seat-discard-slot" aria-label={`${seatName} son atisi`}>
+                                    {seatDiscardTile ? (
+                                      <span
+                                        className={`my-game-coming-prototype-rack-tile tile-${seatDiscardTile.color} ${seatDiscardTileIsJoker ? "joker-tile" : ""}`}
+                                        title={`${seatName} son atis: ${formatOkeyPrototypeTile(seatDiscardTile)}`}
+                                      >
+                                        {renderOkeyPrototypeTileFace(seatDiscardTile)}
+                                      </span>
+                                    ) : (
+                                      <strong>-</strong>
+                                    )}
+                                  </div>
+                                </div>
                                 <div className="my-okey-center-seat-melds">
                                   {seatMelds.length === 0 ? (
                                     <span className="my-okey-center-seat-empty">Acik yok</span>
@@ -14867,9 +15027,9 @@ function Okey101App() {
                             type="button"
                             className="my-action-btn soft"
                             onClick={sortOkeyPrototypeAsPairs}
-                            disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                            disabled={!okeyPrototypeCanProcessPairs}
                           >
-                            Çift Diz
+                            Çift İşle
                           </button>
                         </div>
                         <div className="my-okey-open-actions-col">
@@ -14885,9 +15045,9 @@ function Okey101App() {
                             type="button"
                             className="my-action-btn soft"
                             onClick={sortOkeyPrototypeAsSeries}
-                            disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                            disabled={!okeyPrototypeCanProcessSeries}
                           >
-                            Seri Diz
+                            Seri İşle
                           </button>
                         </div>
                       </div>

@@ -5837,6 +5837,13 @@
   min-height: 96px;
 }
 
+.my-okey-center-seat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
 .my-okey-center-seat-area.pos-1 {
   grid-column: 1;
   grid-row: 1;
@@ -5858,7 +5865,6 @@
 }
 
 .my-okey-center-seat-name {
-  justify-self: center;
   border: 1px solid rgba(215, 245, 233, 0.55);
   border-radius: 4px;
   background: rgba(173, 221, 204, 0.22);
@@ -5867,6 +5873,30 @@
   font-weight: 700;
   line-height: 1;
   padding: 4px 7px;
+}
+
+.my-okey-center-seat-discard-slot {
+  min-width: 28px;
+  min-height: 38px;
+  border-radius: 6px;
+  border: 1px solid rgba(173, 223, 204, 0.48);
+  background: rgba(2, 60, 43, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+}
+
+.my-okey-center-seat-discard-slot > strong {
+  color: rgba(233, 252, 245, 0.72);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.my-okey-center-seat-discard-slot .my-game-coming-prototype-rack-tile {
+  min-width: 24px;
+  height: 34px;
+  font-size: 0.95rem;
 }
 
 .my-okey-center-seat-melds {
