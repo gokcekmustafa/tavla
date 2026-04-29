@@ -3991,11 +3991,10 @@ function Okey101App() {
   const okeyPrototypeCanSelectRackTiles = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
     && okeyPrototypeTurnRackTiles.length > 0;
-  const okeyPrototypeCanDiscardTile = okeyPrototypeCanAdvanceTurn
-    && okeyPrototypeTurnPhase === "discard"
-    && okeyPrototypeTurnRackTiles.length > 0
-    && !okeyPrototypeDiscardBlockedByOpening
-    && !okeyPrototypePendingDiscardTileId;
+	  const okeyPrototypeCanDiscardTile = okeyPrototypeCanAdvanceTurn
+	    && okeyPrototypeTurnPhase === "discard"
+	    && okeyPrototypeTurnRackTiles.length > 0
+	    && !okeyPrototypePendingDiscardTileId;
   // smoke-compat:
   // const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
   // && okeyPrototypeDiscardPile.length > 0;
@@ -4062,9 +4061,9 @@ function Okey101App() {
       }
       return "Cekilecek tas kalmadiysa el berabere tamamlanir.";
     }
-    if (okeyPrototypeDiscardBlockedByOpening) {
-      return `Tas atmadan once ${okeyPrototypeOpeningRemainingPoints} puanlik acilis peri acmalisin.`;
-    }
+	    if (okeyPrototypeDiscardBlockedByOpening) {
+	      return `Acilis icin ${okeyPrototypeOpeningRemainingPoints} puan daha gerekiyor. Istersen tas atip turu gecirebilirsin.`;
+	    }
     if (okeyPrototypePendingDiscardTile) {
       return `Ortadan aldigin ${formatOkeyPrototypeTile(okeyPrototypePendingDiscardTile)} tasini hemen islemelisin.`;
     }
@@ -4393,28 +4392,17 @@ function Okey101App() {
         }
         return;
       }
-      if (okeyPrototypeDiscardBlockedByOpening) {
-        const botPairCount = countOkeyPrototypeIdenticalPairs(botRack, okeyPrototypeOkeyTile);
-        if (botPairCount >= OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS) {
-          setOkeyPrototypeSeatOpenedState((current) => ({
-            ...current,
-            [turnSeat]: true,
-          }));
-          setOkeyPrototypeTurnOpeningPoints(OKEY_PROTOTYPE_OPENING_TARGET_POINTS);
-          appendOkeyPrototypeAction(`Bot K${turnSeat} ${botPairCount} cift ile el acti.`);
-          return;
-        }
-        if (okeyPrototypeTurnOpeningPoints >= OKEY_PROTOTYPE_OPENING_TARGET_POINTS) {
-          setOkeyPrototypeSeatOpenedState((current) => ({
-            ...current,
-            [turnSeat]: true,
-          }));
-          appendOkeyPrototypeAction(`Bot K${turnSeat} 101 acilis barajini gecti.`);
-          return;
-        }
-        appendOkeyPrototypeAction(`Bot K${turnSeat} acilis icin uygun per bekliyor.`);
-        return;
-      }
+	      if (!okeyPrototypeCurrentSeatOpened && okeyPrototypeTurnOpeningPoints < OKEY_PROTOTYPE_OPENING_TARGET_POINTS) {
+	        const botPairCount = countOkeyPrototypeIdenticalPairs(botRack, okeyPrototypeOkeyTile);
+	        if (botPairCount >= OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS) {
+	          setOkeyPrototypeSeatOpenedState((current) => ({
+	            ...current,
+	            [turnSeat]: true,
+	          }));
+	          setOkeyPrototypeTurnOpeningPoints(OKEY_PROTOTYPE_OPENING_TARGET_POINTS);
+	          appendOkeyPrototypeAction(`Bot K${turnSeat} ${botPairCount} cift ile el acti.`);
+	        }
+	      }
       const forcedDiscardTileId = pickOkeyPrototypeBotDiscardTileId(
         botRack,
         okeyPrototypeOkeyTile,
@@ -4427,19 +4415,20 @@ function Okey101App() {
     okeyPrototypeActiveTurnSeats,
     okeyPrototypeBotDifficulty,
     okeyPrototypeBotModeEnabled,
-    okeyPrototypeCanDrawFromDiscard,
-    okeyPrototypeCanDrawTile,
-    okeyPrototypeDiscardPile,
-    okeyPrototypeDiscardBlockedByOpening,
-    okeyPrototypeHandCompleted,
-    okeyPrototypeJoinedTable,
-    okeyPrototypeLocalSeatNo,
-    okeyPrototypeOkeyTile,
-    okeyPrototypeRackState,
-    okeyPrototypeSeatReservation,
-    okeyPrototypeTurnPhase,
-    okeyPrototypeTurnSeat,
-  ]);
+	    okeyPrototypeCanDrawFromDiscard,
+	    okeyPrototypeCanDrawTile,
+	    okeyPrototypeCurrentSeatOpened,
+	    okeyPrototypeDiscardPile,
+	    okeyPrototypeHandCompleted,
+	    okeyPrototypeJoinedTable,
+	    okeyPrototypeLocalSeatNo,
+	    okeyPrototypeOkeyTile,
+	    okeyPrototypeRackState,
+	    okeyPrototypeSeatReservation,
+	    okeyPrototypeTurnPhase,
+	    okeyPrototypeTurnOpeningPoints,
+	    okeyPrototypeTurnSeat,
+	  ]);
 
   useEffect(() => {
     if (okeyPrototypeHandCompleted) return;
@@ -7372,9 +7361,13 @@ function Okey101App() {
           alreadyStarted = true;
           return current;
         }
-        starterSeat = activeSeats.find(
-          (seatNo) => sanitizeGuestId(nextSeats[seatNo]?.userId ?? "") === sanitizeGuestId(table.ownerUserId ?? ""),
-        ) ?? activeSeats[0] ?? starterSeat;
+	        starterSeat = fillMissingWithBots
+	          ? (Math.max(1, Math.min(4, reservation.seatNo)) as OkeyPrototypeSeatNo)
+	          : (
+	            activeSeats.find(
+	              (seatNo) => sanitizeGuestId(nextSeats[seatNo]?.userId ?? "") === sanitizeGuestId(table.ownerUserId ?? ""),
+	            ) ?? activeSeats[0] ?? starterSeat
+	          );
         botModeNeeded = activeSeats.some((seatNo) => isOkeyPrototypeBotUserId(nextSeats[seatNo]?.userId ?? ""));
         const nextTable: OkeyPrototypeLobbyTableState = {
           ...table,
@@ -7995,13 +7988,9 @@ function Okey101App() {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
       return;
     }
-    if (!ensureOkeyPrototypeGameStarted("Tas atma")) return;
-    if (!okeyPrototypeCanAdvanceTurn) return;
-    if (okeyPrototypeDiscardBlockedByOpening) {
-      appendOkeyPrototypeAction(`Gecersiz hamle: Once ${okeyPrototypeOpeningRemainingPoints} puan daha acilis peri acmalisin.`);
-      return;
-    }
-    if (okeyPrototypePendingDiscardTileId) {
+	    if (!ensureOkeyPrototypeGameStarted("Tas atma")) return;
+	    if (!okeyPrototypeCanAdvanceTurn) return;
+	    if (okeyPrototypePendingDiscardTileId) {
       const pendingTile = okeyPrototypeTurnRackTiles.find((tile) => tile.id === okeyPrototypePendingDiscardTileId);
       if (pendingTile) {
         appendOkeyPrototypeAction(`Gecersiz hamle: Ortadan aldigin ${formatOkeyPrototypeTile(pendingTile)} tasini hemen islemelisin.`);
@@ -13342,11 +13331,11 @@ function Okey101App() {
                               : "Atilacak tasi rafdan sec.")
                             : "Tas secimi icin once Tas Cek adimini tamamla."}
                         </p>
-                        {okeyPrototypeDiscardBlockedByOpening ? (
-                          <p className="my-game-coming-prototype-rack-opening-warning" role="status" aria-live="polite" aria-atomic="true">
-                            Tas atmak icin once {okeyPrototypeOpeningRemainingPoints} puan daha acilis peri acmalisin.
-                          </p>
-                        ) : null}
+	                        {okeyPrototypeDiscardBlockedByOpening ? (
+	                          <p className="my-game-coming-prototype-rack-opening-warning" role="status" aria-live="polite" aria-atomic="true">
+	                            Acilis icin {okeyPrototypeOpeningRemainingPoints} puan daha gerekiyor. Istersen tas atip turu gecirebilirsin.
+	                          </p>
+	                        ) : null}
                         {!okeyPrototypeCurrentSeatOpened ? (
                           <p className="my-game-coming-prototype-rack-opening-warning" role="status" aria-live="polite" aria-atomic="true">
                             Cift acma: {okeyPrototypeCurrentSeatPairOpenCount}/{OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS}
@@ -14347,12 +14336,43 @@ function Okey101App() {
                         <span>Son Atis</span>
                         <strong>{okeyPrototypeLastDiscard ? formatOkeyPrototypeTile(okeyPrototypeLastDiscard.tile) : "-"}</strong>
                       </div>
-                      <div className="my-okey-draw-pile-card">
-                        <span>Kapali Deste</span>
-                        <strong>{okeyPrototypeDrawPileRemaining}</strong>
-                      </div>
-                      <button
-                        type="button"
+	                      <div className="my-okey-draw-pile-card">
+	                        <span>Kapali Deste</span>
+	                        <strong>{okeyPrototypeDrawPileRemaining}</strong>
+	                      </div>
+	                      <div className="my-okey-indicator-card">
+	                        <span>Gosterge</span>
+	                        <div className="my-okey-indicator-card-tile-wrap">
+	                          {okeyPrototypeIndicatorTile ? (
+	                            <span
+	                              className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeIndicatorTile.color} ${isOkeyPrototypeJokerTile(okeyPrototypeIndicatorTile, okeyPrototypeOkeyTile) ? "joker-tile" : ""}`}
+	                              title={formatOkeyPrototypeTile(okeyPrototypeIndicatorTile)}
+	                            >
+	                              {renderOkeyPrototypeTileFace(okeyPrototypeIndicatorTile)}
+	                            </span>
+	                          ) : (
+	                            <strong>-</strong>
+	                          )}
+	                        </div>
+	                      </div>
+	                      <div className="my-okey-indicator-card">
+	                        <span>Okey</span>
+	                        <div className="my-okey-indicator-card-tile-wrap">
+	                          {okeyPrototypeOkeyTile ? (
+	                            <span
+	                              className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeOkeyTile.color} ${isOkeyPrototypeJokerTile(okeyPrototypeOkeyTile, okeyPrototypeOkeyTile) ? "joker-tile" : ""}`}
+	                              title={formatOkeyPrototypeTile(okeyPrototypeOkeyTile)}
+	                            >
+	                              {renderOkeyPrototypeTileFace(okeyPrototypeOkeyTile)}
+	                            </span>
+	                          ) : (
+	                            <strong>-</strong>
+	                          )}
+	                        </div>
+	                        <small>Sahte Okey joker olarak kullanilir.</small>
+	                      </div>
+	                      <button
+	                        type="button"
                         className={`my-action-btn soft my-game-coming-prototype-board-action-btn ${okeyPrototypeCanDrawTile ? "suggested" : ""}`}
                         onClick={drawOkeyPrototypeTile}
                         disabled={!okeyPrototypeCanDrawTile}

@@ -5928,7 +5928,8 @@
 }
 
 .my-okey-discard-pile-card,
-.my-okey-draw-pile-card {
+.my-okey-draw-pile-card,
+.my-okey-indicator-card {
   border-radius: 8px;
   border: 1px solid rgba(228, 196, 141, 0.4);
   background: rgba(36, 24, 9, 0.42);
@@ -5938,17 +5939,41 @@
 }
 
 .my-okey-discard-pile-card span,
-.my-okey-draw-pile-card span {
+.my-okey-draw-pile-card span,
+.my-okey-indicator-card > span {
   color: #edd8b7;
   font-size: 0.67rem;
   font-weight: 700;
 }
 
 .my-okey-discard-pile-card strong,
-.my-okey-draw-pile-card strong {
+.my-okey-draw-pile-card strong,
+.my-okey-indicator-card strong {
   color: #fff6df;
   font-size: 0.84rem;
   font-weight: 900;
+}
+
+.my-okey-indicator-card {
+  min-width: 108px;
+}
+
+.my-okey-indicator-card-tile-wrap {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+}
+
+.my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile {
+  min-width: 30px;
+  height: 40px;
+  font-size: 1.05rem;
+}
+
+.my-okey-indicator-card small {
+  color: #e8d8bd;
+  font-size: 0.58rem;
+  line-height: 1.2;
 }
 
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-action-btn,
