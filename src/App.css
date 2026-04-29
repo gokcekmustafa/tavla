@@ -5512,3 +5512,99 @@
     grid-template-columns: 1fr;
   }
 }
+
+.my-game-coming-room-shell[data-table-active="true"] {
+  border: 1px solid rgba(171, 132, 42, 0.8);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(221, 175, 63, 0.2), rgba(121, 84, 23, 0.25)),
+    linear-gradient(180deg, rgba(94, 65, 17, 0.55), rgba(53, 35, 10, 0.6));
+  padding: 12px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-room-head {
+  border: 1px solid rgba(56, 176, 203, 0.55);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(20, 131, 162, 0.9), rgba(8, 106, 134, 0.92));
+  padding: 10px 12px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-room-head h3 {
+  color: #f4fbff;
+  font-size: 1.03rem;
+  letter-spacing: 0.02em;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-room-head span {
+  color: #d9f4ff;
+  font-weight: 700;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-head {
+  border: 1px solid rgba(42, 129, 164, 0.52);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(16, 109, 139, 0.78), rgba(10, 87, 112, 0.82));
+  padding: 8px 10px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-head strong {
+  color: #ecfaff;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-head-controls span {
+  color: #d0edf9;
+  font-weight: 700;
+}
+
+.my-okey-lower-strip {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 10px;
+  align-items: start;
+}
+
+.my-okey-quick-side {
+  display: grid;
+  gap: 10px;
+}
+
+.my-okey-quick-card {
+  border: 1px solid rgba(27, 111, 141, 0.58);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(16, 108, 138, 0.9), rgba(10, 85, 109, 0.92));
+  padding: 9px;
+  display: grid;
+  gap: 8px;
+}
+
+.my-okey-quick-card h4 {
+  margin: 0;
+  color: #ecfbff;
+  font-size: 0.88rem;
+}
+
+.my-okey-quick-score-list {
+  display: grid;
+  gap: 6px;
+}
+
+.my-okey-quick-score-list p {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  color: #e2f7ff;
+  font-size: 0.8rem;
+}
+
+.my-okey-quick-score-list p strong {
+  color: #fff7d8;
+}
+
+@media (max-width: 920px) {
+  .my-okey-lower-strip {
+    grid-template-columns: 1fr;
+  }
+}

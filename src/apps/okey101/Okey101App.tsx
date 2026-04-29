@@ -13779,7 +13779,7 @@ function Okey101App() {
 
               <div className="my-game-coming-prototype-board">
                 <div className="my-game-coming-prototype-board-head">
-                  <strong>Masa Gorunumu</strong>
+                  <strong>101 Okey</strong>
                   <div className="my-game-coming-prototype-board-head-controls">
                     <span>Sira: K{okeyPrototypeTurnSeat}</span>
                     <span>{okeyPrototypeTurnPhase === "draw" ? "Tas Cek" : "Tas At"}</span>
@@ -13886,7 +13886,7 @@ function Okey101App() {
                                   size="sm"
                                   className="my-game-coming-prototype-board-seat-avatar"
                                 />
-                                K{seatNo} - {seatRole === "Bos" ? "Bos" : `${seatRole}: ${seatName}`}
+                                {seatRole === "Bos" ? `K${seatNo} - Bos` : `${seatName} (K${seatNo})`}
                               </strong>
                               <span>{isTurnSeat ? "SIRA | " : ""}{isOpenedSeat ? "ACIK" : "KAPALI"} | {seatTiles.length} tas</span>
                             </header>
@@ -13927,72 +13927,101 @@ function Okey101App() {
 
               {okeyPrototypeSeatReservation ? (
                 <>
-                  <div className="my-game-coming-prototype-rack">
-                    <div className="my-game-coming-prototype-rack-head">
-                      <strong>Istakalar</strong>
-                      <span>Koltuk {okeyPrototypeSeatNoForRack}: {okeyPrototypeSeatRackTiles.length} tas</span>
-                    </div>
-                    <div className="my-game-coming-prototype-rack-tiles" aria-label={`Koltuk ${okeyPrototypeSeatNoForRack} tas dizilimi`}>
-                      {okeyPrototypeSeatRackTiles.map((tile) => {
-                        const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
-                        return (
-                          <button
-                            key={tile.id}
-                            type="button"
-                            className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""}`}
-                            onClick={() => {
-                              selectOkeyPrototypeDiscardDraft(tile.id);
-                              toggleOkeyPrototypeMeldDraftTile(tile.id);
-                            }}
-                            disabled={!okeyPrototypeCanSelectRackTiles}
-                            aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
-                            title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
-                          >
-                            {renderOkeyPrototypeTileFace(tile)}
-                          </button>
-                        );
-                      })}
+                  <div className="my-okey-lower-strip">
+                    <div className="my-game-coming-prototype-rack">
+                      <div className="my-game-coming-prototype-rack-head">
+                        <strong>Istakalar</strong>
+                        <span>Koltuk {okeyPrototypeSeatNoForRack}: {okeyPrototypeSeatRackTiles.length} tas</span>
+                      </div>
+                      <div className="my-game-coming-prototype-rack-tiles" aria-label={`Koltuk ${okeyPrototypeSeatNoForRack} tas dizilimi`}>
+                        {okeyPrototypeSeatRackTiles.map((tile) => {
+                          const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+                          return (
+                            <button
+                              key={tile.id}
+                              type="button"
+                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""}`}
+                              onClick={() => {
+                                selectOkeyPrototypeDiscardDraft(tile.id);
+                                toggleOkeyPrototypeMeldDraftTile(tile.id);
+                              }}
+                              disabled={!okeyPrototypeCanSelectRackTiles}
+                              aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
+                              title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
+                            >
+                              {renderOkeyPrototypeTileFace(tile)}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="my-game-coming-prototype-rack-actions">
+                        <button
+                          type="button"
+                          className="my-action-btn soft"
+                          onClick={openOkeyPrototypeMeld}
+                          disabled={!okeyPrototypeCanSelectRackTiles || okeyPrototypeMeldDraftTiles.length < 3 || !okeyPrototypeMeldDraftValidation.valid}
+                        >
+                          Per Ac
+                        </button>
+                        <button
+                          type="button"
+                          className="my-action-btn soft"
+                          onClick={openOkeyPrototypePairs}
+                          disabled={
+                            !okeyPrototypeCanAdvanceTurn
+                            || okeyPrototypeTurnPhase !== "discard"
+                            || okeyPrototypeCurrentSeatOpened
+                            || okeyPrototypeCurrentSeatPairOpenCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS
+                          }
+                        >
+                          5 Cift Ac
+                        </button>
+                        <button
+                          type="button"
+                          className="my-action-btn soft"
+                          onClick={attachOkeyPrototypeTileToMeld}
+                          disabled={!okeyPrototypeAttachValidation.valid}
+                        >
+                          Pere Ekle
+                        </button>
+                        <button
+                          type="button"
+                          className="my-action-btn soft"
+                          onClick={dealOkeyPrototypeWithSeed}
+                          disabled={!okeyPrototypeSeatReservation}
+                        >
+                          Yeni El
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="my-game-coming-prototype-rack-actions">
-                      <button
-                        type="button"
-                        className="my-action-btn soft"
-                        onClick={openOkeyPrototypeMeld}
-                        disabled={!okeyPrototypeCanSelectRackTiles || okeyPrototypeMeldDraftTiles.length < 3 || !okeyPrototypeMeldDraftValidation.valid}
-                      >
-                        Per Ac
-                      </button>
-                      <button
-                        type="button"
-                        className="my-action-btn soft"
-                        onClick={openOkeyPrototypePairs}
-                        disabled={
-                          !okeyPrototypeCanAdvanceTurn
-                          || okeyPrototypeTurnPhase !== "discard"
-                          || okeyPrototypeCurrentSeatOpened
-                          || okeyPrototypeCurrentSeatPairOpenCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS
-                        }
-                      >
-                        5 Cift Ac
-                      </button>
-                      <button
-                        type="button"
-                        className="my-action-btn soft"
-                        onClick={attachOkeyPrototypeTileToMeld}
-                        disabled={!okeyPrototypeAttachValidation.valid}
-                      >
-                        Pere Ekle
-                      </button>
-                      <button
-                        type="button"
-                        className="my-action-btn soft"
-                        onClick={dealOkeyPrototypeWithSeed}
-                        disabled={!okeyPrototypeSeatReservation}
-                      >
-                        Yeni El
-                      </button>
-                    </div>
+                    <aside className="my-okey-quick-side">
+                      <section className="my-okey-quick-card">
+                        <h4>Ozellikler</h4>
+                        <button className="my-action-btn soft" type="button" onClick={goToLobbyFromTableView}>
+                          Lobiye Don
+                        </button>
+                        <button
+                          className="my-action-btn danger"
+                          type="button"
+                          onClick={() => leaveOkeyPrototypeSeat("Masadan kalkildi")}
+                        >
+                          Masadan Kalk
+                        </button>
+                      </section>
+                      <section className="my-okey-quick-card">
+                        <h4>Tabela</h4>
+                        <div className="my-okey-quick-score-list">
+                          {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
+                            <p key={`quick-score-${seatNo}`}>
+                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || `K${seatNo}`}</span>
+                              <strong>{okeyPrototypeSeatHandWins[seatNo] ?? 0}</strong>
+                            </p>
+                          ))}
+                        </div>
+                      </section>
+                    </aside>
                   </div>
 
                   <section className="my-chat-card my-room-chat-card">
