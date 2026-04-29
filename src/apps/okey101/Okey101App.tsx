@@ -3864,6 +3864,19 @@ function Okey101App() {
     });
     return byPosition;
   }, [okeyPrototypeDisplaySeatPositionBySeat, okeyPrototypeSeatDisplayNames]);
+  const okeyPrototypeSeatByDisplayPosition = useMemo(() => {
+    const byPosition: Record<OkeyPrototypeSeatNo, OkeyPrototypeSeatNo> = {
+      1: 1,
+      2: 2,
+      3: 3,
+      4: 4,
+    };
+    OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+      const displayPosition = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
+      byPosition[displayPosition] = seatNo;
+    });
+    return byPosition;
+  }, [okeyPrototypeDisplaySeatPositionBySeat]);
   const okeyPrototypeDiscardDraftTile = useMemo(() => {
     if (!okeyPrototypeDiscardDraftTileId) return null;
     return okeyPrototypeSeatRackTiles.find((tile) => tile.id === okeyPrototypeDiscardDraftTileId) ?? null;
@@ -3891,6 +3904,39 @@ function Okey101App() {
     });
   }, [okeyPrototypeRackState]);
   const okeyPrototypeLastDiscard = okeyPrototypeDiscardPile[0] ?? null;
+  const okeyPrototypeDiscardBySeat = useMemo(() => {
+    const bySeat: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeDiscardEntry>> = {};
+    okeyPrototypeDiscardPile.forEach((entry) => {
+      if (bySeat[entry.seatNo]) return;
+      bySeat[entry.seatNo] = entry;
+    });
+    return bySeat;
+  }, [okeyPrototypeDiscardPile]);
+  const okeyPrototypePreviousTurnSeat = useMemo(() => {
+    const seats = okeyPrototypeActiveTurnSeats.length > 0
+      ? okeyPrototypeActiveTurnSeats
+      : [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
+    const currentIndex = seats.findIndex((seatNo) => seatNo === okeyPrototypeTurnSeat);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    return seats[(safeIndex - 1 + seats.length) % seats.length] ?? (okeyPrototypeTurnSeat as OkeyPrototypeSeatNo);
+  }, [okeyPrototypeActiveTurnSeats, okeyPrototypeTurnSeat]);
+  const okeyPrototypeTakeableDiscardEntry = useMemo(() => {
+    return okeyPrototypeDiscardBySeat[okeyPrototypePreviousTurnSeat] ?? null;
+  }, [okeyPrototypeDiscardBySeat, okeyPrototypePreviousTurnSeat]);
+  const okeyPrototypeLeftSeatNo = okeyPrototypeSeatByDisplayPosition[4] ?? 4;
+  const okeyPrototypeRightSeatNo = okeyPrototypeSeatByDisplayPosition[2] ?? 2;
+  const okeyPrototypeLeftSeatDiscardEntry = useMemo(
+    () => okeyPrototypeDiscardBySeat[okeyPrototypeLeftSeatNo] ?? null,
+    [okeyPrototypeDiscardBySeat, okeyPrototypeLeftSeatNo],
+  );
+  const okeyPrototypeRightSeatDiscardEntry = useMemo(
+    () => okeyPrototypeDiscardBySeat[okeyPrototypeRightSeatNo] ?? null,
+    [okeyPrototypeDiscardBySeat, okeyPrototypeRightSeatNo],
+  );
+  const okeyPrototypeLocalSeatDiscardEntry = useMemo(
+    () => okeyPrototypeDiscardBySeat[okeyPrototypeLocalSeatNo] ?? null,
+    [okeyPrototypeDiscardBySeat, okeyPrototypeLocalSeatNo],
+  );
   const okeyPrototypeDiscardPreview = okeyPrototypeDiscardPile.slice(0, 8);
   const okeyPrototypeOpenedMeldPreview = okeyPrototypeOpenedMelds.slice(0, 8);
   const okeyPrototypeDrawPileRemaining = okeyPrototypeWallTiles.length;
@@ -3930,12 +3976,15 @@ function Okey101App() {
   }, [okeyPrototypePendingDiscardTileId, okeyPrototypeTurnRackTiles]);
   const okeyPrototypeCanTakeDiscardWhenClosed = useMemo(() => {
     if (okeyPrototypeCurrentSeatOpened) return true;
-    const topDiscard = okeyPrototypeDiscardPile[0];
-    if (!topDiscard) return false;
-    return canOkeyPrototypeTakeDiscardWhenClosed(okeyPrototypeTurnRackTiles, topDiscard.tile, okeyPrototypeOkeyTile);
+    if (!okeyPrototypeTakeableDiscardEntry) return false;
+    return canOkeyPrototypeTakeDiscardWhenClosed(
+      okeyPrototypeTurnRackTiles,
+      okeyPrototypeTakeableDiscardEntry.tile,
+      okeyPrototypeOkeyTile,
+    );
   }, [
     okeyPrototypeCurrentSeatOpened,
-    okeyPrototypeDiscardPile,
+    okeyPrototypeTakeableDiscardEntry,
     okeyPrototypeTurnRackTiles,
     okeyPrototypeOkeyTile,
   ]);
@@ -3986,7 +4035,7 @@ function Okey101App() {
   const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
     && okeyPrototypeTurnRackTiles.length === OKEY_PROTOTYPE_HAND_TILE_COUNT
-    && okeyPrototypeDiscardPile.length > 0
+    && Boolean(okeyPrototypeTakeableDiscardEntry)
     && okeyPrototypeCanTakeDiscardWhenClosed;
   const okeyPrototypeCanSelectRackTiles = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
@@ -4372,7 +4421,7 @@ function Okey101App() {
       if (okeyPrototypeHandCompleted) return;
       const botRack = okeyPrototypeRackState[turnSeat] ?? [];
       if (okeyPrototypeTurnPhase === "draw") {
-        const topDiscardTile = okeyPrototypeDiscardPile[0]?.tile ?? null;
+        const topDiscardTile = okeyPrototypeTakeableDiscardEntry?.tile ?? null;
         const prefersDiscard = shouldOkeyPrototypeBotDrawFromDiscard(
           topDiscardTile,
           botRack,
@@ -4425,6 +4474,7 @@ function Okey101App() {
 	    okeyPrototypeOkeyTile,
 	    okeyPrototypeRackState,
 	    okeyPrototypeSeatReservation,
+	    okeyPrototypeTakeableDiscardEntry,
 	    okeyPrototypeTurnPhase,
 	    okeyPrototypeTurnOpeningPoints,
 	    okeyPrototypeTurnSeat,
@@ -7938,7 +7988,7 @@ function Okey101App() {
       appendOkeyPrototypeAction("Gecersiz hamle: Ortadan tas almak icin once tas atmalisin.");
       return;
     }
-    const topDiscard = okeyPrototypeDiscardPile[0];
+    const topDiscard = okeyPrototypeTakeableDiscardEntry;
     if (!topDiscard) {
       if (okeyPrototypeDrawPileRemaining <= 0) {
         setOkeyPrototypeHandDrawn(true);
@@ -7966,7 +8016,7 @@ function Okey101App() {
       color: topDiscard.tile.color,
       value: topDiscard.tile.value,
     };
-    setOkeyPrototypeDiscardPile((current) => current.slice(1));
+    setOkeyPrototypeDiscardPile((current) => current.filter((entry) => entry.id !== topDiscard.id));
     setOkeyPrototypeRackState((current) => ({
       ...current,
       [seatNo]: (() => {
@@ -14434,13 +14484,73 @@ function Okey101App() {
                           <span className="my-okey-center-seat-label left">{okeyPrototypeSeatNameByDisplayPosition[4] || "K4"}</span>
                           <div className="my-okey-center-crosshair" aria-hidden="true" />
                         </div>
-                        <div className="my-okey-center-summary">
-                          <p>Gosterge: <strong>{okeyPrototypeIndicatorTile ? formatOkeyPrototypeTile(okeyPrototypeIndicatorTile) : "-"}</strong></p>
-                          <p>Okey: <strong>{okeyPrototypeOkeyTile ? formatOkeyPrototypeTile(okeyPrototypeOkeyTile) : "-"}</strong></p>
-                          <p>Acik Per: <strong>{okeyPrototypeOpenedMelds.length}</strong></p>
-                          <p>Sahte Okey: <strong>{okeyPrototypeSahteOkeyCount}</strong></p>
-                        </div>
-                      </section>
+	                        <div className="my-okey-center-summary">
+	                          <p>Gosterge: <strong>{okeyPrototypeIndicatorTile ? formatOkeyPrototypeTile(okeyPrototypeIndicatorTile) : "-"}</strong></p>
+	                          <p>Okey: <strong>{okeyPrototypeOkeyTile ? formatOkeyPrototypeTile(okeyPrototypeOkeyTile) : "-"}</strong></p>
+	                          <p>Acik Per: <strong>{okeyPrototypeOpenedMelds.length}</strong></p>
+	                          <p>Sahte Okey: <strong>{okeyPrototypeSahteOkeyCount}</strong></p>
+	                        </div>
+	                        <div className="my-okey-center-piles-visual" aria-label="Tas cekme ve atma alanlari">
+	                          <button
+	                            type="button"
+	                            className={`my-okey-center-pile-visual left ${okeyPrototypeCanDrawFromDiscard ? "suggested" : ""}`}
+	                            onClick={drawOkeyPrototypeTileFromDiscard}
+	                            disabled={!okeyPrototypeCanDrawFromDiscard}
+	                          >
+	                            <span>Soldan Al (K{okeyPrototypeLeftSeatNo})</span>
+	                            {okeyPrototypeTakeableDiscardEntry ? (
+	                              <span
+	                                className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeTakeableDiscardEntry.tile.color} ${isOkeyPrototypeJokerTile(okeyPrototypeTakeableDiscardEntry.tile, okeyPrototypeOkeyTile) ? "joker-tile" : ""}`}
+	                                title={`${formatOkeyPrototypeTile(okeyPrototypeTakeableDiscardEntry.tile)} | K${okeyPrototypeTakeableDiscardEntry.seatNo}`}
+	                              >
+	                                {renderOkeyPrototypeTileFace(okeyPrototypeTakeableDiscardEntry.tile)}
+	                              </span>
+	                            ) : (
+	                              <strong>-</strong>
+	                            )}
+	                            <small>
+	                              {okeyPrototypeLeftSeatDiscardEntry
+	                                ? `Sol son atis: ${formatOkeyPrototypeTile(okeyPrototypeLeftSeatDiscardEntry.tile)}`
+	                                : "Sol oyuncudan alinacak tas yok"}
+	                            </small>
+	                          </button>
+	                          <button
+	                            type="button"
+	                            className={`my-okey-center-pile-visual center ${okeyPrototypeCanDrawTile ? "suggested" : ""}`}
+	                            onClick={drawOkeyPrototypeTile}
+	                            disabled={!okeyPrototypeCanDrawTile}
+	                          >
+	                            <span>Kapali Deste</span>
+	                            <strong>{okeyPrototypeDrawPileRemaining}</strong>
+	                            <small>Cekmek icin tikla</small>
+	                          </button>
+	                          <button
+	                            type="button"
+	                            className={`my-okey-center-pile-visual right ${(okeyPrototypeCanDiscardTile && okeyPrototypeDiscardDraftTile) ? "suggested" : ""}`}
+	                            onClick={discardOkeyPrototypeTile}
+	                            disabled={!okeyPrototypeCanDiscardTile || !okeyPrototypeDiscardDraftTile}
+	                          >
+	                            <span>Saga At (Sen)</span>
+	                            {okeyPrototypeLocalSeatDiscardEntry ? (
+	                              <span
+	                                className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeLocalSeatDiscardEntry.tile.color} ${isOkeyPrototypeJokerTile(okeyPrototypeLocalSeatDiscardEntry.tile, okeyPrototypeOkeyTile) ? "joker-tile" : ""}`}
+	                                title={`${formatOkeyPrototypeTile(okeyPrototypeLocalSeatDiscardEntry.tile)} | K${okeyPrototypeLocalSeatDiscardEntry.seatNo}`}
+	                              >
+	                                {renderOkeyPrototypeTileFace(okeyPrototypeLocalSeatDiscardEntry.tile)}
+	                              </span>
+	                            ) : (
+	                              <strong>-</strong>
+	                            )}
+	                            <small>
+	                              {okeyPrototypeDiscardDraftTile
+	                                ? `Secili: ${formatOkeyPrototypeTile(okeyPrototypeDiscardDraftTile)}`
+	                                : (okeyPrototypeRightSeatDiscardEntry
+	                                  ? `Sag son atis: ${formatOkeyPrototypeTile(okeyPrototypeRightSeatDiscardEntry.tile)}`
+	                                  : "Atmak icin tas sec")}
+	                            </small>
+	                          </button>
+	                        </div>
+	                      </section>
 
                       {OKEY_PROTOTYPE_SEATS.map((seatNo) => {
                         const seatTiles = okeyPrototypeRackState[seatNo] ?? [];
