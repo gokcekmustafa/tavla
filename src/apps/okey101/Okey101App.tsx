@@ -528,6 +528,7 @@ const OKEY_PROTOTYPE_OPPONENT_NAMES = [
   "DiziAvcisi",
   "CiftOkey",
 ] as const;
+const OKEY_PROTOTYPE_BOT_USER_ID_PREFIX = "okey-bot-";
 
 function createOkeyPrototypeSeededRandom(seed = 0) {
   let state = (Math.abs(Math.trunc(seed)) || 1) >>> 0;
@@ -3700,30 +3701,29 @@ function Okey101App() {
     if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) {
       return [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
     }
-    const seatsFromRack = OKEY_PROTOTYPE_SEATS.filter((seatNo) => (okeyPrototypeRackState[seatNo] ?? []).length > 0);
     const occupiedSeatNos = getOkeyLobbyOccupiedSeatNos(okeyPrototypeJoinedTable);
-    const seats = seatsFromRack.length > 0
-      ? seatsFromRack
-      : (occupiedSeatNos.length > 0 ? occupiedSeatNos.slice() : [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo]);
+    const seats = occupiedSeatNos.length > 0
+      ? occupiedSeatNos.slice()
+      : [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
     const reservedSeatNo = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
     if (!seats.includes(reservedSeatNo)) {
       seats.push(reservedSeatNo);
       seats.sort((left, right) => left - right);
     }
     return seats;
-  }, [okeyPrototypeJoinedTable, okeyPrototypeRackState, okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
+  }, [okeyPrototypeJoinedTable, okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
   const okeyPrototypeSeatNoForRack = useMemo(() => {
-    if (okeyPrototypeSeatReservation && okeyPrototypeJoinedTable) {
-      return okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
-    }
     if (okeyPrototypeSeatReservation) {
       return Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
     }
-    return okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
-  }, [okeyPrototypeJoinedTable, okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
+    return 1 as OkeyPrototypeSeatNo;
+  }, [okeyPrototypeSeatReservation]);
   const okeyPrototypeSeatRackTiles = useMemo(() => {
     return okeyPrototypeRackState[okeyPrototypeSeatNoForRack] ?? [];
   }, [okeyPrototypeRackState, okeyPrototypeSeatNoForRack]);
+  const okeyPrototypeTurnRackTiles = useMemo(() => {
+    return okeyPrototypeRackState[okeyPrototypeTurnSeat as OkeyPrototypeSeatNo] ?? [];
+  }, [okeyPrototypeRackState, okeyPrototypeTurnSeat]);
   const okeyPrototypeSeatRackTileMap = useMemo(() => {
     const tileMap = new Map<string, OkeyPrototypeTile>();
     okeyPrototypeSeatRackTiles.forEach((tile) => {
@@ -3793,24 +3793,20 @@ function Okey101App() {
       3: "Bos",
       4: "Bos",
     };
-    const activeSeats = okeyPrototypeActiveTurnSeats.length > 0
-      ? okeyPrototypeActiveTurnSeats
-      : OKEY_PROTOTYPE_SEATS;
-    let rivalIndex = 1;
     OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+      const occupant = okeyPrototypeJoinedTable?.seats[seatNo] ?? null;
       if (seatNo === okeyPrototypeLocalSeatNo) {
         labels[seatNo] = "Sen";
         return;
       }
-      if (!activeSeats.includes(seatNo)) {
+      if (!occupant) {
         labels[seatNo] = "Bos";
         return;
       }
-      labels[seatNo] = `Rakip ${rivalIndex}`;
-      rivalIndex += 1;
+      labels[seatNo] = isOkeyPrototypeBotUserId(occupant.userId) ? "Bot" : "Rakip";
     });
     return labels;
-  }, [okeyPrototypeActiveTurnSeats, okeyPrototypeLocalSeatNo]);
+  }, [okeyPrototypeJoinedTable, okeyPrototypeLocalSeatNo]);
   const okeyPrototypeSeatDisplayNames = useMemo(() => {
     const names: Record<OkeyPrototypeSeatNo, string> = {
       1: "Bos",
@@ -3818,28 +3814,12 @@ function Okey101App() {
       3: "Bos",
       4: "Bos",
     };
-    const activeSeats = okeyPrototypeActiveTurnSeats.length > 0
-      ? okeyPrototypeActiveTurnSeats
-      : OKEY_PROTOTYPE_SEATS;
-    const localName = sanitizeGuestName(member?.displayName ?? guestName) || "Sen";
-    const seedSource = `${okeyPrototypeSeatReservation?.tableId ?? "okey-proto"}:${okeyPrototypeLocalSeatNo}`;
-    const startIndex = hashOkeyPrototypeText(seedSource) % OKEY_PROTOTYPE_OPPONENT_NAMES.length;
-    let rivalOffset = 0;
     OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
-      if (!activeSeats.includes(seatNo)) {
-        names[seatNo] = "Bos";
-        return;
-      }
-      if (seatNo === okeyPrototypeLocalSeatNo) {
-        names[seatNo] = localName;
-        return;
-      }
-      const poolIndex = (startIndex + rivalOffset) % OKEY_PROTOTYPE_OPPONENT_NAMES.length;
-      names[seatNo] = OKEY_PROTOTYPE_OPPONENT_NAMES[poolIndex] ?? `Rakip${seatNo}`;
-      rivalOffset += 1;
+      const occupant = okeyPrototypeJoinedTable?.seats[seatNo] ?? null;
+      names[seatNo] = occupant?.displayName ?? "Bos";
     });
     return names;
-  }, [guestName, member?.displayName, okeyPrototypeActiveTurnSeats, okeyPrototypeLocalSeatNo, okeyPrototypeSeatReservation]);
+  }, [okeyPrototypeJoinedTable]);
   const okeyPrototypeSeatAvatarIds = useMemo(() => {
     const avatars: Record<OkeyPrototypeSeatNo, AvatarId> = {
       1: DEFAULT_AVATAR_BY_GENDER.unknown,
@@ -3847,39 +3827,12 @@ function Okey101App() {
       3: DEFAULT_AVATAR_BY_GENDER.unknown,
       4: DEFAULT_AVATAR_BY_GENDER.unknown,
     };
-    const activeSeats = okeyPrototypeActiveTurnSeats.length > 0
-      ? okeyPrototypeActiveTurnSeats
-      : OKEY_PROTOTYPE_SEATS;
-    const safeLocalAvatar = sanitizeAvatarId(member?.avatarId ?? guestProfile.avatarId, member?.gender ?? guestProfile.gender);
-    const pool = AVATAR_PRESETS.map((preset) => preset.id).filter((id) => id !== safeLocalAvatar);
-    const seedSource = `${okeyPrototypeSeatReservation?.tableId ?? "okey-proto"}:${okeyPrototypeLocalSeatNo}:avatar`;
-    let offset = hashOkeyPrototypeText(seedSource);
     OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
-      if (!activeSeats.includes(seatNo)) {
-        avatars[seatNo] = DEFAULT_AVATAR_BY_GENDER.unknown;
-        return;
-      }
-      if (seatNo === okeyPrototypeLocalSeatNo) {
-        avatars[seatNo] = safeLocalAvatar;
-        return;
-      }
-      if (pool.length === 0) {
-        avatars[seatNo] = DEFAULT_AVATAR_BY_GENDER.unknown;
-        return;
-      }
-      avatars[seatNo] = pool[offset % pool.length] ?? DEFAULT_AVATAR_BY_GENDER.unknown;
-      offset += 1;
+      const occupant = okeyPrototypeJoinedTable?.seats[seatNo] ?? null;
+      avatars[seatNo] = sanitizeAvatarId(occupant?.avatarId, occupant?.gender ?? "unknown");
     });
     return avatars;
-  }, [
-    guestProfile.avatarId,
-    guestProfile.gender,
-    member?.avatarId,
-    member?.gender,
-    okeyPrototypeActiveTurnSeats,
-    okeyPrototypeLocalSeatNo,
-    okeyPrototypeSeatReservation,
-  ]);
+  }, [okeyPrototypeJoinedTable]);
   const okeyPrototypeDisplaySeatPositionBySeat = useMemo(() => {
     const localSeatIndex = OKEY_PROTOTYPE_SEATS.findIndex((seatNo) => seatNo === okeyPrototypeLocalSeatNo);
     const safeLocalSeatIndex = localSeatIndex >= 0 ? localSeatIndex : 0;
@@ -3943,28 +3896,47 @@ function Okey101App() {
   const okeyPrototypeDrawPileRemaining = okeyPrototypeWallTiles.length;
   const okeyPrototypeSahteInWall = okeyPrototypeWallTiles.filter((tile) => tile.kind === "sahte").length;
   const okeyPrototypeHandCompleted = okeyPrototypeWinnerSeat !== null || okeyPrototypeHandDrawn;
-  const okeyPrototypeCanAdvanceTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable) && !okeyPrototypeHandCompleted;
+  const okeyPrototypeJoinedOccupiedSeatNos = useMemo(
+    () => (okeyPrototypeJoinedTable ? getOkeyLobbyOccupiedSeatNos(okeyPrototypeJoinedTable) : []),
+    [okeyPrototypeJoinedTable],
+  );
+  const okeyPrototypeGameStarted = Boolean(
+    okeyPrototypeSeatReservation
+    && okeyPrototypeJoinedTable
+    && okeyPrototypeJoinedTable.started
+    && okeyPrototypeJoinedOccupiedSeatNos.length >= 4,
+  );
+  const okeyPrototypeMissingSeatCount = Math.max(0, 4 - okeyPrototypeJoinedOccupiedSeatNos.length);
+  const okeyPrototypeIsLocalTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeTurnSeat === okeyPrototypeLocalSeatNo);
+  const okeyPrototypeIsBotTurn = okeyPrototypeBotModeEnabled
+    && Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable)
+    && !okeyPrototypeHandCompleted
+    && okeyPrototypeActiveTurnSeats.includes(okeyPrototypeTurnSeat as OkeyPrototypeSeatNo)
+    && isOkeyPrototypeBotUserId(okeyPrototypeJoinedTable?.seats[okeyPrototypeTurnSeat as OkeyPrototypeSeatNo]?.userId ?? "");
+  const okeyPrototypeCanAdvanceTurn = okeyPrototypeGameStarted
+    && !okeyPrototypeHandCompleted
+    && (okeyPrototypeIsLocalTurn || okeyPrototypeIsBotTurn);
   const okeyPrototypeCurrentSeatOpened = okeyPrototypeSeatOpenedState[okeyPrototypeTurnSeat as OkeyPrototypeSeatNo] ?? false;
   const okeyPrototypeCurrentSeatPairOpenCount = useMemo(
-    () => countOkeyPrototypeIdenticalPairs(okeyPrototypeSeatRackTiles, okeyPrototypeOkeyTile),
-    [okeyPrototypeSeatRackTiles, okeyPrototypeOkeyTile],
+    () => countOkeyPrototypeIdenticalPairs(okeyPrototypeTurnRackTiles, okeyPrototypeOkeyTile),
+    [okeyPrototypeTurnRackTiles, okeyPrototypeOkeyTile],
   );
   const okeyPrototypeOpeningRemainingPoints = Math.max(0, OKEY_PROTOTYPE_OPENING_TARGET_POINTS - okeyPrototypeTurnOpeningPoints);
   const okeyPrototypeDiscardBlockedByOpening = !okeyPrototypeCurrentSeatOpened
     && okeyPrototypeTurnOpeningPoints < OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
   const okeyPrototypePendingDiscardTile = useMemo(() => {
     if (!okeyPrototypePendingDiscardTileId) return null;
-    return okeyPrototypeSeatRackTiles.find((tile) => tile.id === okeyPrototypePendingDiscardTileId) ?? null;
-  }, [okeyPrototypePendingDiscardTileId, okeyPrototypeSeatRackTiles]);
+    return okeyPrototypeTurnRackTiles.find((tile) => tile.id === okeyPrototypePendingDiscardTileId) ?? null;
+  }, [okeyPrototypePendingDiscardTileId, okeyPrototypeTurnRackTiles]);
   const okeyPrototypeCanTakeDiscardWhenClosed = useMemo(() => {
     if (okeyPrototypeCurrentSeatOpened) return true;
     const topDiscard = okeyPrototypeDiscardPile[0];
     if (!topDiscard) return false;
-    return canOkeyPrototypeTakeDiscardWhenClosed(okeyPrototypeSeatRackTiles, topDiscard.tile, okeyPrototypeOkeyTile);
+    return canOkeyPrototypeTakeDiscardWhenClosed(okeyPrototypeTurnRackTiles, topDiscard.tile, okeyPrototypeOkeyTile);
   }, [
     okeyPrototypeCurrentSeatOpened,
     okeyPrototypeDiscardPile,
-    okeyPrototypeSeatRackTiles,
+    okeyPrototypeTurnRackTiles,
     okeyPrototypeOkeyTile,
   ]);
   const okeyPrototypeSeatOpenedSummary = OKEY_PROTOTYPE_SEATS.map((seatNo) => ({
@@ -3985,11 +3957,6 @@ function Okey101App() {
     if (currentIndex < 0) return seats[0];
     return seats[(currentIndex + 1) % seats.length] ?? seats[0];
   }, [okeyPrototypeActiveTurnSeats, okeyPrototypeTurnSeat]);
-  const okeyPrototypeIsBotTurn = okeyPrototypeBotModeEnabled
-    && Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable)
-    && !okeyPrototypeHandCompleted
-    && okeyPrototypeTurnSeat !== okeyPrototypeLocalSeatNo
-    && okeyPrototypeActiveTurnSeats.includes(okeyPrototypeTurnSeat as OkeyPrototypeSeatNo);
   const okeyPrototypeTurnQueue = useMemo(() => {
     const seats = okeyPrototypeActiveTurnSeats.length > 0
       ? okeyPrototypeActiveTurnSeats
@@ -4014,19 +3981,19 @@ function Okey101App() {
   ]);
   const okeyPrototypeCanDrawTile = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
-    && okeyPrototypeSeatRackTiles.length === OKEY_PROTOTYPE_HAND_TILE_COUNT
+    && okeyPrototypeTurnRackTiles.length === OKEY_PROTOTYPE_HAND_TILE_COUNT
     && okeyPrototypeDrawPileRemaining > 0;
   const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
-    && okeyPrototypeSeatRackTiles.length === OKEY_PROTOTYPE_HAND_TILE_COUNT
+    && okeyPrototypeTurnRackTiles.length === OKEY_PROTOTYPE_HAND_TILE_COUNT
     && okeyPrototypeDiscardPile.length > 0
     && okeyPrototypeCanTakeDiscardWhenClosed;
   const okeyPrototypeCanSelectRackTiles = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
-    && okeyPrototypeSeatRackTiles.length > 0;
+    && okeyPrototypeTurnRackTiles.length > 0;
   const okeyPrototypeCanDiscardTile = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
-    && okeyPrototypeSeatRackTiles.length > 0
+    && okeyPrototypeTurnRackTiles.length > 0
     && !okeyPrototypeDiscardBlockedByOpening
     && !okeyPrototypePendingDiscardTileId;
   // smoke-compat:
@@ -4067,6 +4034,14 @@ function Okey101App() {
     if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) {
       return "Masa secip koltuk alarak tahta testine baslayabilirsin.";
     }
+    if (!okeyPrototypeGameStarted) {
+      const seatedCount = okeyPrototypeJoinedOccupiedSeatNos.length;
+      const waitingSeats = Math.max(0, 4 - seatedCount);
+      if (waitingSeats > 0) {
+        return `Oyun henuz baslamadi. ${waitingSeats} koltuk daha dolmali veya botlarla baslatilabilir.`;
+      }
+      return "Masa hazir. Oyunu baslat butonuna basarak dagitimi baslatabilirsin.";
+    }
     if (okeyPrototypeHandCompleted) {
       return okeyPrototypeHandDrawn
         ? "El berabere bitti. Yeni El Baslat ile yeni dagitima gecebilirsin."
@@ -4101,6 +4076,8 @@ function Okey101App() {
     okeyPrototypeCanDrawFromDiscard,
     okeyPrototypeCanTakeDiscardWhenClosed,
     okeyPrototypeCanDrawTile,
+    okeyPrototypeGameStarted,
+    okeyPrototypeJoinedOccupiedSeatNos.length,
     okeyPrototypeDiscardBlockedByOpening,
     okeyPrototypeDiscardPile.length,
     okeyPrototypeDiscardDraftTile,
@@ -7190,6 +7167,34 @@ function Okey101App() {
     };
   }
 
+  function isOkeyPrototypeBotUserId(userId: string) {
+    const safe = sanitizeGuestId(userId);
+    return safe.startsWith(OKEY_PROTOTYPE_BOT_USER_ID_PREFIX);
+  }
+
+  function createOkeyPrototypeBotSeatState(
+    tableRow: Pick<OkeyPrototypeTableSketchRow, "id" | "tableNo" | "roomId">,
+    seatNo: OkeyPrototypeSeatNo,
+    joinedAt = Date.now(),
+  ): OkeyPrototypeLobbySeatState {
+    const baseName = OKEY_PROTOTYPE_OPPONENT_NAMES[(seatNo - 1) % OKEY_PROTOTYPE_OPPONENT_NAMES.length] ?? `Rakip${seatNo}`;
+    const displayName = `${baseName} (K${seatNo})`;
+    const botUserId = `${OKEY_PROTOTYPE_BOT_USER_ID_PREFIX}${tableRow.roomId}-${tableRow.tableNo}-${seatNo}`;
+    const botSessionId = `${botUserId}-${hashOkeyPrototypeText(tableRow.id).toString(36)}`;
+    const botAvatar = AVATAR_PRESETS[(seatNo + 1) % AVATAR_PRESETS.length]?.id ?? DEFAULT_AVATAR_BY_GENDER.unknown;
+    return {
+      userId: botUserId,
+      sessionId: botSessionId,
+      username: botUserId,
+      displayName,
+      gender: "unknown",
+      avatarId: botAvatar,
+      points: 1500,
+      stats: createEmptyStats(),
+      joinedAt,
+    };
+  }
+
   function getOkeyPrototypeOccupiedSeatNos(table: Pick<OkeyPrototypeLobbyTableState, "seats">): OkeyPrototypeSeatNo[] {
     return OKEY_PROTOTYPE_SEATS.filter((seatNo) => Boolean(table.seats[seatNo]));
   }
@@ -7320,6 +7325,95 @@ function Okey101App() {
     appendOkeyPrototypeAction(`${sourceLabel}: Masa ${tableRow.tableNo}, Koltuk ${reservedSeat}`);
   }
 
+  function startOkeyPrototypeGameWithTable(fillMissingWithBots: boolean) {
+    const reservation = okeyPrototypeSeatReservation;
+    if (!reservation) {
+      setLobbyNotice("Oyunu baslatmak icin once bir masaya oturmalisin.");
+      return;
+    }
+    const now = Date.now();
+    let tableNo = 0;
+    let started = false;
+    let alreadyStarted = false;
+    let waitingSeats = 0;
+    let starterSeat: OkeyPrototypeSeatNo = Math.max(1, Math.min(4, reservation.seatNo)) as OkeyPrototypeSeatNo;
+    let activeSeats: OkeyPrototypeSeatNo[] = [];
+    let botModeNeeded = false;
+
+    setOkeyPrototypeTablesByRoom((current) => {
+      const nextState: Record<string, OkeyPrototypeLobbyTableState[]> = {};
+      Object.entries(current).forEach(([roomId, tables]) => {
+        nextState[roomId] = tables.slice();
+      });
+
+      for (const [roomId, tables] of Object.entries(nextState)) {
+        const tableIndex = tables.findIndex((table) => table.id === reservation.tableId);
+        if (tableIndex < 0) continue;
+        const table = tables[tableIndex];
+        if (!table) return current;
+        tableNo = table.tableNo;
+        const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = { ...table.seats };
+        if (fillMissingWithBots) {
+          OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+            if (nextSeats[seatNo]) return;
+            nextSeats[seatNo] = createOkeyPrototypeBotSeatState(
+              { id: table.id, tableNo: table.tableNo, roomId: table.roomId },
+              seatNo,
+              now,
+            );
+          });
+        }
+        activeSeats = getOkeyPrototypeOccupiedSeatNos({ seats: nextSeats });
+        waitingSeats = Math.max(0, 4 - activeSeats.length);
+        if (activeSeats.length < 4) {
+          return current;
+        }
+        if (table.startedAt) {
+          alreadyStarted = true;
+          return current;
+        }
+        starterSeat = activeSeats.find(
+          (seatNo) => sanitizeGuestId(nextSeats[seatNo]?.userId ?? "") === sanitizeGuestId(table.ownerUserId ?? ""),
+        ) ?? activeSeats[0] ?? starterSeat;
+        botModeNeeded = activeSeats.some((seatNo) => isOkeyPrototypeBotUserId(nextSeats[seatNo]?.userId ?? ""));
+        const nextTable: OkeyPrototypeLobbyTableState = {
+          ...table,
+          seats: nextSeats,
+          startedAt: now,
+        };
+        tables[tableIndex] = nextTable;
+        nextState[roomId] = tables;
+        started = true;
+        return nextState;
+      }
+
+      return current;
+    });
+
+    if (alreadyStarted) {
+      setLobbyNotice("Masa zaten baslamis durumda.");
+      return;
+    }
+    if (!started) {
+      if (waitingSeats > 0) {
+        setLobbyNotice(`Oyun baslamasi icin ${waitingSeats} koltuk daha dolmali.`);
+      } else {
+        setLobbyNotice("Oyun baslatilamadi. Lutfen tekrar dene.");
+      }
+      return;
+    }
+
+    setOkeyPrototypeSessionHandNo(1);
+    setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
+    setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
+    setOkeyPrototypeDrawHandCount(0);
+    setOkeyPrototypeLastHandSummary("");
+    setOkeyPrototypeBotModeEnabled(botModeNeeded);
+    applyOkeyPrototypeDeal(starterSeat, now, activeSeats);
+    setLobbyNotice(`Masa ${tableNo} basladi. Okey belirlendi ve taslar dagitildi.`);
+    appendOkeyPrototypeAction(`Oyun baslatildi: Masa ${tableNo}, baslayan koltuk K${starterSeat}.`);
+  }
+
   function leaveOkeyPrototypeSeat(sourceLabel: string) {
     const reservation = okeyPrototypeSeatReservation;
     if (!reservation) return;
@@ -7358,6 +7452,13 @@ function Okey101App() {
           }
           delete nextSeats[fallbackSeatNo];
         }
+
+        OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+          const occupant = nextSeats[seatNo];
+          if (!occupant) return;
+          if (!isOkeyPrototypeBotUserId(occupant.userId)) return;
+          delete nextSeats[seatNo];
+        });
 
         const occupiedSeatNos = getOkeyPrototypeOccupiedSeatNos({ seats: nextSeats });
         if (occupiedSeatNos.length === 0) {
@@ -7562,7 +7663,20 @@ function Okey101App() {
     toggleOkeyPrototypeMeldDraftTile(tileId);
   }
 
+  function ensureOkeyPrototypeGameStarted(actionLabel: string) {
+    if (okeyPrototypeGameStarted) return true;
+    const seatedCount = okeyPrototypeJoinedOccupiedSeatNos.length;
+    const waitingSeats = Math.max(0, 4 - seatedCount);
+    appendOkeyPrototypeAction(
+      waitingSeats > 0
+        ? `${actionLabel}: Oyun baslamadi. ${waitingSeats} koltuk daha dolmali veya botlarla baslatilmali.`
+        : `${actionLabel}: Oyun baslamadi. Once masayi baslatmalisin.`,
+    );
+    return false;
+  }
+
   function selectOkeyPrototypeDiscardDraft(tileId: string) {
+    if (!ensureOkeyPrototypeGameStarted("Tas secme")) return;
     if (!okeyPrototypeCanAdvanceTurn) return;
     if (okeyPrototypeTurnPhase !== "discard") {
       appendOkeyPrototypeAction("Gecersiz hamle: Tas secmek icin once tas cekmelisin.");
@@ -7575,6 +7689,7 @@ function Okey101App() {
   }
 
   function toggleOkeyPrototypeMeldDraftTile(tileId: string) {
+    if (!ensureOkeyPrototypeGameStarted("Per secimi")) return;
     if (!okeyPrototypeCanAdvanceTurn) return;
     if (okeyPrototypeTurnPhase !== "discard") {
       appendOkeyPrototypeAction("Gecersiz hamle: Per acmak icin once tas cekmelisin.");
@@ -7620,6 +7735,7 @@ function Okey101App() {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
       return;
     }
+    if (!ensureOkeyPrototypeGameStarted("Per acma")) return;
     if (!okeyPrototypeCanAdvanceTurn) return;
     if (okeyPrototypeTurnPhase !== "discard") {
       appendOkeyPrototypeAction("Gecersiz hamle: Per acmak icin once tas cekmelisin.");
@@ -7635,7 +7751,7 @@ function Okey101App() {
       return;
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
-    const nextTileCountAfterMeld = okeyPrototypeSeatRackTiles.length - okeyPrototypeMeldDraftTiles.length;
+    const nextTileCountAfterMeld = okeyPrototypeTurnRackTiles.length - okeyPrototypeMeldDraftTiles.length;
     if (nextTileCountAfterMeld < 1) {
       appendOkeyPrototypeAction("Gecersiz per: Turu bitirmek icin en az 1 tas elde kalmali.");
       return;
@@ -7685,6 +7801,7 @@ function Okey101App() {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
       return;
     }
+    if (!ensureOkeyPrototypeGameStarted("Cift acma")) return;
     if (!okeyPrototypeCanAdvanceTurn) return;
     if (okeyPrototypeTurnPhase !== "discard") {
       appendOkeyPrototypeAction("Cift acmak icin once tas cekmelisin.");
@@ -7695,7 +7812,7 @@ function Okey101App() {
       appendOkeyPrototypeAction(`Koltuk ${seatNo} zaten acik.`);
       return;
     }
-    const pairCount = countOkeyPrototypeIdenticalPairs(okeyPrototypeSeatRackTiles, okeyPrototypeOkeyTile);
+    const pairCount = countOkeyPrototypeIdenticalPairs(okeyPrototypeTurnRackTiles, okeyPrototypeOkeyTile);
     if (pairCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS) {
       appendOkeyPrototypeAction(`Cift acmak icin en az ${OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS} cift gerekir (su an ${pairCount}).`);
       return;
@@ -7714,6 +7831,7 @@ function Okey101App() {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
       return;
     }
+    if (!ensureOkeyPrototypeGameStarted("Pere ekleme")) return;
     if (!okeyPrototypeCanAdvanceTurn) return;
     if (okeyPrototypeTurnPhase !== "discard") {
       appendOkeyPrototypeAction("Gecersiz hamle: Per eklemek icin once tas cekmelisin.");
@@ -7739,7 +7857,7 @@ function Okey101App() {
       return;
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
-    const currentRack = okeyPrototypeSeatRackTiles;
+    const currentRack = okeyPrototypeTurnRackTiles;
     const selectedIndex = currentRack.findIndex((entry) => entry.id === tile.id);
     if (selectedIndex < 0) {
       appendOkeyPrototypeAction("Gecersiz hamle: Secilen tas rafta bulunamadi.");
@@ -7773,6 +7891,7 @@ function Okey101App() {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
       return;
     }
+    if (!ensureOkeyPrototypeGameStarted("Tas cekme")) return;
     if (!okeyPrototypeCanAdvanceTurn) return;
     if (okeyPrototypeTurnPhase !== "draw") {
       appendOkeyPrototypeAction("Gecersiz hamle: Once tas atmalisin.");
@@ -7820,6 +7939,7 @@ function Okey101App() {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
       return;
     }
+    if (!ensureOkeyPrototypeGameStarted("Ortadan alma")) return;
     if (!okeyPrototypeCanAdvanceTurn) return;
     if (okeyPrototypeTurnPhase !== "draw") {
       appendOkeyPrototypeAction("Gecersiz hamle: Ortadan tas almak icin once tas atmalisin.");
@@ -7875,13 +7995,14 @@ function Okey101App() {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
       return;
     }
+    if (!ensureOkeyPrototypeGameStarted("Tas atma")) return;
     if (!okeyPrototypeCanAdvanceTurn) return;
     if (okeyPrototypeDiscardBlockedByOpening) {
       appendOkeyPrototypeAction(`Gecersiz hamle: Once ${okeyPrototypeOpeningRemainingPoints} puan daha acilis peri acmalisin.`);
       return;
     }
     if (okeyPrototypePendingDiscardTileId) {
-      const pendingTile = okeyPrototypeSeatRackTiles.find((tile) => tile.id === okeyPrototypePendingDiscardTileId);
+      const pendingTile = okeyPrototypeTurnRackTiles.find((tile) => tile.id === okeyPrototypePendingDiscardTileId);
       if (pendingTile) {
         appendOkeyPrototypeAction(`Gecersiz hamle: Ortadan aldigin ${formatOkeyPrototypeTile(pendingTile)} tasini hemen islemelisin.`);
       } else {
@@ -7986,6 +8107,10 @@ function Okey101App() {
 
   function startNewOkeyPrototypeHand() {
     if (!okeyPrototypeSeatReservation) return;
+    if (!okeyPrototypeGameStarted) {
+      appendOkeyPrototypeAction("Yeni el icin once masayi baslatmalisin.");
+      return;
+    }
     const baseSeat = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
     const activeSeats = okeyPrototypeActiveTurnSeats.length > 0
       ? okeyPrototypeActiveTurnSeats
@@ -8004,6 +8129,10 @@ function Okey101App() {
   }
 
   function refreshOkeyPrototypeRackState() {
+    if (!okeyPrototypeGameStarted) {
+      appendOkeyPrototypeAction("Tas yenilemek icin once masayi baslatmalisin.");
+      return;
+    }
     const baseSeat = okeyPrototypeSeatReservation
       ? Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo
       : 1;
@@ -8022,6 +8151,10 @@ function Okey101App() {
   function dealOkeyPrototypeWithSeed() {
     if (!okeyPrototypeSeatReservation) {
       appendOkeyPrototypeAction("Seed ile dagitmak icin once bir masaya oturmalisin.");
+      return;
+    }
+    if (!okeyPrototypeGameStarted) {
+      appendOkeyPrototypeAction("Seed ile dagitmak icin once masayi baslatmalisin.");
       return;
     }
     const baseSeat = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
@@ -14347,7 +14480,7 @@ function Okey101App() {
                               || okeyPrototypeCurrentSeatPairOpenCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS
                             }
                           >
-                            Ã‡ift AÃ§
+                            Çift Aç
                           </button>
                           <button
                             type="button"
@@ -14355,7 +14488,7 @@ function Okey101App() {
                             onClick={sortOkeyPrototypeAsPairs}
                             disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
                           >
-                            Ã‡ift Diz
+                            Çift Diz
                           </button>
                         </div>
                         <div className="my-okey-open-actions-col">
@@ -14370,7 +14503,7 @@ function Okey101App() {
                               || okeyPrototypeMeldDraftValidation.kind !== "seri"
                             }
                           >
-                            Seri AÃ§
+                            Seri Aç
                           </button>
                           <button
                             type="button"
@@ -14437,6 +14570,17 @@ function Okey101App() {
                     <aside className="my-okey-quick-side">
                       <section className="my-okey-quick-card">
                         <h4>Özellikler</h4>
+                        {!okeyPrototypeGameStarted ? (
+                          <button
+                            className="my-action-btn"
+                            type="button"
+                            onClick={() => startOkeyPrototypeGameWithTable(okeyPrototypeMissingSeatCount > 0)}
+                          >
+                            {okeyPrototypeMissingSeatCount > 0
+                              ? `Botlarla Baslat (${Math.max(0, 4 - okeyPrototypeMissingSeatCount)}/4)`
+                              : "Oyunu Baslat"}
+                          </button>
+                        ) : null}
                         <button className="my-action-btn soft" type="button" onClick={dealOkeyPrototypeWithSeed}>
                           Yeni Oyun
                         </button>
