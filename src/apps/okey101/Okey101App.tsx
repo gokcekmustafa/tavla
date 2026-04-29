@@ -747,13 +747,50 @@ function buildOkeyPrototypeRackGroupsForLayout(
   const jokerTiles = tiles.filter((tile) => isOkeyPrototypeJokerTile(tile, okeyTile));
 
   if (mode === "color") {
-    const groups = OKEY_PROTOTYPE_TILE_COLORS
-      .map((color) => (
-        normalTiles
-          .filter((tile) => tile.kind === "normal" && tile.color === color)
-          .sort((left, right) => (left.value - right.value) || left.id.localeCompare(right.id))
-      ))
-      .filter((group) => group.length > 0);
+    const groups: OkeyPrototypeTile[][] = [];
+    OKEY_PROTOTYPE_TILE_COLORS.forEach((color) => {
+      const colorTiles = normalTiles
+        .filter((tile) => tile.kind === "normal" && tile.color === color)
+        .sort((left, right) => (left.value - right.value) || left.id.localeCompare(right.id));
+      if (colorTiles.length === 0) return;
+      const lanes: Array<{ tiles: OkeyPrototypeTile[]; lastValue: number }> = [];
+      colorTiles.forEach((tile) => {
+        let candidateIndex = -1;
+        let candidateLen = -1;
+        lanes.forEach((lane, laneIndex) => {
+          if (lane.lastValue !== tile.value - 1) return;
+          const laneLen = lane.tiles.length;
+          if (laneLen > candidateLen) {
+            candidateLen = laneLen;
+            candidateIndex = laneIndex;
+          }
+        });
+        if (candidateIndex < 0) {
+          lanes.push({
+            tiles: [tile],
+            lastValue: tile.value,
+          });
+          return;
+        }
+        const targetLane = lanes[candidateIndex];
+        targetLane.tiles.push(tile);
+        targetLane.lastValue = tile.value;
+      });
+      lanes
+        .sort((left, right) => {
+          const leftIsStrong = left.tiles.length >= 3 ? 1 : 0;
+          const rightIsStrong = right.tiles.length >= 3 ? 1 : 0;
+          if (leftIsStrong !== rightIsStrong) return rightIsStrong - leftIsStrong;
+          if (left.tiles.length !== right.tiles.length) return right.tiles.length - left.tiles.length;
+          const leftFirst = left.tiles[0]?.value ?? 0;
+          const rightFirst = right.tiles[0]?.value ?? 0;
+          if (leftFirst !== rightFirst) return leftFirst - rightFirst;
+          return (left.tiles[0]?.id ?? "").localeCompare(right.tiles[0]?.id ?? "");
+        })
+        .forEach((lane) => {
+          groups.push(lane.tiles);
+        });
+    });
     if (jokerTiles.length > 0) groups.push(jokerTiles.slice());
     return groups;
   }
@@ -8012,14 +8049,16 @@ function Okey101App() {
       return;
     }
     const sortedRack = sortOkeyPrototypeRackTiles(currentRack, mode, okeyPrototypeOkeyTile);
-    const orderChanged = sortedRack.some((tile, index) => tile.id !== currentRack[index]?.id);
+    const grouped = buildOkeyPrototypeRackGroupsForLayout(sortedRack, mode, okeyPrototypeOkeyTile);
+    const groupedFlat = grouped.flat();
+    const nextRack = groupedFlat.length === currentRack.length ? groupedFlat : sortedRack;
+    const orderChanged = nextRack.some((tile, index) => tile.id !== currentRack[index]?.id);
     if (orderChanged) {
       setOkeyPrototypeRackState((current) => ({
         ...current,
-        [seatNo]: sortedRack,
+        [seatNo]: nextRack,
       }));
     }
-    const grouped = buildOkeyPrototypeRackGroupsForLayout(sortedRack, mode, okeyPrototypeOkeyTile);
     const nextSlots = createOkeyPrototypeRackSlotsFromGroups(grouped);
     setOkeyPrototypeRackSlotsBySeat((current) => ({
       ...current,
