@@ -5757,3 +5757,318 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 101 table: closer visual match to requested reference */
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
+  border: 1px solid #3b280e;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(43, 163, 126, 0.24), rgba(10, 79, 56, 0.3)),
+    linear-gradient(180deg, #0a6a50, #07533e);
+  padding: 14px 14px 12px;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  grid-template-areas:
+    "head head"
+    "hint hint"
+    "grid side";
+  gap: 10px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 2px 6px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-head strong {
+  font-size: 1rem;
+  font-weight: 900;
+  color: #ecfff8;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-hint {
+  border-radius: 8px;
+  border: 1px solid rgba(122, 205, 175, 0.45);
+  background: rgba(8, 92, 69, 0.4);
+  color: #dbf6ea;
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
+  grid-template-columns: minmax(170px, 1fr) minmax(240px, 1.32fr) minmax(170px, 1fr);
+  gap: 10px;
+  min-height: 390px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-center {
+  padding: 8px;
+  gap: 8px;
+  border: 1px solid rgba(190, 243, 227, 0.42);
+  background: linear-gradient(180deg, rgba(8, 90, 63, 0.82), rgba(7, 78, 56, 0.9));
+}
+
+.my-okey-center-surface {
+  position: relative;
+  min-height: 218px;
+  border: 2px solid rgba(237, 255, 248, 0.88);
+  border-radius: 8px;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 18px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 18px),
+    linear-gradient(180deg, rgba(7, 99, 68, 0.76), rgba(6, 83, 58, 0.84));
+}
+
+.my-okey-center-crosshair {
+  position: absolute;
+  inset: 0;
+}
+
+.my-okey-center-crosshair::before,
+.my-okey-center-crosshair::after {
+  content: "";
+  position: absolute;
+  background: rgba(238, 255, 249, 0.82);
+}
+
+.my-okey-center-crosshair::before {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+.my-okey-center-crosshair::after {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.my-okey-center-seat-label {
+  position: absolute;
+  z-index: 2;
+  border: 1px solid rgba(215, 245, 233, 0.55);
+  border-radius: 4px;
+  background: rgba(173, 221, 204, 0.22);
+  color: #d9f7ea;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 7px;
+}
+
+.my-okey-center-seat-label.top {
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.my-okey-center-seat-label.right {
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.my-okey-center-seat-label.bottom {
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.my-okey-center-seat-label.left {
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.my-okey-center-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-center-summary p {
+  margin: 0;
+  font-size: 0.77rem;
+  color: #edfdf7;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-center-summary p strong {
+  color: #fff4c6;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat {
+  border-radius: 11px;
+  border: 1px solid rgba(171, 233, 212, 0.44);
+  background: linear-gradient(180deg, rgba(8, 97, 69, 0.62), rgba(5, 80, 57, 0.74));
+  padding: 8px;
+}
+
+.my-okey-seat-counter {
+  border-radius: 6px;
+  border: 1px solid rgba(182, 233, 216, 0.42);
+  background: rgba(5, 68, 49, 0.52);
+  padding: 4px 7px;
+  color: #e1fbf1;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
+  border-radius: 12px;
+  border: 1px solid rgba(204, 158, 96, 0.64);
+  background: linear-gradient(180deg, #6d4a1a, #563611);
+  padding: 9px;
+  gap: 7px;
+}
+
+.my-okey-discard-pile-card,
+.my-okey-draw-pile-card {
+  border-radius: 8px;
+  border: 1px solid rgba(228, 196, 141, 0.4);
+  background: rgba(36, 24, 9, 0.42);
+  padding: 6px 7px;
+  display: grid;
+  gap: 2px;
+}
+
+.my-okey-discard-pile-card span,
+.my-okey-draw-pile-card span {
+  color: #edd8b7;
+  font-size: 0.67rem;
+  font-weight: 700;
+}
+
+.my-okey-discard-pile-card strong,
+.my-okey-draw-pile-card strong {
+  color: #fff6df;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-action-btn,
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-clear-btn {
+  border-radius: 8px;
+  border: 1px solid #3e4d3d;
+  background: linear-gradient(180deg, #465043, #31392f);
+  color: #f4f3e7;
+  font-size: 0.78rem;
+  font-weight: 800;
+  min-height: 34px;
+}
+
+.my-okey-lower-strip {
+  margin-top: 12px;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 12px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+  border-radius: 12px;
+  border: 1px solid rgba(112, 70, 23, 0.92);
+  background:
+    linear-gradient(180deg, rgba(177, 123, 61, 0.95), rgba(126, 80, 34, 0.97));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 225, 169, 0.4),
+    inset 0 -1px 0 rgba(82, 49, 19, 0.56);
+  padding: 9px 10px 10px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
+  margin-bottom: 8px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head strong::after {
+  content: "Istaka";
+  color: #fef1cf;
+  font-size: 0.95rem;
+}
+
+.my-okey-rack-rows {
+  display: grid;
+  gap: 6px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
+  border-radius: 9px;
+  border: 1px solid rgba(157, 109, 52, 0.72);
+  background:
+    linear-gradient(180deg, rgba(244, 225, 186, 0.95), rgba(218, 191, 145, 0.98));
+  padding: 7px;
+  gap: 5px;
+  justify-content: flex-start;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile {
+  min-width: calc(42px * var(--okey-proto-tile-scale, 1));
+  height: calc(58px * var(--okey-proto-tile-scale, 1));
+  border-radius: 7px;
+  border: 1px solid rgba(124, 90, 44, 0.92);
+  background: linear-gradient(180deg, #fffef8, #f4ead3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 2px 3px rgba(0, 0, 0, 0.26);
+  font-size: calc(1.45rem * var(--okey-proto-tile-scale, 1));
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile::before {
+  width: calc(9px * var(--okey-proto-tile-scale, 1));
+  height: calc(9px * var(--okey-proto-tile-scale, 1));
+  top: auto;
+  bottom: 5px;
+  opacity: 0.7;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-actions {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.my-okey-open-actions-col {
+  display: grid;
+  gap: 7px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-open-actions-col .my-action-btn {
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid #38453a;
+  background: linear-gradient(180deg, #2d332d, #1d211d);
+  color: #f4f0e2;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.my-okey-quick-side {
+  gap: 10px;
+}
+
+.my-okey-quick-card {
+  border-radius: 11px;
+  border: 1px solid rgba(43, 136, 169, 0.64);
+  background: linear-gradient(180deg, #0f728f, #0a5d76);
+}
+
+@media (max-width: 920px) {
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "head"
+      "hint"
+      "side"
+      "grid";
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile {
+    min-width: calc(30px * var(--okey-proto-tile-scale, 1));
+    height: calc(44px * var(--okey-proto-tile-scale, 1));
+    font-size: calc(1rem * var(--okey-proto-tile-scale, 1));
+  }
+}

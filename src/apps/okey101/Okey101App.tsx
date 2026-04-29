@@ -3546,6 +3546,16 @@ function Okey101App() {
   const okeyPrototypeSeatRackTiles = useMemo(() => {
     return okeyPrototypeRackState[okeyPrototypeSeatNoForRack] ?? [];
   }, [okeyPrototypeRackState, okeyPrototypeSeatNoForRack]);
+  const okeyPrototypeSeatRackRows = useMemo(() => {
+    if (okeyPrototypeSeatRackTiles.length <= 13) {
+      return [okeyPrototypeSeatRackTiles];
+    }
+    const splitAt = Math.ceil(okeyPrototypeSeatRackTiles.length / 2);
+    return [
+      okeyPrototypeSeatRackTiles.slice(0, splitAt),
+      okeyPrototypeSeatRackTiles.slice(splitAt),
+    ];
+  }, [okeyPrototypeSeatRackTiles]);
   const okeyPrototypeLocalSeatNo = useMemo(() => {
     if (okeyPrototypeSeatReservation) {
       return Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
@@ -3664,6 +3674,19 @@ function Okey101App() {
     });
     return positions;
   }, [okeyPrototypeLocalSeatNo]);
+  const okeyPrototypeSeatNameByDisplayPosition = useMemo(() => {
+    const byPosition: Record<OkeyPrototypeSeatNo, string> = {
+      1: "Bos",
+      2: "Bos",
+      3: "Bos",
+      4: "Bos",
+    };
+    OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+      const position = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
+      byPosition[position] = okeyPrototypeSeatDisplayNames[seatNo] ?? `K${seatNo}`;
+    });
+    return byPosition;
+  }, [okeyPrototypeDisplaySeatPositionBySeat, okeyPrototypeSeatDisplayNames]);
   const okeyPrototypeDiscardDraftTile = useMemo(() => {
     if (!okeyPrototypeDiscardDraftTileId) return null;
     return okeyPrototypeSeatRackTiles.find((tile) => tile.id === okeyPrototypeDiscardDraftTileId) ?? null;
@@ -13838,13 +13861,21 @@ function Okey101App() {
                 ) : (
                   <>
                     <div className="my-game-coming-prototype-board-status" role="status" aria-live="polite" aria-atomic="true">
+                      <div className="my-okey-discard-pile-card">
+                        <span>Son Atis</span>
+                        <strong>{okeyPrototypeLastDiscard ? formatOkeyPrototypeTile(okeyPrototypeLastDiscard.tile) : "-"}</strong>
+                      </div>
+                      <div className="my-okey-draw-pile-card">
+                        <span>Kapali Deste</span>
+                        <strong>{okeyPrototypeDrawPileRemaining}</strong>
+                      </div>
                       <button
                         type="button"
                         className={`my-action-btn soft my-game-coming-prototype-board-action-btn ${okeyPrototypeCanDrawTile ? "suggested" : ""}`}
                         onClick={drawOkeyPrototypeTile}
                         disabled={!okeyPrototypeCanDrawTile}
                       >
-                        Kapali Desteden Cek ({okeyPrototypeDrawPileRemaining})
+                        Kapalı Desteden Çek
                       </button>
                       <button
                         type="button"
@@ -13860,7 +13891,7 @@ function Okey101App() {
                         onClick={discardOkeyPrototypeTile}
                         disabled={!okeyPrototypeCanDiscardTile || !okeyPrototypeDiscardDraftTile}
                       >
-                        Secili Tasi At
+                        Seçili Taşı At
                       </button>
                       <button
                         type="button"
@@ -13868,7 +13899,23 @@ function Okey101App() {
                         onClick={clearOkeyPrototypeTileSelections}
                         disabled={!okeyPrototypeDiscardDraftTileId && okeyPrototypeMeldDraftTileIds.length === 0}
                       >
-                        Secimi Temizle
+                        Geri Topla
+                      </button>
+                      <button
+                        type="button"
+                        className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
+                        onClick={sortOkeyPrototypeAsPairs}
+                        disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                      >
+                        Çift İşle
+                      </button>
+                      <button
+                        type="button"
+                        className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
+                        onClick={sortOkeyPrototypeAsSeries}
+                        disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                      >
+                        Seri İşle
                       </button>
                     </div>
 
@@ -13878,20 +13925,19 @@ function Okey101App() {
 
                     <div className="my-game-coming-prototype-board-grid" aria-label="101 okey oyun masasi">
                       <section className="my-game-coming-prototype-board-center" aria-label="Masa merkezi">
-                        <div className="my-game-coming-prototype-board-center-piles">
-                          <span>
-                            Gosterge: {okeyPrototypeIndicatorTile ? formatOkeyPrototypeTile(okeyPrototypeIndicatorTile) : "-"}
-                          </span>
-                          <span>
-                            Okey: {okeyPrototypeOkeyTile ? formatOkeyPrototypeTile(okeyPrototypeOkeyTile) : "-"}
-                          </span>
-                          <span>
-                            Son Atis: {okeyPrototypeLastDiscard ? formatOkeyPrototypeTile(okeyPrototypeLastDiscard.tile) : "-"}
-                          </span>
+                        <div className="my-okey-center-surface">
+                          <span className="my-okey-center-seat-label top">{okeyPrototypeSeatNameByDisplayPosition[1] || "K1"}</span>
+                          <span className="my-okey-center-seat-label right">{okeyPrototypeSeatNameByDisplayPosition[2] || "K2"}</span>
+                          <span className="my-okey-center-seat-label bottom">{okeyPrototypeSeatNameByDisplayPosition[3] || "K3"}</span>
+                          <span className="my-okey-center-seat-label left">{okeyPrototypeSeatNameByDisplayPosition[4] || "K4"}</span>
+                          <div className="my-okey-center-crosshair" aria-hidden="true" />
                         </div>
-                        <p>Acik Per: <strong>{okeyPrototypeOpenedMelds.length}</strong></p>
-                        <p>Sahte Okey: <strong>{okeyPrototypeSahteOkeyCount}</strong></p>
-                        <p>Deste: <strong>{okeyPrototypeDrawPileRemaining}</strong></p>
+                        <div className="my-okey-center-summary">
+                          <p>Gosterge: <strong>{okeyPrototypeIndicatorTile ? formatOkeyPrototypeTile(okeyPrototypeIndicatorTile) : "-"}</strong></p>
+                          <p>Okey: <strong>{okeyPrototypeOkeyTile ? formatOkeyPrototypeTile(okeyPrototypeOkeyTile) : "-"}</strong></p>
+                          <p>Acik Per: <strong>{okeyPrototypeOpenedMelds.length}</strong></p>
+                          <p>Sahte Okey: <strong>{okeyPrototypeSahteOkeyCount}</strong></p>
+                        </div>
                       </section>
 
                       {OKEY_PROTOTYPE_SEATS.map((seatNo) => {
@@ -13920,32 +13966,8 @@ function Okey101App() {
                               </strong>
                               <span>{isTurnSeat ? "SIRA | " : ""}{isOpenedSeat ? "ACIK" : "KAPALI"} | {seatTiles.length} tas</span>
                             </header>
-                            <div className="my-game-coming-prototype-board-seat-tiles">
-                              {seatTiles.length === 0 ? (
-                                <span className="my-game-coming-prototype-board-seat-empty">Bos koltuk</span>
-                              ) : isMaskedSeat ? (
-                                seatTiles.slice(0, 14).map((tile) => (
-                                  <span
-                                    key={`okey-live-seat-mask-${seatNo}-${tile.id}`}
-                                    className="my-game-coming-prototype-rack-tile tile-sahte my-game-coming-prototype-board-seat-masked-tile"
-                                  >
-                                    ?
-                                  </span>
-                                ))
-                              ) : (
-                                seatTiles.map((tile) => {
-                                  const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
-                                  return (
-                                    <span
-                                      key={`okey-live-seat-tile-${seatNo}-${tile.id}`}
-                                      className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${tileIsJoker ? "joker-tile" : ""}`}
-                                      title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
-                                    >
-                                      {renderOkeyPrototypeTileFace(tile)}
-                                    </span>
-                                  );
-                                })
-                              )}
+                            <div className="my-okey-seat-counter">
+                              {isMaskedSeat && seatTiles.length > 0 ? `${seatTiles.length} taş` : isLocalSeat ? "Aktif oyuncu" : "Bekliyor"}
                             </div>
                           </article>
                         );
@@ -13963,71 +13985,79 @@ function Okey101App() {
                         <strong>Istakalar</strong>
                         <span>Koltuk {okeyPrototypeSeatNoForRack}: {okeyPrototypeSeatRackTiles.length} tas</span>
                       </div>
-                      <div className="my-game-coming-prototype-rack-tiles" aria-label={`Koltuk ${okeyPrototypeSeatNoForRack} tas dizilimi`}>
-                        {okeyPrototypeSeatRackTiles.map((tile) => {
-                          const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
-                          return (
-                            <button
-                              key={tile.id}
-                              type="button"
-                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""}`}
-                              onClick={() => {
-                                selectOkeyPrototypeDiscardDraft(tile.id);
-                                toggleOkeyPrototypeMeldDraftTile(tile.id);
-                              }}
-                              disabled={!okeyPrototypeCanSelectRackTiles}
-                              aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
-                              title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
-                            >
-                              {renderOkeyPrototypeTileFace(tile)}
-                            </button>
-                          );
-                        })}
+                      <div className="my-okey-rack-rows" aria-label={`Koltuk ${okeyPrototypeSeatNoForRack} tas dizilimi`}>
+                        {okeyPrototypeSeatRackRows.map((rackRow, rowIndex) => (
+                          <div key={`rack-row-${rowIndex}`} className="my-game-coming-prototype-rack-tiles">
+                            {rackRow.map((tile) => {
+                              const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+                              return (
+                                <button
+                                  key={tile.id}
+                                  type="button"
+                                  className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""}`}
+                                  onClick={() => {
+                                    selectOkeyPrototypeDiscardDraft(tile.id);
+                                    toggleOkeyPrototypeMeldDraftTile(tile.id);
+                                  }}
+                                  disabled={!okeyPrototypeCanSelectRackTiles}
+                                  aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
+                                  title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
+                                >
+                                  {renderOkeyPrototypeTileFace(tile)}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ))}
                       </div>
 
                       <div className="my-game-coming-prototype-rack-actions">
-                        <button
-                          type="button"
-                          className="my-action-btn soft"
-                          onClick={sortOkeyPrototypeAsPairs}
-                          disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
-                        >
-                          Çift Diz
-                        </button>
-                        <button
-                          type="button"
-                          className="my-action-btn soft"
-                          onClick={sortOkeyPrototypeAsSeries}
-                          disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
-                        >
-                          Seri Diz
-                        </button>
-                        <button
-                          type="button"
-                          className="my-action-btn soft"
-                          onClick={openOkeyPrototypePairs}
-                          disabled={
-                            !okeyPrototypeCanAdvanceTurn
-                            || okeyPrototypeTurnPhase !== "discard"
-                            || okeyPrototypeCurrentSeatOpened
-                            || okeyPrototypeCurrentSeatPairOpenCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS
-                          }
-                        >
-                          Çift Aç
-                        </button>
-                        <button
-                          type="button"
-                          className="my-action-btn soft"
-                          onClick={openOkeyPrototypeSerialMeld}
-                          disabled={
-                            !okeyPrototypeCanSelectRackTiles
-                            || okeyPrototypeMeldDraftTiles.length < 3
-                            || !okeyPrototypeMeldDraftValidation.valid
-                            || okeyPrototypeMeldDraftValidation.kind !== "seri"
-                          }
-                        >
-                          Seri Aç
-                        </button>
+                        <div className="my-okey-open-actions-col">
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={openOkeyPrototypePairs}
+                            disabled={
+                              !okeyPrototypeCanAdvanceTurn
+                              || okeyPrototypeTurnPhase !== "discard"
+                              || okeyPrototypeCurrentSeatOpened
+                              || okeyPrototypeCurrentSeatPairOpenCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS
+                            }
+                          >
+                            Çift Aç
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={sortOkeyPrototypeAsPairs}
+                            disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                          >
+                            Çift Diz
+                          </button>
+                        </div>
+                        <div className="my-okey-open-actions-col">
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={openOkeyPrototypeSerialMeld}
+                            disabled={
+                              !okeyPrototypeCanSelectRackTiles
+                              || okeyPrototypeMeldDraftTiles.length < 3
+                              || !okeyPrototypeMeldDraftValidation.valid
+                              || okeyPrototypeMeldDraftValidation.kind !== "seri"
+                            }
+                          >
+                            Seri Aç
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={sortOkeyPrototypeAsSeries}
+                            disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                          >
+                            Seri Diz
+                          </button>
+                        </div>
                       </div>
                     </div>
 
