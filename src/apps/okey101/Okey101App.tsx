@@ -13012,7 +13012,7 @@ function Okey101App() {
                                 handleOkeyPrototypeRackDrop(tile.id, draggedTileId);
                               }}
                               onDragEnd={() => setOkeyPrototypeRackDragTileId("")}
-                              disabled={!okeyPrototypeCanSelectRackTiles}
+                              aria-disabled={!okeyPrototypeCanSelectRackTiles}
                               aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
                               title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
                             >
@@ -14184,7 +14184,7 @@ function Okey101App() {
                                       draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
                                       onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
                                       onDragEnd={() => setOkeyPrototypeRackDragTileId("")}
-                                      disabled={!okeyPrototypeCanSelectRackTiles}
+                                      aria-disabled={!okeyPrototypeCanSelectRackTiles}
                                       aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
                                       title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
                                     >

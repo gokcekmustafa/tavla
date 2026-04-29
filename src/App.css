@@ -6018,6 +6018,7 @@
 
 .my-game-coming-prototype-rack-tile {
   cursor: grab;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
 }
 
 .my-game-coming-prototype-rack-tile.dragging {
@@ -6056,6 +6057,11 @@
 .my-game-coming-prototype-rack-slot.drag-ready:hover {
   border-color: rgba(41, 177, 123, 0.78);
   background: rgba(34, 151, 103, 0.14);
+}
+
+.my-game-coming-prototype-rack-slot.drag-ready.empty:hover {
+  border-color: rgba(41, 177, 123, 0.88);
+  background: rgba(34, 151, 103, 0.2);
 }
 
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile::before {
