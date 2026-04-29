@@ -6016,6 +6016,16 @@
   font-size: calc(1.45rem * var(--okey-proto-tile-scale, 1));
 }
 
+.my-game-coming-prototype-rack-tile {
+  cursor: grab;
+}
+
+.my-game-coming-prototype-rack-tile.dragging {
+  opacity: 0.55;
+  transform: translateY(-2px);
+  cursor: grabbing;
+}
+
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile::before {
   width: calc(9px * var(--okey-proto-tile-scale, 1));
   height: calc(9px * var(--okey-proto-tile-scale, 1));

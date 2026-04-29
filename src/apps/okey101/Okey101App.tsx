@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
 import "../../App.css";
 
 type GameMode = "local" | "bot";
@@ -3305,6 +3305,7 @@ function Okey101App() {
   const [okeyPrototypePendingDiscardTileId, setOkeyPrototypePendingDiscardTileId] = useState("");
   const [okeyPrototypeDiscardDraftTileId, setOkeyPrototypeDiscardDraftTileId] = useState("");
   const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useState<string[]>([]);
+  const [okeyPrototypeRackDragTileId, setOkeyPrototypeRackDragTileId] = useState("");
   const [okeyPrototypeOpenedMelds, setOkeyPrototypeOpenedMelds] = useState<OkeyPrototypeMeldEntry[]>([]);
   const [okeyPrototypeAttachTargetMeldId, setOkeyPrototypeAttachTargetMeldId] = useState("");
   const [okeyPrototypeDealSeedDraft, setOkeyPrototypeDealSeedDraft] = useState(() => String(Date.now()));
@@ -3978,6 +3979,7 @@ function Okey101App() {
   const leaveRejectNoticeSeenKeyRef = useRef("");
   const leaveConfirmResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const roomMissingSinceRef = useRef<number | null>(null);
+  const okeyPrototypeSuppressRackClickRef = useRef(false);
   const flowEventSeqRef = useRef(0);
   const flowEventLastSeenRef = useRef<Map<string, number>>(new Map());
   const previousLobbyIdRef = useRef<string>("");
@@ -7231,6 +7233,62 @@ function Okey101App() {
       return { nextSeat, nextRound };
     }
     return { nextSeat, nextRound: okeyPrototypeTurnRound };
+  }
+
+  function reorderOkeyPrototypeRackTiles(sourceTileId: string, targetTileId: string) {
+    if (!okeyPrototypeSeatReservation) return;
+    if (!sourceTileId || !targetTileId || sourceTileId === targetTileId) return;
+    const fromIndex = okeyPrototypeSeatRackTiles.findIndex((tile) => tile.id === sourceTileId);
+    const toIndex = okeyPrototypeSeatRackTiles.findIndex((tile) => tile.id === targetTileId);
+    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
+    const seatNo = okeyPrototypeSeatNoForRack as OkeyPrototypeSeatNo;
+    setOkeyPrototypeRackState((current) => {
+      const rack = current[seatNo] ?? [];
+      const currentFromIndex = rack.findIndex((tile) => tile.id === sourceTileId);
+      const currentToIndex = rack.findIndex((tile) => tile.id === targetTileId);
+      if (currentFromIndex < 0 || currentToIndex < 0 || currentFromIndex === currentToIndex) {
+        return current;
+      }
+      const nextRack = rack.slice();
+      const [movedTile] = nextRack.splice(currentFromIndex, 1);
+      if (!movedTile) return current;
+      const insertAt = currentFromIndex < currentToIndex ? currentToIndex - 1 : currentToIndex;
+      nextRack.splice(insertAt, 0, movedTile);
+      return {
+        ...current,
+        [seatNo]: nextRack,
+      };
+    });
+    appendOkeyPrototypeAction("Istaka tasi yeniden konumlandi.");
+  }
+
+  function handleOkeyPrototypeRackDragStart(event: DragEvent<HTMLButtonElement>, tileId: string) {
+    if (!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2) return;
+    setOkeyPrototypeRackDragTileId(tileId);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", tileId);
+    }
+  }
+
+  function handleOkeyPrototypeRackDrop(targetTileId: string, draggedTileIdFromData = "") {
+    const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
+    if (!sourceTileId || sourceTileId === targetTileId) {
+      setOkeyPrototypeRackDragTileId("");
+      return;
+    }
+    reorderOkeyPrototypeRackTiles(sourceTileId, targetTileId);
+    setOkeyPrototypeRackDragTileId("");
+    okeyPrototypeSuppressRackClickRef.current = true;
+    window.setTimeout(() => {
+      okeyPrototypeSuppressRackClickRef.current = false;
+    }, 120);
+  }
+
+  function handleOkeyPrototypeRackTileClick(tileId: string) {
+    if (okeyPrototypeSuppressRackClickRef.current) return;
+    selectOkeyPrototypeDiscardDraft(tileId);
+    toggleOkeyPrototypeMeldDraftTile(tileId);
   }
 
   function selectOkeyPrototypeDiscardDraft(tileId: string) {
@@ -12838,11 +12896,21 @@ function Okey101App() {
                             <button
                               key={tile.id}
                               type="button"
-                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""}`}
-                              onClick={() => {
-                                selectOkeyPrototypeDiscardDraft(tile.id);
-                                toggleOkeyPrototypeMeldDraftTile(tile.id);
+                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""}`}
+                              onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
+                              draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
+                              onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
+                              onDragOver={(event) => {
+                                if (!okeyPrototypeRackDragTileId || okeyPrototypeRackDragTileId === tile.id) return;
+                                event.preventDefault();
+                                if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
                               }}
+                              onDrop={(event) => {
+                                event.preventDefault();
+                                const draggedTileId = event.dataTransfer?.getData("text/plain") ?? "";
+                                handleOkeyPrototypeRackDrop(tile.id, draggedTileId);
+                              }}
+                              onDragEnd={() => setOkeyPrototypeRackDragTileId("")}
                               disabled={!okeyPrototypeCanSelectRackTiles}
                               aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
                               title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
@@ -13994,11 +14062,21 @@ function Okey101App() {
                                 <button
                                   key={tile.id}
                                   type="button"
-                                  className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""}`}
-                                  onClick={() => {
-                                    selectOkeyPrototypeDiscardDraft(tile.id);
-                                    toggleOkeyPrototypeMeldDraftTile(tile.id);
+                                  className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""}`}
+                                  onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
+                                  draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
+                                  onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
+                                  onDragOver={(event) => {
+                                    if (!okeyPrototypeRackDragTileId || okeyPrototypeRackDragTileId === tile.id) return;
+                                    event.preventDefault();
+                                    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
                                   }}
+                                  onDrop={(event) => {
+                                    event.preventDefault();
+                                    const draggedTileId = event.dataTransfer?.getData("text/plain") ?? "";
+                                    handleOkeyPrototypeRackDrop(tile.id, draggedTileId);
+                                  }}
+                                  onDragEnd={() => setOkeyPrototypeRackDragTileId("")}
                                   disabled={!okeyPrototypeCanSelectRackTiles}
                                   aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
                                   title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
