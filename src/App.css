@@ -5512,3 +5512,59 @@
     grid-template-columns: 1fr;
   }
 }
+
+.my-okey-ready-frame-wrap {
+  margin-top: 10px;
+  border: 1px solid rgba(120, 167, 150, 0.48);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(7, 58, 46, 0.92), rgba(7, 46, 37, 0.95));
+  padding: 10px;
+}
+
+.my-okey-ready-frame-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.my-okey-ready-frame-head strong {
+  color: #effcf5;
+  font-size: 0.9rem;
+}
+
+.my-okey-ready-frame-head span {
+  color: #b7d7ca;
+  font-size: 0.74rem;
+}
+
+.my-okey-ready-frame {
+  width: 100%;
+  min-height: 760px;
+  border: 1px solid rgba(141, 188, 171, 0.45);
+  border-radius: 10px;
+  background: #0b3c2f;
+}
+
+.my-okey-ready-frame-foot {
+  margin-top: 8px;
+  color: #cde7dd;
+  font-size: 0.75rem;
+}
+
+.my-okey-ready-frame-foot a {
+  color: #90d9be;
+  text-decoration: underline;
+}
+
+@media (max-width: 920px) {
+  .my-okey-ready-frame {
+    min-height: 640px;
+  }
+
+  .my-okey-ready-frame-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
