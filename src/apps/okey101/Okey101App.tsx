@@ -7371,80 +7371,63 @@ function Okey101App() {
       return;
     }
     const now = Date.now();
-    let tableNo = 0;
-    let started = false;
-    let alreadyStarted = false;
-    let waitingSeats = 0;
-    let starterSeat: OkeyPrototypeSeatNo = Math.max(1, Math.min(4, reservation.seatNo)) as OkeyPrototypeSeatNo;
-    let activeSeats: OkeyPrototypeSeatNo[] = [];
-    let botModeNeeded = false;
+    const tableEntry = Object.entries(okeyPrototypeTablesByRoom).find(([, tables]) => (
+      tables.some((table) => table.id === reservation.tableId)
+    )) ?? null;
+    if (!tableEntry) {
+      setLobbyNotice("Masa bulunamadi.");
+      return;
+    }
+    const [roomId, roomTables] = tableEntry;
+    const tableIndex = roomTables.findIndex((table) => table.id === reservation.tableId);
+    if (tableIndex < 0) {
+      setLobbyNotice("Masa bulunamadi.");
+      return;
+    }
+    const table = roomTables[tableIndex];
+    if (!table) {
+      setLobbyNotice("Masa bulunamadi.");
+      return;
+    }
 
-    setOkeyPrototypeTablesByRoom((current) => {
-      const nextState: Record<string, OkeyPrototypeLobbyTableState[]> = {};
-      Object.entries(current).forEach(([roomId, tables]) => {
-        nextState[roomId] = tables.slice();
+    const tableNo = table.tableNo;
+    const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = { ...table.seats };
+    if (fillMissingWithBots) {
+      OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+        if (nextSeats[seatNo]) return;
+        nextSeats[seatNo] = createOkeyPrototypeBotSeatState(
+          { id: table.id, tableNo: table.tableNo, roomId: table.roomId },
+          seatNo,
+          now,
+        );
       });
-
-      for (const [roomId, tables] of Object.entries(nextState)) {
-        const tableIndex = tables.findIndex((table) => table.id === reservation.tableId);
-        if (tableIndex < 0) continue;
-        const table = tables[tableIndex];
-        if (!table) return current;
-        tableNo = table.tableNo;
-        const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = { ...table.seats };
-        if (fillMissingWithBots) {
-          OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
-            if (nextSeats[seatNo]) return;
-            nextSeats[seatNo] = createOkeyPrototypeBotSeatState(
-              { id: table.id, tableNo: table.tableNo, roomId: table.roomId },
-              seatNo,
-              now,
-            );
-          });
-        }
-        activeSeats = getOkeyPrototypeOccupiedSeatNos({ seats: nextSeats });
-        waitingSeats = Math.max(0, 4 - activeSeats.length);
-        if (activeSeats.length < 4) {
-          return current;
-        }
-        if (table.startedAt) {
-          alreadyStarted = true;
-          return current;
-        }
-	        starterSeat = fillMissingWithBots
-	          ? (Math.max(1, Math.min(4, reservation.seatNo)) as OkeyPrototypeSeatNo)
-	          : (
-	            activeSeats.find(
-	              (seatNo) => sanitizeGuestId(nextSeats[seatNo]?.userId ?? "") === sanitizeGuestId(table.ownerUserId ?? ""),
-	            ) ?? activeSeats[0] ?? starterSeat
-	          );
-        botModeNeeded = activeSeats.some((seatNo) => isOkeyPrototypeBotUserId(nextSeats[seatNo]?.userId ?? ""));
-        const nextTable: OkeyPrototypeLobbyTableState = {
-          ...table,
-          seats: nextSeats,
-          startedAt: now,
-        };
-        tables[tableIndex] = nextTable;
-        nextState[roomId] = tables;
-        started = true;
-        return nextState;
-      }
-
-      return current;
-    });
-
-    if (alreadyStarted) {
-      setLobbyNotice("Masa zaten baslamis durumda.");
+    }
+    const activeSeats = getOkeyPrototypeOccupiedSeatNos({ seats: nextSeats });
+    const waitingSeats = Math.max(0, 4 - activeSeats.length);
+    if (activeSeats.length < 4) {
+      setLobbyNotice(`Oyun baslamasi icin ${waitingSeats} koltuk daha dolmali.`);
       return;
     }
-    if (!started) {
-      if (waitingSeats > 0) {
-        setLobbyNotice(`Oyun baslamasi icin ${waitingSeats} koltuk daha dolmali.`);
-      } else {
-        setLobbyNotice("Oyun baslatilamadi. Lutfen tekrar dene.");
-      }
-      return;
-    }
+
+    const starterSeat = fillMissingWithBots
+      ? (Math.max(1, Math.min(4, reservation.seatNo)) as OkeyPrototypeSeatNo)
+      : (
+        activeSeats.find(
+          (seatNo) => sanitizeGuestId(nextSeats[seatNo]?.userId ?? "") === sanitizeGuestId(table.ownerUserId ?? ""),
+        ) ?? activeSeats[0] ?? (Math.max(1, Math.min(4, reservation.seatNo)) as OkeyPrototypeSeatNo)
+      );
+    const botModeNeeded = activeSeats.some((seatNo) => isOkeyPrototypeBotUserId(nextSeats[seatNo]?.userId ?? ""));
+    const nextTable: OkeyPrototypeLobbyTableState = {
+      ...table,
+      seats: nextSeats,
+      startedAt: table.startedAt ?? now,
+    };
+    const nextRoomTables = roomTables.slice();
+    nextRoomTables[tableIndex] = nextTable;
+    setOkeyPrototypeTablesByRoom((current) => ({
+      ...current,
+      [roomId]: nextRoomTables,
+    }));
 
     setOkeyPrototypeSessionHandNo(1);
     setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
