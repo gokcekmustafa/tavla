@@ -516,6 +516,9 @@ const OKEY_PROTOTYPE_STARTER_BONUS_TILE_COUNT = 1;
 const OKEY_PROTOTYPE_OPENING_TARGET_POINTS = 101;
 const OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS = 5;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = [1, 2, 3, 4];
+const OKEY_PROTOTYPE_RACK_SLOT_COLUMNS = 16;
+const OKEY_PROTOTYPE_RACK_SLOT_ROWS = 2;
+const OKEY_PROTOTYPE_RACK_SLOT_COUNT = OKEY_PROTOTYPE_RACK_SLOT_COLUMNS * OKEY_PROTOTYPE_RACK_SLOT_ROWS;
 const OKEY_PROTOTYPE_TILE_COLORS: readonly OkeyPrototypeNormalColor[] = ["kirmizi", "mavi", "sari", "siyah"];
 const OKEY_PROTOTYPE_OPPONENT_NAMES = [
   "TasUstasi",
@@ -591,6 +594,41 @@ function createEmptyOkeyPrototypeRackState(): OkeyPrototypeRackState {
     3: [],
     4: [],
   };
+}
+
+function createEmptyOkeyPrototypeRackSlots() {
+  return Array.from({ length: OKEY_PROTOTYPE_RACK_SLOT_COUNT }, () => null as string | null);
+}
+
+function createEmptyOkeyPrototypeRackSlotsBySeat(): Record<OkeyPrototypeSeatNo, Array<string | null>> {
+  return {
+    1: createEmptyOkeyPrototypeRackSlots(),
+    2: createEmptyOkeyPrototypeRackSlots(),
+    3: createEmptyOkeyPrototypeRackSlots(),
+    4: createEmptyOkeyPrototypeRackSlots(),
+  };
+}
+
+function fillOkeyPrototypeRackSlotsFromTiles(
+  slots: Array<string | null>,
+  tiles: OkeyPrototypeTile[],
+) {
+  const normalizedSlots = slots.slice(0, OKEY_PROTOTYPE_RACK_SLOT_COUNT);
+  while (normalizedSlots.length < OKEY_PROTOTYPE_RACK_SLOT_COUNT) normalizedSlots.push(null);
+
+  const tileIdSet = new Set(tiles.map((tile) => tile.id));
+  const nextSlots = normalizedSlots.map((slotTileId) => (slotTileId && tileIdSet.has(slotTileId) ? slotTileId : null));
+  const placedTileIds = new Set(nextSlots.filter((slotTileId): slotTileId is string => Boolean(slotTileId)));
+  const missingTileIds = tiles
+    .map((tile) => tile.id)
+    .filter((tileId) => !placedTileIds.has(tileId));
+
+  for (const tileId of missingTileIds) {
+    const emptyIndex = nextSlots.findIndex((slotTileId) => !slotTileId);
+    if (emptyIndex < 0) break;
+    nextSlots[emptyIndex] = tileId;
+  }
+  return nextSlots;
 }
 
 function createOkeyPrototypeOkeyTile(indicatorTile: OkeyPrototypeTile | null): OkeyPrototypeTile | null {
@@ -3297,6 +3335,13 @@ function Okey101App() {
   const [okeyPrototypeSeatOpenedState, setOkeyPrototypeSeatOpenedState] = useState<OkeyPrototypeSeatOpenedState>(() => createDefaultOkeyPrototypeSeatOpenedState());
   const [okeyPrototypeInitialDeal] = useState<OkeyPrototypeDealState>(() => createOkeyPrototypeDealState(Date.now(), 1));
   const [okeyPrototypeRackState, setOkeyPrototypeRackState] = useState<OkeyPrototypeRackState>(() => okeyPrototypeInitialDeal.rackState);
+  const [okeyPrototypeRackSlotsBySeat, setOkeyPrototypeRackSlotsBySeat] = useState<Record<OkeyPrototypeSeatNo, Array<string | null>>>(() => {
+    const next = createEmptyOkeyPrototypeRackSlotsBySeat();
+    OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+      next[seatNo] = fillOkeyPrototypeRackSlotsFromTiles(next[seatNo], okeyPrototypeInitialDeal.rackState[seatNo] ?? []);
+    });
+    return next;
+  });
   const [okeyPrototypeWallTiles, setOkeyPrototypeWallTiles] = useState<OkeyPrototypeTile[]>(() => okeyPrototypeInitialDeal.wallTiles);
   const [okeyPrototypeIndicatorTile, setOkeyPrototypeIndicatorTile] = useState<OkeyPrototypeTile | null>(() => okeyPrototypeInitialDeal.indicatorTile);
   const [okeyPrototypeOkeyTile, setOkeyPrototypeOkeyTile] = useState<OkeyPrototypeTile | null>(() => okeyPrototypeInitialDeal.okeyTile);
@@ -3547,16 +3592,24 @@ function Okey101App() {
   const okeyPrototypeSeatRackTiles = useMemo(() => {
     return okeyPrototypeRackState[okeyPrototypeSeatNoForRack] ?? [];
   }, [okeyPrototypeRackState, okeyPrototypeSeatNoForRack]);
-  const okeyPrototypeSeatRackRows = useMemo(() => {
-    if (okeyPrototypeSeatRackTiles.length <= 13) {
-      return [okeyPrototypeSeatRackTiles];
-    }
-    const splitAt = Math.ceil(okeyPrototypeSeatRackTiles.length / 2);
-    return [
-      okeyPrototypeSeatRackTiles.slice(0, splitAt),
-      okeyPrototypeSeatRackTiles.slice(splitAt),
-    ];
+  const okeyPrototypeSeatRackTileMap = useMemo(() => {
+    const tileMap = new Map<string, OkeyPrototypeTile>();
+    okeyPrototypeSeatRackTiles.forEach((tile) => {
+      tileMap.set(tile.id, tile);
+    });
+    return tileMap;
   }, [okeyPrototypeSeatRackTiles]);
+  const okeyPrototypeSeatRackSlots = useMemo(() => {
+    return okeyPrototypeRackSlotsBySeat[okeyPrototypeSeatNoForRack] ?? createEmptyOkeyPrototypeRackSlots();
+  }, [okeyPrototypeRackSlotsBySeat, okeyPrototypeSeatNoForRack]);
+  const okeyPrototypeSeatRackSlotRows = useMemo(() => {
+    const rows: Array<Array<string | null>> = [];
+    for (let rowIndex = 0; rowIndex < OKEY_PROTOTYPE_RACK_SLOT_ROWS; rowIndex += 1) {
+      const start = rowIndex * OKEY_PROTOTYPE_RACK_SLOT_COLUMNS;
+      rows.push(okeyPrototypeSeatRackSlots.slice(start, start + OKEY_PROTOTYPE_RACK_SLOT_COLUMNS));
+    }
+    return rows;
+  }, [okeyPrototypeSeatRackSlots]);
   const okeyPrototypeLocalSeatNo = useMemo(() => {
     if (okeyPrototypeSeatReservation) {
       return Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
@@ -4069,6 +4122,24 @@ function Okey101App() {
     if (exists) return;
     resetOkeyPrototypeSeatSessionState();
   }, [okeyPrototypeSeatReservation, okeyPrototypeTableSketchRows]);
+
+  useEffect(() => {
+    if (!okeyPrototypeSeatReservation) {
+      setOkeyPrototypeRackDragTileId("");
+      return;
+    }
+    const seatNo = okeyPrototypeSeatNoForRack as OkeyPrototypeSeatNo;
+    setOkeyPrototypeRackSlotsBySeat((current) => {
+      const currentSeatSlots = current[seatNo] ?? createEmptyOkeyPrototypeRackSlots();
+      const nextSeatSlots = fillOkeyPrototypeRackSlotsFromTiles(currentSeatSlots, okeyPrototypeSeatRackTiles);
+      const changed = nextSeatSlots.some((slotTileId, index) => slotTileId !== currentSeatSlots[index]);
+      if (!changed) return current;
+      return {
+        ...current,
+        [seatNo]: nextSeatSlots,
+      };
+    });
+  }, [okeyPrototypeSeatNoForRack, okeyPrototypeSeatRackTiles, okeyPrototypeSeatReservation]);
 
   useEffect(() => {
     if (!okeyPrototypeDiscardDraftTileId) return;
@@ -7278,6 +7349,36 @@ function Okey101App() {
       return;
     }
     reorderOkeyPrototypeRackTiles(sourceTileId, targetTileId);
+    setOkeyPrototypeRackDragTileId("");
+    okeyPrototypeSuppressRackClickRef.current = true;
+    window.setTimeout(() => {
+      okeyPrototypeSuppressRackClickRef.current = false;
+    }, 120);
+  }
+
+  function handleOkeyPrototypeRackDropToSlot(slotIndex: number, draggedTileIdFromData = "") {
+    const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
+    if (!okeyPrototypeSeatReservation || !sourceTileId) {
+      setOkeyPrototypeRackDragTileId("");
+      return;
+    }
+    const safeSlotIndex = Math.max(0, Math.min(OKEY_PROTOTYPE_RACK_SLOT_COUNT - 1, slotIndex));
+    const seatNo = okeyPrototypeSeatNoForRack as OkeyPrototypeSeatNo;
+    setOkeyPrototypeRackSlotsBySeat((current) => {
+      const baseSlots = current[seatNo] ?? createEmptyOkeyPrototypeRackSlots();
+      const normalizedSlots = fillOkeyPrototypeRackSlotsFromTiles(baseSlots, okeyPrototypeSeatRackTiles);
+      const sourceIndex = normalizedSlots.findIndex((slotTileId) => slotTileId === sourceTileId);
+      if (sourceIndex < 0) return current;
+      if (sourceIndex === safeSlotIndex) return current;
+      const nextSlots = normalizedSlots.slice();
+      const targetTileId = nextSlots[safeSlotIndex];
+      nextSlots[safeSlotIndex] = sourceTileId;
+      nextSlots[sourceIndex] = targetTileId ?? null;
+      return {
+        ...current,
+        [seatNo]: nextSlots,
+      };
+    });
     setOkeyPrototypeRackDragTileId("");
     okeyPrototypeSuppressRackClickRef.current = true;
     window.setTimeout(() => {
@@ -14054,35 +14155,43 @@ function Okey101App() {
                         <span>Koltuk {okeyPrototypeSeatNoForRack}: {okeyPrototypeSeatRackTiles.length} tas</span>
                       </div>
                       <div className="my-okey-rack-rows" aria-label={`Koltuk ${okeyPrototypeSeatNoForRack} tas dizilimi`}>
-                        {okeyPrototypeSeatRackRows.map((rackRow, rowIndex) => (
-                          <div key={`rack-row-${rowIndex}`} className="my-game-coming-prototype-rack-tiles">
-                            {rackRow.map((tile) => {
-                              const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+                        {okeyPrototypeSeatRackSlotRows.map((rackRow, rowIndex) => (
+                          <div key={`rack-row-${rowIndex}`} className="my-game-coming-prototype-rack-tiles my-game-coming-prototype-rack-slots-row">
+                            {rackRow.map((slotTileId, columnIndex) => {
+                              const slotIndex = rowIndex * OKEY_PROTOTYPE_RACK_SLOT_COLUMNS + columnIndex;
+                              const tile = slotTileId ? okeyPrototypeSeatRackTileMap.get(slotTileId) ?? null : null;
+                              const tileIsJoker = tile ? isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile) : false;
                               return (
-                                <button
-                                  key={tile.id}
-                                  type="button"
-                                  className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""}`}
-                                  onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
-                                  draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
-                                  onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
+                                <div
+                                  key={`okey-slot-${rowIndex}-${columnIndex}`}
+                                  className={`my-game-coming-prototype-rack-slot ${okeyPrototypeRackDragTileId ? "drag-ready" : ""} ${tile ? "filled" : "empty"}`}
                                   onDragOver={(event) => {
-                                    if (!okeyPrototypeRackDragTileId || okeyPrototypeRackDragTileId === tile.id) return;
+                                    if (!okeyPrototypeRackDragTileId) return;
                                     event.preventDefault();
                                     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
                                   }}
                                   onDrop={(event) => {
                                     event.preventDefault();
                                     const draggedTileId = event.dataTransfer?.getData("text/plain") ?? "";
-                                    handleOkeyPrototypeRackDrop(tile.id, draggedTileId);
+                                    handleOkeyPrototypeRackDropToSlot(slotIndex, draggedTileId);
                                   }}
-                                  onDragEnd={() => setOkeyPrototypeRackDragTileId("")}
-                                  disabled={!okeyPrototypeCanSelectRackTiles}
-                                  aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
-                                  title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
                                 >
-                                  {renderOkeyPrototypeTileFace(tile)}
-                                </button>
+                                  {tile ? (
+                                    <button
+                                      type="button"
+                                      className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""}`}
+                                      onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
+                                      draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
+                                      onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
+                                      onDragEnd={() => setOkeyPrototypeRackDragTileId("")}
+                                      disabled={!okeyPrototypeCanSelectRackTiles}
+                                      aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
+                                      title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
+                                    >
+                                      {renderOkeyPrototypeTileFace(tile)}
+                                    </button>
+                                  ) : null}
+                                </div>
                               );
                             })}
                           </div>

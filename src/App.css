@@ -6026,6 +6026,38 @@
   cursor: grabbing;
 }
 
+.my-game-coming-prototype-rack-slots-row {
+  display: grid !important;
+  grid-template-columns: repeat(16, calc(44px * var(--okey-proto-tile-scale, 1)));
+  justify-content: start;
+  gap: 5px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.my-game-coming-prototype-rack-slot {
+  width: calc(44px * var(--okey-proto-tile-scale, 1));
+  height: calc(60px * var(--okey-proto-tile-scale, 1));
+  border-radius: 7px;
+  border: 1px dashed rgba(126, 90, 39, 0.42);
+  background: rgba(118, 87, 45, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.my-game-coming-prototype-rack-slot.filled {
+  border-style: solid;
+  border-color: rgba(112, 76, 29, 0.38);
+  background: transparent;
+}
+
+.my-game-coming-prototype-rack-slot.drag-ready:hover {
+  border-color: rgba(41, 177, 123, 0.78);
+  background: rgba(34, 151, 103, 0.14);
+}
+
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile::before {
   width: calc(9px * var(--okey-proto-tile-scale, 1));
   height: calc(9px * var(--okey-proto-tile-scale, 1));
