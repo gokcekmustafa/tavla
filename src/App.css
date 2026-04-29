@@ -6072,3 +6072,31 @@
     font-size: calc(1rem * var(--okey-proto-tile-scale, 1));
   }
 }
+
+/* 101 seat layout symmetry fix */
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
+  grid-template-columns: 180px minmax(250px, 1fr) 180px;
+  grid-template-areas:
+    ". seat-1 ."
+    "seat-4 center seat-2"
+    ". seat-3 .";
+  align-items: stretch;
+  justify-items: stretch;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat {
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (max-width: 920px) {
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "center"
+      "seat-1"
+      "seat-2"
+      "seat-3"
+      "seat-4";
+  }
+}
