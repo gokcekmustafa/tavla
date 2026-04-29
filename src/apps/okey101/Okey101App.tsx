@@ -3742,9 +3742,8 @@ function Okey101App() {
     }
     return rows;
   }, [okeyPrototypeSeatRackSlots]);
-  const okeyPrototypeRackGroupedScore = useMemo(() => {
-    let total = 0;
-    let validGroupCount = 0;
+  const okeyPrototypeRackValidMeldGroups = useMemo(() => {
+    const groups: Array<{ tiles: OkeyPrototypeTile[]; kind: OkeyPrototypeMeldKind; points: number }> = [];
     okeyPrototypeSeatRackSlotRows.forEach((rackRow) => {
       let currentGroup: OkeyPrototypeTile[] = [];
       const flushGroup = () => {
@@ -3753,12 +3752,15 @@ function Okey101App() {
           return;
         }
         const validation = evaluateOkeyPrototypeMeldDraft(currentGroup, okeyPrototypeOkeyTile);
-        if (!validation.valid) {
+        if (!validation.valid || !validation.kind) {
           currentGroup = [];
           return;
         }
-        total += getOkeyPrototypeMeldPointsWithJokers(currentGroup, okeyPrototypeOkeyTile);
-        validGroupCount += 1;
+        groups.push({
+          tiles: currentGroup.slice(),
+          kind: validation.kind,
+          points: getOkeyPrototypeMeldPointsWithJokers(currentGroup, okeyPrototypeOkeyTile),
+        });
         currentGroup = [];
       };
       rackRow.forEach((slotTileId) => {
@@ -3775,11 +3777,14 @@ function Okey101App() {
       });
       flushGroup();
     });
-    return {
-      total,
-      validGroupCount,
-    };
+    return groups;
   }, [okeyPrototypeOkeyTile, okeyPrototypeSeatRackSlotRows, okeyPrototypeSeatRackTileMap]);
+  const okeyPrototypeRackGroupedScore = useMemo(() => {
+    return {
+      total: okeyPrototypeRackValidMeldGroups.reduce((sum, group) => sum + group.points, 0),
+      validGroupCount: okeyPrototypeRackValidMeldGroups.length,
+    };
+  }, [okeyPrototypeRackValidMeldGroups]);
   const okeyPrototypeLocalSeatNo = useMemo(() => {
     if (okeyPrototypeSeatReservation) {
       return Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
@@ -3937,6 +3942,19 @@ function Okey101App() {
     () => okeyPrototypeDiscardBySeat[okeyPrototypeLocalSeatNo] ?? null,
     [okeyPrototypeDiscardBySeat, okeyPrototypeLocalSeatNo],
   );
+  const okeyPrototypeOpenedMeldsBySeat = useMemo(() => {
+    const next: Record<OkeyPrototypeSeatNo, OkeyPrototypeMeldEntry[]> = {
+      1: [],
+      2: [],
+      3: [],
+      4: [],
+    };
+    okeyPrototypeOpenedMelds.forEach((meld) => {
+      const seatNo = meld.seatNo;
+      next[seatNo] = [...next[seatNo], meld];
+    });
+    return next;
+  }, [okeyPrototypeOpenedMelds]);
   const okeyPrototypeDiscardPreview = okeyPrototypeDiscardPile.slice(0, 8);
   const okeyPrototypeOpenedMeldPreview = okeyPrototypeOpenedMelds.slice(0, 8);
   const okeyPrototypeDrawPileRemaining = okeyPrototypeWallTiles.length;
@@ -4028,13 +4046,32 @@ function Okey101App() {
     okeyPrototypeSeatRoleLabels,
     okeyPrototypeTurnSeat,
   ]);
+  const okeyPrototypeOpenedTileCountBySeat = useMemo(() => {
+    const counts: Record<OkeyPrototypeSeatNo, number> = {
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+    };
+    OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+      const melds = okeyPrototypeOpenedMeldsBySeat[seatNo] ?? [];
+      counts[seatNo] = melds.reduce((sum, meld) => sum + meld.tiles.length, 0);
+    });
+    return counts;
+  }, [okeyPrototypeOpenedMeldsBySeat]);
+  const okeyPrototypeTurnSeatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+  const okeyPrototypeTurnOpenedTileCount = okeyPrototypeOpenedTileCountBySeat[okeyPrototypeTurnSeatNo] ?? 0;
+  const okeyPrototypeTurnExpectedRackCountBeforeDraw = Math.max(
+    0,
+    OKEY_PROTOTYPE_HAND_TILE_COUNT - okeyPrototypeTurnOpenedTileCount,
+  );
   const okeyPrototypeCanDrawTile = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
-    && okeyPrototypeTurnRackTiles.length === OKEY_PROTOTYPE_HAND_TILE_COUNT
+    && okeyPrototypeTurnRackTiles.length === okeyPrototypeTurnExpectedRackCountBeforeDraw
     && okeyPrototypeDrawPileRemaining > 0;
   const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
-    && okeyPrototypeTurnRackTiles.length === OKEY_PROTOTYPE_HAND_TILE_COUNT
+    && okeyPrototypeTurnRackTiles.length === okeyPrototypeTurnExpectedRackCountBeforeDraw
     && Boolean(okeyPrototypeTakeableDiscardEntry)
     && okeyPrototypeCanTakeDiscardWhenClosed;
   const okeyPrototypeCanSelectRackTiles = okeyPrototypeCanAdvanceTurn
@@ -4044,6 +4081,37 @@ function Okey101App() {
 	    && okeyPrototypeTurnPhase === "discard"
 	    && okeyPrototypeTurnRackTiles.length > 0
 	    && !okeyPrototypePendingDiscardTileId;
+  const okeyPrototypeAutoSerialOpenGroups = useMemo(() => {
+    if (!okeyPrototypeCanSelectRackTiles || okeyPrototypeCurrentSeatOpened) return [];
+    if (okeyPrototypeRackValidMeldGroups.length === 0) return [];
+    const selectedGroups: Array<{ tiles: OkeyPrototypeTile[]; kind: OkeyPrototypeMeldKind; points: number }> = [];
+    let selectedPoints = 0;
+    let selectedTileCount = 0;
+    for (const group of okeyPrototypeRackValidMeldGroups) {
+      if (group.kind !== "seri" && group.kind !== "set") continue;
+      selectedGroups.push(group);
+      selectedPoints += group.points;
+      selectedTileCount += group.tiles.length;
+      if (selectedPoints >= OKEY_PROTOTYPE_OPENING_TARGET_POINTS) break;
+    }
+    if (selectedPoints < OKEY_PROTOTYPE_OPENING_TARGET_POINTS) return [];
+    if (okeyPrototypeTurnRackTiles.length - selectedTileCount < 1) return [];
+    return selectedGroups;
+  }, [
+    okeyPrototypeCanSelectRackTiles,
+    okeyPrototypeCurrentSeatOpened,
+    okeyPrototypeRackValidMeldGroups,
+    okeyPrototypeTurnRackTiles.length,
+  ]);
+  const okeyPrototypeCanOpenSerialNow = okeyPrototypeCanSelectRackTiles
+    && (
+      (
+        okeyPrototypeMeldDraftTiles.length >= 3
+        && okeyPrototypeMeldDraftValidation.valid
+        && okeyPrototypeMeldDraftValidation.kind === "seri"
+      )
+      || okeyPrototypeAutoSerialOpenGroups.length > 0
+    );
   // smoke-compat:
   // const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
   // && okeyPrototypeDiscardPile.length > 0;
@@ -7756,6 +7824,92 @@ function Okey101App() {
     appendOkeyPrototypeAction(`Per ekleme hedefi secildi: K${target.seatNo} | El ${target.round}`);
   }
 
+  function openOkeyPrototypeMeldGroups(
+    groups: Array<{ tiles: OkeyPrototypeTile[]; kind: OkeyPrototypeMeldKind }>,
+    sourceLabel: string,
+  ) {
+    if (groups.length === 0) {
+      appendOkeyPrototypeAction(`${sourceLabel}: Acilacak gecerli grup yok.`);
+      return false;
+    }
+    const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+    const rackIds = new Set(okeyPrototypeTurnRackTiles.map((tile) => tile.id));
+    const selectedIds = new Set<string>();
+    const normalizedGroups: Array<{ tiles: OkeyPrototypeTile[]; kind: OkeyPrototypeMeldKind; points: number }> = [];
+    for (const group of groups) {
+      if (group.tiles.length < 3) {
+        appendOkeyPrototypeAction(`${sourceLabel}: Her grup en az 3 tas olmali.`);
+        return false;
+      }
+      const validation = evaluateOkeyPrototypeMeldDraft(group.tiles, okeyPrototypeOkeyTile);
+      if (!validation.valid || !validation.kind || validation.kind !== group.kind) {
+        appendOkeyPrototypeAction(`${sourceLabel}: Gecersiz grup (${validation.reason}).`);
+        return false;
+      }
+      const orderedTiles = group.tiles.slice().sort((left, right) => left.value - right.value);
+      for (const tile of orderedTiles) {
+        if (!rackIds.has(tile.id)) {
+          appendOkeyPrototypeAction(`${sourceLabel}: Secilen tas rafta bulunamadi (${formatOkeyPrototypeTile(tile)}).`);
+          return false;
+        }
+        if (selectedIds.has(tile.id)) {
+          appendOkeyPrototypeAction(`${sourceLabel}: Ayni tas birden fazla grupta kullanilamaz.`);
+          return false;
+        }
+        selectedIds.add(tile.id);
+      }
+      normalizedGroups.push({
+        tiles: orderedTiles,
+        kind: validation.kind,
+        points: getOkeyPrototypeMeldPointsWithJokers(orderedTiles, okeyPrototypeOkeyTile),
+      });
+    }
+    const nextTileCountAfterOpen = okeyPrototypeTurnRackTiles.length - selectedIds.size;
+    if (nextTileCountAfterOpen < 1) {
+      appendOkeyPrototypeAction("Gecersiz hamle: Turu bitirmek icin en az 1 tas elde kalmali.");
+      return false;
+    }
+    const consumedPendingDiscardTile = okeyPrototypePendingDiscardTileId
+      ? selectedIds.has(okeyPrototypePendingDiscardTileId)
+      : false;
+    const timestamp = Date.now();
+    const meldEntries: OkeyPrototypeMeldEntry[] = normalizedGroups.map((group, index) => ({
+      id: `okey-proto-meld-${seatNo}-${timestamp}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+      seatNo,
+      round: okeyPrototypeTurnRound,
+      tiles: group.tiles,
+      kind: group.kind,
+      at: timestamp + index,
+    }));
+    const openingPointsGain = normalizedGroups.reduce((sum, group) => sum + group.points, 0);
+    setOkeyPrototypeRackState((current) => ({
+      ...current,
+      [seatNo]: (current[seatNo] ?? []).filter((tile) => !selectedIds.has(tile.id)),
+    }));
+    setOkeyPrototypeOpenedMelds((current) => [...meldEntries, ...current].slice(0, 40));
+    setOkeyPrototypeAttachTargetMeldId(meldEntries[0]?.id ?? "");
+    setOkeyPrototypeMeldDraftTileIds([]);
+    if (consumedPendingDiscardTile) {
+      setOkeyPrototypePendingDiscardTileId("");
+    }
+    setOkeyPrototypeTurnLockedAfterMeld(true);
+    if (!okeyPrototypeSeatOpenedState[seatNo]) {
+      const nextOpeningPoints = okeyPrototypeTurnOpeningPoints + openingPointsGain;
+      setOkeyPrototypeTurnOpeningPoints(nextOpeningPoints);
+      if (nextOpeningPoints >= OKEY_PROTOTYPE_OPENING_TARGET_POINTS) {
+        setOkeyPrototypeSeatOpenedState((current) => ({
+          ...current,
+          [seatNo]: true,
+        }));
+        appendOkeyPrototypeAction(`El acildi: Koltuk ${seatNo} (${nextOpeningPoints}/${OKEY_PROTOTYPE_OPENING_TARGET_POINTS})`);
+      } else {
+        appendOkeyPrototypeAction(`Acilis puani: ${nextOpeningPoints}/${OKEY_PROTOTYPE_OPENING_TARGET_POINTS}`);
+      }
+    }
+    appendOkeyPrototypeAction(`${sourceLabel}: ${meldEntries.length} grup acildi.`);
+    return true;
+  }
+
   function openOkeyPrototypeMeld() {
     if (okeyPrototypeHandCompleted) {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
@@ -7776,50 +7930,10 @@ function Okey101App() {
       appendOkeyPrototypeAction(`Gecersiz per: ${validation.reason}`);
       return;
     }
-    const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
-    const nextTileCountAfterMeld = okeyPrototypeTurnRackTiles.length - okeyPrototypeMeldDraftTiles.length;
-    if (nextTileCountAfterMeld < 1) {
-      appendOkeyPrototypeAction("Gecersiz per: Turu bitirmek icin en az 1 tas elde kalmali.");
-      return;
-    }
-    const selectedIds = new Set(okeyPrototypeMeldDraftTiles.map((tile) => tile.id));
-    const consumedPendingDiscardTile = okeyPrototypePendingDiscardTileId
-      ? selectedIds.has(okeyPrototypePendingDiscardTileId)
-      : false;
-    const meldPoints = getOkeyPrototypeMeldPointsWithJokers(okeyPrototypeMeldDraftTiles, okeyPrototypeOkeyTile);
-    setOkeyPrototypeRackState((current) => ({
-      ...current,
-      [seatNo]: (current[seatNo] ?? []).filter((tile) => !selectedIds.has(tile.id)),
-    }));
-    const meldEntry: OkeyPrototypeMeldEntry = {
-      id: `okey-proto-meld-${seatNo}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      seatNo,
-      round: okeyPrototypeTurnRound,
-      tiles: okeyPrototypeMeldDraftTiles.slice().sort((left, right) => left.value - right.value),
+    openOkeyPrototypeMeldGroups([{
+      tiles: okeyPrototypeMeldDraftTiles.slice(),
       kind: validation.kind,
-      at: Date.now(),
-    };
-    setOkeyPrototypeOpenedMelds((current) => [meldEntry, ...current].slice(0, 40));
-    setOkeyPrototypeAttachTargetMeldId(meldEntry.id);
-    setOkeyPrototypeMeldDraftTileIds([]);
-    if (consumedPendingDiscardTile) {
-      setOkeyPrototypePendingDiscardTileId("");
-    }
-    setOkeyPrototypeTurnLockedAfterMeld(true);
-    if (!okeyPrototypeSeatOpenedState[seatNo]) {
-      const nextOpeningPoints = okeyPrototypeTurnOpeningPoints + meldPoints;
-      setOkeyPrototypeTurnOpeningPoints(nextOpeningPoints);
-      if (nextOpeningPoints >= OKEY_PROTOTYPE_OPENING_TARGET_POINTS) {
-        setOkeyPrototypeSeatOpenedState((current) => ({
-          ...current,
-          [seatNo]: true,
-        }));
-        appendOkeyPrototypeAction(`El acildi: Koltuk ${seatNo} (${nextOpeningPoints}/${OKEY_PROTOTYPE_OPENING_TARGET_POINTS})`);
-      } else {
-        appendOkeyPrototypeAction(`Acilis puani: ${nextOpeningPoints}/${OKEY_PROTOTYPE_OPENING_TARGET_POINTS}`);
-      }
-    }
-    appendOkeyPrototypeAction(`Per acildi: ${validation.kind} (${meldEntry.tiles.map((tile) => formatOkeyPrototypeTile(tile)).join(", ")})`);
+    }], "Per acma");
   }
 
   function openOkeyPrototypePairs() {
@@ -7843,12 +7957,53 @@ function Okey101App() {
       appendOkeyPrototypeAction(`Cift acmak icin en az ${OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS} cift gerekir (su an ${pairCount}).`);
       return;
     }
+    const pairedGroups: OkeyPrototypeTile[][] = [];
+    const groupedByKey = new Map<string, OkeyPrototypeTile[]>();
+    okeyPrototypeTurnRackTiles.forEach((tile) => {
+      if (tile.kind !== "normal") return;
+      if (isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile)) return;
+      const key = `${tile.color}-${tile.value}`;
+      groupedByKey.set(key, [...(groupedByKey.get(key) ?? []), tile]);
+    });
+    groupedByKey.forEach((tiles) => {
+      const safeTiles = tiles.slice();
+      while (safeTiles.length >= 2) {
+        pairedGroups.push([safeTiles.shift() as OkeyPrototypeTile, safeTiles.shift() as OkeyPrototypeTile]);
+      }
+    });
+    const fivePairs = pairedGroups.slice(0, OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS);
+    if (fivePairs.length < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS) {
+      appendOkeyPrototypeAction("Cift acma icin kullanilabilecek yeterli cift bulunamadi.");
+      return;
+    }
+    const openedPairTileIds = new Set(fivePairs.flat().map((tile) => tile.id));
+    if (okeyPrototypeTurnRackTiles.length - openedPairTileIds.size < 1) {
+      appendOkeyPrototypeAction("Gecersiz hamle: Cift actikten sonra en az 1 tas elde kalmali.");
+      return;
+    }
+    const now = Date.now();
+    const pairMeldEntries: OkeyPrototypeMeldEntry[] = fivePairs.map((pairTiles, index) => ({
+      id: `okey-proto-pair-${seatNo}-${now}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+      seatNo,
+      round: okeyPrototypeTurnRound,
+      tiles: pairTiles.slice().sort((left, right) => left.value - right.value),
+      kind: "set",
+      at: now + index,
+    }));
+    setOkeyPrototypeRackState((current) => ({
+      ...current,
+      [seatNo]: (current[seatNo] ?? []).filter((tile) => !openedPairTileIds.has(tile.id)),
+    }));
+    setOkeyPrototypeOpenedMelds((current) => [...pairMeldEntries, ...current].slice(0, 40));
+    setOkeyPrototypeAttachTargetMeldId("");
+    setOkeyPrototypeMeldDraftTileIds([]);
     setOkeyPrototypeSeatOpenedState((current) => ({
       ...current,
       [seatNo]: true,
     }));
     setOkeyPrototypeTurnOpeningPoints(OKEY_PROTOTYPE_OPENING_TARGET_POINTS);
     setOkeyPrototypePendingDiscardTileId("");
+    setOkeyPrototypeTurnLockedAfterMeld(true);
     appendOkeyPrototypeAction(`El cift acildi: Koltuk ${seatNo} (${pairCount} cift).`);
   }
 
@@ -7937,8 +8092,8 @@ function Okey101App() {
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     const currentRack = okeyPrototypeRackState[seatNo] ?? [];
-    if (currentRack.length !== OKEY_PROTOTYPE_HAND_TILE_COUNT) {
-      appendOkeyPrototypeAction(`Gecersiz hamle: Tas cekmek icin rafta ${OKEY_PROTOTYPE_HAND_TILE_COUNT} tas olmali (su an ${currentRack.length}).`);
+    if (currentRack.length !== okeyPrototypeTurnExpectedRackCountBeforeDraw) {
+      appendOkeyPrototypeAction(`Gecersiz hamle: Tas cekmek icin rafta ${okeyPrototypeTurnExpectedRackCountBeforeDraw} tas olmali (su an ${currentRack.length}).`);
       return;
     }
     const tile = topWallTile ?? buildOkeyPrototypeDrawTile(seatNo, currentRack.length);
@@ -7989,8 +8144,8 @@ function Okey101App() {
       appendOkeyPrototypeAction("Ortadan bu tasi alabilmek icin ayni turde 101 veya 5 cift ile acilis yapabilmelisin.");
       return;
     }
-    if (currentRack.length !== OKEY_PROTOTYPE_HAND_TILE_COUNT) {
-      appendOkeyPrototypeAction(`Gecersiz hamle: Ortadan tas almak icin rafta ${OKEY_PROTOTYPE_HAND_TILE_COUNT} tas olmali (su an ${currentRack.length}).`);
+    if (currentRack.length !== okeyPrototypeTurnExpectedRackCountBeforeDraw) {
+      appendOkeyPrototypeAction(`Gecersiz hamle: Ortadan tas almak icin rafta ${okeyPrototypeTurnExpectedRackCountBeforeDraw} tas olmali (su an ${currentRack.length}).`);
       return;
     }
     const tile = {
@@ -8111,10 +8266,12 @@ function Okey101App() {
   function resetOkeyPrototypeTurn() {
     if (!okeyPrototypeSeatReservation) return;
     const baseSeat = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as 1 | 2 | 3 | 4;
+    const baseOpenedTileCount = okeyPrototypeOpenedTileCountBySeat[baseSeat] ?? 0;
+    const baseExpectedRackCount = Math.max(0, OKEY_PROTOTYPE_HAND_TILE_COUNT - baseOpenedTileCount);
     setOkeyPrototypeTurnSeat(baseSeat);
     setOkeyPrototypeTurnRound(1);
     const baseRack = okeyPrototypeRackState[baseSeat] ?? [];
-    setOkeyPrototypeTurnPhase(baseRack.length > OKEY_PROTOTYPE_HAND_TILE_COUNT ? "discard" : "draw");
+    setOkeyPrototypeTurnPhase(baseRack.length > baseExpectedRackCount ? "discard" : "draw");
     setOkeyPrototypeTurnLockedAfterMeld(false);
     setOkeyPrototypeTurnOpeningPoints(0);
     setOkeyPrototypePendingDiscardTileId("");
@@ -8241,19 +8398,31 @@ function Okey101App() {
       appendOkeyPrototypeAction("Seri acmak icin once tas cekme adimini tamamlamalisin.");
       return;
     }
-    if (okeyPrototypeMeldDraftTiles.length < 3) {
-      appendOkeyPrototypeAction("Seri acmak icin en az 3 tas secmelisin.");
+    if (
+      okeyPrototypeMeldDraftTiles.length >= 3
+      && okeyPrototypeMeldDraftValidation.valid
+      && okeyPrototypeMeldDraftValidation.kind === "seri"
+    ) {
+      openOkeyPrototypeMeld();
       return;
     }
-    if (!okeyPrototypeMeldDraftValidation.valid) {
-      appendOkeyPrototypeAction(`Seri acma gecersiz: ${okeyPrototypeMeldDraftValidation.reason}`);
+    if (okeyPrototypeAutoSerialOpenGroups.length === 0) {
+      if (okeyPrototypeMeldDraftTiles.length < 3) {
+        appendOkeyPrototypeAction("Seri acmak icin en az 3 tas sec veya 101 ustu dizili gruplar olustur.");
+      } else if (!okeyPrototypeMeldDraftValidation.valid) {
+        appendOkeyPrototypeAction(`Seri acma gecersiz: ${okeyPrototypeMeldDraftValidation.reason}`);
+      } else {
+        appendOkeyPrototypeAction("Secili grup seri degil. Cift/Set icin farkli grup sec.");
+      }
       return;
     }
-    if (okeyPrototypeMeldDraftValidation.kind !== "seri") {
-      appendOkeyPrototypeAction("Secili grup seri degil. Cift/Set icin farkli grup sec.");
-      return;
-    }
-    openOkeyPrototypeMeld();
+    openOkeyPrototypeMeldGroups(
+      okeyPrototypeAutoSerialOpenGroups.map((group) => ({
+        tiles: group.tiles,
+        kind: group.kind,
+      })),
+      "Seri acma (otomatik)",
+    );
   }
 
   function createOkeyPrototypeScenarioTile(
@@ -14461,11 +14630,42 @@ function Okey101App() {
                     <div className="my-game-coming-prototype-board-grid" aria-label="101 okey oyun masasi">
                       <section className="my-game-coming-prototype-board-center" aria-label="Masa merkezi">
                         <div className="my-okey-center-surface">
-                          <span className="my-okey-center-seat-label top">{okeyPrototypeSeatNameByDisplayPosition[1] || "K1"}</span>
-                          <span className="my-okey-center-seat-label right">{okeyPrototypeSeatNameByDisplayPosition[2] || "K2"}</span>
-                          <span className="my-okey-center-seat-label bottom">{okeyPrototypeSeatNameByDisplayPosition[3] || "K3"}</span>
-                          <span className="my-okey-center-seat-label left">{okeyPrototypeSeatNameByDisplayPosition[4] || "K4"}</span>
-                          <div className="my-okey-center-crosshair" aria-hidden="true" />
+                          {([1, 2, 3, 4] as OkeyPrototypeSeatNo[]).map((displayPosition) => {
+                            const seatNo = okeyPrototypeSeatByDisplayPosition[displayPosition] ?? displayPosition;
+                            const seatName = okeyPrototypeSeatNameByDisplayPosition[displayPosition] || `K${seatNo}`;
+                            const seatMelds = (okeyPrototypeOpenedMeldsBySeat[seatNo] ?? []).slice(0, 4);
+                            return (
+                              <section
+                                key={`okey-center-seat-area-${displayPosition}-${seatNo}`}
+                                className={`my-okey-center-seat-area pos-${displayPosition}`}
+                                aria-label={`${seatName} acik taslari`}
+                              >
+                                <span className="my-okey-center-seat-name">{seatName}</span>
+                                <div className="my-okey-center-seat-melds">
+                                  {seatMelds.length === 0 ? (
+                                    <span className="my-okey-center-seat-empty">Acik yok</span>
+                                  ) : (
+                                    seatMelds.map((meld) => (
+                                      <div key={meld.id} className={`my-okey-center-seat-meld kind-${meld.kind}`}>
+                                        {meld.tiles.map((tile) => {
+                                          const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+                                          return (
+                                            <span
+                                              key={`${meld.id}-${tile.id}`}
+                                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${tileIsJoker ? "joker-tile" : ""}`}
+                                              title={formatOkeyPrototypeTile(tile)}
+                                            >
+                                              {renderOkeyPrototypeTileFace(tile)}
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </section>
+                            );
+                          })}
                         </div>
 	                        <div className="my-okey-center-summary">
 	                          <p>Gosterge: <strong>{okeyPrototypeIndicatorTile ? formatOkeyPrototypeTile(okeyPrototypeIndicatorTile) : "-"}</strong></p>
@@ -14607,14 +14807,9 @@ function Okey101App() {
                         <div className="my-okey-open-actions-col">
                           <button
                             type="button"
-                            className="my-action-btn soft"
+                            className={`my-action-btn soft ${okeyPrototypeCanOpenSerialNow ? "suggested" : ""}`}
                             onClick={openOkeyPrototypeSerialMeld}
-                            disabled={
-                              !okeyPrototypeCanSelectRackTiles
-                              || okeyPrototypeMeldDraftTiles.length < 3
-                              || !okeyPrototypeMeldDraftValidation.valid
-                              || okeyPrototypeMeldDraftValidation.kind !== "seri"
-                            }
+                            disabled={!okeyPrototypeCanOpenSerialNow}
                           >
                             Seri Aç
                           </button>

@@ -5812,6 +5812,10 @@
 
 .my-okey-center-surface {
   position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 6px;
   min-height: 218px;
   border: 2px solid rgba(237, 255, 248, 0.88);
   border-radius: 8px;
@@ -5819,39 +5823,42 @@
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 18px),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 18px),
     linear-gradient(180deg, rgba(7, 99, 68, 0.76), rgba(6, 83, 58, 0.84));
+  padding: 7px;
 }
 
-.my-okey-center-crosshair {
-  position: absolute;
-  inset: 0;
+.my-okey-center-seat-area {
+  border: 1px solid rgba(219, 247, 236, 0.42);
+  border-radius: 8px;
+  background: rgba(5, 81, 57, 0.5);
+  padding: 6px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 5px;
+  min-height: 96px;
 }
 
-.my-okey-center-crosshair::before,
-.my-okey-center-crosshair::after {
-  content: "";
-  position: absolute;
-  background: rgba(238, 255, 249, 0.82);
+.my-okey-center-seat-area.pos-1 {
+  grid-column: 1;
+  grid-row: 1;
 }
 
-.my-okey-center-crosshair::before {
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 2px;
-  transform: translateY(-50%);
+.my-okey-center-seat-area.pos-2 {
+  grid-column: 2;
+  grid-row: 1;
 }
 
-.my-okey-center-crosshair::after {
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  transform: translateX(-50%);
+.my-okey-center-seat-area.pos-3 {
+  grid-column: 2;
+  grid-row: 2;
 }
 
-.my-okey-center-seat-label {
-  position: absolute;
-  z-index: 2;
+.my-okey-center-seat-area.pos-4 {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.my-okey-center-seat-name {
+  justify-self: center;
   border: 1px solid rgba(215, 245, 233, 0.55);
   border-radius: 4px;
   background: rgba(173, 221, 204, 0.22);
@@ -5862,28 +5869,35 @@
   padding: 4px 7px;
 }
 
-.my-okey-center-seat-label.top {
-  top: 6px;
-  left: 50%;
-  transform: translateX(-50%);
+.my-okey-center-seat-melds {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-content: flex-start;
+  min-height: 44px;
 }
 
-.my-okey-center-seat-label.right {
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
+.my-okey-center-seat-meld {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid rgba(173, 206, 193, 0.38);
+  background: rgba(4, 56, 38, 0.34);
 }
 
-.my-okey-center-seat-label.bottom {
-  bottom: 6px;
-  left: 50%;
-  transform: translateX(-50%);
+.my-okey-center-seat-meld .my-game-coming-prototype-rack-tile {
+  min-width: 24px;
+  height: 34px;
+  font-size: 0.95rem;
 }
 
-.my-okey-center-seat-label.left {
-  left: 6px;
-  top: 50%;
-  transform: translateY(-50%);
+.my-okey-center-seat-empty {
+  color: rgba(225, 251, 241, 0.78);
+  font-size: 0.66rem;
+  font-weight: 700;
 }
 
 .my-okey-center-summary {
