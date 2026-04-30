@@ -3187,12 +3187,14 @@ const [okeyPrototypeDiscardPile, setOkeyPrototypeDiscardPile] = useState<OkeyPro
 const [okeyPrototypePendingDiscardTileId, setOkeyPrototypePendingDiscardTileId] = useState("");
 const [okeyPrototypeDiscardDraftTileId, setOkeyPrototypeDiscardDraftTileId] = useState("");
 const [okeyPrototypeDiscardArrivalState, setOkeyPrototypeDiscardArrivalState] = useState<{ seatNo: OkeyPrototypeSeatNo; entryId: string } | null>(null);
-const [okeyPrototypePendingDiscardPickup, setOkeyPrototypePendingDiscardPickup] = useState<{
+  const [okeyPrototypePendingDiscardPickup, setOkeyPrototypePendingDiscardPickup] = useState<{
   sourceEntry: OkeyPrototypeDiscardEntry;
   pickedTileId: string;
   seatNo: OkeyPrototypeSeatNo;
 } | null>(null);
 const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useState<string[]>([]);
+  const [okeyPrototypeDeckDrawPulse, setOkeyPrototypeDeckDrawPulse] = useState(false);
+  const [okeyPrototypeDeckDrawTile, setOkeyPrototypeDeckDrawTile] = useState<OkeyPrototypeTile | null>(null);
   const [okeyPrototypeRackDragTileId, setOkeyPrototypeRackDragTileId] = useState("");
   const [okeyPrototypeFlippedJokerTileIds, setOkeyPrototypeFlippedJokerTileIds] = useState<string[]>([]);
   const [okeyPrototypeOpenedMelds, setOkeyPrototypeOpenedMelds] = useState<OkeyPrototypeMeldEntry[]>([]);
@@ -7454,6 +7456,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeFlippedJokerTileIds([]);
     setOkeyPrototypeOpenedMelds([]);
     setOkeyPrototypeAttachTargetMeldId("");
+    setOkeyPrototypeDeckDrawPulse(false);
+    setOkeyPrototypeDeckDrawTile(null);
     setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
     setOkeyPrototypeSeatOpenModes(createDefaultOkeyPrototypeSeatOpenModes());
     setOkeyPrototypeWinnerSeat(null);
@@ -7954,6 +7958,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     appendOkeyPrototypeAction(`Per genisletildi: K${targetMeld.seatNo} / El ${targetMeld.round} -> ${formatOkeyPrototypeTile(attachedTile)} eklendi.`);
   }
 
+  function triggerOkeyPrototypeDeckDrawAnimation(tile: OkeyPrototypeTile) {
+    setOkeyPrototypeDeckDrawTile(tile);
+    setOkeyPrototypeDeckDrawPulse(true);
+    window.setTimeout(() => {
+      setOkeyPrototypeDeckDrawPulse(false);
+    }, 280);
+    window.setTimeout(() => {
+      setOkeyPrototypeDeckDrawTile((current) => (current?.id === tile.id ? null : current));
+    }, 760);
+  }
+
   function drawOkeyPrototypeTile() {
     if (okeyPrototypeHandCompleted) {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
@@ -7996,6 +8011,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeTurnPhase("discard");
     setOkeyPrototypePendingDiscardTileId("");
     setOkeyPrototypeDiscardDraftTileId(tile.id);
+    triggerOkeyPrototypeDeckDrawAnimation(tile);
     appendOkeyPrototypeAction(`Tas cekildi: Koltuk ${seatNo} (${formatOkeyPrototypeTile(tile)})`);
     if (okeyPrototypeDrawPileRemaining === 1) {
       appendOkeyPrototypeAction("Kapali deste bitti: Son tas cekildi.");
@@ -14697,65 +14713,115 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
                     <div className="my-game-coming-prototype-board-grid" aria-label="101 okey oyun masasi">
                       <section className="my-game-coming-prototype-board-center" aria-label="Masa merkezi">
-                        <div className="my-okey-center-surface">
-                          {([1, 2, 3, 4] as OkeyPrototypeSeatNo[]).map((displayPosition) => {
-                            const seatNo = okeyPrototypeSeatByDisplayPosition[displayPosition] ?? displayPosition;
-                            const seatName = okeyPrototypeSeatNameByDisplayPosition[displayPosition] || `K${seatNo}`;
-                            const seatMelds = okeyPrototypeOpenedMeldsBySeat[seatNo] ?? [];
-                            return (
-                              <section
-                                key={`okey-center-seat-area-${displayPosition}-${seatNo}`}
-                                className={`my-okey-center-seat-area pos-${displayPosition}`}
-                                aria-label={`${seatName} acik taslari`}
+                        <div className="my-okey-center-main-layout">
+                          <div className="my-okey-center-surface">
+                            {([1, 2, 3, 4] as OkeyPrototypeSeatNo[]).map((displayPosition) => {
+                              const seatNo = okeyPrototypeSeatByDisplayPosition[displayPosition] ?? displayPosition;
+                              const seatName = okeyPrototypeSeatNameByDisplayPosition[displayPosition] || `K${seatNo}`;
+                              const seatMelds = okeyPrototypeOpenedMeldsBySeat[seatNo] ?? [];
+                              const seatSerialMelds = seatMelds.filter((meld) => meld.kind === "seri");
+                              return (
+                                <section
+                                  key={`okey-center-seat-area-${displayPosition}-${seatNo}`}
+                                  className={`my-okey-center-seat-area pos-${displayPosition}`}
+                                  aria-label={`${seatName} seri acma alani`}
+                                >
+                                  <div className="my-okey-center-seat-head">
+                                    <span className="my-okey-center-seat-name">{seatName}</span>
+                                  </div>
+                                  <div className="my-okey-center-seat-melds">
+                                    {seatSerialMelds.length === 0 ? (
+                                      <span className="my-okey-center-seat-empty">Acik yok</span>
+                                    ) : (
+                                      seatSerialMelds.map((meld) => (
+                                        <div key={meld.id} className="my-okey-center-seat-meld kind-seri">
+                                          {meld.tiles.map((tile) => {
+                                            const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+                                            return (
+                                              <span
+                                                key={`${meld.id}-${tile.id}`}
+                                                className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${tileIsJoker ? "joker-tile" : ""}`}
+                                                title={formatOkeyPrototypeTile(tile)}
+                                              >
+                                                {renderOkeyPrototypeTileFace(tile)}
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                </section>
+                              );
+                            })}
+                          </div>
+
+                          <aside className="my-okey-center-side-lanes" aria-label="Kapali deste ve cift acma sutunlari">
+                            <div className="my-okey-center-piles-visual" aria-label="Kapali deste">
+                              <button
+                                type="button"
+                                className={`my-okey-center-pile-visual center ${okeyPrototypeCanDrawTile ? "suggested" : ""} ${okeyPrototypeDeckDrawPulse ? "draw-pulse" : ""}`}
+                                onClick={drawOkeyPrototypeTile}
+                                disabled={!okeyPrototypeCanDrawTile}
                               >
-                                <div className="my-okey-center-seat-head">
-                                  <span className="my-okey-center-seat-name">{seatName}</span>
-                                </div>
-                                <div className="my-okey-center-seat-melds">
-                                  {seatMelds.length === 0 ? (
-                                    <span className="my-okey-center-seat-empty">Acik yok</span>
-                                  ) : (
-                                    seatMelds.map((meld) => (
-                                      <div key={meld.id} className={`my-okey-center-seat-meld kind-${meld.kind}`}>
-                                        {meld.tiles.map((tile) => {
-                                          const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
-                                          return (
-                                            <span
-                                              key={`${meld.id}-${tile.id}`}
-                                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${tileIsJoker ? "joker-tile" : ""}`}
-                                              title={formatOkeyPrototypeTile(tile)}
-                                            >
-                                              {renderOkeyPrototypeTileFace(tile)}
-                                            </span>
-                                          );
-                                        })}
-                                      </div>
-                                    ))
-                                  )}
-                                </div>
-                              </section>
-                            );
-                          })}
+                                <span>Kapali Deste</span>
+                                <strong>{okeyPrototypeDrawPileRemaining}</strong>
+                                {okeyPrototypeDeckDrawTile ? (
+                                  <span
+                                    className={`my-game-coming-prototype-rack-tile my-okey-center-draw-ghost tile-${okeyPrototypeDeckDrawTile.color} ${isOkeyPrototypeJokerTile(okeyPrototypeDeckDrawTile, okeyPrototypeOkeyTile) ? "joker-tile" : ""}`}
+                                    title={`Cekilen tas: ${formatOkeyPrototypeTile(okeyPrototypeDeckDrawTile)}`}
+                                  >
+                                    {renderOkeyPrototypeTileFace(okeyPrototypeDeckDrawTile)}
+                                  </span>
+                                ) : null}
+                                <small>Cekmek icin tikla</small>
+                              </button>
+                            </div>
+
+                            <div className="my-okey-center-pair-columns" aria-label="Cift acma sutunlari">
+                              {([1, 2, 3, 4] as OkeyPrototypeSeatNo[]).map((displayPosition) => {
+                                const seatNo = okeyPrototypeSeatByDisplayPosition[displayPosition] ?? displayPosition;
+                                const seatName = okeyPrototypeSeatNameByDisplayPosition[displayPosition] || `K${seatNo}`;
+                                const seatPairMelds = (okeyPrototypeOpenedMeldsBySeat[seatNo] ?? []).filter((meld) => meld.kind === "set");
+                                return (
+                                  <section key={`okey-pair-column-${displayPosition}-${seatNo}`} className="my-okey-center-pair-column">
+                                    <span className="my-okey-center-pair-column-title">{seatName}</span>
+                                    <div className="my-okey-center-pair-column-body">
+                                      {seatPairMelds.length === 0 ? (
+                                        <span className="my-okey-center-pair-empty">-</span>
+                                      ) : (
+                                        seatPairMelds.map((meld) => (
+                                          <div key={meld.id} className="my-okey-center-pair-group">
+                                            {meld.tiles.map((tile) => {
+                                              const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+                                              return (
+                                                <span
+                                                  key={`${meld.id}-${tile.id}`}
+                                                  className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${tileIsJoker ? "joker-tile" : ""}`}
+                                                  title={formatOkeyPrototypeTile(tile)}
+                                                >
+                                                  {renderOkeyPrototypeTileFace(tile)}
+                                                </span>
+                                              );
+                                            })}
+                                          </div>
+                                        ))
+                                      )}
+                                    </div>
+                                  </section>
+                                );
+                              })}
+                            </div>
+                          </aside>
                         </div>
-	                        <div className="my-okey-center-summary">
-	                          <p>Gosterge: <strong>{okeyPrototypeIndicatorTile ? formatOkeyPrototypeTile(okeyPrototypeIndicatorTile) : "-"}</strong></p>
-	                          <p>Okey: <strong>{okeyPrototypeOkeyTile ? formatOkeyPrototypeTile(okeyPrototypeOkeyTile) : "-"}</strong></p>
-	                          <p>Acik Per: <strong>{okeyPrototypeOpenedMelds.length}</strong></p>
-	                          <p>Sahte Okey: <strong>{okeyPrototypeSahteOkeyCount}</strong></p>
-	                        </div>
-	                        <div className="my-okey-center-piles-visual" aria-label="Kapali deste">
-	                          <button
-	                            type="button"
-	                            className={`my-okey-center-pile-visual center ${okeyPrototypeCanDrawTile ? "suggested" : ""}`}
-	                            onClick={drawOkeyPrototypeTile}
-	                            disabled={!okeyPrototypeCanDrawTile}
-	                          >
-	                            <span>Kapali Deste</span>
-	                            <strong>{okeyPrototypeDrawPileRemaining}</strong>
-	                            <small>Cekmek icin tikla</small>
-	                          </button>
-	                        </div>
-	                      </section>
+
+                        <div className="my-okey-center-summary">
+                          <p>Gosterge: <strong>{okeyPrototypeIndicatorTile ? formatOkeyPrototypeTile(okeyPrototypeIndicatorTile) : "-"}</strong></p>
+                          <p>Okey: <strong>{okeyPrototypeOkeyTile ? formatOkeyPrototypeTile(okeyPrototypeOkeyTile) : "-"}</strong></p>
+                          <p>Acik Per: <strong>{okeyPrototypeOpenedMelds.length}</strong></p>
+                          <p>Sahte Okey: <strong>{okeyPrototypeSahteOkeyCount}</strong></p>
+                        </div>
+                      </section>
 
                       {OKEY_PROTOTYPE_SEATS.map((seatNo) => {
                         const seatTiles = okeyPrototypeRackState[seatNo] ?? [];
