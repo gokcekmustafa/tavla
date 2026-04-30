@@ -8585,6 +8585,16 @@ function Okey101App() {
     processOkeyPrototypeAttachments("seri", "Seri Isleme");
   }
 
+  function arrangeOkeyPrototypeAsPairs() {
+    sortOkeyPrototypeRack("value");
+    appendOkeyPrototypeAction("Cift diz uygulandi.");
+  }
+
+  function arrangeOkeyPrototypeAsSeries() {
+    sortOkeyPrototypeRack("color");
+    appendOkeyPrototypeAction("Seri diz uygulandi.");
+  }
+
   function openOkeyPrototypeSerialMeld() {
     if (!okeyPrototypeCanSelectRackTiles) {
       appendOkeyPrototypeAction("Seri acmak icin once tas cekme adimini tamamlamalisin.");
@@ -14744,7 +14754,7 @@ function Okey101App() {
 	                        <div className="my-okey-indicator-card-tile-wrap">
 	                          {okeyPrototypeIndicatorTile ? (
 	                            <span
-	                              className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeIndicatorTile.color} ${isOkeyPrototypeJokerTile(okeyPrototypeIndicatorTile, okeyPrototypeOkeyTile) ? "joker-tile" : ""}`}
+	                              className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeIndicatorTile.color}`}
 	                              title={formatOkeyPrototypeTile(okeyPrototypeIndicatorTile)}
 	                            >
 	                              {renderOkeyPrototypeTileFace(okeyPrototypeIndicatorTile)}
@@ -14759,7 +14769,7 @@ function Okey101App() {
 	                        <div className="my-okey-indicator-card-tile-wrap">
 	                          {okeyPrototypeOkeyTile ? (
 	                            <span
-	                              className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeOkeyTile.color} ${isOkeyPrototypeJokerTile(okeyPrototypeOkeyTile, okeyPrototypeOkeyTile) ? "joker-tile" : ""}`}
+	                              className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeOkeyTile.color}`}
 	                              title={formatOkeyPrototypeTile(okeyPrototypeOkeyTile)}
 	                            >
 	                              {renderOkeyPrototypeTileFace(okeyPrototypeOkeyTile)}
@@ -15056,6 +15066,14 @@ function Okey101App() {
                           >
                             Çift İşle
                           </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={arrangeOkeyPrototypeAsPairs}
+                            disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                          >
+                            Çift Diz
+                          </button>
                         </div>
                         <div className="my-okey-open-actions-col">
                           <button
@@ -15073,6 +15091,14 @@ function Okey101App() {
                             disabled={!okeyPrototypeCanProcessSeries}
                           >
                             Seri İşle
+                          </button>
+                          <button
+                            type="button"
+                            className="my-action-btn soft"
+                            onClick={arrangeOkeyPrototypeAsSeries}
+                            disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                          >
+                            Seri Diz
                           </button>
                         </div>
                       </div>
