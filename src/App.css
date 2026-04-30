@@ -5494,7 +5494,7 @@
   opacity: 0.52;
 }
 
-@media (max-width: 920px) {
+@media (max-width: 760px) {
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -5616,7 +5616,7 @@
   color: #fff7d8;
 }
 
-@media (max-width: 920px) {
+@media (max-width: 760px) {
   .my-okey-lower-strip {
     grid-template-columns: 1fr;
   }
@@ -5765,7 +5765,7 @@
   background: linear-gradient(180deg, #0f6f8d, #0b5d78);
 }
 
-@media (max-width: 920px) {
+@media (max-width: 760px) {
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-actions {
     grid-template-columns: 1fr;
   }
@@ -6270,7 +6270,7 @@
   background: linear-gradient(180deg, #0f728f, #0a5d76);
 }
 
-@media (max-width: 920px) {
+@media (max-width: 760px) {
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -6303,7 +6303,7 @@
   max-width: 100%;
 }
 
-@media (max-width: 920px) {
+@media (max-width: 760px) {
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -6375,7 +6375,7 @@
   justify-self: start;
 }
 
-@media (max-width: 920px) {
+@media (max-width: 760px) {
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-piles-visual {
     grid-template-columns: 1fr;
   }
