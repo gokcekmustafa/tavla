@@ -562,8 +562,7 @@ function shuffleOkeyPrototypeDeck(tiles: OkeyPrototypeTile[], seed = 0) {
 
 function createOkeyPrototypeDeck(seed = 0) {
   const safeSeed = Math.abs(Math.trunc(seed)) || Date.now();
-  const normalTileKinds = OKEY_PROTOTYPE_TILE_COLORS.length * 13;
-  const normalCopies = Math.max(1, Math.floor((OKEY_PROTOTYPE_TOTAL_TILE_COUNT - 2) / normalTileKinds));
+  const normalCopies = 2;
   const tiles: OkeyPrototypeTile[] = [];
   OKEY_PROTOTYPE_TILE_COLORS.forEach((color) => {
     for (let value = 1; value <= 13; value += 1) {
@@ -577,8 +576,7 @@ function createOkeyPrototypeDeck(seed = 0) {
       }
     }
   });
-  const producedNormalCount = normalTileKinds * normalCopies;
-  const sahteCount = Math.max(0, OKEY_PROTOTYPE_TOTAL_TILE_COUNT - producedNormalCount);
+  const sahteCount = 2;
   for (let copy = 1; copy <= sahteCount; copy += 1) {
     tiles.push({
       id: `okey-proto-deck-sahte-${copy}-${safeSeed}`,
@@ -586,6 +584,9 @@ function createOkeyPrototypeDeck(seed = 0) {
       color: "sahte",
       value: 0,
     });
+  }
+  if (tiles.length !== OKEY_PROTOTYPE_TOTAL_TILE_COUNT) {
+    throw new Error(`101 deste sayisi hatali: ${tiles.length} (beklenen ${OKEY_PROTOTYPE_TOTAL_TILE_COUNT})`);
   }
   return shuffleOkeyPrototypeDeck(tiles, safeSeed);
 }
@@ -706,8 +707,22 @@ function renderOkeyPrototypeTileFace(tile: OkeyPrototypeTile) {
   return String(tile.value);
 }
 
+function getOkeyPrototypeEffectiveTileForRules(
+  tile: OkeyPrototypeTile,
+  okeyTile: OkeyPrototypeTile | null = null,
+) {
+  if (tile.kind !== "sahte" || !okeyTile || okeyTile.kind !== "normal") {
+    return tile;
+  }
+  return {
+    ...tile,
+    color: okeyTile.color,
+    value: okeyTile.value,
+  };
+}
+
 function isOkeyPrototypeJokerTile(tile: OkeyPrototypeTile, okeyTile: OkeyPrototypeTile | null = null) {
-  if (tile.kind === "sahte") return true;
+  if (tile.kind !== "normal") return false;
   if (!okeyTile || okeyTile.kind !== "normal") return false;
   return tile.kind === "normal" && tile.color === okeyTile.color && tile.value === okeyTile.value;
 }
@@ -965,8 +980,9 @@ function evaluateOkeyPrototypeMeldDraft(tiles: OkeyPrototypeTile[], okeyTile: Ok
   if (tiles.length > 13) {
     return { valid: false, kind: null as OkeyPrototypeMeldKind | null, reason: "Bu kadar tas tek perde kullanilamaz." };
   }
-  const jokerCount = tiles.filter((tile) => isOkeyPrototypeJokerTile(tile, okeyTile)).length;
-  const normalTiles = tiles.filter((tile) => !isOkeyPrototypeJokerTile(tile, okeyTile));
+  const ruleTiles = tiles.map((tile) => getOkeyPrototypeEffectiveTileForRules(tile, okeyTile));
+  const jokerCount = ruleTiles.filter((tile) => isOkeyPrototypeJokerTile(tile, okeyTile)).length;
+  const normalTiles = ruleTiles.filter((tile) => !isOkeyPrototypeJokerTile(tile, okeyTile));
 
   const setAttempt = (() => {
     if (tiles.length > 4) {
@@ -1037,10 +1053,11 @@ function getOkeyPrototypeMeldPointsWithJokers(tiles: OkeyPrototypeTile[], okeyTi
   if (!validation.valid || !validation.kind) {
     return getOkeyPrototypeMeldPoints(tiles);
   }
-  const jokerTiles = tiles.filter((tile) => isOkeyPrototypeJokerTile(tile, okeyTile));
-  const normalTiles = tiles.filter((tile) => !isOkeyPrototypeJokerTile(tile, okeyTile));
+  const ruleTiles = tiles.map((tile) => getOkeyPrototypeEffectiveTileForRules(tile, okeyTile));
+  const jokerTiles = ruleTiles.filter((tile) => isOkeyPrototypeJokerTile(tile, okeyTile));
+  const normalTiles = ruleTiles.filter((tile) => !isOkeyPrototypeJokerTile(tile, okeyTile));
   if (jokerTiles.length === 0) {
-    return getOkeyPrototypeMeldPoints(tiles);
+    return getOkeyPrototypeMeldPoints(ruleTiles);
   }
   if (validation.kind === "set") {
     const baseValue = normalTiles[0]?.value ?? 10;
@@ -1085,7 +1102,8 @@ function getOkeyPrototypeRackPenaltyPoints(
   tiles: OkeyPrototypeTile[],
   okeyTile: OkeyPrototypeTile | null = null,
 ) {
-  return tiles.reduce((sum, tile) => {
+  return tiles.reduce((sum, sourceTile) => {
+    const tile = getOkeyPrototypeEffectiveTileForRules(sourceTile, okeyTile);
     if (isOkeyPrototypeJokerTile(tile, okeyTile)) return sum + 25;
     return sum + Math.max(1, tile.value);
   }, 0);
@@ -1096,8 +1114,8 @@ function countOkeyPrototypeIdenticalPairs(
   okeyTile: OkeyPrototypeTile | null = null,
 ) {
   const counts = new Map<string, number>();
-  tiles.forEach((tile) => {
-    if (tile.kind !== "normal") return;
+  tiles.forEach((sourceTile) => {
+    const tile = getOkeyPrototypeEffectiveTileForRules(sourceTile, okeyTile);
     if (isOkeyPrototypeJokerTile(tile, okeyTile)) return;
     const key = `${tile.color}-${tile.value}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);
@@ -3496,6 +3514,7 @@ function Okey101App() {
   const [okeyPrototypeDiscardDraftTileId, setOkeyPrototypeDiscardDraftTileId] = useState("");
   const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useState<string[]>([]);
   const [okeyPrototypeRackDragTileId, setOkeyPrototypeRackDragTileId] = useState("");
+  const [okeyPrototypeFlippedJokerTileIds, setOkeyPrototypeFlippedJokerTileIds] = useState<string[]>([]);
   const [okeyPrototypeOpenedMelds, setOkeyPrototypeOpenedMelds] = useState<OkeyPrototypeMeldEntry[]>([]);
   const [okeyPrototypeAttachTargetMeldId, setOkeyPrototypeAttachTargetMeldId] = useState("");
   const [okeyPrototypeDealSeedDraft, setOkeyPrototypeDealSeedDraft] = useState(() => String(Date.now()));
@@ -3733,6 +3752,10 @@ function Okey101App() {
   const okeyPrototypeSeatRackTiles = useMemo(() => {
     return okeyPrototypeRackState[okeyPrototypeSeatNoForRack] ?? [];
   }, [okeyPrototypeRackState, okeyPrototypeSeatNoForRack]);
+  useEffect(() => {
+    const rackTileIdSet = new Set(okeyPrototypeSeatRackTiles.map((tile) => tile.id));
+    setOkeyPrototypeFlippedJokerTileIds((current) => current.filter((tileId) => rackTileIdSet.has(tileId)));
+  }, [okeyPrototypeSeatRackTiles]);
   const okeyPrototypeTurnRackTiles = useMemo(() => {
     return okeyPrototypeRackState[okeyPrototypeTurnSeat as OkeyPrototypeSeatNo] ?? [];
   }, [okeyPrototypeRackState, okeyPrototypeTurnSeat]);
@@ -7322,18 +7345,6 @@ function Okey101App() {
     appendOkeyPrototypeAction(`Arama sonucu secildi: ${targetTable.tableNo}`);
   }
 
-  function buildOkeyPrototypeDrawTile(seatNo: OkeyPrototypeSeatNo, currentLength: number): OkeyPrototypeTile {
-    const base = okeyPrototypeTurnRound * 10 + seatNo * 7 + currentLength;
-    const color = OKEY_PROTOTYPE_TILE_COLORS[base % OKEY_PROTOTYPE_TILE_COLORS.length];
-    const value = (base % 13) + 1;
-    return {
-      id: `okey-proto-draw-${seatNo}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      kind: "normal",
-      color,
-      value,
-    };
-  }
-
   function getOkeyPrototypeCurrentSeatState(joinedAt = Date.now()): OkeyPrototypeLobbySeatState {
     return {
       userId: sanitizeGuestId(currentProfile.userId),
@@ -7394,6 +7405,7 @@ function Okey101App() {
     setOkeyPrototypePendingDiscardTileId("");
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
+    setOkeyPrototypeFlippedJokerTileIds([]);
     setOkeyPrototypeOpenedMelds([]);
     setOkeyPrototypeAttachTargetMeldId("");
     setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
@@ -7715,6 +7727,7 @@ function Okey101App() {
     setOkeyPrototypePendingDiscardTileId("");
     setOkeyPrototypeDiscardDraftTileId("");
     setOkeyPrototypeMeldDraftTileIds([]);
+    setOkeyPrototypeFlippedJokerTileIds([]);
     setOkeyPrototypeOpenedMelds([]);
     setOkeyPrototypeAttachTargetMeldId("");
     setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
@@ -7849,6 +7862,17 @@ function Okey101App() {
     if (okeyPrototypeSuppressRackClickRef.current) return;
     selectOkeyPrototypeDiscardDraft(tileId);
     toggleOkeyPrototypeMeldDraftTile(tileId);
+  }
+
+  function handleOkeyPrototypeRackTileContextMenu(event: React.MouseEvent<HTMLButtonElement>, tile: OkeyPrototypeTile) {
+    const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
+    if (!tileIsJoker) return;
+    event.preventDefault();
+    setOkeyPrototypeFlippedJokerTileIds((current) => (
+      current.includes(tile.id)
+        ? current.filter((id) => id !== tile.id)
+        : [...current, tile.id]
+    ));
   }
 
   function ensureOkeyPrototypeGameStarted(actionLabel: string) {
@@ -8198,7 +8222,7 @@ function Okey101App() {
       appendOkeyPrototypeAction(`Gecersiz hamle: Tas cekmek icin rafta ${okeyPrototypeTurnExpectedRackCountBeforeDraw} tas olmali (su an ${currentRack.length}).`);
       return;
     }
-    const tile = topWallTile ?? buildOkeyPrototypeDrawTile(seatNo, currentRack.length);
+    const tile = topWallTile;
     setOkeyPrototypeWallTiles((current) => current.slice(1));
     setOkeyPrototypeRackState((current) => ({
       ...current,
@@ -8718,6 +8742,7 @@ function Okey101App() {
     setOkeyPrototypeTurnOpeningPoints(0);
     setOkeyPrototypeDiscardDraftTileId(nextDiscardDraftTileId);
     setOkeyPrototypeMeldDraftTileIds([]);
+    setOkeyPrototypeFlippedJokerTileIds([]);
     setOkeyPrototypeOpenedMelds(nextOpenedMelds);
     setOkeyPrototypeAttachTargetMeldId(nextAttachTargetMeldId);
     setOkeyPrototypeSeatOpenedState(nextSeatOpenedState);
@@ -14743,7 +14768,7 @@ function Okey101App() {
 	                            <strong>-</strong>
 	                          )}
 	                        </div>
-	                        <small>Sahte Okey joker olarak kullanilir.</small>
+	                        <small>Sahte Okey, okey tasinin deger/renk kopyasi gibi kullanilir.</small>
 	                      </div>
 	                      <button
 	                        type="button"
@@ -15076,16 +15101,17 @@ function Okey101App() {
                                   {tile ? (
                                     <button
                                       type="button"
-                                      className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""}`}
+                                      className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""} ${okeyPrototypeFlippedJokerTileIds.includes(tile.id) ? "okey-flipped" : ""}`}
                                       onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
+                                      onContextMenu={(event) => handleOkeyPrototypeRackTileContextMenu(event, tile)}
                                       draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
                                       onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
                                       onDragEnd={() => setOkeyPrototypeRackDragTileId("")}
                                       aria-disabled={!okeyPrototypeCanSelectRackTiles}
                                       aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
-                                      title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
+                                      title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (okey - sag tikla cevir)" : ""}`}
                                     >
-                                      {renderOkeyPrototypeTileFace(tile)}
+                                      {okeyPrototypeFlippedJokerTileIds.includes(tile.id) ? "?" : renderOkeyPrototypeTileFace(tile)}
                                     </button>
                                   ) : null}
                                 </div>

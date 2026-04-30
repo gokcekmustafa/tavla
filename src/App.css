@@ -1771,18 +1771,22 @@
 
 .my-game-coming-prototype-rack-tile.tile-kirmizi {
   background: linear-gradient(180deg, #d04a43, #9e2e2b);
+  color: #fff8f8;
 }
 
 .my-game-coming-prototype-rack-tile.tile-mavi {
   background: linear-gradient(180deg, #4a8fcb, #2d5e90);
+  color: #f4f9ff;
 }
 
 .my-game-coming-prototype-rack-tile.tile-sari {
-  background: linear-gradient(180deg, #c79f3d, #8f7028);
+  background: linear-gradient(180deg, #f0b53b, #b9841e);
+  color: #fff9e8;
 }
 
 .my-game-coming-prototype-rack-tile.tile-siyah {
   background: linear-gradient(180deg, #4a5866, #2a323b);
+  color: #f3f8ff;
 }
 
 .my-game-coming-prototype-rack-tile.tile-sahte {
@@ -5177,28 +5181,37 @@
 
 .my-game-coming-prototype-rack-tile.tile-kirmizi {
   background: linear-gradient(180deg, #fffdf5, #f3e6cb);
-  color: #bb2424;
+  color: #d73333;
 }
 
 .my-game-coming-prototype-rack-tile.tile-mavi {
   background: linear-gradient(180deg, #fffdf5, #f3e6cb);
-  color: #2f5fa4;
+  color: #2f58d8;
 }
 
 .my-game-coming-prototype-rack-tile.tile-sari {
   background: linear-gradient(180deg, #fffdf5, #f3e6cb);
-  color: #8e6d1f;
+  color: #e0a416;
 }
 
 .my-game-coming-prototype-rack-tile.tile-siyah {
   background: linear-gradient(180deg, #fffdf5, #f3e6cb);
-  color: #2f3642;
+  color: #2b2f38;
 }
 
 .my-game-coming-prototype-rack-tile.tile-sahte,
 .my-game-coming-prototype-rack-tile.joker-tile {
   background: linear-gradient(180deg, #fff3d8, #eed6a1);
   color: #8f5b15;
+}
+
+.my-game-coming-prototype-rack-tile.okey-flipped {
+  background: linear-gradient(180deg, #616161, #3f3f3f) !important;
+  color: #f6f6f6 !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 @media (max-width: 920px) {
