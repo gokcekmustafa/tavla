@@ -6289,11 +6289,13 @@
 
 /* 101 seat layout symmetry fix */
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
+  position: relative;
   grid-template-columns: 180px minmax(250px, 1fr) 180px;
   grid-template-areas:
     ". seat-1 ."
     "seat-4 center seat-2"
-    ". seat-3 local-discard";
+    ". seat-3 .";
+  padding: 74px 72px;
   align-items: stretch;
   justify-items: stretch;
 }
@@ -6303,37 +6305,67 @@
   max-width: 100%;
 }
 
-.my-game-coming-room-shell[data-table-active="true"] .my-okey-local-discard-pocket {
-  grid-area: local-discard;
-  align-self: end;
-  justify-self: stretch;
-  min-height: 128px;
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket {
+  appearance: none;
+  position: absolute;
+  width: calc(58px * var(--okey-proto-tile-scale, 1));
+  min-height: calc(98px * var(--okey-proto-tile-scale, 1));
   border-radius: 10px;
   border: 1px solid rgba(176, 226, 208, 0.45);
   background: linear-gradient(180deg, rgba(6, 89, 63, 0.54), rgba(4, 68, 48, 0.68));
   display: grid;
   align-content: start;
   justify-items: start;
-  gap: 8px;
-  padding: 10px;
+  gap: 6px;
+  padding: 8px 7px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 }
 
-.my-game-coming-room-shell[data-table-active="true"] .my-okey-local-discard-pocket > span:first-child {
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-1 {
+  top: 8px;
+  left: 8px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-2 {
+  top: 8px;
+  right: 8px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3 {
+  bottom: 8px;
+  right: 8px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
+  bottom: 8px;
+  left: 8px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.suggested {
+  border-color: rgba(247, 224, 156, 0.92);
+  box-shadow: 0 0 0 1px rgba(247, 224, 156, 0.34) inset;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket > span:first-child {
   color: #dbf7ea;
-  font-size: 0.72rem;
+  font-size: 0.62rem;
   font-weight: 800;
-}
-
-.my-game-coming-room-shell[data-table-active="true"] .my-okey-local-discard-pocket > strong {
-  color: #eefcf5;
-  font-size: 1rem;
   line-height: 1;
 }
 
-.my-game-coming-room-shell[data-table-active="true"] .my-okey-local-discard-pocket .my-game-coming-prototype-rack-tile {
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket > strong {
+  color: #eefcf5;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile {
   min-width: calc(38px * var(--okey-proto-tile-scale, 1));
   height: calc(52px * var(--okey-proto-tile-scale, 1));
   font-size: calc(1.16rem * var(--okey-proto-tile-scale, 1));
+  justify-self: center;
 }
 
 @keyframes my-okey-discard-arrive {
@@ -6351,27 +6383,33 @@
   }
 }
 
-.my-game-coming-room-shell[data-table-active="true"] .my-okey-local-discard-pocket .my-game-coming-prototype-rack-tile.discard-arrive {
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile.discard-arrive {
   animation: my-okey-discard-arrive 0.5s ease-out;
 }
 
 @media (max-width: 760px) {
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
+    padding: 0;
     grid-template-columns: 1fr;
     grid-template-areas:
       "center"
       "seat-1"
       "seat-2"
       "seat-3"
-      "local-discard"
       "seat-4";
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket {
+    position: static;
+    width: 100%;
+    min-height: 72px;
   }
 }
 
 /* 101 draw/discard play lanes */
 .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-piles-visual {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 8px;
   margin-top: 6px;
 }
