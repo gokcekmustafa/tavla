@@ -6293,7 +6293,7 @@
   grid-template-areas:
     ". seat-1 ."
     "seat-4 center seat-2"
-    ". seat-3 .";
+    ". seat-3 local-discard";
   align-items: stretch;
   justify-items: stretch;
 }
@@ -6301,6 +6301,58 @@
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat {
   width: 100%;
   max-width: 100%;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-local-discard-pocket {
+  grid-area: local-discard;
+  align-self: end;
+  justify-self: stretch;
+  min-height: 128px;
+  border-radius: 10px;
+  border: 1px solid rgba(176, 226, 208, 0.45);
+  background: linear-gradient(180deg, rgba(6, 89, 63, 0.54), rgba(4, 68, 48, 0.68));
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 8px;
+  padding: 10px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-local-discard-pocket > span:first-child {
+  color: #dbf7ea;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-local-discard-pocket > strong {
+  color: #eefcf5;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-local-discard-pocket .my-game-coming-prototype-rack-tile {
+  min-width: calc(38px * var(--okey-proto-tile-scale, 1));
+  height: calc(52px * var(--okey-proto-tile-scale, 1));
+  font-size: calc(1.16rem * var(--okey-proto-tile-scale, 1));
+}
+
+@keyframes my-okey-discard-arrive {
+  0% {
+    transform: translateX(-36px) translateY(10px) scale(0.78);
+    opacity: 0;
+  }
+  55% {
+    transform: translateX(3px) translateY(-2px) scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-local-discard-pocket .my-game-coming-prototype-rack-tile.discard-arrive {
+  animation: my-okey-discard-arrive 0.5s ease-out;
 }
 
 @media (max-width: 760px) {
@@ -6311,6 +6363,7 @@
       "seat-1"
       "seat-2"
       "seat-3"
+      "local-discard"
       "seat-4";
   }
 }

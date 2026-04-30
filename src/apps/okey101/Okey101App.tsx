@@ -3183,10 +3183,11 @@ function Okey101App() {
   const [okeyPrototypeIndicatorTile, setOkeyPrototypeIndicatorTile] = useState<OkeyPrototypeTile | null>(() => okeyPrototypeInitialDeal.indicatorTile);
   const [okeyPrototypeOkeyTile, setOkeyPrototypeOkeyTile] = useState<OkeyPrototypeTile | null>(() => okeyPrototypeInitialDeal.okeyTile);
   const [okeyPrototypeSahteOkeyCount, setOkeyPrototypeSahteOkeyCount] = useState(() => 2);
-  const [okeyPrototypeDiscardPile, setOkeyPrototypeDiscardPile] = useState<OkeyPrototypeDiscardEntry[]>([]);
-  const [okeyPrototypePendingDiscardTileId, setOkeyPrototypePendingDiscardTileId] = useState("");
-  const [okeyPrototypeDiscardDraftTileId, setOkeyPrototypeDiscardDraftTileId] = useState("");
-  const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useState<string[]>([]);
+const [okeyPrototypeDiscardPile, setOkeyPrototypeDiscardPile] = useState<OkeyPrototypeDiscardEntry[]>([]);
+const [okeyPrototypePendingDiscardTileId, setOkeyPrototypePendingDiscardTileId] = useState("");
+const [okeyPrototypeDiscardDraftTileId, setOkeyPrototypeDiscardDraftTileId] = useState("");
+const [okeyPrototypeDiscardArrivalKey, setOkeyPrototypeDiscardArrivalKey] = useState("");
+const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useState<string[]>([]);
   const [okeyPrototypeRackDragTileId, setOkeyPrototypeRackDragTileId] = useState("");
   const [okeyPrototypeFlippedJokerTileIds, setOkeyPrototypeFlippedJokerTileIds] = useState<string[]>([]);
   const [okeyPrototypeOpenedMelds, setOkeyPrototypeOpenedMelds] = useState<OkeyPrototypeMeldEntry[]>([]);
@@ -3651,6 +3652,18 @@ function Okey101App() {
     () => okeyPrototypeDiscardBySeat[okeyPrototypeLocalSeatNo] ?? null,
     [okeyPrototypeDiscardBySeat, okeyPrototypeLocalSeatNo],
   );
+  useEffect(() => {
+    const discardEntryId = okeyPrototypeLocalSeatDiscardEntry?.id ?? "";
+    if (!discardEntryId) {
+      setOkeyPrototypeDiscardArrivalKey("");
+      return;
+    }
+    setOkeyPrototypeDiscardArrivalKey(discardEntryId);
+    const timer = window.setTimeout(() => {
+      setOkeyPrototypeDiscardArrivalKey((prev) => (prev === discardEntryId ? "" : prev));
+    }, 520);
+    return () => window.clearTimeout(timer);
+  }, [okeyPrototypeLocalSeatDiscardEntry?.id]);
   const okeyPrototypeOpenedMeldsBySeat = useMemo(() => {
     const next: Record<OkeyPrototypeSeatNo, OkeyPrototypeMeldEntry[]> = {
       1: [],
@@ -14704,6 +14717,19 @@ function Okey101App() {
                           </article>
                         );
                       })}
+                      <aside className="my-okey-local-discard-pocket" aria-label="Saga atilan son tas">
+                        <span>Saga atilan tas</span>
+                        {okeyPrototypeLocalSeatDiscardEntry ? (
+                          <span
+                            className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeLocalSeatDiscardEntry.tile.color} ${isOkeyPrototypeJokerTile(okeyPrototypeLocalSeatDiscardEntry.tile, okeyPrototypeOkeyTile) ? "joker-tile" : ""} ${okeyPrototypeDiscardArrivalKey === okeyPrototypeLocalSeatDiscardEntry.id ? "discard-arrive" : ""}`}
+                            title={`${formatOkeyPrototypeTile(okeyPrototypeLocalSeatDiscardEntry.tile)} | K${okeyPrototypeLocalSeatDiscardEntry.seatNo}`}
+                          >
+                            {renderOkeyPrototypeTileFace(okeyPrototypeLocalSeatDiscardEntry.tile)}
+                          </span>
+                        ) : (
+                          <strong>-</strong>
+                        )}
+                      </aside>
                     </div>
                   </>
                 )}
