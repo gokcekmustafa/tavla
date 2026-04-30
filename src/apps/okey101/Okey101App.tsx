@@ -3871,8 +3871,35 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     okeyPrototypeTurnRackTiles,
     okeyPrototypeTurnSeat,
   ]);
-  const okeyPrototypeCanProcessPairs = okeyPrototypeAttachableCounts.set > 0;
-  const okeyPrototypeCanProcessSeries = okeyPrototypeAttachableCounts.seri > 0;
+  const okeyPrototypeCanOpenPairGroupFromRack = useMemo(() => {
+    if (!okeyPrototypeCanAdvanceTurn || okeyPrototypeTurnPhase !== "discard" || !okeyPrototypeCurrentSeatOpened) return false;
+    if (okeyPrototypeTurnSeatNo !== okeyPrototypeSeatNoForRack) return false;
+    return okeyPrototypeRackValidMeldGroups.some((group) => group.kind === "set" && group.tiles.length >= 3);
+  }, [
+    okeyPrototypeCanAdvanceTurn,
+    okeyPrototypeTurnPhase,
+    okeyPrototypeCurrentSeatOpened,
+    okeyPrototypeTurnSeatNo,
+    okeyPrototypeSeatNoForRack,
+    okeyPrototypeRackValidMeldGroups,
+  ]);
+  const okeyPrototypeCanOpenSerialGroupFromRack = useMemo(() => {
+    if (!okeyPrototypeCanAdvanceTurn || okeyPrototypeTurnPhase !== "discard" || !okeyPrototypeCurrentSeatOpened) return false;
+    if (okeyPrototypeTurnSeatNo !== okeyPrototypeSeatNoForRack) return false;
+    const seatOpenMode = okeyPrototypeSeatOpenModes[okeyPrototypeTurnSeatNo] ?? "none";
+    if (seatOpenMode === "pair") return false;
+    return okeyPrototypeRackValidMeldGroups.some((group) => group.kind === "seri" && group.tiles.length >= 3);
+  }, [
+    okeyPrototypeCanAdvanceTurn,
+    okeyPrototypeTurnPhase,
+    okeyPrototypeCurrentSeatOpened,
+    okeyPrototypeTurnSeatNo,
+    okeyPrototypeSeatNoForRack,
+    okeyPrototypeSeatOpenModes,
+    okeyPrototypeRackValidMeldGroups,
+  ]);
+  const okeyPrototypeCanProcessPairs = okeyPrototypeAttachableCounts.set > 0 || okeyPrototypeCanOpenPairGroupFromRack;
+  const okeyPrototypeCanProcessSeries = okeyPrototypeAttachableCounts.seri > 0 || okeyPrototypeCanOpenSerialGroupFromRack;
   // smoke-compat:
   // const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
   // && okeyPrototypeDiscardPile.length > 0;
@@ -7567,7 +7594,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     if (!okeyPrototypeCanDrawFromDiscard) return;
-    if (okeyPrototypeTakeableDiscardEntry?.seatNo !== seatNo) return;
     drawOkeyPrototypeTileFromDiscard();
   }
 
@@ -8248,6 +8274,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }));
     const attachedTileIds = new Set<string>();
     const updatedMeldById = new Map<string, OkeyPrototypeMeldEntry>();
+    const createdMeldEntries: OkeyPrototypeMeldEntry[] = [];
     let attachedCount = 0;
     let guard = 0;
     while (guard < 80) {
@@ -8272,6 +8299,48 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       }
       if (!changed) break;
     }
+    if (
+      seatNo === okeyPrototypeSeatNoForRack
+      && okeyPrototypeRackValidMeldGroups.length > 0
+      && workingRack.length >= 4
+    ) {
+      const seatOpenMode = okeyPrototypeSeatOpenModes[seatNo] ?? "none";
+      const now = Date.now();
+      const openableGroups = okeyPrototypeRackValidMeldGroups.filter((group) => {
+        if (group.kind !== kind) return false;
+        if (group.kind === "seri" && seatOpenMode === "pair") return false;
+        if (group.tiles.length < 3) return false;
+        return group.tiles.every((tile) => workingRack.some((entry) => entry.id === tile.id));
+      });
+      openableGroups.forEach((group, index) => {
+        if (workingRack.length - group.tiles.length < 1) return;
+        const selectedTiles: OkeyPrototypeTile[] = [];
+        group.tiles.forEach((tile) => {
+          const tileIndex = workingRack.findIndex((entry) => entry.id === tile.id);
+          if (tileIndex < 0) return;
+          const [pickedTile] = workingRack.splice(tileIndex, 1);
+          if (pickedTile) {
+            selectedTiles.push(pickedTile);
+            attachedTileIds.add(pickedTile.id);
+            attachedCount += 1;
+          }
+        });
+        if (selectedTiles.length < 3) {
+          workingRack.push(...selectedTiles);
+          return;
+        }
+        const meldEntry: OkeyPrototypeMeldEntry = {
+          id: `okey-proto-auto-meld-${seatNo}-${now}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+          seatNo,
+          round: okeyPrototypeTurnRound,
+          tiles: selectedTiles.slice().sort((left, right) => left.value - right.value),
+          kind,
+          at: now + index,
+        };
+        createdMeldEntries.push(meldEntry);
+        workingMelds.unshift(meldEntry);
+      });
+    }
     if (attachedCount === 0) {
       appendOkeyPrototypeAction(`${sourceLabel}: Islenebilecek tas bulunamadi.`);
       return;
@@ -8280,14 +8349,22 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       ...current,
       [seatNo]: workingRack,
     }));
-    setOkeyPrototypeOpenedMelds((current) => current.map((meld) => updatedMeldById.get(meld.id) ?? meld));
+    setOkeyPrototypeOpenedMelds((current) => {
+      const updated = current.map((meld) => updatedMeldById.get(meld.id) ?? meld);
+      return createdMeldEntries.length > 0 ? [...createdMeldEntries, ...updated].slice(0, 48) : updated;
+    });
     setOkeyPrototypeDiscardDraftTileId((current) => (current && attachedTileIds.has(current) ? "" : current));
     setOkeyPrototypeMeldDraftTileIds((current) => current.filter((tileId) => !attachedTileIds.has(tileId)));
     if (okeyPrototypePendingDiscardTileId && attachedTileIds.has(okeyPrototypePendingDiscardTileId)) {
       setOkeyPrototypePendingDiscardTileId("");
     }
     setOkeyPrototypeTurnLockedAfterMeld(true);
-    appendOkeyPrototypeAction(`${sourceLabel}: ${attachedCount} tas masadaki ${kind === "seri" ? "seri" : "cift"} gruplarina islendi.`);
+    const createdCount = createdMeldEntries.length;
+    if (createdCount > 0) {
+      appendOkeyPrototypeAction(`${sourceLabel}: ${attachedCount} tas islendi, ${createdCount} yeni ${kind === "seri" ? "seri" : "cift"} grup acildi.`);
+    } else {
+      appendOkeyPrototypeAction(`${sourceLabel}: ${attachedCount} tas masadaki ${kind === "seri" ? "seri" : "cift"} gruplarina islendi.`);
+    }
   }
 
   function sortOkeyPrototypeAsPairs() {
