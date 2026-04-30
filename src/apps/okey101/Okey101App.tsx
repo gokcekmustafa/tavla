@@ -8031,11 +8031,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
-    const currentRack = okeyPrototypeRackState[seatNo] ?? [];
-    if (currentRack.length !== okeyPrototypeTurnExpectedRackCountBeforeDraw) {
-      appendOkeyPrototypeAction(`Gecersiz hamle: Ortadan tas almak icin rafta ${okeyPrototypeTurnExpectedRackCountBeforeDraw} tas olmali (su an ${currentRack.length}).`);
-      return;
-    }
     const tile = {
       id: `okey-proto-discard-pick-${seatNo}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       kind: topDiscard.tile.kind,
