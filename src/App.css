@@ -5845,15 +5845,15 @@
   background: rgba(5, 81, 57, 0.5);
   padding: 6px;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 5px;
-  min-height: 96px;
+  min-height: 108px;
 }
 
 .my-okey-center-seat-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 6px;
 }
 
@@ -5888,53 +5888,44 @@
   padding: 4px 7px;
 }
 
-.my-okey-center-seat-discard-slot {
-  min-width: 28px;
-  min-height: 38px;
-  border-radius: 6px;
-  border: 1px solid rgba(173, 223, 204, 0.48);
-  background: rgba(2, 60, 43, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-}
-
-.my-okey-center-seat-discard-slot > strong {
-  color: rgba(233, 252, 245, 0.72);
-  font-size: 0.8rem;
-  line-height: 1;
-}
-
-.my-okey-center-seat-discard-slot .my-game-coming-prototype-rack-tile {
-  min-width: 24px;
-  height: 34px;
-  font-size: 0.95rem;
-}
-
 .my-okey-center-seat-melds {
   display: flex;
   align-items: flex-start;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
   align-content: flex-start;
-  min-height: 44px;
+  min-height: 56px;
+  max-height: 88px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
 }
 
 .my-okey-center-seat-meld {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px;
+  gap: 1px;
+  padding: 1px 2px;
   border-radius: 6px;
   border: 1px solid rgba(173, 206, 193, 0.38);
   background: rgba(4, 56, 38, 0.34);
+  max-width: 100%;
+  flex-wrap: wrap;
 }
 
 .my-okey-center-seat-meld .my-game-coming-prototype-rack-tile {
-  min-width: 24px;
-  height: 34px;
-  font-size: 0.95rem;
+  min-width: 18px;
+  height: 26px;
+  font-size: 0.7rem;
+}
+
+.my-okey-center-seat-melds::-webkit-scrollbar {
+  width: 6px;
+}
+
+.my-okey-center-seat-melds::-webkit-scrollbar-thumb {
+  background: rgba(183, 233, 216, 0.38);
+  border-radius: 999px;
 }
 
 .my-okey-center-seat-empty {

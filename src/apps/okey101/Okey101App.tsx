@@ -14553,12 +14553,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           {([1, 2, 3, 4] as OkeyPrototypeSeatNo[]).map((displayPosition) => {
                             const seatNo = okeyPrototypeSeatByDisplayPosition[displayPosition] ?? displayPosition;
                             const seatName = okeyPrototypeSeatNameByDisplayPosition[displayPosition] || `K${seatNo}`;
-                            const seatMelds = (okeyPrototypeOpenedMeldsBySeat[seatNo] ?? []).slice(0, 4);
-                            const seatDiscardEntry = okeyPrototypeDiscardBySeat[seatNo] ?? null;
-                            const seatDiscardTile = seatDiscardEntry?.tile ?? null;
-                            const seatDiscardTileIsJoker = seatDiscardTile
-                              ? isOkeyPrototypeJokerTile(seatDiscardTile, okeyPrototypeOkeyTile)
-                              : false;
+                            const seatMelds = okeyPrototypeOpenedMeldsBySeat[seatNo] ?? [];
                             return (
                               <section
                                 key={`okey-center-seat-area-${displayPosition}-${seatNo}`}
@@ -14567,18 +14562,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               >
                                 <div className="my-okey-center-seat-head">
                                   <span className="my-okey-center-seat-name">{seatName}</span>
-                                  <div className="my-okey-center-seat-discard-slot" aria-label={`${seatName} son atisi`}>
-                                    {seatDiscardTile ? (
-                                      <span
-                                        className={`my-game-coming-prototype-rack-tile tile-${seatDiscardTile.color} ${seatDiscardTileIsJoker ? "joker-tile" : ""}`}
-                                        title={`${seatName} son atis: ${formatOkeyPrototypeTile(seatDiscardTile)}`}
-                                      >
-                                        {renderOkeyPrototypeTileFace(seatDiscardTile)}
-                                      </span>
-                                    ) : (
-                                      <strong>-</strong>
-                                    )}
-                                  </div>
                                 </div>
                                 <div className="my-okey-center-seat-melds">
                                   {seatMelds.length === 0 ? (
@@ -14612,32 +14595,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 	                          <p>Acik Per: <strong>{okeyPrototypeOpenedMelds.length}</strong></p>
 	                          <p>Sahte Okey: <strong>{okeyPrototypeSahteOkeyCount}</strong></p>
 	                        </div>
-                          <div className="my-okey-center-seat-discards" aria-label="Oyuncularin son atislari">
-                            {([1, 2, 3, 4] as OkeyPrototypeSeatNo[]).map((seatNo) => {
-                              const entry = okeyPrototypeDiscardBySeat[seatNo] ?? null;
-                              const tile = entry?.tile ?? null;
-                              const tileIsJoker = tile
-                                ? isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile)
-                                : false;
-                              const displayPos = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
-                              const displayName = okeyPrototypeSeatNameByDisplayPosition[displayPos] || `K${seatNo}`;
-                              return (
-                                <div key={`seat-discard-${seatNo}`} className="my-okey-center-seat-discard-card">
-                                  <span>{displayName}</span>
-                                  {tile ? (
-                                    <span
-                                      className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${tileIsJoker ? "joker-tile" : ""}`}
-                                      title={formatOkeyPrototypeTile(tile)}
-                                    >
-                                      {renderOkeyPrototypeTileFace(tile)}
-                                    </span>
-                                  ) : (
-                                    <strong>-</strong>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
 	                        <div className="my-okey-center-piles-visual" aria-label="Kapali deste">
 	                          <button
 	                            type="button"
