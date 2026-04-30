@@ -3187,6 +3187,11 @@ const [okeyPrototypeDiscardPile, setOkeyPrototypeDiscardPile] = useState<OkeyPro
 const [okeyPrototypePendingDiscardTileId, setOkeyPrototypePendingDiscardTileId] = useState("");
 const [okeyPrototypeDiscardDraftTileId, setOkeyPrototypeDiscardDraftTileId] = useState("");
 const [okeyPrototypeDiscardArrivalState, setOkeyPrototypeDiscardArrivalState] = useState<{ seatNo: OkeyPrototypeSeatNo; entryId: string } | null>(null);
+const [okeyPrototypePendingDiscardPickup, setOkeyPrototypePendingDiscardPickup] = useState<{
+  sourceEntry: OkeyPrototypeDiscardEntry;
+  pickedTileId: string;
+  seatNo: OkeyPrototypeSeatNo;
+} | null>(null);
 const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useState<string[]>([]);
   const [okeyPrototypeRackDragTileId, setOkeyPrototypeRackDragTileId] = useState("");
   const [okeyPrototypeFlippedJokerTileIds, setOkeyPrototypeFlippedJokerTileIds] = useState<string[]>([]);
@@ -3660,6 +3665,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }, 520);
     return () => window.clearTimeout(timer);
   }, [okeyPrototypeDiscardPile]);
+  useEffect(() => {
+    if (okeyPrototypePendingDiscardTileId) return;
+    setOkeyPrototypePendingDiscardPickup(null);
+  }, [okeyPrototypePendingDiscardTileId]);
   const okeyPrototypeOpenedMeldsBySeat = useMemo(() => {
     const next: Record<OkeyPrototypeSeatNo, OkeyPrototypeMeldEntry[]> = {
       1: [],
@@ -3799,6 +3808,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 	    && okeyPrototypeTurnPhase === "discard"
 	    && okeyPrototypeTurnRackTiles.length > 0
 	    && !okeyPrototypePendingDiscardTileId;
+  const okeyPrototypeCanReturnTakenDiscard = okeyPrototypeCanAdvanceTurn
+    && okeyPrototypeTurnPhase === "discard"
+    && Boolean(okeyPrototypePendingDiscardPickup)
+    && okeyPrototypePendingDiscardPickup?.seatNo === okeyPrototypeTurnSeatNo
+    && okeyPrototypeTurnRackTiles.some((tile) => tile.id === okeyPrototypePendingDiscardPickup?.pickedTileId);
   const okeyPrototypeAutoSerialOpenGroups = useMemo(() => {
     if (!okeyPrototypeCanSelectRackTiles || okeyPrototypeCurrentSeatOpened) return [];
     if (okeyPrototypeRackValidMeldGroups.length === 0) return [];
@@ -7593,7 +7607,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       discardOkeyPrototypeTile();
       return;
     }
-    if (!okeyPrototypeCanDrawFromDiscard) return;
     drawOkeyPrototypeTileFromDiscard();
   }
 
@@ -8031,9 +8044,54 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeTurnPhase("discard");
     setOkeyPrototypePendingDiscardTileId(tile.id);
     setOkeyPrototypeDiscardDraftTileId(tile.id);
+    setOkeyPrototypePendingDiscardPickup({
+      sourceEntry: topDiscard,
+      pickedTileId: tile.id,
+      seatNo,
+    });
     appendOkeyPrototypeAction(
       `Ortadan tas alindi: Koltuk ${seatNo} (${formatOkeyPrototypeTile(tile)}) [K${topDiscard.seatNo} / El ${topDiscard.round}]`,
     );
+  }
+
+  function returnOkeyPrototypeTakenDiscardTile() {
+    if (okeyPrototypeHandCompleted) {
+      appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
+      return;
+    }
+    if (!ensureOkeyPrototypeGameStarted("Soldan tasi geri birakma")) return;
+    if (!okeyPrototypeCanAdvanceTurn) return;
+    if (okeyPrototypeTurnPhase !== "discard") {
+      appendOkeyPrototypeAction("Geri birakmak icin once ortadan tas almis olmalisin.");
+      return;
+    }
+    const pickup = okeyPrototypePendingDiscardPickup;
+    if (!pickup || pickup.seatNo !== (okeyPrototypeTurnSeat as OkeyPrototypeSeatNo)) {
+      appendOkeyPrototypeAction("Geri birakilacak soldan alinmis tas bulunamadi.");
+      return;
+    }
+    const seatNo = pickup.seatNo;
+    const currentRack = okeyPrototypeRackState[seatNo] ?? [];
+    const tileIndex = currentRack.findIndex((tile) => tile.id === pickup.pickedTileId);
+    if (tileIndex < 0) {
+      appendOkeyPrototypeAction("Geri birakma basarisiz: Alinan tas rafta bulunamadi.");
+      return;
+    }
+    const nextRack = currentRack.filter((tile) => tile.id !== pickup.pickedTileId);
+    setOkeyPrototypeRackState((current) => ({
+      ...current,
+      [seatNo]: nextRack,
+    }));
+    setOkeyPrototypeDiscardPile((current) => {
+      if (current.some((entry) => entry.id === pickup.sourceEntry.id)) return current;
+      return [pickup.sourceEntry, ...current].slice(0, 40);
+    });
+    setOkeyPrototypeTurnPhase("draw");
+    setOkeyPrototypePendingDiscardTileId("");
+    setOkeyPrototypeDiscardDraftTileId("");
+    setOkeyPrototypeMeldDraftTileIds((current) => current.filter((tileId) => tileId !== pickup.pickedTileId));
+    setOkeyPrototypePendingDiscardPickup(null);
+    appendOkeyPrototypeAction(`Soldan alinan tas geri birakildi: ${formatOkeyPrototypeTile(pickup.sourceEntry.tile)}`);
   }
 
   function discardOkeyPrototypeTileWithForced(forcedTileId?: string) {
@@ -14601,6 +14659,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         disabled={!okeyPrototypeDiscardDraftTileId && okeyPrototypeMeldDraftTileIds.length === 0}
                       >
                         Geri Topla
+                      </button>
+                      <button
+                        type="button"
+                        className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
+                        onClick={returnOkeyPrototypeTakenDiscardTile}
+                        disabled={!okeyPrototypeCanReturnTakenDiscard}
+                      >
+                        Geri Birak
                       </button>
                       <button
                         type="button"
