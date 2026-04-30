@@ -1,5 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
 import "../../App.css";
+import {
+  OKEY_RULES as OKEY_ENGINE_RULES,
+  canAttachTileToMeld as canAttachTileToMeldFromEngine,
+  canTakeDiscardWhenClosed as canTakeDiscardWhenClosedFromEngine,
+  countIdenticalPairs as countIdenticalPairsFromEngine,
+  createDealState as createDealStateFromEngine,
+  evaluateMeldDraft as evaluateMeldDraftFromEngine,
+  getMeldPointsWithJokers as getMeldPointsWithJokersFromEngine,
+  getRackPenaltyPoints as getRackPenaltyPointsFromEngine,
+  isJokerTile as isJokerTileFromEngine,
+  sortRackTiles as sortRackTilesFromEngine,
+} from "./engine/okey101Rules";
 
 type GameMode = "local" | "bot";
 type Seat = "white" | "black";
@@ -512,16 +524,14 @@ const OKEY_PROTOTYPE_ROOMS = [
   { id: "okey-3", name: "Anadolu", activeTables: 0, players: 0, level: "Turnuva" },
   { id: "okey-4", name: "Akdeniz", activeTables: 0, players: 0, level: "Baslangic" },
 ] as const;
-const OKEY_PROTOTYPE_TOTAL_TILE_COUNT = 106;
-const OKEY_PROTOTYPE_HAND_TILE_COUNT = 21;
-const OKEY_PROTOTYPE_STARTER_BONUS_TILE_COUNT = 1;
-const OKEY_PROTOTYPE_OPENING_TARGET_POINTS = 101;
-const OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS = 5;
-const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = [1, 2, 3, 4];
+const OKEY_PROTOTYPE_HAND_TILE_COUNT = OKEY_ENGINE_RULES.handTileCount;
+const OKEY_PROTOTYPE_OPENING_TARGET_POINTS = OKEY_ENGINE_RULES.openingTargetPoints;
+const OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS = OKEY_ENGINE_RULES.pairOpenMinPairs;
+const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = OKEY_ENGINE_RULES.seats as readonly OkeyPrototypeSeatNo[];
 const OKEY_PROTOTYPE_RACK_SLOT_COLUMNS = 16;
 const OKEY_PROTOTYPE_RACK_SLOT_ROWS = 2;
 const OKEY_PROTOTYPE_RACK_SLOT_COUNT = OKEY_PROTOTYPE_RACK_SLOT_COLUMNS * OKEY_PROTOTYPE_RACK_SLOT_ROWS;
-const OKEY_PROTOTYPE_TILE_COLORS: readonly OkeyPrototypeNormalColor[] = ["kirmizi", "mavi", "sari", "siyah"];
+const OKEY_PROTOTYPE_TILE_COLORS: readonly OkeyPrototypeNormalColor[] = OKEY_ENGINE_RULES.tileColors as readonly OkeyPrototypeNormalColor[];
 const OKEY_PROTOTYPE_OPPONENT_NAMES = [
   "TasUstasi",
   "PerciBey",
@@ -532,72 +542,12 @@ const OKEY_PROTOTYPE_OPPONENT_NAMES = [
 ] as const;
 const OKEY_PROTOTYPE_BOT_USER_ID_PREFIX = "okey-bot-";
 
-function createOkeyPrototypeSeededRandom(seed = 0) {
-  let state = (Math.abs(Math.trunc(seed)) || 1) >>> 0;
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0;
-    return state / 4294967296;
-  };
-}
-
 function hashOkeyPrototypeText(input: string) {
   let hash = 0;
   for (let index = 0; index < input.length; index += 1) {
     hash = ((hash << 5) - hash + input.charCodeAt(index)) | 0;
   }
   return Math.abs(hash);
-}
-
-function shuffleOkeyPrototypeDeck(tiles: OkeyPrototypeTile[], seed = 0) {
-  const random = createOkeyPrototypeSeededRandom(seed || Date.now());
-  const shuffled = tiles.slice();
-  for (let index = shuffled.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(random() * (index + 1));
-    const current = shuffled[index];
-    shuffled[index] = shuffled[swapIndex];
-    shuffled[swapIndex] = current;
-  }
-  return shuffled;
-}
-
-function createOkeyPrototypeDeck(seed = 0) {
-  const safeSeed = Math.abs(Math.trunc(seed)) || Date.now();
-  const normalCopies = 2;
-  const tiles: OkeyPrototypeTile[] = [];
-  OKEY_PROTOTYPE_TILE_COLORS.forEach((color) => {
-    for (let value = 1; value <= 13; value += 1) {
-      for (let copy = 1; copy <= normalCopies; copy += 1) {
-        tiles.push({
-          id: `okey-proto-deck-${color}-${value}-${copy}-${safeSeed}`,
-          kind: "normal",
-          color,
-          value,
-        });
-      }
-    }
-  });
-  const sahteCount = 2;
-  for (let copy = 1; copy <= sahteCount; copy += 1) {
-    tiles.push({
-      id: `okey-proto-deck-sahte-${copy}-${safeSeed}`,
-      kind: "sahte",
-      color: "sahte",
-      value: 0,
-    });
-  }
-  if (tiles.length !== OKEY_PROTOTYPE_TOTAL_TILE_COUNT) {
-    throw new Error(`101 deste sayisi hatali: ${tiles.length} (beklenen ${OKEY_PROTOTYPE_TOTAL_TILE_COUNT})`);
-  }
-  return shuffleOkeyPrototypeDeck(tiles, safeSeed);
-}
-
-function createEmptyOkeyPrototypeRackState(): OkeyPrototypeRackState {
-  return {
-    1: [],
-    2: [],
-    3: [],
-    4: [],
-  };
 }
 
 function createEmptyOkeyPrototypeRackSlots() {
@@ -635,66 +585,12 @@ function fillOkeyPrototypeRackSlotsFromTiles(
   return nextSlots;
 }
 
-function createOkeyPrototypeOkeyTile(indicatorTile: OkeyPrototypeTile | null): OkeyPrototypeTile | null {
-  if (!indicatorTile || indicatorTile.kind !== "normal") return null;
-  return {
-    id: `okey-proto-indicator-okey-${indicatorTile.id}`,
-    kind: "normal",
-    color: indicatorTile.color,
-    value: indicatorTile.value === 13 ? 1 : indicatorTile.value + 1,
-  };
-}
-
-function getNormalizedOkeyPrototypeActiveSeats(
-  activeSeats: readonly OkeyPrototypeSeatNo[] | null | undefined,
-  firstSeat: OkeyPrototypeSeatNo,
-) {
-  const pool = activeSeats && activeSeats.length > 0
-    ? activeSeats
-    : OKEY_PROTOTYPE_SEATS;
-  const deduped = Array.from(new Set(pool))
-    .filter((seatNo): seatNo is OkeyPrototypeSeatNo => OKEY_PROTOTYPE_SEATS.includes(seatNo))
-    .sort((left, right) => left - right);
-  if (!deduped.includes(firstSeat)) {
-    deduped.push(firstSeat);
-    deduped.sort((left, right) => left - right);
-  }
-  return deduped;
-}
-
 function createOkeyPrototypeDealState(
   seed = 0,
   firstSeat: OkeyPrototypeSeatNo = 1,
   activeSeats?: readonly OkeyPrototypeSeatNo[],
 ): OkeyPrototypeDealState {
-  const safeSeed = Math.abs(Math.trunc(seed)) || Date.now();
-  const wallTiles = createOkeyPrototypeDeck(safeSeed);
-  const indicatorIndex = wallTiles.findIndex((tile) => tile.kind === "normal");
-  const indicatorTile = indicatorIndex >= 0 ? wallTiles.splice(indicatorIndex, 1)[0] ?? null : null;
-  const okeyTile = createOkeyPrototypeOkeyTile(indicatorTile);
-  const rackState = createEmptyOkeyPrototypeRackState();
-  const seatsToDeal = getNormalizedOkeyPrototypeActiveSeats(activeSeats, firstSeat);
-  seatsToDeal.forEach((seatNo) => {
-    for (let round = 0; round < OKEY_PROTOTYPE_HAND_TILE_COUNT; round += 1) {
-      const nextTile = wallTiles.shift();
-      if (!nextTile) break;
-      rackState[seatNo] = [...rackState[seatNo], nextTile];
-    }
-  });
-  for (let bonus = 0; bonus < OKEY_PROTOTYPE_STARTER_BONUS_TILE_COUNT; bonus += 1) {
-    const bonusTile = wallTiles.shift();
-    if (!bonusTile) break;
-    rackState[firstSeat] = [...rackState[firstSeat], bonusTile];
-  }
-  return {
-    rackState,
-    wallTiles,
-    indicatorTile,
-    okeyTile,
-    turnSeat: firstSeat,
-    turnPhase: "discard",
-    turnRound: 1,
-  };
+  return createDealStateFromEngine(seed, firstSeat, activeSeats) as OkeyPrototypeDealState;
 }
 
 function formatOkeyPrototypeTile(tile: OkeyPrototypeTile) {
@@ -707,24 +603,8 @@ function renderOkeyPrototypeTileFace(tile: OkeyPrototypeTile) {
   return String(tile.value);
 }
 
-function getOkeyPrototypeEffectiveTileForRules(
-  tile: OkeyPrototypeTile,
-  okeyTile: OkeyPrototypeTile | null = null,
-) {
-  if (tile.kind !== "sahte" || !okeyTile || okeyTile.kind !== "normal") {
-    return tile;
-  }
-  return {
-    ...tile,
-    color: okeyTile.color,
-    value: okeyTile.value,
-  };
-}
-
 function isOkeyPrototypeJokerTile(tile: OkeyPrototypeTile, okeyTile: OkeyPrototypeTile | null = null) {
-  if (tile.kind !== "normal") return false;
-  if (!okeyTile || okeyTile.kind !== "normal") return false;
-  return tile.kind === "normal" && tile.color === okeyTile.color && tile.value === okeyTile.value;
+  return isJokerTileFromEngine(tile, okeyTile);
 }
 
 function sortOkeyPrototypeRackTiles(
@@ -732,28 +612,7 @@ function sortOkeyPrototypeRackTiles(
   mode: OkeyPrototypeRackSortMode,
   okeyTile: OkeyPrototypeTile | null = null,
 ) {
-  const colorIndexOf = (tile: OkeyPrototypeTile) => {
-    if (tile.kind !== "normal") return Number.POSITIVE_INFINITY;
-    const index = OKEY_PROTOTYPE_TILE_COLORS.findIndex((entry) => entry === tile.color);
-    return index >= 0 ? index : Number.POSITIVE_INFINITY;
-  };
-  return tiles.slice().sort((left, right) => {
-    const leftIsJoker = isOkeyPrototypeJokerTile(left, okeyTile);
-    const rightIsJoker = isOkeyPrototypeJokerTile(right, okeyTile);
-    if (leftIsJoker !== rightIsJoker) return leftIsJoker ? 1 : -1;
-    if (mode === "color") {
-      const colorDiff = colorIndexOf(left) - colorIndexOf(right);
-      if (colorDiff !== 0) return colorDiff;
-      const valueDiff = left.value - right.value;
-      if (valueDiff !== 0) return valueDiff;
-      return left.id.localeCompare(right.id);
-    }
-    const valueDiff = left.value - right.value;
-    if (valueDiff !== 0) return valueDiff;
-    const colorDiff = colorIndexOf(left) - colorIndexOf(right);
-    if (colorDiff !== 0) return colorDiff;
-    return left.id.localeCompare(right.id);
-  });
+  return sortRackTilesFromEngine(tiles, mode, okeyTile) as OkeyPrototypeTile[];
 }
 
 function buildOkeyPrototypeRackGroupsForLayout(
@@ -974,193 +833,29 @@ function shouldOkeyPrototypeBotDrawFromDiscard(
 }
 
 function evaluateOkeyPrototypeMeldDraft(tiles: OkeyPrototypeTile[], okeyTile: OkeyPrototypeTile | null = null) {
-  if (tiles.length < 3) {
-    return { valid: false, kind: null as OkeyPrototypeMeldKind | null, reason: "En az 3 tas secmelisin." };
-  }
-  if (tiles.length > 13) {
-    return { valid: false, kind: null as OkeyPrototypeMeldKind | null, reason: "Bu kadar tas tek perde kullanilamaz." };
-  }
-  const ruleTiles = tiles.map((tile) => getOkeyPrototypeEffectiveTileForRules(tile, okeyTile));
-  const jokerCount = ruleTiles.filter((tile) => isOkeyPrototypeJokerTile(tile, okeyTile)).length;
-  const normalTiles = ruleTiles.filter((tile) => !isOkeyPrototypeJokerTile(tile, okeyTile));
-
-  const setAttempt = (() => {
-    if (tiles.length > 4) {
-      return { valid: false, reason: "Set peri en fazla 4 tas olabilir." };
-    }
-    if (normalTiles.length === 0) return { valid: true, reason: "" };
-    const baseValue = normalTiles[0]?.value ?? 0;
-    if (!normalTiles.every((tile) => tile.value === baseValue)) {
-      return { valid: false, reason: "Set icin joker disi taslar ayni degerde olmali." };
-    }
-    const colors = new Set(normalTiles.map((tile) => tile.color));
-    if (colors.size !== normalTiles.length) {
-      return { valid: false, reason: "Set perinde renkler tekrar edemez." };
-    }
-    return { valid: true, reason: "" };
-  })();
-  if (setAttempt.valid) {
-    return { valid: true, kind: "set" as OkeyPrototypeMeldKind, reason: "" };
-  }
-
-  const seriesAttempt = (() => {
-    if (normalTiles.length === 0) {
-      return { valid: true, reason: "" };
-    }
-    const sameColor = normalTiles.every((tile) => tile.color === normalTiles[0]?.color);
-    if (!sameColor) {
-      return { valid: false, reason: "Seri icin tum taslar ayni renkte olmali." };
-    }
-    const sortedValues = normalTiles.map((tile) => tile.value).sort((a, b) => a - b);
-    for (let index = 1; index < sortedValues.length; index += 1) {
-      if (sortedValues[index] === sortedValues[index - 1]) {
-        return { valid: false, reason: "Seri icin degerler ardisik olmali." };
-      }
-    }
-    let requiredJokerCount = 0;
-    for (let index = 1; index < sortedValues.length; index += 1) {
-      requiredJokerCount += Math.max(0, sortedValues[index] - sortedValues[index - 1] - 1);
-    }
-    if (requiredJokerCount > jokerCount) {
-      return { valid: false, reason: "Seri icin degerler ardisik olmali." };
-    }
-    const remainingJokers = jokerCount - requiredJokerCount;
-    const minValue = sortedValues[0] ?? 1;
-    const maxValue = sortedValues[sortedValues.length - 1] ?? 13;
-    const frontSpace = Math.max(0, minValue - 1);
-    const backSpace = Math.max(0, 13 - maxValue);
-    if (remainingJokers > frontSpace + backSpace) {
-      return { valid: false, reason: "Seri 1-13 araligini asmamali." };
-    }
-    return { valid: true, reason: "" };
-  })();
-  if (seriesAttempt.valid) {
-    return { valid: true, kind: "seri" as OkeyPrototypeMeldKind, reason: "" };
-  }
-  return {
-    valid: false,
-    kind: null as OkeyPrototypeMeldKind | null,
-    reason: seriesAttempt.reason || setAttempt.reason || "Secili taslar ne set ne seri kuralina uyuyor.",
+  return evaluateMeldDraftFromEngine(tiles, okeyTile) as {
+    valid: boolean;
+    kind: OkeyPrototypeMeldKind | null;
+    reason: string;
   };
 }
 
-function getOkeyPrototypeMeldPoints(tiles: OkeyPrototypeTile[]) {
-  return tiles.reduce((sum, tile) => sum + tile.value, 0);
-}
-
 function getOkeyPrototypeMeldPointsWithJokers(tiles: OkeyPrototypeTile[], okeyTile: OkeyPrototypeTile | null = null) {
-  const validation = evaluateOkeyPrototypeMeldDraft(tiles, okeyTile);
-  if (!validation.valid || !validation.kind) {
-    return getOkeyPrototypeMeldPoints(tiles);
-  }
-  const ruleTiles = tiles.map((tile) => getOkeyPrototypeEffectiveTileForRules(tile, okeyTile));
-  const jokerTiles = ruleTiles.filter((tile) => isOkeyPrototypeJokerTile(tile, okeyTile));
-  const normalTiles = ruleTiles.filter((tile) => !isOkeyPrototypeJokerTile(tile, okeyTile));
-  if (jokerTiles.length === 0) {
-    return getOkeyPrototypeMeldPoints(ruleTiles);
-  }
-  if (validation.kind === "set") {
-    const baseValue = normalTiles[0]?.value ?? 10;
-    return normalTiles.reduce((sum, tile) => sum + tile.value, 0) + jokerTiles.length * baseValue;
-  }
-
-  if (normalTiles.length === 0) {
-    return jokerTiles.length * 10;
-  }
-  const sortedValues = normalTiles.map((tile) => tile.value).sort((a, b) => a - b);
-  let points = sortedValues.reduce((sum, value) => sum + value, 0);
-  let remainingJokers = jokerTiles.length;
-
-  for (let index = 1; index < sortedValues.length; index += 1) {
-    const previous = sortedValues[index - 1];
-    const current = sortedValues[index];
-    const gap = Math.max(0, current - previous - 1);
-    for (let offset = 1; offset <= gap && remainingJokers > 0; offset += 1) {
-      points += previous + offset;
-      remainingJokers -= 1;
-    }
-  }
-  let lower = (sortedValues[0] ?? 1) - 1;
-  while (remainingJokers > 0 && lower >= 1) {
-    points += lower;
-    remainingJokers -= 1;
-    lower -= 1;
-  }
-  let upper = (sortedValues[sortedValues.length - 1] ?? 13) + 1;
-  while (remainingJokers > 0 && upper <= 13) {
-    points += upper;
-    remainingJokers -= 1;
-    upper += 1;
-  }
-  if (remainingJokers > 0) {
-    points += remainingJokers * 10;
-  }
-  return points;
+  return getMeldPointsWithJokersFromEngine(tiles, okeyTile);
 }
 
 function getOkeyPrototypeRackPenaltyPoints(
   tiles: OkeyPrototypeTile[],
   okeyTile: OkeyPrototypeTile | null = null,
 ) {
-  return tiles.reduce((sum, sourceTile) => {
-    const tile = getOkeyPrototypeEffectiveTileForRules(sourceTile, okeyTile);
-    if (isOkeyPrototypeJokerTile(tile, okeyTile)) return sum + 25;
-    return sum + Math.max(1, tile.value);
-  }, 0);
+  return getRackPenaltyPointsFromEngine(tiles, okeyTile);
 }
 
 function countOkeyPrototypeIdenticalPairs(
   tiles: OkeyPrototypeTile[],
   okeyTile: OkeyPrototypeTile | null = null,
 ) {
-  const counts = new Map<string, number>();
-  tiles.forEach((sourceTile) => {
-    const tile = getOkeyPrototypeEffectiveTileForRules(sourceTile, okeyTile);
-    if (isOkeyPrototypeJokerTile(tile, okeyTile)) return;
-    const key = `${tile.color}-${tile.value}`;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  });
-  let pairCount = 0;
-  counts.forEach((count) => {
-    pairCount += Math.floor(count / 2);
-  });
-  return pairCount;
-}
-
-function hasAnyOkeyPrototypeMeldIncludingTile(
-  tiles: OkeyPrototypeTile[],
-  requiredTileId: string,
-  okeyTile: OkeyPrototypeTile | null = null,
-) {
-  const requiredIndex = tiles.findIndex((tile) => tile.id === requiredTileId);
-  if (requiredIndex < 0) return false;
-  const maxSize = Math.min(6, tiles.length);
-  for (let targetSize = 3; targetSize <= maxSize; targetSize += 1) {
-    const picked: number[] = [];
-    let found = false;
-    const pick = (start: number) => {
-      if (found) return;
-      if (picked.length === targetSize) {
-        if (!picked.includes(requiredIndex)) return;
-        const meldTiles = picked.map((index) => tiles[index]);
-        const validation = evaluateOkeyPrototypeMeldDraft(meldTiles, okeyTile);
-        if (validation.valid) {
-          found = true;
-        }
-        return;
-      }
-      const remaining = targetSize - picked.length;
-      for (let index = start; index <= tiles.length - remaining; index += 1) {
-        picked.push(index);
-        pick(index + 1);
-        picked.pop();
-        if (found) return;
-      }
-    };
-    pick(0);
-    if (found) return true;
-  }
-  return false;
+  return countIdenticalPairsFromEngine(tiles, okeyTile);
 }
 
 function canOkeyPrototypeTakeDiscardWhenClosed(
@@ -1168,14 +863,7 @@ function canOkeyPrototypeTakeDiscardWhenClosed(
   discardedTile: OkeyPrototypeTile,
   okeyTile: OkeyPrototypeTile | null = null,
 ) {
-  const nextRack = [...currentRack, discardedTile];
-  if (countOkeyPrototypeIdenticalPairs(nextRack, okeyTile) >= OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS) {
-    return true;
-  }
-  if (getOkeyPrototypeRackPenaltyPoints(nextRack, okeyTile) < OKEY_PROTOTYPE_OPENING_TARGET_POINTS) {
-    return false;
-  }
-  return hasAnyOkeyPrototypeMeldIncludingTile(nextRack, discardedTile.id, okeyTile);
+  return canTakeDiscardWhenClosedFromEngine(currentRack, discardedTile, okeyTile);
 }
 
 function canAttachOkeyPrototypeTileToMeld(
@@ -1183,21 +871,7 @@ function canAttachOkeyPrototypeTileToMeld(
   meld: OkeyPrototypeMeldEntry,
   okeyTile: OkeyPrototypeTile | null = null,
 ) {
-  const nextTiles = [...meld.tiles, tile];
-  const validation = evaluateOkeyPrototypeMeldDraft(nextTiles, okeyTile);
-  if (!validation.valid || validation.kind !== meld.kind) {
-    return { valid: false, reason: "Bu tas secili pere eklenemiyor." };
-  }
-  if (meld.kind === "set") {
-    const colors = new Set(nextTiles.map((entry) => entry.color));
-    if (colors.size !== nextTiles.length) {
-      return { valid: false, reason: "Set perinde renkler tekrar edemez." };
-    }
-    if (nextTiles.length > 4) {
-      return { valid: false, reason: "Set peri en fazla 4 tas olabilir." };
-    }
-  }
-  return { valid: true, reason: "" };
+  return canAttachTileToMeldFromEngine(tile, meld, okeyTile);
 }
 
 function createDefaultOkeyPrototypeSeatOpenedState(): OkeyPrototypeSeatOpenedState {
