@@ -3799,8 +3799,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
     && okeyPrototypeTurnRackTiles.length === okeyPrototypeTurnExpectedRackCountBeforeDraw
-    && Boolean(okeyPrototypeTakeableDiscardEntry)
-    && okeyPrototypeCanTakeDiscardWhenClosed;
+    && Boolean(okeyPrototypeTakeableDiscardEntry);
   const okeyPrototypeCanSelectRackTiles = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
     && okeyPrototypeTurnRackTiles.length > 0;
@@ -7523,8 +7522,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function handleOkeyPrototypeRackDrop(targetTileId: string, draggedTileIdFromData = "") {
     const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
-    if (sourceTileId === "okey-proto-take-discard") {
-      drawOkeyPrototypeTileFromDiscard();
+    if (sourceTileId.startsWith("okey-proto-take-discard")) {
+      const parts = sourceTileId.split(":");
+      const preferredSeatNoRaw = Number(parts[1] ?? "");
+      const preferredSeatNo = [1, 2, 3, 4].includes(preferredSeatNoRaw)
+        ? (preferredSeatNoRaw as OkeyPrototypeSeatNo)
+        : undefined;
+      drawOkeyPrototypeTileFromDiscard(preferredSeatNo);
       setOkeyPrototypeRackDragTileId("");
       okeyPrototypeSuppressRackClickRef.current = true;
       window.setTimeout(() => {
@@ -7546,8 +7550,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function handleOkeyPrototypeRackDropToSlot(slotIndex: number, draggedTileIdFromData = "") {
     const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
-    if (sourceTileId === "okey-proto-take-discard") {
-      drawOkeyPrototypeTileFromDiscard();
+    if (sourceTileId.startsWith("okey-proto-take-discard")) {
+      const parts = sourceTileId.split(":");
+      const preferredSeatNoRaw = Number(parts[1] ?? "");
+      const preferredSeatNo = [1, 2, 3, 4].includes(preferredSeatNoRaw)
+        ? (preferredSeatNoRaw as OkeyPrototypeSeatNo)
+        : undefined;
+      drawOkeyPrototypeTileFromDiscard(preferredSeatNo);
       setOkeyPrototypeRackDragTileId("");
       okeyPrototypeSuppressRackClickRef.current = true;
       window.setTimeout(() => {
@@ -7607,7 +7616,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       discardOkeyPrototypeTile();
       return;
     }
-    drawOkeyPrototypeTileFromDiscard();
+    drawOkeyPrototypeTileFromDiscard(seatNo);
   }
 
   function handleOkeyPrototypeRackTileClick(tileId: string) {
@@ -7993,7 +8002,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
   }
 
-  function drawOkeyPrototypeTileFromDiscard() {
+  function drawOkeyPrototypeTileFromDiscard(preferredSeatNo?: OkeyPrototypeSeatNo) {
     if (okeyPrototypeHandCompleted) {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
       return;
@@ -8004,8 +8013,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       appendOkeyPrototypeAction("Gecersiz hamle: Ortadan tas almak icin once tas atmalisin.");
       return;
     }
-    const topDiscard = okeyPrototypeTakeableDiscardEntry;
+    const preferredEntry = preferredSeatNo ? (okeyPrototypeDiscardBySeat[preferredSeatNo] ?? null) : null;
+    const topDiscard = preferredSeatNo ? preferredEntry : okeyPrototypeTakeableDiscardEntry;
     if (!topDiscard) {
+      if (preferredSeatNo) {
+        appendOkeyPrototypeAction("Gecersiz hamle: Secilen solda alinacak tas yok.");
+        return;
+      }
       if (okeyPrototypeDrawPileRemaining <= 0) {
         setOkeyPrototypeHandDrawn(true);
         setOkeyPrototypeDrawHandCount((current) => current + 1);
@@ -8018,10 +8032,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     const currentRack = okeyPrototypeRackState[seatNo] ?? [];
-    if (!okeyPrototypeCurrentSeatOpened && !canOkeyPrototypeTakeDiscardWhenClosed(currentRack, topDiscard.tile, okeyPrototypeOkeyTile)) {
-      appendOkeyPrototypeAction("Ortadan bu tasi alabilmek icin ayni turde 101 veya 5 cift ile acilis yapabilmelisin.");
-      return;
-    }
     if (currentRack.length !== okeyPrototypeTurnExpectedRackCountBeforeDraw) {
       appendOkeyPrototypeAction(`Gecersiz hamle: Ortadan tas almak icin rafta ${okeyPrototypeTurnExpectedRackCountBeforeDraw} tas olmali (su an ${currentRack.length}).`);
       return;
@@ -13127,7 +13137,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           <button
                             type="button"
                             className="my-action-btn soft"
-                            onClick={drawOkeyPrototypeTileFromDiscard}
+                          onClick={() => drawOkeyPrototypeTileFromDiscard()}
                             disabled={!okeyPrototypeCanDrawFromDiscard}
                             aria-describedby="okey-prototype-turn-status"
                           >
@@ -13301,7 +13311,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               <button
                                 type="button"
                                 className={`my-action-btn soft my-game-coming-prototype-board-center-pile-btn ${okeyPrototypeCanDrawFromDiscard ? "suggested" : ""}`}
-                                onClick={drawOkeyPrototypeTileFromDiscard}
+                              onClick={() => drawOkeyPrototypeTileFromDiscard()}
                                 disabled={!okeyPrototypeCanDrawFromDiscard}
                                 aria-describedby="okey-prototype-turn-status"
                               >
@@ -14639,7 +14649,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       <button
                         type="button"
                         className={`my-action-btn soft my-game-coming-prototype-board-action-btn ${okeyPrototypeCanDrawFromDiscard ? "suggested" : ""}`}
-                        onClick={drawOkeyPrototypeTileFromDiscard}
+	                            onClick={() => drawOkeyPrototypeTileFromDiscard()}
                         disabled={!okeyPrototypeCanDrawFromDiscard}
                       >
                         Ortadan Al
@@ -14833,7 +14843,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 onDragStart={(event) => {
                                   if (!isTakeableFromPocket || !event.dataTransfer) return;
                                   event.dataTransfer.effectAllowed = "move";
-                                  event.dataTransfer.setData("text/plain", "okey-proto-take-discard");
+                                  event.dataTransfer.setData("text/plain", `okey-proto-take-discard:${seatNo}`);
                                 }}
                               >
                                 {renderOkeyPrototypeTileFace(seatDiscardTile)}
