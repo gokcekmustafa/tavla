@@ -3956,6 +3956,7 @@ function TavlaApp() {
   const leaveIncomingIgnoredKeyRef = useRef("");
   const leaveIncomingActiveKeyRef = useRef("");
   const leaveRejectNoticeSeenKeyRef = useRef("");
+  const iframeGuestLockedNameRef = useRef("");
   const leaveConfirmResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const roomMissingSinceRef = useRef<number | null>(null);
   const flowEventSeqRef = useRef(0);
@@ -4340,6 +4341,18 @@ function TavlaApp() {
   }, [member, safeGuestName, guestProfile.userId, guestProfile.gender, guestProfile.avatarId, guestProfile.points, guestProfile.stats]);
 
   const isRoomMode = Boolean(roomSession);
+  const shouldFreezeIframeGuestName = viewMode === "table" && !isRoomMode;
+  const iframeGuestName = useMemo(() => {
+    const normalized = sanitizeGuestName(safeGuestName) || "Misafir";
+    if (shouldFreezeIframeGuestName) {
+      if (!iframeGuestLockedNameRef.current) {
+        iframeGuestLockedNameRef.current = normalized;
+      }
+      return iframeGuestLockedNameRef.current;
+    }
+    iframeGuestLockedNameRef.current = normalized;
+    return normalized;
+  }, [safeGuestName, shouldFreezeIframeGuestName]);
 
   const iframeUrl = useMemo(() => {
     const qp = new URLSearchParams();
@@ -4348,7 +4361,7 @@ function TavlaApp() {
       qp.set("bot_difficulty", "hard");
     }
     qp.set("t", String(iframeKey));
-    qp.set("guest", safeGuestName);
+    qp.set("guest", iframeGuestName);
     qp.set("sync_ws", REALTIME_WS_BASE_URL);
     qp.set("member", member ? "1" : "0");
     if (roomSession) {
@@ -4360,7 +4373,7 @@ function TavlaApp() {
       qp.set("observer", roomSession.role === "spectator" ? "1" : "0");
     }
     return `/legacy/index.html?${qp.toString()}`;
-  }, [mode, iframeKey, roomSession, safeGuestName, isRoomMode, member]);
+  }, [mode, iframeKey, roomSession, iframeGuestName, isRoomMode, member]);
 
   const scopedLobbyTables = useMemo(
     () => filterTablesByLobbyScope(lobbyState.tables, lobbyState.presence, activeLobbyId),
