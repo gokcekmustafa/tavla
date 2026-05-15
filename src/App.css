@@ -5199,8 +5199,7 @@
   color: #2b2f38;
 }
 
-.my-game-coming-prototype-rack-tile.tile-sahte,
-.my-game-coming-prototype-rack-tile.joker-tile {
+.my-game-coming-prototype-rack-tile.tile-sahte {
   background: linear-gradient(180deg, #fff3d8, #eed6a1);
   color: #8f5b15;
 }
