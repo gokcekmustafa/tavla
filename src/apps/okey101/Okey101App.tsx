@@ -529,6 +529,7 @@ const OKEY_PROTOTYPE_OPENING_TARGET_POINTS = OKEY_ENGINE_RULES.openingTargetPoin
 const OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS = OKEY_ENGINE_RULES.pairOpenMinPairs;
 const OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS = 101;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = OKEY_ENGINE_RULES.seats as readonly OkeyPrototypeSeatNo[];
+const OKEY_PROTOTYPE_COUNTERCLOCKWISE_SEAT_ORDER: readonly OkeyPrototypeSeatNo[] = [1, 4, 3, 2];
 const OKEY_PROTOTYPE_RACK_SLOT_COLUMNS = 16;
 const OKEY_PROTOTYPE_RACK_SLOT_ROWS = 2;
 const OKEY_PROTOTYPE_RACK_SLOT_COUNT = OKEY_PROTOTYPE_RACK_SLOT_COLUMNS * OKEY_PROTOTYPE_RACK_SLOT_ROWS;
@@ -614,6 +615,13 @@ function sortOkeyPrototypeRackTiles(
   okeyTile: OkeyPrototypeTile | null = null,
 ) {
   return sortRackTilesFromEngine(tiles, mode, okeyTile) as OkeyPrototypeTile[];
+}
+
+function sortOkeyPrototypeSeatsCounterClockwise(seats: readonly OkeyPrototypeSeatNo[]) {
+  const validSeatSet = new Set<OkeyPrototypeSeatNo>(
+    seats.filter((seatNo): seatNo is OkeyPrototypeSeatNo => OKEY_PROTOTYPE_SEATS.includes(seatNo)),
+  );
+  return OKEY_PROTOTYPE_COUNTERCLOCKWISE_SEAT_ORDER.filter((seatNo) => validSeatSet.has(seatNo));
 }
 
 function buildOkeyPrototypeRackGroupsForLayout(
@@ -854,6 +862,287 @@ function createOkeyPrototypeRackSlotsFromGroups(groups: OkeyPrototypeTile[][]) {
       placedTileIds.add(tileId);
     });
   return slots;
+}
+
+type OkeyPrototypeBestOpeningArrangement = {
+  groupsForSlots: OkeyPrototypeTile[][];
+  orderedRack: OkeyPrototypeTile[];
+  totalPoints: number;
+  meldCount: number;
+};
+
+function buildOkeyPrototypeBestOpeningArrangement(
+  tiles: OkeyPrototypeTile[],
+  okeyTile: OkeyPrototypeTile | null = null,
+): OkeyPrototypeBestOpeningArrangement | null {
+  if (tiles.length < 3) return null;
+  if (tiles.length > 30) return null;
+
+  const tileIndexById = new Map<string, number>();
+  tiles.forEach((tile, index) => {
+    tileIndexById.set(tile.id, index);
+  });
+
+  const normalTiles = tiles.filter((tile) => !isOkeyPrototypeJokerTile(tile, okeyTile));
+  const jokerTiles = tiles
+    .filter((tile) => isOkeyPrototypeJokerTile(tile, okeyTile))
+    .slice()
+    .sort((left, right) => left.id.localeCompare(right.id));
+
+  type MeldCandidate = {
+    tiles: OkeyPrototypeTile[];
+    kind: OkeyPrototypeMeldKind;
+    points: number;
+    mask: number;
+  };
+
+  const candidateByKey = new Map<string, MeldCandidate>();
+
+  const addCandidate = (candidateTiles: OkeyPrototypeTile[]) => {
+    if (candidateTiles.length < 3 || candidateTiles.length > 13) return;
+    const tileIds = candidateTiles.map((tile) => tile.id);
+    if (new Set(tileIds).size !== tileIds.length) return;
+    const validation = evaluateOkeyPrototypeMeldDraft(candidateTiles, okeyTile);
+    if (!validation.valid || !validation.kind) return;
+    const sortedKey = tileIds.slice().sort((left, right) => left.localeCompare(right)).join("|");
+    if (!sortedKey) return;
+    let mask = 0;
+    for (const tileId of tileIds) {
+      const tileIndex = tileIndexById.get(tileId);
+      if (tileIndex === undefined || tileIndex < 0 || tileIndex >= 31) return;
+      mask |= (1 << tileIndex);
+    }
+    const points = getOkeyPrototypeMeldPointsWithJokers(candidateTiles, okeyTile);
+    const existing = candidateByKey.get(sortedKey);
+    if (existing && existing.points >= points) return;
+    candidateByKey.set(sortedKey, {
+      tiles: candidateTiles.slice(),
+      kind: validation.kind,
+      points,
+      mask: mask >>> 0,
+    });
+  };
+
+  const jokerCombinationCache = new Map<number, OkeyPrototypeTile[][]>();
+  const pickJokerCombinations = (count: number): OkeyPrototypeTile[][] => {
+    if (count < 0 || count > jokerTiles.length) return [];
+    if (count === 0) return [[]];
+    const cached = jokerCombinationCache.get(count);
+    if (cached) return cached;
+    const picks: OkeyPrototypeTile[][] = [];
+    const chosen: OkeyPrototypeTile[] = [];
+    const visit = (startIndex: number) => {
+      if (chosen.length === count) {
+        picks.push(chosen.slice());
+        return;
+      }
+      const remaining = count - chosen.length;
+      for (let index = startIndex; index <= jokerTiles.length - remaining; index += 1) {
+        const tile = jokerTiles[index];
+        if (!tile) continue;
+        chosen.push(tile);
+        visit(index + 1);
+        chosen.pop();
+      }
+    };
+    visit(0);
+    jokerCombinationCache.set(count, picks);
+    return picks;
+  };
+
+  const normalBucketsByColor = new Map<OkeyPrototypeNormalColor, Map<number, OkeyPrototypeTile[]>>();
+  OKEY_PROTOTYPE_TILE_COLORS.forEach((color) => {
+    normalBucketsByColor.set(color, new Map<number, OkeyPrototypeTile[]>());
+  });
+  normalTiles.forEach((tile) => {
+    if (tile.kind !== "normal") return;
+    const color = tile.color as OkeyPrototypeNormalColor;
+    const colorBuckets = normalBucketsByColor.get(color);
+    if (!colorBuckets) return;
+    const valueBucket = colorBuckets.get(tile.value) ?? [];
+    valueBucket.push(tile);
+    valueBucket.sort((left, right) => left.id.localeCompare(right.id));
+    colorBuckets.set(tile.value, valueBucket);
+  });
+
+  OKEY_PROTOTYPE_TILE_COLORS.forEach((color) => {
+    const colorBuckets = normalBucketsByColor.get(color);
+    if (!colorBuckets) return;
+    for (let startValue = 1; startValue <= 13; startValue += 1) {
+      for (let endValue = startValue + 2; endValue <= 13; endValue += 1) {
+        const valueOptions: OkeyPrototypeTile[][] = [];
+        let missingCount = 0;
+        for (let value = startValue; value <= endValue; value += 1) {
+          const bucket = colorBuckets.get(value) ?? [];
+          if (bucket.length === 0) {
+            missingCount += 1;
+          } else {
+            valueOptions.push(bucket);
+          }
+        }
+        if (missingCount > jokerTiles.length) continue;
+        const jokerCombinations = pickJokerCombinations(missingCount);
+        if (jokerCombinations.length === 0 && missingCount > 0) continue;
+        const selectedNormals: OkeyPrototypeTile[] = [];
+        const visitNormals = (optionIndex: number) => {
+          if (optionIndex >= valueOptions.length) {
+            if (jokerCombinations.length === 0) {
+              addCandidate(selectedNormals.slice());
+              return;
+            }
+            jokerCombinations.forEach((jokerSelection) => {
+              addCandidate([...selectedNormals, ...jokerSelection]);
+            });
+            return;
+          }
+          const options = valueOptions[optionIndex] ?? [];
+          options.forEach((tile) => {
+            selectedNormals.push(tile);
+            visitNormals(optionIndex + 1);
+            selectedNormals.pop();
+          });
+        };
+        visitNormals(0);
+      }
+    }
+  });
+
+  for (let value = 1; value <= 13; value += 1) {
+    const valueNormals = normalTiles
+      .filter((tile) => tile.kind === "normal" && tile.value === value)
+      .slice()
+      .sort((left, right) => left.id.localeCompare(right.id));
+    const pool = [...valueNormals, ...jokerTiles];
+    const maxPickSize = Math.min(4, pool.length);
+    for (let pickSize = 3; pickSize <= maxPickSize; pickSize += 1) {
+      const chosen: OkeyPrototypeTile[] = [];
+      const visitPool = (startIndex: number) => {
+        if (chosen.length === pickSize) {
+          addCandidate(chosen.slice());
+          return;
+        }
+        const remaining = pickSize - chosen.length;
+        for (let index = startIndex; index <= pool.length - remaining; index += 1) {
+          const tile = pool[index];
+          if (!tile) continue;
+          chosen.push(tile);
+          visitPool(index + 1);
+          chosen.pop();
+        }
+      };
+      visitPool(0);
+    }
+  }
+
+  const candidates = Array.from(candidateByKey.values());
+  if (candidates.length === 0) return null;
+
+  type SearchState = {
+    score: number;
+    usedTileCount: number;
+    groupCount: number;
+    pickedCandidateIndexes: number[];
+  };
+
+  const allMask = tiles.reduce((mask, _tile, index) => mask | (1 << index), 0) >>> 0;
+  const memo = new Map<number, SearchState>();
+
+  const isBetterState = (candidate: SearchState, current: SearchState) => {
+    if (candidate.score !== current.score) return candidate.score > current.score;
+    if (candidate.usedTileCount !== current.usedTileCount) return candidate.usedTileCount > current.usedTileCount;
+    if (candidate.groupCount !== current.groupCount) return candidate.groupCount < current.groupCount;
+    return false;
+  };
+
+  const countBits = (value: number) => {
+    let bitCount = 0;
+    let mask = value >>> 0;
+    while (mask > 0) {
+      bitCount += 1;
+      mask &= mask - 1;
+    }
+    return bitCount;
+  };
+
+  const solve = (availableMask: number): SearchState => {
+    const normalizedMask = availableMask >>> 0;
+    const cached = memo.get(normalizedMask);
+    if (cached) return cached;
+
+    let bestState: SearchState = {
+      score: 0,
+      usedTileCount: 0,
+      groupCount: 0,
+      pickedCandidateIndexes: [],
+    };
+
+    for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
+      const candidate = candidates[candidateIndex];
+      if (!candidate) continue;
+      if ((candidate.mask & normalizedMask) !== candidate.mask) continue;
+      const nextMask = (normalizedMask ^ candidate.mask) >>> 0;
+      const nextState = solve(nextMask);
+      const candidateState: SearchState = {
+        score: candidate.points + nextState.score,
+        usedTileCount: countBits(candidate.mask) + nextState.usedTileCount,
+        groupCount: 1 + nextState.groupCount,
+        pickedCandidateIndexes: [candidateIndex, ...nextState.pickedCandidateIndexes],
+      };
+      if (isBetterState(candidateState, bestState)) {
+        bestState = candidateState;
+      }
+    }
+
+    memo.set(normalizedMask, bestState);
+    return bestState;
+  };
+
+  const bestState = solve(allMask);
+  if (bestState.pickedCandidateIndexes.length === 0 || bestState.score <= 0) return null;
+
+  const selectedCandidates = bestState.pickedCandidateIndexes
+    .map((candidateIndex) => candidates[candidateIndex])
+    .filter((candidate): candidate is MeldCandidate => Boolean(candidate));
+  if (selectedCandidates.length === 0) return null;
+
+  const colorIndexOf = (tile: OkeyPrototypeTile) => {
+    if (tile.kind !== "normal") return Number.POSITIVE_INFINITY;
+    const colorIndex = OKEY_PROTOTYPE_TILE_COLORS.findIndex((color) => color === tile.color);
+    return colorIndex >= 0 ? colorIndex : Number.POSITIVE_INFINITY;
+  };
+
+  const sortedGroups = selectedCandidates
+    .slice()
+    .sort((left, right) => {
+      if (left.points !== right.points) return right.points - left.points;
+      if (left.tiles.length !== right.tiles.length) return right.tiles.length - left.tiles.length;
+      if (left.kind !== right.kind) return left.kind === "seri" ? -1 : 1;
+      return left.tiles[0]?.id.localeCompare(right.tiles[0]?.id ?? "") ?? 0;
+    })
+    .map((candidate) => candidate.tiles.slice().sort((left, right) => {
+      if (left.value !== right.value) return left.value - right.value;
+      const colorDiff = colorIndexOf(left) - colorIndexOf(right);
+      if (colorDiff !== 0) return colorDiff;
+      return left.id.localeCompare(right.id);
+    }));
+
+  const usedTileIds = new Set<string>(selectedCandidates.flatMap((candidate) => candidate.tiles.map((tile) => tile.id)));
+  const remainingTiles = sortOkeyPrototypeRackTiles(
+    tiles.filter((tile) => !usedTileIds.has(tile.id)),
+    "color",
+    okeyTile,
+  );
+
+  const groupsForSlots = remainingTiles.length > 0 ? [...sortedGroups, remainingTiles] : sortedGroups.slice();
+  const orderedRack = [...sortedGroups.flat(), ...remainingTiles];
+  if (orderedRack.length !== tiles.length) return null;
+
+  return {
+    groupsForSlots,
+    orderedRack,
+    totalPoints: bestState.score,
+    meldCount: selectedCandidates.length,
+  };
 }
 
 function getOkeyPrototypeTileUsefulnessScore(
@@ -3528,14 +3817,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     const occupiedSeatNos = getOkeyLobbyOccupiedSeatNos(okeyPrototypeJoinedTable);
     const seats = occupiedSeatNos.length > 0
-      ? occupiedSeatNos.slice()
-      : [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
+      ? sortOkeyPrototypeSeatsCounterClockwise(occupiedSeatNos)
+      : sortOkeyPrototypeSeatsCounterClockwise([okeyPrototypeTurnSeat as OkeyPrototypeSeatNo]);
     const reservedSeatNo = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
     if (!seats.includes(reservedSeatNo)) {
       seats.push(reservedSeatNo);
-      seats.sort((left, right) => left - right);
     }
-    return seats;
+    const orderedSeats = sortOkeyPrototypeSeatsCounterClockwise(seats);
+    return orderedSeats.length > 0 ? orderedSeats : [reservedSeatNo];
   }, [okeyPrototypeJoinedTable, okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
   const okeyPrototypeSeatNoForRack = useMemo(() => {
     if (okeyPrototypeSeatReservation) {
@@ -3792,7 +4081,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         if (current.entryId !== latestEntry.id) return current;
         return null;
       });
-    }, 520);
+    }, 1_200);
     return () => window.clearTimeout(timer);
   }, [okeyPrototypeDiscardPile]);
   useEffect(() => {
@@ -4408,9 +4697,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (turnSeat === okeyPrototypeLocalSeatNo) return;
     if (!okeyPrototypeActiveTurnSeats.includes(turnSeat)) return;
     const botDelayByDifficulty: Record<OkeyPrototypeBotDifficulty, { draw: number; discard: number }> = {
-      easy: { draw: 860, discard: 980 },
-      normal: { draw: 650, discard: 800 },
-      hard: { draw: 540, discard: 670 },
+      easy: { draw: 1_900, discard: 2_300 },
+      normal: { draw: 1_550, discard: 1_950 },
+      hard: { draw: 1_250, discard: 1_650 },
     };
     const delayConfig = botDelayByDifficulty[okeyPrototypeBotDifficulty] ?? botDelayByDifficulty.normal;
     const delay = okeyPrototypeTurnPhase === "draw" ? delayConfig.draw : delayConfig.discard;
@@ -8782,8 +9071,40 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function arrangeOkeyPrototypeAsSeries() {
-    sortOkeyPrototypeRack("color");
-    appendOkeyPrototypeAction("Seri diz uygulandi.");
+    if (!okeyPrototypeSeatReservation) {
+      appendOkeyPrototypeAction("Seri dizmek icin once bir masaya oturmalisin.");
+      return;
+    }
+    const seatNo = okeyPrototypeSeatNoForRack as OkeyPrototypeSeatNo;
+    const currentRack = okeyPrototypeRackState[seatNo] ?? [];
+    if (currentRack.length < 2) {
+      appendOkeyPrototypeAction("Seri diz icin en az 2 tas olmali.");
+      return;
+    }
+    const bestArrangement = buildOkeyPrototypeBestOpeningArrangement(currentRack, okeyPrototypeOkeyTile);
+    if (!bestArrangement) {
+      sortOkeyPrototypeRack("color");
+      appendOkeyPrototypeAction("Seri diz: gecerli acilis grubu bulunamadi, renk sirasi uygulandi.");
+      return;
+    }
+    const orderChanged = bestArrangement.orderedRack.some((tile, index) => tile.id !== currentRack[index]?.id);
+    if (orderChanged) {
+      setOkeyPrototypeRackState((current) => ({
+        ...current,
+        [seatNo]: bestArrangement.orderedRack,
+      }));
+    }
+    const nextSlots = createOkeyPrototypeRackSlotsFromGroups(bestArrangement.groupsForSlots);
+    setOkeyPrototypeRackSlotsBySeat((current) => ({
+      ...current,
+      [seatNo]: nextSlots,
+    }));
+    const openingHint = bestArrangement.totalPoints >= OKEY_PROTOTYPE_OPENING_TARGET_POINTS
+      ? "El acmaya uygun"
+      : `${OKEY_PROTOTYPE_OPENING_TARGET_POINTS - bestArrangement.totalPoints} puan eksik`;
+    appendOkeyPrototypeAction(
+      `Seri diz optimize edildi: ${bestArrangement.totalPoints} puan, ${bestArrangement.meldCount} grup. ${openingHint}.`,
+    );
   }
 
   function openOkeyPrototypeSerialMeld() {
