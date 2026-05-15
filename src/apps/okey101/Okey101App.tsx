@@ -3578,6 +3578,22 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     return okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
   }, [okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
+  const okeyPrototypeLocalSeatOpened = okeyPrototypeSeatOpenedState[okeyPrototypeLocalSeatNo] ?? false;
+  const okeyPrototypeRackScoreLabel = okeyPrototypeLocalSeatOpened ? "Kalan Puan" : "Grup Puani";
+  const okeyPrototypeRackScoreValue = useMemo(() => {
+    if (okeyPrototypeLocalSeatOpened) {
+      return getOkeyPrototypeRackPenaltyPoints(okeyPrototypeSeatRackTiles, okeyPrototypeOkeyTile);
+    }
+    return okeyPrototypeRackGroupedScore.total;
+  }, [
+    okeyPrototypeLocalSeatOpened,
+    okeyPrototypeSeatRackTiles,
+    okeyPrototypeOkeyTile,
+    okeyPrototypeRackGroupedScore.total,
+  ]);
+  const okeyPrototypeRackScoreTitle = okeyPrototypeLocalSeatOpened
+    ? "El acildiktan sonra istakada kalan taslarin puan toplami"
+    : `${okeyPrototypeRackGroupedScore.validGroupCount} gecerli grup`;
   const okeyPrototypeSeatRoleLabels = useMemo(() => {
     const labels: Record<OkeyPrototypeSeatNo, string> = {
       1: "Bos",
@@ -14985,8 +15001,16 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                   <div className="my-okey-lower-strip">
                     <div className="my-game-coming-prototype-rack">
                       <div className="my-game-coming-prototype-rack-head">
-                        <strong>Istakalar</strong>
-                        <span>Koltuk {okeyPrototypeSeatNoForRack}: {okeyPrototypeSeatRackTiles.length} tas</span>
+                        <div className="my-okey-rack-head-meta">
+                          <strong>Istakalar</strong>
+                          <span>Koltuk {okeyPrototypeSeatNoForRack}: {okeyPrototypeSeatRackTiles.length} tas</span>
+                        </div>
+                        <div className="my-okey-rack-score-strip my-okey-rack-score-strip-head" role="status" aria-live="polite" aria-atomic="true">
+                          <span>{okeyPrototypeRackScoreLabel}</span>
+                          <strong title={okeyPrototypeRackScoreTitle}>
+                            {okeyPrototypeRackScoreValue}
+                          </strong>
+                        </div>
                       </div>
                       <div className="my-game-coming-prototype-rack-actions my-okey-rack-top-actions">
                         <div className="my-okey-open-actions-col">
@@ -15091,12 +15115,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         ))}
                       </div>
 
-                      <div className="my-okey-rack-score-strip" role="status" aria-live="polite" aria-atomic="true">
-                        <span>Grup Puani</span>
-                        <strong title={`${okeyPrototypeRackGroupedScore.validGroupCount} gecerli grup`}>
-                          {okeyPrototypeRackGroupedScore.total}
-                        </strong>
-                      </div>
                     </div>
 
                     <aside className="my-okey-quick-side">

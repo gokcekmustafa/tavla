@@ -5737,7 +5737,17 @@
 }
 
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 8px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-head-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head strong::after {
@@ -6228,6 +6238,11 @@
   gap: 8px;
 }
 
+.my-okey-rack-score-strip-head {
+  margin-top: 0;
+  align-self: flex-start;
+}
+
 .my-okey-rack-score-strip span {
   color: #f8ecd4;
   font-size: 0.78rem;
@@ -6275,6 +6290,15 @@
     min-width: calc(30px * var(--okey-proto-tile-scale, 1));
     height: calc(44px * var(--okey-proto-tile-scale, 1));
     font-size: calc(1rem * var(--okey-proto-tile-scale, 1));
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head {
+    justify-content: flex-start;
   }
 }
 
