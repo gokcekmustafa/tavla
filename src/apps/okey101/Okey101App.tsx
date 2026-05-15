@@ -13141,10 +13141,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           {" "}
                           {okeyPrototypeIndicatorTile ? formatOkeyPrototypeTile(okeyPrototypeIndicatorTile) : "-"}
                           {" | "}
-                          Okey:
-                          {" "}
-                          {okeyPrototypeOkeyTile ? formatOkeyPrototypeTile(okeyPrototypeOkeyTile) : "-"}
-                          {" | "}
                           Sahte Okey: {okeyPrototypeSahteOkeyCount} (Destede: {okeyPrototypeSahteInWall})
                         </p>
                         <p className="my-game-coming-prototype-turn-open-status" role="status" aria-live="polite" aria-atomic="true">
@@ -13421,11 +13417,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               Gosterge:
                               {" "}
                               {okeyPrototypeIndicatorTile ? formatOkeyPrototypeTile(okeyPrototypeIndicatorTile) : "-"}
-                            </p>
-                            <p>
-                              Okey:
-                              {" "}
-                              {okeyPrototypeOkeyTile ? formatOkeyPrototypeTile(okeyPrototypeOkeyTile) : "-"}
                             </p>
                             <div className="my-game-coming-prototype-board-center-melds">
                               <p>Masa Perleri:</p>
@@ -14705,22 +14696,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 	                            <strong>-</strong>
 	                          )}
 	                        </div>
-	                      </div>
-	                      <div className="my-okey-indicator-card">
-	                        <span>Okey</span>
-	                        <div className="my-okey-indicator-card-tile-wrap">
-	                          {okeyPrototypeOkeyTile ? (
-	                            <span
-	                              className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeOkeyTile.color}`}
-	                              title={formatOkeyPrototypeTile(okeyPrototypeOkeyTile)}
-	                            >
-	                              {renderOkeyPrototypeTileFace(okeyPrototypeOkeyTile)}
-	                            </span>
-	                          ) : (
-	                            <strong>-</strong>
-	                          )}
-	                        </div>
-	                        <small>Sahte Okey, okey tasinin deger/renk kopyasi gibi kullanilir.</small>
+                          <small>Okey, gostergenin bir rakam ustudur.</small>
 	                      </div>
 	                      <button
 	                        type="button"
@@ -14869,7 +14845,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
                         <div className="my-okey-center-summary">
                           <p>Gosterge: <strong>{okeyPrototypeIndicatorTile ? formatOkeyPrototypeTile(okeyPrototypeIndicatorTile) : "-"}</strong></p>
-                          <p>Okey: <strong>{okeyPrototypeOkeyTile ? formatOkeyPrototypeTile(okeyPrototypeOkeyTile) : "-"}</strong></p>
                           <p>Acik Per: <strong>{okeyPrototypeOpenedMelds.length}</strong></p>
                           <p>Sahte Okey: <strong>{okeyPrototypeSahteOkeyCount}</strong></p>
                         </div>
