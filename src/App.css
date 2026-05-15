@@ -6750,3 +6750,50 @@
     max-height: 220px;
   }
 }
+
+/* 101 board compactness + right panel vertical centering */
+@media (min-width: 761px) {
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
+    padding: 10px 10px 8px;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) 206px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
+    min-height: 330px;
+    gap: 8px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-content: stretch;
+    min-height: 100%;
+    gap: 6px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip {
+    margin-top: 8px;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) 232px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    padding: 8px 9px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-rows {
+    gap: 8px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
+    padding: 6px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile {
+    min-width: calc(40px * var(--okey-proto-tile-scale, 1));
+    height: calc(56px * var(--okey-proto-tile-scale, 1));
+    font-size: calc(1.35rem * var(--okey-proto-tile-scale, 1));
+  }
+}
