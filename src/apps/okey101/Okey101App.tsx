@@ -720,6 +720,45 @@ function buildOkeyPrototypeRackGroupsForLayout(
       groups.push(group);
     }
 
+    // Seri diz davranisi: ayni deger - farkli renk (en az 3) gruplari da
+    // ayri bir grup olarak diz ve aralarina en az 1 bos slot birak.
+    const pickBestSetCandidate = (): { value: number; colors: OkeyPrototypeNormalColor[] } | null => {
+      let best: { value: number; colors: OkeyPrototypeNormalColor[] } | null = null;
+      for (let value = 1; value <= 13; value += 1) {
+        const availableColors = OKEY_PROTOTYPE_TILE_COLORS.filter((color) => {
+          const valueBuckets = colorBuckets.get(color);
+          const bucket = valueBuckets?.get(value) ?? [];
+          return bucket.length > 0;
+        });
+        if (availableColors.length < 3) continue;
+        const colors = availableColors.slice(0, 4);
+        if (!best || colors.length > best.colors.length) {
+          best = { value, colors };
+        }
+      }
+      return best;
+    };
+
+    while (true) {
+      const candidate = pickBestSetCandidate();
+      if (!candidate || candidate.colors.length < 3) break;
+      const setGroup: OkeyPrototypeTile[] = [];
+      candidate.colors.forEach((color) => {
+        const valueBuckets = colorBuckets.get(color);
+        if (!valueBuckets) return;
+        const bucket = valueBuckets.get(candidate.value) ?? [];
+        const tile = bucket.shift();
+        if (tile) setGroup.push(tile);
+        if (bucket.length === 0) valueBuckets.delete(candidate.value);
+        else valueBuckets.set(candidate.value, bucket);
+      });
+      if (setGroup.length >= 3) {
+        groups.push(setGroup);
+      } else {
+        break;
+      }
+    }
+
     const leftoverNormals: OkeyPrototypeTile[] = [];
     OKEY_PROTOTYPE_TILE_COLORS.forEach((color) => {
       const valueBuckets = colorBuckets.get(color);
@@ -3989,7 +4028,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (okeyPrototypeTurnSeatNo !== okeyPrototypeSeatNoForRack) return false;
     const seatOpenMode = okeyPrototypeSeatOpenModes[okeyPrototypeTurnSeatNo] ?? "none";
     if (seatOpenMode === "pair") return false;
-    return okeyPrototypeRackValidMeldGroups.some((group) => group.kind === "seri" && group.tiles.length >= 3);
+    return okeyPrototypeRackValidMeldGroups.some(
+      (group) => (group.kind === "seri" || group.kind === "set") && group.tiles.length >= 3,
+    );
   }, [
     okeyPrototypeCanAdvanceTurn,
     okeyPrototypeTurnPhase,
@@ -8475,7 +8516,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const seatOpenMode = okeyPrototypeSeatOpenModes[seatNo] ?? "none";
       const now = Date.now();
       const openableGroups = okeyPrototypeRackValidMeldGroups.filter((group) => {
-        if (group.kind !== kind) return false;
+        const matchesKind = kind === "seri"
+          ? (group.kind === "seri" || group.kind === "set")
+          : group.kind === kind;
+        if (!matchesKind) return false;
         if (group.kind === "seri" && seatOpenMode === "pair") return false;
         if (group.tiles.length < 3) return false;
         return group.tiles.every((tile) => workingRack.some((entry) => entry.id === tile.id));
@@ -8502,7 +8546,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
           seatNo,
           round: okeyPrototypeTurnRound,
           tiles: selectedTiles.slice().sort((left, right) => left.value - right.value),
-          kind,
+          kind: group.kind,
           at: now + index,
         };
         createdMeldEntries.push(meldEntry);
