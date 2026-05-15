@@ -8441,6 +8441,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (!anyOpenedSeat || okeyPrototypeOpenedMelds.length === 0) return 0;
     const attachableTarget = okeyPrototypeOpenedMelds.find((meld) => (
       canAttachOkeyPrototypeTileToMeld(droppedTile, meld, okeyPrototypeOkeyTile).valid
+      || getOkeyPrototypeJokerReplacementPlan(droppedTile, meld).valid
     )) ?? null;
     if (!attachableTarget) return 0;
     setOkeyPrototypeSeatPenaltyTotals((current) => ({
@@ -8479,10 +8480,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     return Math.max(0, Math.trunc(penalty));
   }
 
-  function finishOkeyPrototypeHandAsDraw(reason: string) {
+  function finishOkeyPrototypeHandAsDraw(
+    reason: string,
+    rackStateOverride?: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeTile[]>>,
+  ) {
     const penaltyDelta = createDefaultOkeyPrototypeSeatWinState();
     OKEY_PROTOTYPE_SEATS.forEach((seat) => {
-      const seatRack = okeyPrototypeRackState[seat] ?? [];
+      const seatRack = rackStateOverride?.[seat] ?? okeyPrototypeRackState[seat] ?? [];
       penaltyDelta[seat] = getOkeyPrototypeRoundPenaltyByRules(seat, seatRack);
     });
     setOkeyPrototypeSeatPenaltyTotals((current) => ({
@@ -8628,7 +8632,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       ? selectedIds.has(okeyPrototypePendingDiscardTileId)
       : false;
     const timestamp = Date.now();
-    const serialModeOpen = sourceLabel.toLowerCase().includes("seri");
     let openingPointsGain = normalizedGroups.reduce((sum, group) => sum + group.points, 0);
     let finalDiscardTile: OkeyPrototypeTile | null = null;
     let groupsForEntries = normalizedGroups;
@@ -8657,7 +8660,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       seatNo,
       round: okeyPrototypeTurnRound,
       tiles: group.tiles,
-      kind: serialModeOpen ? "seri" : group.kind,
+      kind: group.kind,
       at: timestamp + index,
     }));
     setOkeyPrototypeRackState((current) => ({
@@ -9170,7 +9173,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     if (shouldFinishByFinalWallDraw) {
-      finishOkeyPrototypeHandAsDraw(`Koltuk ${seatNo} son kapali deste tasini cekip atti:`);
+      finishOkeyPrototypeHandAsDraw(
+        `Koltuk ${seatNo} son kapali deste tasini cekip atti:`,
+        { [seatNo]: nextRack },
+      );
       return;
     }
     const next = moveOkeyPrototypeTurnToNextSeat();
@@ -9434,7 +9440,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
           seatNo,
           round: okeyPrototypeTurnRound,
           tiles: selectedTiles.slice().sort((left, right) => left.value - right.value),
-          kind: kind === "seri" ? "seri" : group.kind,
+          kind: group.kind,
           at: now + index,
         };
         createdMeldEntries.push(meldEntry);
@@ -16141,6 +16147,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             </p>
                           ))}
                         </div>
+                        <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
+                          {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
+                            <p key={`quick-penalty-${seatNo}`}>
+                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || `K${seatNo}`} ceza</span>
+                              <strong>{okeyPrototypeSeatPenaltyTotals[seatNo] ?? 0}</strong>
+                            </p>
+                          ))}
+                        </div>
+                        {okeyPrototypeLastHandSummary ? (
+                          <p className="my-okey-quick-last-summary">{okeyPrototypeLastHandSummary}</p>
+                        ) : null}
                       </section>
                     </aside>
                   </div>
