@@ -528,6 +528,7 @@ const OKEY_PROTOTYPE_HAND_TILE_COUNT = OKEY_ENGINE_RULES.handTileCount;
 const OKEY_PROTOTYPE_OPENING_TARGET_POINTS = OKEY_ENGINE_RULES.openingTargetPoints;
 const OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS = OKEY_ENGINE_RULES.pairOpenMinPairs;
 const OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS = 101;
+const OKEY_PROTOTYPE_UNOPENED_PENALTY_POINTS = 202;
 const OKEY_PROTOTYPE_SET_HAND_TARGET = 7;
 const OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS = 1_800;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = OKEY_ENGINE_RULES.seats as readonly OkeyPrototypeSeatNo[];
@@ -8213,11 +8214,36 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     return OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS;
   }
 
+  function getOkeyPrototypeRoundPenaltyByRules(
+    seatNo: OkeyPrototypeSeatNo,
+    seatRack: OkeyPrototypeTile[],
+    options?: {
+      doubleForJokerFinish?: boolean;
+      doubleForPairFinish?: boolean;
+    },
+  ) {
+    const seatOpened = okeyPrototypeSeatOpenedState[seatNo] ?? false;
+    const seatOpenMode = okeyPrototypeSeatOpenModes[seatNo] ?? "none";
+    let penalty = seatOpened
+      ? getOkeyPrototypeRackPenaltyPoints(seatRack, okeyPrototypeOkeyTile)
+      : OKEY_PROTOTYPE_UNOPENED_PENALTY_POINTS;
+    if (seatOpenMode === "pair") {
+      penalty *= 2;
+    }
+    if (options?.doubleForJokerFinish) {
+      penalty *= 2;
+    }
+    if (options?.doubleForPairFinish) {
+      penalty *= 2;
+    }
+    return Math.max(0, Math.trunc(penalty));
+  }
+
   function finishOkeyPrototypeHandAsDraw(reason: string) {
     const penaltyDelta = createDefaultOkeyPrototypeSeatWinState();
     OKEY_PROTOTYPE_SEATS.forEach((seat) => {
       const seatRack = okeyPrototypeRackState[seat] ?? [];
-      penaltyDelta[seat] = getOkeyPrototypeRackPenaltyPoints(seatRack, okeyPrototypeOkeyTile);
+      penaltyDelta[seat] = getOkeyPrototypeRoundPenaltyByRules(seat, seatRack);
     });
     setOkeyPrototypeSeatPenaltyTotals((current) => ({
       1: (current[1] ?? 0) + (penaltyDelta[1] ?? 0),
@@ -8236,7 +8262,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       .map((seat) => `K${seat}: ${penaltyDelta[seat] ?? 0}`)
       .join(" | ");
     setOkeyPrototypeLastHandSummary(`El ${okeyPrototypeSessionHandNo}: Berabere. Ceza: ${penaltyText}`);
-    appendOkeyPrototypeAction(`${reason} El berabere bitti, ceza puanlari yazildi.`);
+    appendOkeyPrototypeAction(
+      `${reason} El berabere bitti. Acmayan oyunculara ${OKEY_PROTOTYPE_UNOPENED_PENALTY_POINTS}, `
+      + "acanlara elde kalan tas puani yazildi.",
+    );
   }
 
   function finishOkeyPrototypeHandWithFinalDiscard(
@@ -8268,13 +8297,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeFinalWallDrawSeat(null);
     const attachableDiscardPenalty = applyOkeyPrototypeAttachableDiscardPenalty(seatNo, droppedTile, sourceLabel);
     const jokerFinish = isOkeyPrototypeJokerTile(droppedTile, okeyPrototypeOkeyTile);
+    const winnerOpenedWithPairs = (okeyPrototypeSeatOpenModes[seatNo] ?? "none") === "pair";
     const penaltyDelta = createDefaultOkeyPrototypeSeatWinState();
     OKEY_PROTOTYPE_SEATS.forEach((seat) => {
       if (seat === seatNo) return;
       const seatRack = okeyPrototypeRackState[seat] ?? [];
-      let penalty = getOkeyPrototypeRackPenaltyPoints(seatRack, okeyPrototypeOkeyTile);
-      if (jokerFinish) penalty *= 2;
-      penaltyDelta[seat] = penalty;
+      penaltyDelta[seat] = getOkeyPrototypeRoundPenaltyByRules(
+        seat,
+        seatRack,
+        {
+          doubleForJokerFinish: jokerFinish,
+          doubleForPairFinish: winnerOpenedWithPairs,
+        },
+      );
     });
     setOkeyPrototypeSeatPenaltyTotals((current) => ({
       1: (current[1] ?? 0) + (penaltyDelta[1] ?? 0),
@@ -8293,7 +8328,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       .join(" | ");
     setOkeyPrototypeLastHandSummary(`El ${okeyPrototypeSessionHandNo}: Koltuk ${seatNo} kazandi. Ceza: ${penaltyText}`);
     appendOkeyPrototypeAction(`${sourceLabel}: Son tas kapali desteye birakildi (${formatOkeyPrototypeTile(droppedTile)}).`);
-    appendOkeyPrototypeAction(`El tamamlandi: Koltuk ${seatNo} bu eli kazandi.${jokerFinish ? " Okey ile bitti (cezalar x2)." : ""}`);
+    appendOkeyPrototypeAction(
+      `El tamamlandi: Koltuk ${seatNo} bu eli kazandi.`
+      + `${jokerFinish ? " Okey ile bittigi icin cezalar x2." : ""}`
+      + `${winnerOpenedWithPairs ? " Cift bitis oldugu icin cezalar ek olarak x2." : ""}`,
+    );
     if (attachableDiscardPenalty > 0) {
       appendOkeyPrototypeAction(`Ek kural cezasi uygulandi: K${seatNo} +${attachableDiscardPenalty}.`);
     }
@@ -8826,15 +8865,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeFinalWallDrawSeat(null);
     if (nextRack.length === 0) {
       const jokerFinish = isOkeyPrototypeJokerTile(droppedTile, okeyPrototypeOkeyTile);
+      const winnerOpenedWithPairs = (okeyPrototypeSeatOpenModes[seatNo] ?? "none") === "pair";
       const penaltyDelta = createDefaultOkeyPrototypeSeatWinState();
       OKEY_PROTOTYPE_SEATS.forEach((seat) => {
         if (seat === seatNo) return;
         const seatRack = okeyPrototypeRackState[seat] ?? [];
-        let penalty = getOkeyPrototypeRackPenaltyPoints(seatRack, okeyPrototypeOkeyTile);
-        if (jokerFinish) {
-          penalty *= 2;
-        }
-        penaltyDelta[seat] = penalty;
+        penaltyDelta[seat] = getOkeyPrototypeRoundPenaltyByRules(
+          seat,
+          seatRack,
+          {
+            doubleForJokerFinish: jokerFinish,
+            doubleForPairFinish: winnerOpenedWithPairs,
+          },
+        );
       });
       setOkeyPrototypeSeatPenaltyTotals((current) => ({
         1: (current[1] ?? 0) + (penaltyDelta[1] ?? 0),
@@ -8852,7 +8895,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         .map((seat) => `K${seat}: ${penaltyDelta[seat] ?? 0}`)
         .join(" | ");
       setOkeyPrototypeLastHandSummary(`El ${okeyPrototypeSessionHandNo}: Koltuk ${seatNo} kazandi. Ceza: ${penaltyText}`);
-      appendOkeyPrototypeAction(`El tamamlandi: Koltuk ${seatNo} bu eli kazandi.${jokerFinish ? " Okey ile bitti (cezalar x2)." : ""}`);
+      appendOkeyPrototypeAction(
+        `El tamamlandi: Koltuk ${seatNo} bu eli kazandi.`
+        + `${jokerFinish ? " Okey ile bittigi icin cezalar x2." : ""}`
+        + `${winnerOpenedWithPairs ? " Cift bitis oldugu icin cezalar ek olarak x2." : ""}`,
+      );
       if (attachableDiscardPenalty > 0) {
         appendOkeyPrototypeAction(`Ek kural cezasi uygulandi: K${seatNo} +${attachableDiscardPenalty}.`);
       }
