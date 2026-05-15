@@ -3944,32 +3944,26 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (okeyPrototypeRackValidMeldGroups.length === 0) return [];
     const selectedGroups: Array<{ tiles: OkeyPrototypeTile[]; kind: OkeyPrototypeMeldKind; points: number }> = [];
     let selectedPoints = 0;
-    let selectedTileCount = 0;
     for (const group of okeyPrototypeRackValidMeldGroups) {
+      // 101 masa davranisi: seri acma akisi icinde ayni deger-farkli renk
+      // gruplar da (engine'de "set") seri gibi degerlendirilir.
       if (group.kind !== "seri" && group.kind !== "set") continue;
       selectedGroups.push(group);
       selectedPoints += group.points;
-      selectedTileCount += group.tiles.length;
-      if (selectedPoints >= OKEY_PROTOTYPE_OPENING_TARGET_POINTS) break;
     }
     if (selectedPoints < OKEY_PROTOTYPE_OPENING_TARGET_POINTS) return [];
-    if (okeyPrototypeTurnRackTiles.length - selectedTileCount < 1) return [];
     return selectedGroups;
   }, [
     okeyPrototypeCanSelectRackTiles,
     okeyPrototypeCurrentSeatOpened,
     okeyPrototypeRackValidMeldGroups,
-    okeyPrototypeTurnRackTiles.length,
   ]);
   const okeyPrototypeCanOpenSerialNow = okeyPrototypeCanSelectRackTiles
     && (
       (
         okeyPrototypeMeldDraftTiles.length >= 3
         && okeyPrototypeMeldDraftValidation.valid
-        && (
-          okeyPrototypeMeldDraftValidation.kind === "seri"
-          || okeyPrototypeCurrentSeatOpened
-        )
+        && okeyPrototypeMeldDraftValidation.kind === "seri"
       )
       || okeyPrototypeAutoSerialOpenGroups.length > 0
     );
@@ -7835,6 +7829,82 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     appendOkeyPrototypeAction(`Per ekleme hedefi secildi: K${target.seatNo} | El ${target.round}`);
   }
 
+  function finishOkeyPrototypeHandAsDraw(reason: string) {
+    const penaltyDelta = createDefaultOkeyPrototypeSeatWinState();
+    OKEY_PROTOTYPE_SEATS.forEach((seat) => {
+      const seatRack = okeyPrototypeRackState[seat] ?? [];
+      penaltyDelta[seat] = getOkeyPrototypeRackPenaltyPoints(seatRack, okeyPrototypeOkeyTile);
+    });
+    setOkeyPrototypeSeatPenaltyTotals((current) => ({
+      1: (current[1] ?? 0) + (penaltyDelta[1] ?? 0),
+      2: (current[2] ?? 0) + (penaltyDelta[2] ?? 0),
+      3: (current[3] ?? 0) + (penaltyDelta[3] ?? 0),
+      4: (current[4] ?? 0) + (penaltyDelta[4] ?? 0),
+    }));
+    setOkeyPrototypeHandDrawn(true);
+    setOkeyPrototypeDrawHandCount((current) => current + 1);
+    const penaltyText = OKEY_PROTOTYPE_SEATS
+      .map((seat) => `K${seat}: ${penaltyDelta[seat] ?? 0}`)
+      .join(" | ");
+    setOkeyPrototypeLastHandSummary(`El ${okeyPrototypeSessionHandNo}: Berabere. Ceza: ${penaltyText}`);
+    appendOkeyPrototypeAction(`${reason} El berabere bitti, ceza puanlari yazildi.`);
+  }
+
+  function finishOkeyPrototypeHandWithFinalDiscard(
+    seatNo: OkeyPrototypeSeatNo,
+    droppedTile: OkeyPrototypeTile,
+    sourceLabel: string,
+    nextRackOverride?: OkeyPrototypeTile[],
+  ) {
+    const nextRack = nextRackOverride ?? [];
+    const discardEntry: OkeyPrototypeDiscardEntry = {
+      id: `okey-proto-discard-${seatNo}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      seatNo,
+      tile: droppedTile,
+      round: okeyPrototypeTurnRound,
+      at: Date.now(),
+    };
+    setOkeyPrototypeRackState((current) => ({
+      ...current,
+      [seatNo]: nextRack,
+    }));
+    setOkeyPrototypeDiscardDraftTileId("");
+    setOkeyPrototypeTurnLockedAfterMeld(false);
+    if (okeyPrototypePendingDiscardTileId) {
+      setOkeyPrototypePendingDiscardTileId("");
+    }
+    setOkeyPrototypePendingDiscardPickup(null);
+    setOkeyPrototypeDiscardPile((current) => [discardEntry, ...current].slice(0, 40));
+    const jokerFinish = isOkeyPrototypeJokerTile(droppedTile, okeyPrototypeOkeyTile);
+    const penaltyDelta = createDefaultOkeyPrototypeSeatWinState();
+    OKEY_PROTOTYPE_SEATS.forEach((seat) => {
+      if (seat === seatNo) return;
+      const seatRack = okeyPrototypeRackState[seat] ?? [];
+      let penalty = getOkeyPrototypeRackPenaltyPoints(seatRack, okeyPrototypeOkeyTile);
+      if (jokerFinish) penalty *= 2;
+      penaltyDelta[seat] = penalty;
+    });
+    setOkeyPrototypeSeatPenaltyTotals((current) => ({
+      1: (current[1] ?? 0) + (penaltyDelta[1] ?? 0),
+      2: (current[2] ?? 0) + (penaltyDelta[2] ?? 0),
+      3: (current[3] ?? 0) + (penaltyDelta[3] ?? 0),
+      4: (current[4] ?? 0) + (penaltyDelta[4] ?? 0),
+    }));
+    setOkeyPrototypeWinnerSeat(seatNo);
+    setOkeyPrototypeSeatHandWins((current) => ({
+      ...current,
+      [seatNo]: (current[seatNo] ?? 0) + 1,
+    }));
+    const penaltyText = OKEY_PROTOTYPE_SEATS
+      .filter((seat) => seat !== seatNo)
+      .map((seat) => `K${seat}: ${penaltyDelta[seat] ?? 0}`)
+      .join(" | ");
+    setOkeyPrototypeLastHandSummary(`El ${okeyPrototypeSessionHandNo}: Koltuk ${seatNo} kazandi. Ceza: ${penaltyText}`);
+    appendOkeyPrototypeAction(`${sourceLabel}: Son tas kapali desteye birakildi (${formatOkeyPrototypeTile(droppedTile)}).`);
+    appendOkeyPrototypeAction(`El tamamlandi: Koltuk ${seatNo} bu eli kazandi.${jokerFinish ? " Okey ile bitti (cezalar x2)." : ""}`);
+    appendOkeyPrototypeAction("Yeni el icin 'Yeni El Baslat' butonunu kullan.");
+  }
+
   function openOkeyPrototypeMeldGroups(
     groups: Array<{ tiles: OkeyPrototypeTile[]; kind: OkeyPrototypeMeldKind }>,
     sourceLabel: string,
@@ -7876,23 +7946,46 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       });
     }
     const nextTileCountAfterOpen = okeyPrototypeTurnRackTiles.length - selectedIds.size;
-    if (nextTileCountAfterOpen < 1) {
-      appendOkeyPrototypeAction("Gecersiz hamle: Turu bitirmek icin en az 1 tas elde kalmali.");
+    if (nextTileCountAfterOpen < 0) {
+      appendOkeyPrototypeAction("Gecersiz hamle: Acilis hesaplanamadi.");
       return false;
     }
     const consumedPendingDiscardTile = okeyPrototypePendingDiscardTileId
       ? selectedIds.has(okeyPrototypePendingDiscardTileId)
       : false;
     const timestamp = Date.now();
-    const meldEntries: OkeyPrototypeMeldEntry[] = normalizedGroups.map((group, index) => ({
+    const serialModeOpen = sourceLabel.toLowerCase().includes("seri");
+    let openingPointsGain = normalizedGroups.reduce((sum, group) => sum + group.points, 0);
+    let finalDiscardTile: OkeyPrototypeTile | null = null;
+    let groupsForEntries = normalizedGroups;
+    if (nextTileCountAfterOpen === 0) {
+      const lastEntry = normalizedGroups[normalizedGroups.length - 1];
+      const finalCandidate = lastEntry?.tiles[lastEntry.tiles.length - 1] ?? null;
+      if (!finalCandidate) {
+        appendOkeyPrototypeAction("Gecersiz hamle: Son tas secilemedi.");
+        return false;
+      }
+      finalDiscardTile = finalCandidate;
+      selectedIds.delete(finalCandidate.id);
+      if (lastEntry) {
+        lastEntry.tiles = lastEntry.tiles.filter((tile) => tile.id !== finalCandidate.id);
+      }
+      const stillValidGroups = normalizedGroups.filter((group) => group.tiles.length >= 3);
+      if (stillValidGroups.length === 0) {
+        appendOkeyPrototypeAction("Gecersiz hamle: Son tas atildiginda gecerli grup kalmiyor.");
+        return false;
+      }
+      groupsForEntries = stillValidGroups;
+      openingPointsGain = stillValidGroups.reduce((sum, group) => sum + group.points, 0);
+    }
+    const meldEntries: OkeyPrototypeMeldEntry[] = groupsForEntries.map((group, index) => ({
       id: `okey-proto-meld-${seatNo}-${timestamp}-${index}-${Math.random().toString(36).slice(2, 7)}`,
       seatNo,
       round: okeyPrototypeTurnRound,
       tiles: group.tiles,
-      kind: group.kind,
+      kind: serialModeOpen ? "seri" : group.kind,
       at: timestamp + index,
     }));
-    const openingPointsGain = normalizedGroups.reduce((sum, group) => sum + group.points, 0);
     setOkeyPrototypeRackState((current) => ({
       ...current,
       [seatNo]: (current[seatNo] ?? []).filter((tile) => !selectedIds.has(tile.id)),
@@ -7922,6 +8015,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       }
     }
     appendOkeyPrototypeAction(`${sourceLabel}: ${meldEntries.length} grup acildi.`);
+    if (finalDiscardTile) {
+      finishOkeyPrototypeHandWithFinalDiscard(
+        seatNo,
+        finalDiscardTile,
+        sourceLabel,
+        (okeyPrototypeTurnRackTiles ?? []).filter((tile) => !selectedIds.has(tile.id) && tile.id !== finalDiscardTile?.id),
+      );
+    }
     return true;
   }
 
@@ -7986,18 +8087,38 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         pairedGroups.push([safeTiles.shift() as OkeyPrototypeTile, safeTiles.shift() as OkeyPrototypeTile]);
       }
     });
-    const fivePairs = pairedGroups.slice(0, OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS);
-    if (fivePairs.length < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS) {
+    const openablePairs = pairedGroups.slice();
+    if (openablePairs.length < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS) {
       appendOkeyPrototypeAction("Cift acma icin kullanilabilecek yeterli cift bulunamadi.");
       return;
     }
-    const openedPairTileIds = new Set(fivePairs.flat().map((tile) => tile.id));
-    if (okeyPrototypeTurnRackTiles.length - openedPairTileIds.size < 1) {
-      appendOkeyPrototypeAction("Gecersiz hamle: Cift actikten sonra en az 1 tas elde kalmali.");
+    const openedPairTileIds = new Set(openablePairs.flat().map((tile) => tile.id));
+    const nextTileCountAfterOpen = okeyPrototypeTurnRackTiles.length - openedPairTileIds.size;
+    if (nextTileCountAfterOpen < 0) {
+      appendOkeyPrototypeAction("Gecersiz hamle: Cift acma hesaplanamadi.");
       return;
     }
+    let finalDiscardTile: OkeyPrototypeTile | null = null;
+    let pairsForEntries = openablePairs;
+    if (nextTileCountAfterOpen === 0) {
+      const lastPair = openablePairs[openablePairs.length - 1];
+      const finalCandidate = lastPair?.[lastPair.length - 1] ?? null;
+      if (!finalCandidate) {
+        appendOkeyPrototypeAction("Gecersiz hamle: Son tas secilemedi.");
+        return;
+      }
+      finalDiscardTile = finalCandidate;
+      openedPairTileIds.delete(finalCandidate.id);
+      pairsForEntries = openablePairs
+        .map((pair) => pair.filter((tile) => tile.id !== finalCandidate.id))
+        .filter((pair) => pair.length >= 2);
+      if (pairsForEntries.length < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS) {
+        appendOkeyPrototypeAction("Gecersiz hamle: Son tas atildiginda en az 5 cift kalmali.");
+        return;
+      }
+    }
     const now = Date.now();
-    const pairMeldEntries: OkeyPrototypeMeldEntry[] = fivePairs.map((pairTiles, index) => ({
+    const pairMeldEntries: OkeyPrototypeMeldEntry[] = pairsForEntries.map((pairTiles, index) => ({
       id: `okey-proto-pair-${seatNo}-${now}-${index}-${Math.random().toString(36).slice(2, 7)}`,
       seatNo,
       round: okeyPrototypeTurnRound,
@@ -8024,6 +8145,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypePendingDiscardTileId("");
     setOkeyPrototypeTurnLockedAfterMeld(true);
     appendOkeyPrototypeAction(`El cift acildi: Koltuk ${seatNo} (${pairCount} cift).`);
+    if (finalDiscardTile) {
+      finishOkeyPrototypeHandWithFinalDiscard(
+        seatNo,
+        finalDiscardTile,
+        "Cift acma",
+        (okeyPrototypeTurnRackTiles ?? []).filter((tile) => !openedPairTileIds.has(tile.id) && tile.id !== finalDiscardTile?.id),
+      );
+    }
   }
 
   function attachOkeyPrototypeTileToMeld() {
@@ -8113,10 +8242,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const topWallTile = okeyPrototypeWallTiles[0] ?? null;
     if (!topWallTile || okeyPrototypeDrawPileRemaining <= 0) {
       if (okeyPrototypeDiscardPile.length === 0) {
-        setOkeyPrototypeHandDrawn(true);
-        setOkeyPrototypeDrawHandCount((current) => current + 1);
-        setOkeyPrototypeLastHandSummary(`El ${okeyPrototypeSessionHandNo}: Berabere bitti.`);
-        appendOkeyPrototypeAction("El berabere bitti: Ortada ve kapali destede tas kalmadi.");
+        finishOkeyPrototypeHandAsDraw("Kapali deste bitti:");
         return;
       }
       appendOkeyPrototypeAction("Gecersiz hamle: Kapali destede tas kalmadi.");
@@ -8167,10 +8293,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         return;
       }
       if (okeyPrototypeDrawPileRemaining <= 0) {
-        setOkeyPrototypeHandDrawn(true);
-        setOkeyPrototypeDrawHandCount((current) => current + 1);
-        setOkeyPrototypeLastHandSummary(`El ${okeyPrototypeSessionHandNo}: Berabere bitti.`);
-        appendOkeyPrototypeAction("El berabere bitti: Ortada ve kapali destede tas kalmadi.");
+        finishOkeyPrototypeHandAsDraw("Ortadan alinacak tas kalmadi:");
         return;
       }
       appendOkeyPrototypeAction("Gecersiz hamle: Ortada alinacak tas yok.");
@@ -8490,10 +8613,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       guard += 1;
       let changed = false;
       for (let tileIndex = 0; tileIndex < workingRack.length; tileIndex += 1) {
+        if (workingRack.length <= 1) break;
         const tile = workingRack[tileIndex];
         if (!tile) continue;
         const targetMeld = workingMelds.find((meld) => {
-          if (meld.kind !== kind) return false;
+          const matchesKind = kind === "seri"
+            ? (meld.kind === "seri" || meld.kind === "set")
+            : meld.kind === kind;
+          if (!matchesKind) return false;
           const validation = canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile);
           return validation.valid;
         });
@@ -8546,7 +8673,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
           seatNo,
           round: okeyPrototypeTurnRound,
           tiles: selectedTiles.slice().sort((left, right) => left.value - right.value),
-          kind: group.kind,
+          kind: kind === "seri" ? "seri" : group.kind,
           at: now + index,
         };
         createdMeldEntries.push(meldEntry);
@@ -8605,7 +8732,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (
       okeyPrototypeMeldDraftTiles.length >= 3
       && okeyPrototypeMeldDraftValidation.valid
-      && (okeyPrototypeMeldDraftValidation.kind === "seri" || okeyPrototypeCurrentSeatOpened)
+      && okeyPrototypeMeldDraftValidation.kind === "seri"
     ) {
       openOkeyPrototypeMeld();
       return;
@@ -8616,7 +8743,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       } else if (!okeyPrototypeMeldDraftValidation.valid) {
         appendOkeyPrototypeAction(`Seri acma gecersiz: ${okeyPrototypeMeldDraftValidation.reason}`);
       } else {
-        appendOkeyPrototypeAction("Secili grup seri degil. Cift/Set icin farkli grup sec.");
+        appendOkeyPrototypeAction("Secili grup seri degil. Seri Ac icin seri grup sec.");
       }
       return;
     }
