@@ -625,50 +625,119 @@ function buildOkeyPrototypeRackGroupsForLayout(
 
   if (mode === "color") {
     const groups: OkeyPrototypeTile[][] = [];
+    const remainingJokers = jokerTiles.slice().sort((left, right) => left.id.localeCompare(right.id));
+    const colorBuckets = new Map<OkeyPrototypeNormalColor, Map<number, OkeyPrototypeTile[]>>();
+
     OKEY_PROTOTYPE_TILE_COLORS.forEach((color) => {
-      const colorTiles = normalTiles
+      const bucketByValue = new Map<number, OkeyPrototypeTile[]>();
+      normalTiles
         .filter((tile) => tile.kind === "normal" && tile.color === color)
-        .sort((left, right) => (left.value - right.value) || left.id.localeCompare(right.id));
-      if (colorTiles.length === 0) return;
-      const lanes: Array<{ tiles: OkeyPrototypeTile[]; lastValue: number }> = [];
-      colorTiles.forEach((tile) => {
-        let candidateIndex = -1;
-        let candidateLen = -1;
-        lanes.forEach((lane, laneIndex) => {
-          if (lane.lastValue !== tile.value - 1) return;
-          const laneLen = lane.tiles.length;
-          if (laneLen > candidateLen) {
-            candidateLen = laneLen;
-            candidateIndex = laneIndex;
+        .sort((left, right) => (left.value - right.value) || left.id.localeCompare(right.id))
+        .forEach((tile) => {
+          const bucket = bucketByValue.get(tile.value) ?? [];
+          bucket.push(tile);
+          bucketByValue.set(tile.value, bucket);
+        });
+      colorBuckets.set(color, bucketByValue);
+    });
+
+    type SeriesCandidate = {
+      color: OkeyPrototypeNormalColor;
+      start: number;
+      end: number;
+      length: number;
+      missing: number;
+      score: number;
+    };
+
+    const pickBestSeriesCandidate = (): SeriesCandidate | null => {
+      const availableJokers = remainingJokers.length;
+      let best: SeriesCandidate | null = null;
+
+      OKEY_PROTOTYPE_TILE_COLORS.forEach((color) => {
+        const valueBuckets = colorBuckets.get(color);
+        if (!valueBuckets) return;
+        for (let start = 1; start <= 13; start += 1) {
+          let missing = 0;
+          for (let end = start; end <= 13; end += 1) {
+            const length = end - start + 1;
+            if ((valueBuckets.get(end) ?? []).length === 0) missing += 1;
+            if (missing > availableJokers) break;
+            if (length < 3) continue;
+            const score = (length * 100) - (missing * 10) - start;
+            if (!best || score > best.score) {
+              best = { color, start, end, length, missing, score };
+            }
+          }
+        }
+      });
+
+      return best;
+    };
+
+    while (true) {
+      const candidate = pickBestSeriesCandidate();
+      if (!candidate || candidate.length < 3) break;
+      const valueBuckets = colorBuckets.get(candidate.color);
+      if (!valueBuckets) break;
+
+      const group: OkeyPrototypeTile[] = [];
+      let possible = true;
+
+      for (let value = candidate.start; value <= candidate.end; value += 1) {
+        const bucket = valueBuckets.get(value) ?? [];
+        if (bucket.length > 0) {
+          const tile = bucket.shift();
+          if (tile) group.push(tile);
+          if (bucket.length === 0) valueBuckets.delete(value);
+          else valueBuckets.set(value, bucket);
+          continue;
+        }
+        const joker = remainingJokers.shift();
+        if (!joker) {
+          possible = false;
+          break;
+        }
+        group.push(joker);
+      }
+
+      if (!possible || group.length < 3) {
+        group.forEach((tile) => {
+          if (jokerTiles.some((joker) => joker.id === tile.id) && !remainingJokers.some((joker) => joker.id === tile.id)) {
+            remainingJokers.push(tile);
+          } else if (tile.kind === "normal") {
+            const valueBucket = colorBuckets.get(tile.color as OkeyPrototypeNormalColor);
+            if (!valueBucket) return;
+            const bucket = valueBucket.get(tile.value) ?? [];
+            bucket.push(tile);
+            bucket.sort((left, right) => left.id.localeCompare(right.id));
+            valueBucket.set(tile.value, bucket);
           }
         });
-        if (candidateIndex < 0) {
-          lanes.push({
-            tiles: [tile],
-            lastValue: tile.value,
-          });
-          return;
-        }
-        const targetLane = lanes[candidateIndex];
-        targetLane.tiles.push(tile);
-        targetLane.lastValue = tile.value;
+        break;
+      }
+
+      groups.push(group);
+    }
+
+    const leftoverNormals: OkeyPrototypeTile[] = [];
+    OKEY_PROTOTYPE_TILE_COLORS.forEach((color) => {
+      const valueBuckets = colorBuckets.get(color);
+      if (!valueBuckets) return;
+      const values = Array.from(valueBuckets.keys()).sort((left, right) => left - right);
+      values.forEach((value) => {
+        const bucket = valueBuckets.get(value) ?? [];
+        bucket.sort((left, right) => left.id.localeCompare(right.id));
+        leftoverNormals.push(...bucket);
       });
-      lanes
-        .sort((left, right) => {
-          const leftIsStrong = left.tiles.length >= 3 ? 1 : 0;
-          const rightIsStrong = right.tiles.length >= 3 ? 1 : 0;
-          if (leftIsStrong !== rightIsStrong) return rightIsStrong - leftIsStrong;
-          if (left.tiles.length !== right.tiles.length) return right.tiles.length - left.tiles.length;
-          const leftFirst = left.tiles[0]?.value ?? 0;
-          const rightFirst = right.tiles[0]?.value ?? 0;
-          if (leftFirst !== rightFirst) return leftFirst - rightFirst;
-          return (left.tiles[0]?.id ?? "").localeCompare(right.tiles[0]?.id ?? "");
-        })
-        .forEach((lane) => {
-          groups.push(lane.tiles);
-        });
     });
-    if (jokerTiles.length > 0) groups.push(jokerTiles.slice());
+
+    if (leftoverNormals.length > 0) {
+      groups.push(leftoverNormals);
+    }
+    if (remainingJokers.length > 0) {
+      groups.push(remainingJokers.slice());
+    }
     return groups;
   }
 
