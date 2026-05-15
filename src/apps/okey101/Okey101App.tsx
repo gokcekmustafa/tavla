@@ -14455,8 +14455,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             const isMaskedSeat = okeyPrototypeBoardMaskOthers && !isTurnSeat;
                             const isLocalSeat = seatNo === okeyPrototypeLocalSeatNo;
                             const displaySeatPosition = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
+                            const compactSeatStatus = displaySeatPosition === 1 || displaySeatPosition === 3;
                             const seatRole = okeyPrototypeSeatRoleLabels[seatNo];
                             const seatName = okeyPrototypeSeatDisplayNames[seatNo];
+                            const seatStatusText = `${isTurnSeat ? "SIRA | " : ""}${isOpenedSeat ? "ACIK" : "KAPALI"} | ${seatTiles.length}${compactSeatStatus ? "" : " tas"}`;
                             return (
                               <article
                                 key={`okey-proto-board-seat-${seatNo}`}
@@ -14475,7 +14477,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                     {" • "}
                                     {seatRole === "Bos" ? "Bos" : `${seatRole}: ${seatName}`}
                                   </strong>
-                                  <span>{isTurnSeat ? "SIRA | " : ""}{isOpenedSeat ? "ACIK" : "KAPALI"} | {seatTiles.length} tas</span>
+                                  <span className={`my-okey-seat-status ${compactSeatStatus ? "compact" : ""}`}>{seatStatusText}</span>
                                 </header>
                                 <div className="my-game-coming-prototype-board-seat-tiles">
                                   {seatTiles.length === 0 ? (
@@ -15860,8 +15862,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         const drawTile = showDrawTile ? okeyPrototypeDeckDrawTile : null;
                         const drawTileIsJoker = drawTile ? isOkeyPrototypeJokerTile(drawTile, okeyPrototypeOkeyTile) : false;
                         const displaySeatPosition = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
+                        const compactSeatStatus = displaySeatPosition === 1 || displaySeatPosition === 3;
                         const seatRole = okeyPrototypeSeatRoleLabels[seatNo];
                         const seatName = okeyPrototypeSeatDisplayNames[seatNo];
+                        const seatStatusText = `${isTurnSeat ? "SIRA | " : ""}${isOpenedSeat ? "ACIK" : "KAPALI"} | ${seatTiles.length}${compactSeatStatus ? "" : " tas"}`;
                         return (
                           <article
                             key={`okey-live-seat-${seatNo}`}
@@ -15877,7 +15881,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 />
                                 {seatRole === "Bos" ? `K${seatNo} - Bos` : `${seatName} (K${seatNo})`}
                               </strong>
-                              <span>{isTurnSeat ? "SIRA | " : ""}{isOpenedSeat ? "ACIK" : "KAPALI"} | {seatTiles.length} tas</span>
+                              <span className={`my-okey-seat-status ${compactSeatStatus ? "compact" : ""}`}>{seatStatusText}</span>
                             </header>
                             <div className="my-okey-seat-counter">
                               {isMaskedSeat && seatTiles.length > 0 ? `${seatTiles.length} taş` : isLocalSeat ? "Aktif oyuncu" : "Bekliyor"}
