@@ -14881,6 +14881,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         const isOpenedSeat = okeyPrototypeSeatOpenedState[seatNo] ?? false;
                         const isMaskedSeat = seatNo !== okeyPrototypeLocalSeatNo;
                         const isLocalSeat = seatNo === okeyPrototypeLocalSeatNo;
+                        const canDrawHere = isLocalSeat && okeyPrototypeCanDrawTile;
+                        const showDrawTile = Boolean(
+                          isLocalSeat
+                          && okeyPrototypeDeckDrawTile
+                          && okeyPrototypeDeckDrawSeatNo === seatNo,
+                        );
+                        const drawTile = showDrawTile ? okeyPrototypeDeckDrawTile : null;
+                        const drawTileIsJoker = drawTile ? isOkeyPrototypeJokerTile(drawTile, okeyPrototypeOkeyTile) : false;
                         const displaySeatPosition = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
                         const seatRole = okeyPrototypeSeatRoleLabels[seatNo];
                         const seatName = okeyPrototypeSeatDisplayNames[seatNo];
@@ -14904,44 +14912,32 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             <div className="my-okey-seat-counter">
                               {isMaskedSeat && seatTiles.length > 0 ? `${seatTiles.length} taş` : isLocalSeat ? "Aktif oyuncu" : "Bekliyor"}
                             </div>
-                          </article>
-                        );
-                      })}
-                      {([1, 2, 3, 4] as OkeyPrototypeSeatNo[]).map((displayPosition) => {
-                        const seatNo = okeyPrototypeSeatByDisplayPosition[displayPosition] ?? displayPosition;
-                        const seatName = okeyPrototypeSeatNameByDisplayPosition[displayPosition] || `K${seatNo}`;
-                        const canDrawHere = okeyPrototypeCanDrawTile && seatNo === okeyPrototypeTurnSeat;
-                        const showDrawTile = Boolean(
-                          okeyPrototypeDeckDrawTile
-                          && okeyPrototypeDeckDrawSeatNo === seatNo,
-                        );
-                        const drawTile = showDrawTile ? okeyPrototypeDeckDrawTile : null;
-                        const drawTileIsJoker = drawTile ? isOkeyPrototypeJokerTile(drawTile, okeyPrototypeOkeyTile) : false;
-                        return (
-                          <button
-                            key={`okey-draw-pocket-${displayPosition}-${seatNo}`}
-                            type="button"
-                            className={`my-okey-draw-pocket pos-${displayPosition} ${canDrawHere ? "suggested" : ""} ${showDrawTile && okeyPrototypeDeckDrawPulse ? "draw-pulse" : ""}`}
-                            onClick={canDrawHere ? drawOkeyPrototypeTile : undefined}
-                            disabled={!canDrawHere}
-                            aria-label={`${seatName} kapali deste`}
-                          >
-                            <span>{seatName}</span>
-                            <div className="my-okey-draw-pocket-stack" aria-hidden="true">
-                              <i />
-                              <i />
-                              <i />
-                            </div>
-                            <strong>{okeyPrototypeDrawPileRemaining}</strong>
-                            {drawTile ? (
-                              <span
-                                className={`my-game-coming-prototype-rack-tile my-okey-draw-pocket-ghost tile-${drawTile.color} ${drawTileIsJoker ? "joker-tile" : ""}`}
-                                title={`Cekilen tas: ${formatOkeyPrototypeTile(drawTile)}`}
+                            {isLocalSeat ? (
+                              <button
+                                type="button"
+                                className={`my-okey-draw-pocket ${canDrawHere ? "suggested" : ""} ${showDrawTile && okeyPrototypeDeckDrawPulse ? "draw-pulse" : ""}`}
+                                onClick={canDrawHere ? drawOkeyPrototypeTile : undefined}
+                                disabled={!canDrawHere}
+                                aria-label={`${seatName} kapali deste`}
                               >
-                                {renderOkeyPrototypeTileFace(drawTile)}
-                              </span>
+                                <span>Kapali Deste</span>
+                                <div className="my-okey-draw-pocket-stack" aria-hidden="true">
+                                  <i />
+                                  <i />
+                                  <i />
+                                </div>
+                                <strong>{okeyPrototypeDrawPileRemaining}</strong>
+                                {drawTile ? (
+                                  <span
+                                    className={`my-game-coming-prototype-rack-tile my-okey-draw-pocket-ghost tile-${drawTile.color} ${drawTileIsJoker ? "joker-tile" : ""}`}
+                                    title={`Cekilen tas: ${formatOkeyPrototypeTile(drawTile)}`}
+                                  >
+                                    {renderOkeyPrototypeTileFace(drawTile)}
+                                  </span>
+                                ) : null}
+                              </button>
                             ) : null}
-                          </button>
+                          </article>
                         );
                       })}
                       {([1, 2, 3, 4] as OkeyPrototypeSeatNo[]).map((displayPosition) => {

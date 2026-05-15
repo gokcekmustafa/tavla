@@ -6380,20 +6380,20 @@
 
 .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket {
   appearance: none;
-  position: absolute;
-  width: calc(66px * var(--okey-proto-tile-scale, 1));
-  min-height: calc(92px * var(--okey-proto-tile-scale, 1));
+  position: static;
+  width: 100%;
+  min-height: calc(78px * var(--okey-proto-tile-scale, 1));
   border-radius: 10px;
   border: 1px solid rgba(176, 226, 208, 0.45);
   background: linear-gradient(180deg, rgba(6, 89, 63, 0.58), rgba(4, 68, 48, 0.7));
   display: grid;
-  align-content: start;
+  align-content: center;
   justify-items: center;
   gap: 4px;
   padding: 6px 5px;
   text-align: center;
   transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
-  z-index: 2;
+  margin-top: 6px;
 }
 
 .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket:disabled {
@@ -6404,30 +6404,7 @@
 .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket.suggested {
   border-color: rgba(247, 224, 156, 0.92);
   box-shadow: 0 0 0 1px rgba(247, 224, 156, 0.34) inset;
-}
-
-.my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket.pos-1 {
-  top: 74px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket.pos-2 {
-  top: 50%;
-  right: 182px;
-  transform: translateY(-50%);
-}
-
-.my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket.pos-3 {
-  bottom: 74px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket.pos-4 {
-  top: 50%;
-  left: 182px;
-  transform: translateY(-50%);
+  cursor: pointer;
 }
 
 .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket > span:first-child {
@@ -6505,7 +6482,6 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket {
     position: static;
-    transform: none;
     width: 100%;
     min-height: 76px;
   }
