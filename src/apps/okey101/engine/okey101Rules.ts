@@ -253,6 +253,7 @@ export function getMeldPointsWithJokers(tiles: OkeyTile[], okeyTile: OkeyTile | 
   const sortedValues = normalTiles.map((tile) => tile.value).sort((a, b) => a - b);
   let points = sortedValues.reduce((sum, value) => sum + value, 0);
   let remainingJokers = jokerTiles.length;
+  // Bosluklari once normal taslarin arasinda doldur.
   for (let index = 1; index < sortedValues.length; index += 1) {
     const previous = sortedValues[index - 1];
     const current = sortedValues[index];
@@ -262,17 +263,22 @@ export function getMeldPointsWithJokers(tiles: OkeyTile[], okeyTile: OkeyTile | 
       remainingJokers -= 1;
     }
   }
+  // Kalan jokerleri her adimda en yuksek gecerli uca yerlestir.
+  // Boylece 11-12-joker durumunda joker 10 yerine 13 olarak sayilir.
   let lower = (sortedValues[0] ?? 1) - 1;
-  while (remainingJokers > 0 && lower >= 1) {
-    points += lower;
-    remainingJokers -= 1;
-    lower -= 1;
-  }
   let upper = (sortedValues[sortedValues.length - 1] ?? 13) + 1;
-  while (remainingJokers > 0 && upper <= 13) {
-    points += upper;
+  while (remainingJokers > 0) {
+    const lowerCandidate = lower >= 1 ? lower : Number.NEGATIVE_INFINITY;
+    const upperCandidate = upper <= 13 ? upper : Number.NEGATIVE_INFINITY;
+    if (!Number.isFinite(lowerCandidate) && !Number.isFinite(upperCandidate)) break;
+    if (upperCandidate >= lowerCandidate) {
+      points += upperCandidate;
+      upper += 1;
+    } else {
+      points += lowerCandidate;
+      lower -= 1;
+    }
     remainingJokers -= 1;
-    upper += 1;
   }
   if (remainingJokers > 0) points += remainingJokers * 10;
   return points;
