@@ -250,6 +250,28 @@ export function getMeldPointsWithJokers(tiles: OkeyTile[], okeyTile: OkeyTile | 
     return normalTiles.reduce((sum, tile) => sum + tile.value, 0) + jokerTiles.length * baseValue;
   }
   if (normalTiles.length === 0) return jokerTiles.length * 10;
+  const orderedSeriesPoints = (() => {
+    // Seri puaninda jokeri konumuna gore degerlendir:
+    // [6,7,J] => 8, [J,6,7] => 5.
+    const indexedNormals = ruleTiles
+      .map((tile, index) => ({ tile, index }))
+      .filter(({ tile }) => !isJokerTile(tile, okeyTile));
+    if (indexedNormals.length === 0) return null;
+    const first = indexedNormals[0];
+    if (!first) return null;
+    const inferredStart = first.tile.value - first.index;
+    if (inferredStart < 1) return null;
+    const inferredEnd = inferredStart + ruleTiles.length - 1;
+    if (inferredEnd > 13) return null;
+    const allFit = indexedNormals.every(({ tile, index }) => tile.value - index === inferredStart);
+    if (!allFit) return null;
+    let total = 0;
+    for (let value = inferredStart; value <= inferredEnd; value += 1) {
+      total += value;
+    }
+    return total;
+  })();
+  if (orderedSeriesPoints !== null) return orderedSeriesPoints;
   const sortedValues = normalTiles.map((tile) => tile.value).sort((a, b) => a - b);
   let points = sortedValues.reduce((sum, value) => sum + value, 0);
   let remainingJokers = jokerTiles.length;

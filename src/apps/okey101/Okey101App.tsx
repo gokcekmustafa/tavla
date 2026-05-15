@@ -7973,7 +7973,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     return { nextSeat, nextRound: okeyPrototypeTurnRound };
   }
 
-  function reorderOkeyPrototypeRackTiles(sourceTileId: string, targetTileId: string) {
+  function reorderOkeyPrototypeRackTiles(
+    sourceTileId: string,
+    targetTileId: string,
+    insertSide: "before" | "after" = "before",
+  ) {
     if (!okeyPrototypeSeatReservation) return;
     if (!sourceTileId || !targetTileId || sourceTileId === targetTileId) return;
     const fromIndex = okeyPrototypeSeatRackTiles.findIndex((tile) => tile.id === sourceTileId);
@@ -7990,7 +7994,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const nextRack = rack.slice();
       const [movedTile] = nextRack.splice(currentFromIndex, 1);
       if (!movedTile) return current;
-      const insertAt = currentFromIndex < currentToIndex ? currentToIndex - 1 : currentToIndex;
+      let insertAt = insertSide === "after" ? currentToIndex + 1 : currentToIndex;
+      if (currentFromIndex < insertAt) insertAt -= 1;
+      insertAt = Math.max(0, Math.min(nextRack.length, insertAt));
       nextRack.splice(insertAt, 0, movedTile);
       return {
         ...current,
@@ -8000,16 +8006,67 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     appendOkeyPrototypeAction("Istaka tasi yeniden konumlandi.");
   }
 
+  function moveOkeyPrototypeRackTileNearTargetInSlots(
+    sourceTileId: string,
+    targetTileId: string,
+    insertSide: "before" | "after",
+  ) {
+    if (!okeyPrototypeSeatReservation) return;
+    const seatNo = okeyPrototypeSeatNoForRack as OkeyPrototypeSeatNo;
+    setOkeyPrototypeRackSlotsBySeat((current) => {
+      const baseSlots = current[seatNo] ?? createEmptyOkeyPrototypeRackSlots();
+      const normalizedSlots = fillOkeyPrototypeRackSlotsFromTiles(baseSlots, okeyPrototypeSeatRackTiles);
+      const sourceIndex = normalizedSlots.findIndex((slotTileId) => slotTileId === sourceTileId);
+      const targetIndex = normalizedSlots.findIndex((slotTileId) => slotTileId === targetTileId);
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return current;
+      const compactIds = normalizedSlots.filter((slotTileId): slotTileId is string => Boolean(slotTileId));
+      const sourceCompactIndex = compactIds.findIndex((tileId) => tileId === sourceTileId);
+      const targetCompactIndex = compactIds.findIndex((tileId) => tileId === targetTileId);
+      if (sourceCompactIndex < 0 || targetCompactIndex < 0) return current;
+      const withoutSource = compactIds.filter((tileId) => tileId !== sourceTileId);
+      let insertAt = insertSide === "after" ? targetCompactIndex + 1 : targetCompactIndex;
+      if (sourceCompactIndex < insertAt) insertAt -= 1;
+      insertAt = Math.max(0, Math.min(withoutSource.length, insertAt));
+      withoutSource.splice(insertAt, 0, sourceTileId);
+      const nextSlots = createEmptyOkeyPrototypeRackSlots();
+      withoutSource.slice(0, OKEY_PROTOTYPE_RACK_SLOT_COUNT).forEach((tileId, index) => {
+        nextSlots[index] = tileId;
+      });
+      const changed = nextSlots.some((slotTileId, index) => slotTileId !== normalizedSlots[index]);
+      if (!changed) return current;
+      return {
+        ...current,
+        [seatNo]: nextSlots,
+      };
+    });
+  }
+
+  function getOkeyPrototypeDropSideByPointer(event: DragEvent<HTMLElement>): "before" | "after" {
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!Number.isFinite(rect.width) || rect.width <= 0) return "before";
+    const pointerOffsetX = event.clientX - rect.left;
+    return pointerOffsetX >= rect.width / 2 ? "after" : "before";
+  }
+
   function handleOkeyPrototypeRackDragStart(event: DragEvent<HTMLButtonElement>, tileId: string) {
     if (!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2) return;
     setOkeyPrototypeRackDragTileId(tileId);
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", tileId);
+      // Browser'in default ghost tas gorselini gizle.
+      const ghost = document.createElement("canvas");
+      ghost.width = 1;
+      ghost.height = 1;
+      event.dataTransfer.setDragImage(ghost, 0, 0);
     }
   }
 
-  function handleOkeyPrototypeRackDrop(targetTileId: string, draggedTileIdFromData = "") {
+  function handleOkeyPrototypeRackDrop(
+    targetTileId: string,
+    draggedTileIdFromData = "",
+    insertSide: "before" | "after" = "before",
+  ) {
     const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
     if (sourceTileId.startsWith("okey-proto-take-discard")) {
       const parts = sourceTileId.split(":");
@@ -8029,7 +8086,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setOkeyPrototypeRackDragTileId("");
       return;
     }
-    reorderOkeyPrototypeRackTiles(sourceTileId, targetTileId);
+    reorderOkeyPrototypeRackTiles(sourceTileId, targetTileId, insertSide);
+    moveOkeyPrototypeRackTileNearTargetInSlots(sourceTileId, targetTileId, insertSide);
     setOkeyPrototypeRackDragTileId("");
     okeyPrototypeSuppressRackClickRef.current = true;
     window.setTimeout(() => {
@@ -8361,7 +8419,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         appendOkeyPrototypeAction(`${sourceLabel}: Gecersiz grup (${validation.reason}).`);
         return false;
       }
-      const orderedTiles = group.tiles.slice().sort((left, right) => left.value - right.value);
+      const orderedTiles = group.tiles.slice();
       for (const tile of orderedTiles) {
         if (!rackIds.has(tile.id)) {
           appendOkeyPrototypeAction(`${sourceLabel}: Secilen tas rafta bulunamadi (${formatOkeyPrototypeTile(tile)}).`);
@@ -14349,7 +14407,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               onDrop={(event) => {
                                 event.preventDefault();
                                 const draggedTileId = event.dataTransfer?.getData("text/plain") ?? "";
-                                handleOkeyPrototypeRackDrop(tile.id, draggedTileId);
+                                const insertSide = getOkeyPrototypeDropSideByPointer(event);
+                                handleOkeyPrototypeRackDrop(tile.id, draggedTileId, insertSide);
                               }}
                               onDragEnd={() => setOkeyPrototypeRackDragTileId("")}
                               aria-disabled={!okeyPrototypeCanSelectRackTiles}
@@ -15780,6 +15839,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                       onContextMenu={(event) => handleOkeyPrototypeRackTileContextMenu(event, tile)}
                                       draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
                                       onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
+                                      onDragOver={(event) => {
+                                        if (!okeyPrototypeRackDragTileId || okeyPrototypeRackDragTileId === tile.id) return;
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+                                      }}
+                                      onDrop={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        const draggedTileId = event.dataTransfer?.getData("text/plain") ?? "";
+                                        const insertSide = getOkeyPrototypeDropSideByPointer(event);
+                                        handleOkeyPrototypeRackDrop(tile.id, draggedTileId, insertSide);
+                                      }}
                                       onDragEnd={() => setOkeyPrototypeRackDragTileId("")}
                                       aria-disabled={!okeyPrototypeCanSelectRackTiles}
                                       aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
