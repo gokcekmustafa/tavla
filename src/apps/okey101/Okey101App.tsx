@@ -527,6 +527,7 @@ const OKEY_PROTOTYPE_ROOMS = [
 const OKEY_PROTOTYPE_HAND_TILE_COUNT = OKEY_ENGINE_RULES.handTileCount;
 const OKEY_PROTOTYPE_OPENING_TARGET_POINTS = OKEY_ENGINE_RULES.openingTargetPoints;
 const OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS = OKEY_ENGINE_RULES.pairOpenMinPairs;
+const OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS = 101;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = OKEY_ENGINE_RULES.seats as readonly OkeyPrototypeSeatNo[];
 const OKEY_PROTOTYPE_RACK_SLOT_COLUMNS = 16;
 const OKEY_PROTOTYPE_RACK_SLOT_ROWS = 2;
@@ -3304,6 +3305,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const [okeyPrototypeDeckDrawPulse, setOkeyPrototypeDeckDrawPulse] = useState(false);
   const [okeyPrototypeDeckDrawTile, setOkeyPrototypeDeckDrawTile] = useState<OkeyPrototypeTile | null>(null);
   const [okeyPrototypeDeckDrawSeatNo, setOkeyPrototypeDeckDrawSeatNo] = useState<OkeyPrototypeSeatNo | null>(null);
+  const [okeyPrototypeLastDrawnTileId, setOkeyPrototypeLastDrawnTileId] = useState("");
+  const [okeyPrototypeFinalWallDrawSeat, setOkeyPrototypeFinalWallDrawSeat] = useState<OkeyPrototypeSeatNo | null>(null);
   const [okeyPrototypeRackDragTileId, setOkeyPrototypeRackDragTileId] = useState("");
   const [okeyPrototypeFlippedJokerTileIds, setOkeyPrototypeFlippedJokerTileIds] = useState<string[]>([]);
   const [okeyPrototypeOpenedMelds, setOkeyPrototypeOpenedMelds] = useState<OkeyPrototypeMeldEntry[]>([]);
@@ -3926,6 +3929,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
     && okeyPrototypeTurnRackTiles.length === okeyPrototypeTurnExpectedRackCountBeforeDraw
+    && okeyPrototypeDrawPileRemaining > 0
     && Boolean(okeyPrototypeTakeableDiscardEntry);
   const okeyPrototypeCanSelectRackTiles = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
@@ -4496,17 +4500,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (okeyPrototypeHandCompleted) return;
     if (!okeyPrototypeCanAdvanceTurn) return;
     if (okeyPrototypeTurnPhase !== "draw") return;
-    if (okeyPrototypeDrawPileRemaining > 0 || okeyPrototypeDiscardPile.length > 0) return;
-    setOkeyPrototypeHandDrawn(true);
-    setOkeyPrototypeDrawHandCount((current) => current + 1);
-    setOkeyPrototypeLastHandSummary(`El ${okeyPrototypeSessionHandNo}: Berabere bitti.`);
-    appendOkeyPrototypeAction("El berabere bitti: Ortada ve kapali destede tas kalmadi.");
+    if (okeyPrototypeDrawPileRemaining > 0) return;
+    finishOkeyPrototypeHandAsDraw("Kapali deste bitti:");
   }, [
     okeyPrototypeCanAdvanceTurn,
-    okeyPrototypeDiscardPile.length,
     okeyPrototypeDrawPileRemaining,
     okeyPrototypeHandCompleted,
-    okeyPrototypeSessionHandNo,
     okeyPrototypeTurnPhase,
   ]);
 
@@ -7266,6 +7265,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeDrawHandCount(0);
     setOkeyPrototypeLastHandSummary("");
     setOkeyPrototypeBotModeEnabled(false);
+    setOkeyPrototypeLastDrawnTileId("");
+    setOkeyPrototypeFinalWallDrawSeat(null);
   }
 
   function reserveOkeyPrototypeSeat(
@@ -7580,6 +7581,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeDeckDrawPulse(false);
     setOkeyPrototypeDeckDrawTile(null);
     setOkeyPrototypeDeckDrawSeatNo(null);
+    setOkeyPrototypeLastDrawnTileId("");
+    setOkeyPrototypeFinalWallDrawSeat(null);
     setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
     setOkeyPrototypeSeatOpenModes(createDefaultOkeyPrototypeSeatOpenModes());
     setOkeyPrototypeWinnerSeat(null);
@@ -7829,6 +7832,28 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     appendOkeyPrototypeAction(`Per ekleme hedefi secildi: K${target.seatNo} | El ${target.round}`);
   }
 
+  function applyOkeyPrototypeAttachableDiscardPenalty(
+    seatNo: OkeyPrototypeSeatNo,
+    droppedTile: OkeyPrototypeTile,
+    sourceLabel: string,
+  ) {
+    const anyOpenedSeat = OKEY_PROTOTYPE_SEATS.some((seat) => okeyPrototypeSeatOpenedState[seat] ?? false);
+    if (!anyOpenedSeat || okeyPrototypeOpenedMelds.length === 0) return 0;
+    const attachableTarget = okeyPrototypeOpenedMelds.find((meld) => (
+      canAttachOkeyPrototypeTileToMeld(droppedTile, meld, okeyPrototypeOkeyTile).valid
+    )) ?? null;
+    if (!attachableTarget) return 0;
+    setOkeyPrototypeSeatPenaltyTotals((current) => ({
+      ...current,
+      [seatNo]: (current[seatNo] ?? 0) + OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS,
+    }));
+    appendOkeyPrototypeAction(
+      `${sourceLabel}: K${seatNo} islenebilir tas atti (${formatOkeyPrototypeTile(droppedTile)}). `
+      + `${OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS} ceza puani yazildi (hedef K${attachableTarget.seatNo}).`,
+    );
+    return OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS;
+  }
+
   function finishOkeyPrototypeHandAsDraw(reason: string) {
     const penaltyDelta = createDefaultOkeyPrototypeSeatWinState();
     OKEY_PROTOTYPE_SEATS.forEach((seat) => {
@@ -7843,6 +7868,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }));
     setOkeyPrototypeHandDrawn(true);
     setOkeyPrototypeDrawHandCount((current) => current + 1);
+    setOkeyPrototypeLastDrawnTileId("");
+    setOkeyPrototypeFinalWallDrawSeat(null);
+    setOkeyPrototypePendingDiscardTileId("");
+    setOkeyPrototypePendingDiscardPickup(null);
+    setOkeyPrototypeDiscardDraftTileId("");
     const penaltyText = OKEY_PROTOTYPE_SEATS
       .map((seat) => `K${seat}: ${penaltyDelta[seat] ?? 0}`)
       .join(" | ");
@@ -7875,6 +7905,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     setOkeyPrototypePendingDiscardPickup(null);
     setOkeyPrototypeDiscardPile((current) => [discardEntry, ...current].slice(0, 40));
+    setOkeyPrototypeLastDrawnTileId("");
+    setOkeyPrototypeFinalWallDrawSeat(null);
+    const attachableDiscardPenalty = applyOkeyPrototypeAttachableDiscardPenalty(seatNo, droppedTile, sourceLabel);
     const jokerFinish = isOkeyPrototypeJokerTile(droppedTile, okeyPrototypeOkeyTile);
     const penaltyDelta = createDefaultOkeyPrototypeSeatWinState();
     OKEY_PROTOTYPE_SEATS.forEach((seat) => {
@@ -7902,6 +7935,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeLastHandSummary(`El ${okeyPrototypeSessionHandNo}: Koltuk ${seatNo} kazandi. Ceza: ${penaltyText}`);
     appendOkeyPrototypeAction(`${sourceLabel}: Son tas kapali desteye birakildi (${formatOkeyPrototypeTile(droppedTile)}).`);
     appendOkeyPrototypeAction(`El tamamlandi: Koltuk ${seatNo} bu eli kazandi.${jokerFinish ? " Okey ile bitti (cezalar x2)." : ""}`);
+    if (attachableDiscardPenalty > 0) {
+      appendOkeyPrototypeAction(`Ek kural cezasi uygulandi: K${seatNo} +${attachableDiscardPenalty}.`);
+    }
     appendOkeyPrototypeAction("Yeni el icin 'Yeni El Baslat' butonunu kullan.");
   }
 
@@ -8255,6 +8291,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     const tile = topWallTile;
+    const isFinalWallDraw = okeyPrototypeDrawPileRemaining === 1;
     setOkeyPrototypeWallTiles((current) => current.slice(1));
     setOkeyPrototypeRackState((current) => ({
       ...current,
@@ -8266,10 +8303,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }));
     setOkeyPrototypeTurnPhase("discard");
     setOkeyPrototypePendingDiscardTileId("");
+    setOkeyPrototypePendingDiscardPickup(null);
     setOkeyPrototypeDiscardDraftTileId(tile.id);
+    setOkeyPrototypeLastDrawnTileId(tile.id);
+    setOkeyPrototypeFinalWallDrawSeat(isFinalWallDraw ? seatNo : null);
     triggerOkeyPrototypeDeckDrawAnimation(tile, seatNo);
     appendOkeyPrototypeAction(`Tas cekildi: Koltuk ${seatNo} (${formatOkeyPrototypeTile(tile)})`);
-    if (okeyPrototypeDrawPileRemaining === 1) {
+    if (isFinalWallDraw) {
       appendOkeyPrototypeAction("Kapali deste bitti: Son tas cekildi.");
     }
   }
@@ -8283,6 +8323,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (!okeyPrototypeCanAdvanceTurn) return;
     if (okeyPrototypeTurnPhase !== "draw") {
       appendOkeyPrototypeAction("Gecersiz hamle: Ortadan tas almak icin once tas atmalisin.");
+      return;
+    }
+    if (okeyPrototypeDrawPileRemaining <= 0) {
+      finishOkeyPrototypeHandAsDraw("Kapali destenin son tasi cekilip oynandigi icin:");
       return;
     }
     const preferredEntry = preferredSeatNo ? (okeyPrototypeDiscardBySeat[preferredSeatNo] ?? null) : null;
@@ -8318,6 +8362,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeTurnPhase("discard");
     setOkeyPrototypePendingDiscardTileId(tile.id);
     setOkeyPrototypeDiscardDraftTileId(tile.id);
+    setOkeyPrototypeLastDrawnTileId(tile.id);
+    setOkeyPrototypeFinalWallDrawSeat(null);
     setOkeyPrototypePendingDiscardPickup({
       sourceEntry: topDiscard,
       pickedTileId: tile.id,
@@ -8363,6 +8409,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeTurnPhase("draw");
     setOkeyPrototypePendingDiscardTileId("");
     setOkeyPrototypeDiscardDraftTileId("");
+    setOkeyPrototypeLastDrawnTileId("");
+    setOkeyPrototypeFinalWallDrawSeat(null);
     setOkeyPrototypeMeldDraftTileIds((current) => current.filter((tileId) => tileId !== pickup.pickedTileId));
     setOkeyPrototypePendingDiscardPickup(null);
     appendOkeyPrototypeAction(`Soldan alinan tas geri birakildi: ${formatOkeyPrototypeTile(pickup.sourceEntry.tile)}`);
@@ -8415,7 +8463,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (okeyPrototypePendingDiscardTileId) {
       setOkeyPrototypePendingDiscardTileId("");
     }
+    setOkeyPrototypePendingDiscardPickup(null);
     setOkeyPrototypeDiscardPile((current) => [discardEntry, ...current].slice(0, 40));
+    setOkeyPrototypeLastDrawnTileId("");
+    const attachableDiscardPenalty = applyOkeyPrototypeAttachableDiscardPenalty(seatNo, droppedTile, "Tas atma");
+    const shouldFinishByFinalWallDraw = okeyPrototypeFinalWallDrawSeat === seatNo && okeyPrototypeDrawPileRemaining === 0;
+    setOkeyPrototypeFinalWallDrawSeat(null);
     if (nextRack.length === 0) {
       const jokerFinish = isOkeyPrototypeJokerTile(droppedTile, okeyPrototypeOkeyTile);
       const penaltyDelta = createDefaultOkeyPrototypeSeatWinState();
@@ -8445,7 +8498,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         .join(" | ");
       setOkeyPrototypeLastHandSummary(`El ${okeyPrototypeSessionHandNo}: Koltuk ${seatNo} kazandi. Ceza: ${penaltyText}`);
       appendOkeyPrototypeAction(`El tamamlandi: Koltuk ${seatNo} bu eli kazandi.${jokerFinish ? " Okey ile bitti (cezalar x2)." : ""}`);
+      if (attachableDiscardPenalty > 0) {
+        appendOkeyPrototypeAction(`Ek kural cezasi uygulandi: K${seatNo} +${attachableDiscardPenalty}.`);
+      }
       appendOkeyPrototypeAction("Yeni el icin 'Yeni El Baslat' butonunu kullan.");
+      return;
+    }
+    if (shouldFinishByFinalWallDraw) {
+      finishOkeyPrototypeHandAsDraw(`Koltuk ${seatNo} son kapali deste tasini cekip atti:`);
       return;
     }
     const next = moveOkeyPrototypeTurnToNextSeat();
@@ -8476,6 +8536,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
     setOkeyPrototypeWinnerSeat(null);
     setOkeyPrototypeHandDrawn(false);
+    setOkeyPrototypeLastDrawnTileId("");
+    setOkeyPrototypeFinalWallDrawSeat(null);
     appendOkeyPrototypeAction(`Tur sifirlandi: Koltuk ${baseSeat}`);
   }
 
@@ -8888,6 +8950,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeSeatOpenModes(nextSeatOpenModes);
     setOkeyPrototypeWinnerSeat(null);
     setOkeyPrototypeHandDrawn(false);
+    setOkeyPrototypeLastDrawnTileId("");
+    setOkeyPrototypeFinalWallDrawSeat(null);
     setOkeyPrototypeLastHandSummary("");
   }
 
@@ -13828,7 +13892,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             <button
                               key={tile.id}
                               type="button"
-                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""}`}
+                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${okeyPrototypeLastDrawnTileId === tile.id ? "drawn-last" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""}`}
                               onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
                               draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
                               onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
@@ -15266,7 +15330,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                   {tile ? (
                                     <button
                                       type="button"
-                                      className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""} ${okeyPrototypeFlippedJokerTileIds.includes(tile.id) ? "okey-flipped" : ""}`}
+                                      className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${okeyPrototypeLastDrawnTileId === tile.id ? "drawn-last" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""} ${okeyPrototypeFlippedJokerTileIds.includes(tile.id) ? "okey-flipped" : ""}`}
                                       onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
                                       onContextMenu={(event) => handleOkeyPrototypeRackTileContextMenu(event, tile)}
                                       draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}

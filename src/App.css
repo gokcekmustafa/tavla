@@ -7129,3 +7129,24 @@
     font-size: 0.68rem;
   }
 }
+
+.my-game-coming-prototype-rack-tile.drawn-last {
+  border-color: rgba(255, 245, 162, 0.96);
+  box-shadow:
+    0 0 0 1px rgba(255, 235, 148, 0.5) inset,
+    0 0 12px rgba(247, 214, 122, 0.42);
+  animation: my-okey-drawn-tile-pulse 1.08s ease-in-out infinite;
+}
+
+@keyframes my-okey-drawn-tile-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(255, 235, 148, 0.5) inset,
+      0 0 8px rgba(247, 214, 122, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(255, 242, 184, 0.66) inset,
+      0 0 14px rgba(247, 214, 122, 0.55);
+  }
+}
