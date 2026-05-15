@@ -4325,10 +4325,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeCanSelectRackTiles = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
     && okeyPrototypeTurnRackTiles.length > 0;
-	  const okeyPrototypeCanDiscardTile = okeyPrototypeCanAdvanceTurn
-	    && okeyPrototypeTurnPhase === "discard"
-	    && okeyPrototypeTurnRackTiles.length > 0
-	    && !okeyPrototypePendingDiscardTileId;
+  const okeyPrototypeCanDiscardTile = okeyPrototypeCanAdvanceTurn
+    && okeyPrototypeTurnPhase === "discard"
+    && okeyPrototypeTurnRackTiles.length > 0;
   const okeyPrototypeCanReturnTakenDiscard = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
     && Boolean(okeyPrototypePendingDiscardPickup)
@@ -4340,9 +4339,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const selectedGroups: Array<{ tiles: OkeyPrototypeTile[]; kind: OkeyPrototypeMeldKind; points: number }> = [];
     let selectedPoints = 0;
     for (const group of okeyPrototypeRackValidMeldGroups) {
-      // 101 masa davranisi: seri acma akisi icinde ayni deger-farkli renk
-      // gruplar da (engine'de "set") seri gibi degerlendirilir.
-      if (group.kind !== "seri" && group.kind !== "set") continue;
+      // "Seri Ac" aksiyonu yalnizca seri turundeki gruplari acmali.
+      if (group.kind !== "seri") continue;
       selectedGroups.push(group);
       selectedPoints += group.points;
     }
