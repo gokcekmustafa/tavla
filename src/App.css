@@ -7714,12 +7714,14 @@
     margin-top: 1px;
     grid-template-columns: minmax(0, 1fr) 148px !important;
     gap: 3px;
+    align-items: end;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
     padding: 3px 4px 4px;
     width: min(100%, 612px);
     margin-inline: auto;
+    align-self: end;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
