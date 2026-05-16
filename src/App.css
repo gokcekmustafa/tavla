@@ -7543,6 +7543,7 @@
     grid-template-rows: auto minmax(0, 1fr);
     padding-bottom: 0;
     overflow: hidden;
+    gap: 0;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] {
@@ -7552,12 +7553,13 @@
     width: min(100vw - 12px, 1016px);
     max-width: none !important;
     margin-inline: auto;
+    margin-top: 0;
     height: 100%;
     min-height: 0;
     max-height: none;
     overflow: hidden;
     gap: 2px;
-    padding: 3px 5px 0;
+    padding: 0 5px 0;
     grid-template-rows: auto minmax(0, 1fr) auto;
     align-content: stretch;
   }
