@@ -7548,6 +7548,7 @@
   .my-game-coming-room-shell[data-table-active="true"] {
     --okey-board-side-col: 186px;
     --okey-board-height: clamp(372px, 50vh, 432px);
+    --okey-board-bottom-stretch: 1.3cm;
     width: min(100vw - 12px, 1016px);
     max-width: none !important;
     margin-inline: auto;
@@ -7615,9 +7616,9 @@
     gap: 6px;
     width: 100%;
     max-width: 100%;
-    height: var(--okey-board-height);
-    min-height: var(--okey-board-height);
-    margin-bottom: 0;
+    height: calc(var(--okey-board-height) + var(--okey-board-bottom-stretch));
+    min-height: calc(var(--okey-board-height) + var(--okey-board-bottom-stretch));
+    margin-bottom: calc(-1 * var(--okey-board-bottom-stretch));
     justify-self: stretch;
     align-self: stretch;
     align-content: stretch;
@@ -7769,6 +7770,8 @@
     gap: 0;
     align-items: end;
     overflow: visible;
+    align-self: end;
+    margin-top: auto;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
