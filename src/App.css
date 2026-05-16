@@ -7637,6 +7637,7 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head {
     flex: 0 0 auto;
     margin-left: auto;
+    margin-right: 0.5cm;
     max-width: 100%;
   }
 
@@ -7657,7 +7658,7 @@
     justify-content: center;
     align-items: center;
     width: 100%;
-    gap: 2px 6px;
+    gap: 2px 1cm;
     margin-top: 1px;
   }
 
