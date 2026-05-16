@@ -7846,6 +7846,19 @@
     z-index: 5;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip > .my-okey-rack-top-actions {
+    position: static;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    width: max-content;
+    max-width: 100%;
+    margin: 0 auto 6px;
+    gap: 4px 12px;
+    z-index: 5;
+    pointer-events: auto;
+  }
+
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col {
     display: flex;
     justify-content: center;

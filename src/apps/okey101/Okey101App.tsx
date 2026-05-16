@@ -16056,15 +16056,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
               {okeyPrototypeSeatReservation ? (
                 <>
                   <div className="my-okey-lower-strip">
-                    <div className="my-game-coming-prototype-rack">
-                      <div className="my-game-coming-prototype-rack-head">
-                        <div className="my-okey-rack-score-strip my-okey-rack-score-strip-head" role="status" aria-live="polite" aria-atomic="true">
-                          <span>{okeyPrototypeRackScoreLabel}</span>
-                          <strong title={okeyPrototypeRackScoreTitle}>
-                            {okeyPrototypeRackScoreValue}
-                          </strong>
-                        </div>
-                      </div>
                       <div className="my-game-coming-prototype-rack-actions my-okey-rack-top-actions">
                         <div className="my-okey-open-actions-col">
                           <button
@@ -16122,6 +16113,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           >
                             Seri Diz
                           </button>
+                        </div>
+                      </div>
+                      <div className="my-game-coming-prototype-rack">
+                      <div className="my-game-coming-prototype-rack-head">
+                        <div className="my-okey-rack-score-strip my-okey-rack-score-strip-head" role="status" aria-live="polite" aria-atomic="true">
+                          <span>{okeyPrototypeRackScoreLabel}</span>
+                          <strong title={okeyPrototypeRackScoreTitle}>
+                            {okeyPrototypeRackScoreValue}
+                          </strong>
                         </div>
                       </div>
                       <div className="my-okey-rack-rows" aria-label={`Koltuk ${okeyPrototypeSeatNoForRack} tas dizilimi`}>
@@ -16848,5 +16848,3 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 }
 
 export default Okey101App;
-
-
