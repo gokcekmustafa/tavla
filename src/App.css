@@ -7769,8 +7769,6 @@
     gap: 0;
     align-items: end;
     overflow: visible;
-    align-self: end;
-    margin-top: auto;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
@@ -7804,7 +7802,7 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head {
     position: absolute;
     right: 8px;
-    top: -34px;
+    top: -28px;
     margin: 0;
     max-width: none;
     z-index: 6;
@@ -7847,11 +7845,7 @@
     display: flex;
     justify-content: center;
     flex-wrap: nowrap;
-    gap: 0;
-  }
-
-  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col .my-action-btn:not(:nth-child(3)) {
-    display: none;
+    gap: 2px;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
