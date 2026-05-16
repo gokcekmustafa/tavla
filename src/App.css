@@ -8481,3 +8481,137 @@
     font-size: 1.4rem;
   }
 }
+
+/* ============================================
+   101 OKEY - İYİLEŞTİRME (mevcut yapıyı bozmaz)
+   ============================================ */
+
+/* 1. ORTA ALAN (açılan perler) - daha derli toplu */
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface {
+  background: rgba(30, 40, 20, 0.6);
+  border-radius: 20px;
+  padding: 8px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-area {
+  background: rgba(40, 60, 35, 0.7);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-meld {
+  background: #f5e6c4;
+  border-radius: 10px;
+  padding: 4px 8px;
+  display: inline-flex;
+  gap: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-meld .my-game-coming-prototype-rack-tile {
+  min-width: 28px;
+  height: 38px;
+  font-size: 1rem;
+  background: white;
+  border-radius: 5px;
+}
+
+/* 2. ALT ALAN (taşlar) - büyük ve net */
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 6px;
+  padding: 10px;
+  background: #1e2a1a;
+  border-radius: 16px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile {
+  min-width: 48px;
+  height: 64px;
+  font-size: 1.6rem;
+  font-weight: 800;
+  background: white;
+  color: black;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  flex-shrink: 0;
+}
+
+/* 3. SOL BUTONLAR - düzenli ve görünür */
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #2a3a2a;
+  padding: 12px;
+  border-radius: 16px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
+  background: #4a6a3a;
+  border: none;
+  color: #f0edd0;
+  padding: 8px;
+  border-radius: 30px;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* 4. SAĞ SKOR TABLOSU */
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-card {
+  background: #2a3a2a;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-score-list p {
+  display: flex;
+  justify-content: space-between;
+  margin: 6px 0;
+  font-size: 0.9rem;
+}
+
+/* 5. OYUN BAŞLATMA BUTONLARI - GERİ GETİR */
+.my-room-start-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(2px);
+}
+
+.my-room-start-card {
+  background: #2a4a2a;
+  padding: 20px;
+  border-radius: 24px;
+  text-align: center;
+}
+
+.my-room-start-main-btn {
+  background: #ffaa33;
+  border: none;
+  font-size: 1.5rem;
+  font-weight: bold;
+  padding: 12px 30px;
+  border-radius: 60px;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.my-room-start-subtext {
+  color: #f0edd0;
+  font-size: 0.8rem;
+}
+
+/* 6. TAVLA TARAFI DOKUNMA - GARANTİ */
+.my-game-frame iframe,
+.my-room-board-frame iframe,
+.my-table-card,
+.my-lobby-layout {
+  /* hiçbir şey değişmez */
+}
