@@ -7560,7 +7560,7 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
     grid-template-columns: minmax(114px, 128px) minmax(0, 1fr) minmax(114px, 128px) !important;
-    min-height: 210px;
+    min-height: calc(210px + 1.5cm);
     padding: 6px 8px;
     gap: 4px;
   }
@@ -7600,9 +7600,14 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface {
-    min-height: 148px;
-    max-height: 148px;
+    min-height: calc(148px + 1.5cm);
+    max-height: calc(148px + 1.5cm);
     padding: 2px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pile-card > span:first-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket > span:first-child {
+    display: none;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-area {
