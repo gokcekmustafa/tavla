@@ -5304,7 +5304,6 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 210px;
   grid-template-areas:
-    "head head"
     "hint hint"
     "grid side";
   gap: 10px;
@@ -7539,6 +7538,7 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
     grid-template-columns: minmax(0, 1fr) 158px !important;
+    grid-template-areas: "grid side";
     padding: 4px 7px;
     gap: 4px;
   }

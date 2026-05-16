@@ -15659,26 +15659,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
               </div>
 
               <div className="my-game-coming-prototype-board">
-                <div className="my-game-coming-prototype-board-head">
-                  <strong>101 Okey</strong>
-                  <div className="my-game-coming-prototype-board-head-controls">
-                    <span>Sira: K{okeyPrototypeTurnSeat}</span>
-                    <span>{okeyPrototypeTurnPhase === "draw" ? "Tas Cek" : "Tas At"}</span>
-                    <button className="my-action-btn soft" type="button" onClick={goToLobbyFromTableView}>
-                      Lobiye Don
-                    </button>
-                    {okeyPrototypeSeatReservation ? (
-                      <button
-                        className="my-action-btn danger"
-                        type="button"
-                        onClick={() => leaveOkeyPrototypeSeat("Masadan kalkildi")}
-                      >
-                        Masadan Kalk
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-
                 {!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable ? (
                   <div className="my-empty-state my-empty-state-lobby">
                     <p className="my-empty-state-title">Masaya oturman gerekiyor.</p>
@@ -16005,10 +15985,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                   <div className="my-okey-lower-strip">
                     <div className="my-game-coming-prototype-rack">
                       <div className="my-game-coming-prototype-rack-head">
-                        <div className="my-okey-rack-head-meta">
-                          <strong>Istakalar</strong>
-                          <span>Koltuk {okeyPrototypeSeatNoForRack}: {okeyPrototypeSeatRackTiles.length} tas</span>
-                        </div>
                         <div className="my-okey-rack-score-strip my-okey-rack-score-strip-head" role="status" aria-live="polite" aria-atomic="true">
                           <span>{okeyPrototypeRackScoreLabel}</span>
                           <strong title={okeyPrototypeRackScoreTitle}>
