@@ -7565,20 +7565,23 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
     grid-template-columns: minmax(0, 1fr) 158px !important;
     grid-template-areas: "grid side";
+    grid-template-rows: auto minmax(0, 1fr);
     padding: 4px 7px 0;
     gap: 4px;
     height: 100%;
     min-height: 0;
     align-self: stretch;
+    align-content: stretch;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
     grid-template-columns: minmax(114px, 128px) minmax(0, 1fr) minmax(114px, 128px) !important;
-    min-height: calc(210px + 1.5cm + 2cm);
-    height: calc(210px + 1.5cm + 2cm);
-    max-height: calc(210px + 1.5cm + 2cm);
+    min-height: 0;
+    height: 100%;
+    max-height: none;
     padding: 6px 8px;
     gap: 4px;
+    align-content: stretch;
     overflow: hidden;
   }
 
@@ -7614,15 +7617,16 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-main-layout {
     grid-template-columns: minmax(0, 1fr) 96px;
     gap: 3px;
-    height: calc(148px + 1.5cm + 0.8cm + 2cm);
-    max-height: calc(148px + 1.5cm + 0.8cm + 2cm);
+    min-height: 0;
+    height: 100%;
+    max-height: none;
     align-items: stretch;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface {
-    min-height: calc(148px + 1.5cm + 0.8cm + 2cm);
-    max-height: calc(148px + 1.5cm + 0.8cm + 2cm);
-    height: calc(148px + 1.5cm + 0.8cm + 2cm);
+    min-height: 0;
+    max-height: none;
+    height: 100%;
     padding: 2px;
   }
 
