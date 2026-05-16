@@ -3704,6 +3704,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const [okeyPrototypeDrawHandCount, setOkeyPrototypeDrawHandCount] = useState(0);
   const [okeyPrototypeLastHandSummary, setOkeyPrototypeLastHandSummary] = useState("");
   const [okeyPrototypeScorePopupVisible, setOkeyPrototypeScorePopupVisible] = useState(false);
+  const [okeyPrototypeScorePanelOpen, setOkeyPrototypeScorePanelOpen] = useState(false);
   const okeyPrototypeScorePopupTimeoutRef = useRef<number | null>(null);
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
   const canAccessOkeyPrototype = true;
@@ -3732,6 +3733,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       okeyPrototypeScorePopupTimeoutRef.current = null;
     }, 5600);
   }, [okeyPrototypeLastHandSummary, okeyPrototypeSeatReservation]);
+  useEffect(() => {
+    if (okeyPrototypeSeatReservation) return;
+    setOkeyPrototypeScorePanelOpen(false);
+  }, [okeyPrototypeSeatReservation]);
   useEffect(() => {
     return () => {
       if (okeyPrototypeScorePopupTimeoutRef.current !== null) {
@@ -15704,6 +15709,26 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         Lobi
                       </button>
                       <button
+                        className="my-action-btn soft"
+                        type="button"
+                        onClick={() => {
+                          setOkeyPrototypeScorePanelOpen((current) => {
+                            const next = !current;
+                            if (!next) {
+                              setOkeyPrototypeScorePopupVisible(false);
+                              if (okeyPrototypeScorePopupTimeoutRef.current !== null) {
+                                window.clearTimeout(okeyPrototypeScorePopupTimeoutRef.current);
+                                okeyPrototypeScorePopupTimeoutRef.current = null;
+                              }
+                            }
+                            return next;
+                          });
+                        }}
+                        aria-pressed={okeyPrototypeScorePanelOpen}
+                      >
+                        {okeyPrototypeScorePanelOpen ? "Puan Kapat" : "Puan"}
+                      </button>
+                      <button
                         className="my-action-btn danger"
                         type="button"
                         onClick={() => leaveOkeyPrototypeSeat("Masadan kalkildi")}
@@ -16211,7 +16236,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                     </aside>
                   </div>
 
-                  {okeyPrototypeScorePopupVisible ? (
+                  {(okeyPrototypeScorePopupVisible || okeyPrototypeScorePanelOpen) ? (
                     <div className="my-okey-score-popup" role="status" aria-live="polite" aria-atomic="true">
                       <section className="my-okey-quick-card">
                         <h4>Tabela</h4>
