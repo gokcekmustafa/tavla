@@ -7537,14 +7537,25 @@
 
 /* 101 desktop final pass: keep rack visible at 100% zoom, use width, trim height */
 @media (min-width: 761px) {
+  .my-room-view.in-room {
+    height: 100dvh;
+    max-height: 100dvh;
+    grid-template-rows: auto minmax(0, 1fr);
+    padding-bottom: 0;
+  }
+
   .my-game-coming-room-shell[data-table-active="true"] {
     width: min(100vw - 10px, 1380px);
     max-width: none !important;
     margin-inline: auto;
-    max-height: calc(100dvh - 2px);
+    height: 100%;
+    min-height: 0;
+    max-height: none;
     overflow: hidden;
     gap: 3px;
     padding: 3px 5px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    align-content: stretch;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-room-head {
@@ -7556,6 +7567,9 @@
     grid-template-areas: "grid side";
     padding: 4px 7px;
     gap: 4px;
+    height: 100%;
+    min-height: 0;
+    align-self: stretch;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
