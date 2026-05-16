@@ -4240,6 +4240,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (!okeyPrototypePendingDiscardTileId) return null;
     return okeyPrototypeTurnRackTiles.find((tile) => tile.id === okeyPrototypePendingDiscardTileId) ?? null;
   }, [okeyPrototypePendingDiscardTileId, okeyPrototypeTurnRackTiles]);
+  useEffect(() => {
+    if (!okeyPrototypePendingDiscardTileId) return;
+    if (okeyPrototypePendingDiscardTile) return;
+    // Guvenlik: bekleyen soldan alinmis tas rafta yoksa stale id temizlenir.
+    setOkeyPrototypePendingDiscardTileId("");
+    setOkeyPrototypePendingDiscardPickup(null);
+  }, [okeyPrototypePendingDiscardTileId, okeyPrototypePendingDiscardTile]);
   const okeyPrototypeCanTakeDiscardWhenClosed = useMemo(() => {
     if (okeyPrototypeCurrentSeatOpened) return true;
     if (!okeyPrototypeTakeableDiscardEntry) return false;
@@ -4327,7 +4334,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     && okeyPrototypeTurnRackTiles.length > 0;
   const okeyPrototypeCanDiscardTile = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
-    && okeyPrototypeTurnRackTiles.length > 0;
+    && okeyPrototypeTurnRackTiles.length > 0
+    && !okeyPrototypePendingDiscardTileId;
   const okeyPrototypeCanReturnTakenDiscard = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
     && Boolean(okeyPrototypePendingDiscardPickup)
@@ -4339,8 +4347,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const selectedGroups: Array<{ tiles: OkeyPrototypeTile[]; kind: OkeyPrototypeMeldKind; points: number }> = [];
     let selectedPoints = 0;
     for (const group of okeyPrototypeRackValidMeldGroups) {
-      // "Seri Ac" aksiyonu yalnizca seri turundeki gruplari acmali.
-      if (group.kind !== "seri") continue;
+      // 101 acilis hesabinda seri + ayni deger farkli renk gruplar
+      // beraber kullanilabilir.
+      if (group.kind !== "seri" && group.kind !== "set") continue;
       selectedGroups.push(group);
       selectedPoints += group.points;
     }
@@ -8618,6 +8627,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         points: getOkeyPrototypeMeldPointsWithJokers(orderedTiles, okeyPrototypeOkeyTile),
       });
     }
+    if (okeyPrototypePendingDiscardTileId && !selectedIds.has(okeyPrototypePendingDiscardTileId)) {
+      const pendingTile = okeyPrototypeTurnRackTiles.find((tile) => tile.id === okeyPrototypePendingDiscardTileId) ?? null;
+      appendOkeyPrototypeAction(
+        `${sourceLabel}: Soldan alinan tasi islemelisin${pendingTile ? ` (${formatOkeyPrototypeTile(pendingTile)})` : ""}.`,
+      );
+      return false;
+    }
     const nextTileCountAfterOpen = okeyPrototypeTurnRackTiles.length - selectedIds.size;
     if (nextTileCountAfterOpen < 0) {
       appendOkeyPrototypeAction("Gecersiz hamle: Acilis hesaplanamadi.");
@@ -8756,6 +8772,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     const openedPairTileIds = new Set(openablePairs.flat().map((tile) => tile.id));
+    if (okeyPrototypePendingDiscardTileId && !openedPairTileIds.has(okeyPrototypePendingDiscardTileId)) {
+      const pendingTile = okeyPrototypeTurnRackTiles.find((tile) => tile.id === okeyPrototypePendingDiscardTileId) ?? null;
+      appendOkeyPrototypeAction(
+        `Cift acma: Soldan alinan tasi once islemelisin${pendingTile ? ` (${formatOkeyPrototypeTile(pendingTile)})` : ""}.`,
+      );
+      return;
+    }
     const nextTileCountAfterOpen = okeyPrototypeTurnRackTiles.length - openedPairTileIds.size;
     if (nextTileCountAfterOpen < 0) {
       appendOkeyPrototypeAction("Gecersiz hamle: Cift acma hesaplanamadi.");
@@ -15760,7 +15783,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               const seatNo = okeyPrototypeSeatByDisplayPosition[displayPosition] ?? displayPosition;
                               const seatName = okeyPrototypeSeatNameByDisplayPosition[displayPosition] || `K${seatNo}`;
                               const seatMelds = okeyPrototypeOpenedMeldsBySeat[seatNo] ?? [];
-                              const seatSerialMelds = seatMelds.filter((meld) => meld.kind === "seri");
+                              const seatSerialMelds = seatMelds.filter(
+                                (meld) => meld.kind === "seri" || (meld.kind === "set" && meld.tiles.length >= 3),
+                              );
                               return (
                                 <section
                                   key={`okey-center-seat-area-${displayPosition}-${seatNo}`}
@@ -15802,7 +15827,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               {([1, 2, 3, 4] as OkeyPrototypeSeatNo[]).map((displayPosition) => {
                                 const seatNo = okeyPrototypeSeatByDisplayPosition[displayPosition] ?? displayPosition;
                                 const seatName = okeyPrototypeSeatNameByDisplayPosition[displayPosition] || `K${seatNo}`;
-                                const seatPairMelds = (okeyPrototypeOpenedMeldsBySeat[seatNo] ?? []).filter((meld) => meld.kind === "set");
+                                const seatPairMelds = (okeyPrototypeOpenedMeldsBySeat[seatNo] ?? [])
+                                  .filter((meld) => meld.kind === "set" && meld.tiles.length === 2);
                                 return (
                                   <section key={`okey-pair-column-${displayPosition}-${seatNo}`} className="my-okey-center-pair-column">
                                     <span className="my-okey-center-pair-column-title">{seatName}</span>
