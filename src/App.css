@@ -7616,6 +7616,8 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
     padding: 3px 4px 4px;
+    width: min(100%, 612px);
+    margin-inline: auto;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
@@ -7654,23 +7656,23 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
     padding: 1px 0;
-    gap: 2px;
+    gap: 1px;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row {
-    display: flex !important;
-    justify-content: space-between;
-    align-items: center;
+    display: grid !important;
+    grid-template-columns: repeat(16, 34px) !important;
+    justify-content: center;
+    align-items: start;
     overflow-x: hidden !important;
     overflow-y: hidden !important;
-    gap: 0;
+    gap: 1px;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot {
     width: 34px;
     min-width: 34px;
     max-width: 34px;
-    flex: 0 0 34px;
     height: 50px;
     padding: 0;
   }
