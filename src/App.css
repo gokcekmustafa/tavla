@@ -7565,7 +7565,7 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
     grid-template-columns: minmax(0, 1fr) 158px !important;
     grid-template-areas: "grid side";
-    padding: 4px 7px;
+    padding: 4px 7px 0;
     gap: 4px;
     height: 100%;
     min-height: 0;
@@ -7711,7 +7711,7 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip {
-    margin-top: 1px;
+    margin-top: 0;
     grid-template-columns: minmax(0, 1fr) 148px !important;
     gap: 3px;
     align-items: end;
