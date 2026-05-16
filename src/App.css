@@ -7610,7 +7610,7 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip {
     margin-top: 1px;
-    grid-template-columns: minmax(0, 1fr) 122px !important;
+    grid-template-columns: minmax(0, 1fr) 148px !important;
     gap: 3px;
   }
 
@@ -7719,11 +7719,6 @@
     min-height: 19px;
     padding: 0 6px;
     font-size: 0.54rem;
-  }
-
-  /* Keep start controls visible, trim scoreboard card in compact mode. */
-  .my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-side .my-okey-quick-card:nth-child(2) {
-    display: none;
   }
 
   /* Chat area is hidden on table mode to guarantee one-screen game layout. */

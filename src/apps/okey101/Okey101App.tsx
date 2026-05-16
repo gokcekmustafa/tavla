@@ -3988,26 +3988,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     });
     return groups;
   }, [okeyPrototypeOkeyTile, okeyPrototypeSeatRackSlotRows, okeyPrototypeSeatRackTileMap]);
-  const okeyPrototypeRackBestOpeningArrangement = useMemo(
-    () => buildOkeyPrototypeBestOpeningArrangement(okeyPrototypeSeatRackTiles, okeyPrototypeOkeyTile),
-    [okeyPrototypeSeatRackTiles, okeyPrototypeOkeyTile],
-  );
   const okeyPrototypeRackGroupedScore = useMemo(() => {
-    const slotBasedTotal = okeyPrototypeRackValidMeldGroups.reduce((sum, group) => sum + group.points, 0);
-    const slotBasedCount = okeyPrototypeRackValidMeldGroups.length;
-    const bestBasedTotal = okeyPrototypeRackBestOpeningArrangement?.totalPoints ?? 0;
-    const bestBasedCount = okeyPrototypeRackBestOpeningArrangement?.meldCount ?? 0;
-    if (bestBasedTotal >= slotBasedTotal) {
-      return {
-        total: bestBasedTotal,
-        validGroupCount: bestBasedCount,
-      };
-    }
     return {
-      total: slotBasedTotal,
-      validGroupCount: slotBasedCount,
+      total: okeyPrototypeRackValidMeldGroups.reduce((sum, group) => sum + group.points, 0),
+      validGroupCount: okeyPrototypeRackValidMeldGroups.length,
     };
-  }, [okeyPrototypeRackBestOpeningArrangement, okeyPrototypeRackValidMeldGroups]);
+  }, [okeyPrototypeRackValidMeldGroups]);
   const okeyPrototypeLocalSeatNo = useMemo(() => {
     if (okeyPrototypeSeatReservation) {
       return Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
