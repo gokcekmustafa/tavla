@@ -7552,7 +7552,7 @@
     min-height: 0;
     max-height: none;
     overflow: hidden;
-    gap: 3px;
+    gap: 0;
     padding: 3px 5px;
     grid-template-rows: auto minmax(0, 1fr) auto;
     align-content: stretch;
@@ -7718,14 +7718,14 @@
     margin-top: 0;
     grid-template-columns: minmax(0, 1fr) 148px !important;
     gap: 3px;
-    align-items: end;
+    align-items: start;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
     padding: 3px 4px 4px;
     width: min(100%, 612px);
     margin-inline: auto;
-    align-self: end;
+    align-self: start;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
