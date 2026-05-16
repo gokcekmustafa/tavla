@@ -4505,9 +4505,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       if (!okeyPrototypeCurrentSeatOpened && !okeyPrototypeCanTakeDiscardWhenClosed && okeyPrototypeDiscardPile.length > 0) {
         return "Ortadan tas almak icin bu tasla ayni turde el acabilmelisin (101 veya 5 cift).";
       }
-      if (okeyPrototypeCanDrawTile && okeyPrototypeCanDrawFromDiscard) {
-        return "Bu turde once Kapali Deste'den cekebilir veya Ortadan Al ile devam edebilirsin.";
-      }
       if (okeyPrototypeCanDrawTile) {
         return "Bu turde Kapali Deste'den tas cekerek devam et.";
       }
