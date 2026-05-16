@@ -3703,6 +3703,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const [okeyPrototypeSeatPenaltyTotals, setOkeyPrototypeSeatPenaltyTotals] = useState<Record<OkeyPrototypeSeatNo, number>>(() => createDefaultOkeyPrototypeSeatWinState());
   const [okeyPrototypeDrawHandCount, setOkeyPrototypeDrawHandCount] = useState(0);
   const [okeyPrototypeLastHandSummary, setOkeyPrototypeLastHandSummary] = useState("");
+  const [okeyPrototypeScorePopupVisible, setOkeyPrototypeScorePopupVisible] = useState(false);
+  const okeyPrototypeScorePopupTimeoutRef = useRef<number | null>(null);
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
   const canAccessOkeyPrototype = true;
   const useTavlaLikeOkeyLayout = false;
@@ -3712,6 +3714,31 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (selectedGameId === "okey101") return;
     setSelectedGameId("okey101");
   }, [selectedGameId]);
+  useEffect(() => {
+    if (!okeyPrototypeLastHandSummary || !okeyPrototypeSeatReservation) {
+      setOkeyPrototypeScorePopupVisible(false);
+      if (okeyPrototypeScorePopupTimeoutRef.current !== null) {
+        window.clearTimeout(okeyPrototypeScorePopupTimeoutRef.current);
+        okeyPrototypeScorePopupTimeoutRef.current = null;
+      }
+      return;
+    }
+    setOkeyPrototypeScorePopupVisible(true);
+    if (okeyPrototypeScorePopupTimeoutRef.current !== null) {
+      window.clearTimeout(okeyPrototypeScorePopupTimeoutRef.current);
+    }
+    okeyPrototypeScorePopupTimeoutRef.current = window.setTimeout(() => {
+      setOkeyPrototypeScorePopupVisible(false);
+      okeyPrototypeScorePopupTimeoutRef.current = null;
+    }, 5600);
+  }, [okeyPrototypeLastHandSummary, okeyPrototypeSeatReservation]);
+  useEffect(() => {
+    return () => {
+      if (okeyPrototypeScorePopupTimeoutRef.current !== null) {
+        window.clearTimeout(okeyPrototypeScorePopupTimeoutRef.current);
+      }
+    };
+  }, []);
   const okeyPrototypeRoomStatsById = useMemo(() => {
     return OKEY_PROTOTYPE_ROOMS.reduce<Record<string, { activeTables: number; players: number }>>((acc, room) => {
       const roomTables = okeyPrototypeTablesByRoom[room.id] ?? [];
@@ -15655,7 +15682,37 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                     ? `${activeLobbyName} / Masa ${okeyPrototypeJoinedTable.tableNo}`
                     : "101 Okey Masasi"}
                 </h3>
-                <span>{okeyPrototypeJoinedTable ? "Canli Masa" : "Masa Bekleniyor"}</span>
+                <div className="my-okey-room-head-right">
+                  <span>{okeyPrototypeJoinedTable ? "Canli Masa" : "Masa Bekleniyor"}</span>
+                  {okeyPrototypeSeatReservation ? (
+                    <div className="my-okey-room-head-actions">
+                      {!okeyPrototypeGameStarted ? (
+                        <button
+                          className="my-action-btn"
+                          type="button"
+                          onClick={() => startOkeyPrototypeGameWithTable(okeyPrototypeMissingSeatCount > 0)}
+                        >
+                          {okeyPrototypeMissingSeatCount > 0
+                            ? `Bot Baslat (${Math.max(0, 4 - okeyPrototypeMissingSeatCount)}/4)`
+                            : "Baslat"}
+                        </button>
+                      ) : null}
+                      <button className="my-action-btn soft" type="button" onClick={dealOkeyPrototypeWithSeed}>
+                        Yeni
+                      </button>
+                      <button className="my-action-btn soft" type="button" onClick={goToLobbyFromTableView}>
+                        Lobi
+                      </button>
+                      <button
+                        className="my-action-btn danger"
+                        type="button"
+                        onClick={() => leaveOkeyPrototypeSeat("Masadan kalkildi")}
+                      >
+                        Kalk
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               <div className="my-game-coming-prototype-board">
@@ -16153,6 +16210,33 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       </section>
                     </aside>
                   </div>
+
+                  {okeyPrototypeScorePopupVisible ? (
+                    <div className="my-okey-score-popup" role="status" aria-live="polite" aria-atomic="true">
+                      <section className="my-okey-quick-card">
+                        <h4>Tabela</h4>
+                        <div className="my-okey-quick-score-list">
+                          {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
+                            <p key={`popup-score-${seatNo}`}>
+                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || `K${seatNo}`}</span>
+                              <strong>{okeyPrototypeSeatHandWins[seatNo] ?? 0}</strong>
+                            </p>
+                          ))}
+                        </div>
+                        <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
+                          {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
+                            <p key={`popup-penalty-${seatNo}`}>
+                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || `K${seatNo}`} ceza</span>
+                              <strong>{okeyPrototypeSeatPenaltyTotals[seatNo] ?? 0}</strong>
+                            </p>
+                          ))}
+                        </div>
+                        {okeyPrototypeLastHandSummary ? (
+                          <p className="my-okey-quick-last-summary">{okeyPrototypeLastHandSummary}</p>
+                        ) : null}
+                      </section>
+                    </div>
+                  ) : null}
 
                   <section className="my-chat-card my-room-chat-card">
                     <div className="my-room-chat-tabs">

@@ -7563,6 +7563,48 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-room-head {
     padding: 3px 7px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-room-head-right {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-room-head-actions {
+    display: inline-grid;
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-room-head-actions .my-action-btn {
+    min-height: 22px;
+    padding: 0 7px;
+    border-radius: 6px;
+    font-size: 0.58rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-score-popup {
+    position: fixed;
+    top: 50px;
+    right: 10px;
+    width: 230px;
+    z-index: 90;
+    pointer-events: none;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-score-popup .my-okey-quick-card {
+    margin: 0;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
