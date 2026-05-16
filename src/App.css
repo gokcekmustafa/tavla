@@ -7610,7 +7610,7 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip {
     margin-top: 1px;
-    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-columns: minmax(0, 1fr) 122px !important;
     gap: 3px;
   }
 
@@ -7687,31 +7687,43 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-side {
-    display: none !important;
-  }
-
-  .my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-card {
-    padding: 5px;
-    gap: 4px;
-  }
-
-  .my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-card h4 {
-    font-size: 0.72rem;
-  }
-
-  .my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-score-list {
+    display: grid !important;
     gap: 3px;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-card {
+    padding: 4px;
+    gap: 3px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-card h4 {
+    font-size: 0.62rem;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-score-list {
+    gap: 2px;
+  }
+
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-score-list p {
-    font-size: 0.64rem;
-    gap: 4px;
+    font-size: 0.58rem;
+    gap: 3px;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-last-summary {
-    margin-top: 4px;
-    font-size: 0.58rem;
+    margin-top: 2px;
+    font-size: 0.54rem;
     line-height: 1.2;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-card .my-action-btn {
+    min-height: 19px;
+    padding: 0 6px;
+    font-size: 0.54rem;
+  }
+
+  /* Keep start controls visible, trim scoreboard card in compact mode. */
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-side .my-okey-quick-card:nth-child(2) {
+    display: none;
   }
 
   /* Chat area is hidden on table mode to guarantee one-screen game layout. */
