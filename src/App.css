@@ -6484,6 +6484,21 @@
   animation: my-okey-deck-draw-pop 0.72s ease-out;
 }
 
+@keyframes my-okey-draw-pocket-ghost-pop {
+  0% {
+    transform: translateX(-50%) translateY(14px) scale(0.78);
+    opacity: 0;
+  }
+  40% {
+    transform: translateX(-50%) translateY(-2px) scale(1.02);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
 @media (max-width: 760px) {
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
     padding: 0;
@@ -7602,6 +7617,22 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status .my-action-btn {
     min-height: 22px;
     font-size: 0.58rem;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket {
+    position: relative;
+    height: calc(78px * var(--okey-proto-tile-scale, 1));
+    overflow: hidden;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket-ghost {
+    position: absolute;
+    left: 50%;
+    bottom: 3px;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 2;
+    animation: my-okey-draw-pocket-ghost-pop 0.72s ease-out;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-hint {
