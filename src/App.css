@@ -7768,10 +7768,12 @@
     grid-template-columns: minmax(0, 1fr) !important;
     gap: 0;
     align-items: end;
+    overflow: visible;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
-    padding: 3px 6px 8px;
+    position: relative;
+    padding: 2px 6px 6px;
     width: 100%;
     max-width: 100%;
     margin-inline: 0;
@@ -7783,7 +7785,7 @@
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
     gap: 4px;
   }
 
@@ -7816,13 +7818,19 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 6px);
+    transform: translateX(-50%);
     display: grid;
     grid-template-columns: repeat(2, max-content);
     justify-content: center;
     align-items: center;
-    width: 100%;
-    gap: 4px 1cm;
-    margin-top: 1px;
+    width: max-content;
+    max-width: calc(100vw - 30px);
+    gap: 4px 12px;
+    margin-top: 0;
+    z-index: 5;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col {
@@ -7833,19 +7841,19 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
-    min-height: 34px;
-    padding: 0 10px;
-    font-size: 0.95rem;
+    min-height: 30px;
+    padding: 0 9px;
+    font-size: 0.82rem;
     white-space: nowrap;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-rows {
-    gap: 8px;
+    gap: 4px;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
-    padding: 4px 2px;
-    gap: 3px;
+    padding: 2px 1px;
+    gap: 2px;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row {
@@ -7855,22 +7863,22 @@
     align-items: start;
     overflow-x: hidden !important;
     overflow-y: hidden !important;
-    gap: 3px;
+    gap: 2px;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot {
     width: auto;
     min-width: 0;
     max-width: none;
-    height: 84px;
+    height: 66px;
     padding: 0;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
     width: 100%;
     min-width: 0;
-    height: 82px;
-    font-size: 2rem;
+    height: 64px;
+    font-size: 1.6rem;
     padding: 0;
     line-height: 1;
   }
