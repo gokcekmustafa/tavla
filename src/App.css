@@ -8187,3 +8187,91 @@
     padding: 0;
   }
 }
+
+/* ============================================
+   101 OKEY - SADECE GÖRSEL İYİLEŞTİRME
+   (Düzen ve butonlar aynen kalır)
+   ============================================ */
+
+/* TAŞLAR - daha belirgin ve gölgeli */
+.my-game-coming-prototype-rack-tile {
+  background: linear-gradient(145deg, #fff8f0, #f0e6d0);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255,255,255,0.8);
+  border-radius: 10px;
+  font-weight: 900;
+  transition: 0.05s linear;
+}
+
+.my-game-coming-prototype-rack-tile:active {
+  transform: scale(0.96);
+}
+
+/* RENKLİ TAŞLAR - yumuşak ama canlı */
+.my-game-coming-prototype-rack-tile.tile-kirmizi {
+  background: linear-gradient(145deg, #ffb5b5, #e88080);
+  color: #550000;
+}
+.my-game-coming-prototype-rack-tile.tile-mavi {
+  background: linear-gradient(145deg, #b5d4ff, #80a8e8);
+  color: #002255;
+}
+.my-game-coming-prototype-rack-tile.tile-sari {
+  background: linear-gradient(145deg, #fff0b5, #e8cc80);
+  color: #664400;
+}
+.my-game-coming-prototype-rack-tile.tile-siyah {
+  background: linear-gradient(145deg, #b0b8c0, #808890);
+  color: #111;
+}
+.my-game-coming-prototype-rack-tile.joker-tile {
+  background: linear-gradient(145deg, #ffdd99, #eebb66);
+  box-shadow: 0 0 0 2px gold, 0 3px 6px black;
+}
+
+/* SEÇİLİ TAŞ */
+.my-game-coming-prototype-rack-tile.discard-selected,
+.my-game-coming-prototype-rack-tile.meld-selected {
+  box-shadow: 0 0 0 3px #ffaa33, 0 3px 6px black;
+  transform: scale(1.01);
+}
+
+/* AÇILAN PER KARTLARI - daha şık */
+.my-okey-center-seat-meld {
+  background: #fdf8ed;
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15), inset 0 1px 0 white;
+  padding: 6px 10px;
+}
+
+/* BUTONLAR - daha modern */
+.my-action-btn {
+  background: linear-gradient(180deg, #5a8a4a, #3a6a2a);
+  border: none;
+  border-radius: 40px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,200,0.3);
+  transition: 0.07s linear;
+}
+.my-action-btn:active {
+  transform: scale(0.97);
+}
+
+/* PANEL ARKA PLANLARI - daha derinlikli */
+.my-game-coming-prototype-board,
+.my-game-coming-prototype-rack,
+.my-okey-quick-card {
+  box-shadow: inset 0 1px 0 rgba(255,255,200,0.1), 0 4px 12px rgba(0,0,0,0.4);
+}
+
+/* SKOR TABLOSU - daha okunaklı */
+.my-okey-quick-score-list p strong {
+  background: #2a4a2a;
+  padding: 2px 12px;
+  border-radius: 40px;
+  color: #ffdd99;
+}
+
+/* OYUNCU İSİMLERİ */
+.my-game-coming-prototype-board-seat header strong {
+  text-shadow: 0 1px 2px black;
+}
