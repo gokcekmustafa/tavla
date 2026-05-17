@@ -7691,6 +7691,11 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self .my-okey-draw-pocket {
     order: 1;
     margin: 0;
+    transform: translateY(0.5cm);
+    border-bottom: 0;
+    box-shadow: none;
+    text-decoration: none;
+    outline: none;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self > header {
