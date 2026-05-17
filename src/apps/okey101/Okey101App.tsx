@@ -4266,6 +4266,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     return okeyPrototypeSeatRackTileMap.get(okeyPrototypeDragPreview.sourceId) ?? null;
   }, [okeyPrototypeDragPreview, okeyPrototypeDiscardBySeat, okeyPrototypeSeatRackTileMap]);
+  const okeyPrototypeDeckDragPreviewActive = Boolean(
+    okeyPrototypeDragPreview.active
+    && okeyPrototypeDragPreview.sourceId === "okey-proto-draw-deck",
+  );
   const okeyPrototypeDragPreviewTileIsJoker = okeyPrototypeDragPreviewTile
     ? isOkeyPrototypeJokerTile(okeyPrototypeDragPreviewTile, okeyPrototypeOkeyTile)
     : false;
@@ -8382,12 +8386,33 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
   }
 
+  function handleOkeyPrototypeDrawPocketDragStart(event: DragEvent<HTMLButtonElement>) {
+    if (!okeyPrototypeCanDrawTile || !event.dataTransfer) return;
+    const sourceId = "okey-proto-draw-deck";
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", sourceId);
+    startOkeyPrototypeDragPreview(sourceId, event.clientX, event.clientY);
+    const ghost = document.createElement("canvas");
+    ghost.width = 1;
+    ghost.height = 1;
+    event.dataTransfer.setDragImage(ghost, 0, 0);
+  }
+
   function handleOkeyPrototypeRackDrop(
     targetTileId: string,
     draggedTileIdFromData = "",
     insertSide: "before" | "after" = "before",
   ) {
     const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
+    if (sourceTileId === "okey-proto-draw-deck") {
+      drawOkeyPrototypeTile();
+      handleOkeyPrototypeRackDragEnd();
+      okeyPrototypeSuppressRackClickRef.current = true;
+      window.setTimeout(() => {
+        okeyPrototypeSuppressRackClickRef.current = false;
+      }, 120);
+      return;
+    }
     if (sourceTileId.startsWith("okey-proto-take-discard")) {
       const parts = sourceTileId.split(":");
       const preferredSeatNoRaw = Number(parts[1] ?? "");
@@ -8416,6 +8441,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function handleOkeyPrototypeRackDropToSlot(slotIndex: number, draggedTileIdFromData = "") {
     const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
+    if (sourceTileId === "okey-proto-draw-deck") {
+      drawOkeyPrototypeTile();
+      handleOkeyPrototypeRackDragEnd();
+      okeyPrototypeSuppressRackClickRef.current = true;
+      window.setTimeout(() => {
+        okeyPrototypeSuppressRackClickRef.current = false;
+      }, 120);
+      return;
+    }
     if (sourceTileId.startsWith("okey-proto-take-discard")) {
       const parts = sourceTileId.split(":");
       const preferredSeatNoRaw = Number(parts[1] ?? "");
@@ -8464,6 +8498,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       handleOkeyPrototypeRackDragEnd();
       return;
     }
+    if (sourceTileId === "okey-proto-draw-deck" || sourceTileId.startsWith("okey-proto-take-discard:")) {
+      handleOkeyPrototypeRackDragEnd();
+      return;
+    }
     if (!okeyPrototypeCanDiscardTile) {
       handleOkeyPrototypeRackDragEnd();
       return;
@@ -8482,7 +8520,18 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       discardOkeyPrototypeTile();
       return;
     }
-    drawOkeyPrototypeTileFromDiscard(seatNo);
+    if (
+      okeyPrototypeTakeableDiscardEntry
+      && okeyPrototypeTakeableDiscardEntry.seatNo === seatNo
+      && okeyPrototypeCanDrawFromDiscard
+    ) {
+      appendOkeyPrototypeAction("Soldan almak icin tasi tutup rafina suruklemelisin.");
+    }
+  }
+
+  function handleOkeyPrototypeDrawPocketClick() {
+    if (!okeyPrototypeCanDrawTile) return;
+    appendOkeyPrototypeAction("Kapali desteden almak icin tasi tutup rafina suruklemelisin.");
   }
 
   function handleOkeyPrototypeRackTileClick(tileId: string) {
@@ -16095,7 +16144,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               <button
                                 type="button"
                                 className={`my-okey-draw-pocket ${okeyPrototypeCanDrawTile ? "suggested" : ""} ${okeyPrototypeDeckDrawTile && okeyPrototypeDeckDrawSeatNo === okeyPrototypeLocalSeatNo && okeyPrototypeDeckDrawPulse ? "draw-pulse" : ""}`}
-                                onClick={drawOkeyPrototypeTile}
+                                onClick={handleOkeyPrototypeDrawPocketClick}
+                                draggable={okeyPrototypeCanDrawTile}
+                                onDragStart={handleOkeyPrototypeDrawPocketDragStart}
+                                onDrag={handleOkeyPrototypeRackDrag}
+                                onDragEnd={handleOkeyPrototypeRackDragEnd}
                                 disabled={!okeyPrototypeCanDrawTile}
                                 aria-label="Kapali deste"
                               >
@@ -16465,7 +16518,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                     </aside>
                   </div>
 
-                  {okeyPrototypeDragPreview.active && okeyPrototypeDragPreviewTile ? (
+                  {okeyPrototypeDragPreview.active && (okeyPrototypeDragPreviewTile || okeyPrototypeDeckDragPreviewActive) ? (
                     <div
                       className="my-okey-drag-cursor-preview"
                       style={{
@@ -16474,11 +16527,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       }}
                       aria-hidden="true"
                     >
-                      <span
-                        className={`my-game-coming-prototype-rack-tile my-okey-drag-cursor-preview-tile tile-${okeyPrototypeDragPreviewTile.color} ${okeyPrototypeDragPreviewTileIsJoker ? "joker-tile" : ""} ${okeyPrototypeDragPreviewTileIsFlipped ? "okey-flipped" : ""}`}
-                      >
-                        {okeyPrototypeDragPreviewTileIsFlipped ? "\u00A0" : renderOkeyPrototypeTileFace(okeyPrototypeDragPreviewTile)}
-                      </span>
+                      {okeyPrototypeDragPreviewTile ? (
+                        <span
+                          className={`my-game-coming-prototype-rack-tile my-okey-drag-cursor-preview-tile tile-${okeyPrototypeDragPreviewTile.color} ${okeyPrototypeDragPreviewTileIsJoker ? "joker-tile" : ""} ${okeyPrototypeDragPreviewTileIsFlipped ? "okey-flipped" : ""}`}
+                        >
+                          {okeyPrototypeDragPreviewTileIsFlipped ? "\u00A0" : renderOkeyPrototypeTileFace(okeyPrototypeDragPreviewTile)}
+                        </span>
+                      ) : (
+                        <span className="my-game-coming-prototype-rack-tile my-okey-drag-cursor-preview-tile my-okey-drag-cursor-preview-deck">
+                          {"\u00A0"}
+                        </span>
+                      )}
                     </div>
                   ) : null}
 

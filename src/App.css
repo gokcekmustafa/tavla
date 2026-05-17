@@ -6157,19 +6157,14 @@
   box-shadow:
     0 8px 18px rgba(0, 0, 0, 0.34),
     inset 0 1px 0 rgba(255, 255, 255, 0.64);
-  animation: my-okey-drag-cursor-float 0.72s ease-in-out infinite;
+  animation: none;
+  transform: none;
 }
 
-@keyframes my-okey-drag-cursor-float {
-  0% {
-    transform: translateY(0) rotate(-1.6deg) scale(1.02);
-  }
-  50% {
-    transform: translateY(-5px) rotate(1.3deg) scale(1.06);
-  }
-  100% {
-    transform: translateY(0) rotate(-1.6deg) scale(1.02);
-  }
+.my-okey-drag-cursor-preview .my-okey-drag-cursor-preview-tile.my-okey-drag-cursor-preview-deck {
+  background: linear-gradient(180deg, #fffef8, #ece9de);
+  border-color: rgba(134, 140, 149, 0.86);
+  color: transparent;
 }
 
 .my-game-coming-prototype-rack-slots-row {
