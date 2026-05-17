@@ -8069,7 +8069,7 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 4px;
+    gap: 3px;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child {
@@ -8087,10 +8087,10 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
-    min-height: 34px;
-    min-width: 116px;
-    padding: 0 11px;
-    font-size: 0.86rem;
+    min-height: 31px;
+    min-width: 106px;
+    padding: 0 9px;
+    font-size: 0.82rem;
     white-space: nowrap;
   }
 
