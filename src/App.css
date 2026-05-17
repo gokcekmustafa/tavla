@@ -7857,8 +7857,8 @@
     padding: 2px 6px 6px;
     width: calc(100% - 6cm);
     max-width: calc(100% - 6cm);
-    margin-left: 1cm;
-    margin-right: 5cm;
+    margin-left: calc(1cm - 3mm);
+    margin-right: calc(5cm + 3mm);
     align-self: end;
     overflow: visible;
     gap: 0;
@@ -7911,7 +7911,7 @@
     position: absolute;
     left: 50%;
     bottom: calc(100% + 12px);
-    transform: translateX(calc(-50% - 2cm));
+    transform: translateX(calc(-50% - 2cm - 3mm));
     display: grid;
     grid-template-columns: repeat(2, max-content);
     justify-content: center;
@@ -7927,7 +7927,7 @@
     position: static;
     left: auto;
     bottom: auto;
-    transform: translateX(-2cm);
+    transform: translateX(calc(-2cm - 3mm));
     width: max-content;
     max-width: 100%;
     margin: 0 auto 6px;
