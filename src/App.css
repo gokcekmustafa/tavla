@@ -7856,7 +7856,8 @@
     padding: 2px 6px 6px;
     width: calc(100% - 6cm);
     max-width: calc(100% - 6cm);
-    margin-inline: 3cm;
+    margin-left: 1cm;
+    margin-right: 5cm;
     align-self: end;
     overflow: visible;
     gap: 0;
