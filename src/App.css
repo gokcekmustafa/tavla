@@ -7669,6 +7669,14 @@
     overflow: visible;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-center {
+    min-height: 0;
+    height: 100%;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    align-content: stretch;
+  }
+
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
     display: none !important;
   }
