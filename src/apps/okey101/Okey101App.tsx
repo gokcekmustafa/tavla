@@ -16181,7 +16181,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             }}
                             aria-label={`${seatName} saga atilan tas`}
                           >
-                            <span>{seatName}</span>
                             {seatDiscardTile ? (
                               <span
                                 className={`my-game-coming-prototype-rack-tile tile-${seatDiscardTile.color} ${seatDiscardTileIsJoker ? "joker-tile" : ""} ${isArrivalAnimation ? "discard-arrive" : ""}`}
