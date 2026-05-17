@@ -7676,6 +7676,33 @@
     flex-wrap: nowrap;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    gap: 3px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self .my-okey-draw-pocket {
+    order: 1;
+    margin: 0;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self > header {
+    order: 2;
+    width: fit-content;
+    max-width: 100%;
+    padding: 1px 6px;
+    border-radius: 6px;
+    border: 1px solid rgba(171, 224, 199, 0.56);
+    background: rgba(6, 97, 71, 0.42);
+    gap: 4px;
+  }
+
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat-title {
     flex: 1 1 auto;
     min-width: 0;
