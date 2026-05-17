@@ -5205,12 +5205,16 @@
 }
 
 .my-game-coming-prototype-rack-tile.okey-flipped {
-  background: linear-gradient(180deg, #616161, #3f3f3f) !important;
-  color: #f6f6f6 !important;
-  border-color: rgba(255, 255, 255, 0.42) !important;
+  background: linear-gradient(180deg, #fffef9, #f2e7cf) !important;
+  color: transparent !important;
+  border-color: rgba(124, 90, 44, 0.9) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 2px 4px rgba(0, 0, 0, 0.4);
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 2px 4px rgba(0, 0, 0, 0.22);
+}
+
+.my-game-coming-prototype-rack-tile.okey-flipped::before {
+  display: none;
 }
 
 @media (max-width: 920px) {

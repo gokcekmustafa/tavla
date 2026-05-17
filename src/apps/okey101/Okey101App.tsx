@@ -16290,7 +16290,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                       aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
                                       title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (okey - sag tikla cevir)" : ""}`}
                                     >
-                                      {okeyPrototypeFlippedJokerTileIds.includes(tile.id) ? "?" : renderOkeyPrototypeTileFace(tile)}
+                                      {okeyPrototypeFlippedJokerTileIds.includes(tile.id) ? "\u00A0" : renderOkeyPrototypeTileFace(tile)}
                                     </button>
                                   ) : null}
                                 </div>
@@ -16367,7 +16367,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       <span
                         className={`my-game-coming-prototype-rack-tile my-okey-drag-cursor-preview-tile tile-${okeyPrototypeDragPreviewTile.color} ${okeyPrototypeDragPreviewTileIsJoker ? "joker-tile" : ""} ${okeyPrototypeDragPreviewTileIsFlipped ? "okey-flipped" : ""}`}
                       >
-                        {okeyPrototypeDragPreviewTileIsFlipped ? "?" : renderOkeyPrototypeTileFace(okeyPrototypeDragPreviewTile)}
+                        {okeyPrototypeDragPreviewTileIsFlipped ? "\u00A0" : renderOkeyPrototypeTileFace(okeyPrototypeDragPreviewTile)}
                       </span>
                     </div>
                   ) : null}
