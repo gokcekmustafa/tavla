@@ -7913,7 +7913,7 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row {
     display: grid !important;
-    grid-template-columns: repeat(16, minmax(0, calc((100% - 174px) / 16))) !important;
+    grid-template-columns: repeat(16, minmax(0, calc((100% - 174px - 32mm) / 16))) !important;
     justify-content: center;
     align-items: start;
     overflow-x: hidden !important;
