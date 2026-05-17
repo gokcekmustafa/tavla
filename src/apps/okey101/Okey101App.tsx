@@ -386,6 +386,9 @@ type OkeyPrototypeScenarioKind = "opening" | "attach" | "finish" | "draw-end";
 type OkeyPrototypeRackSortMode = "color" | "value";
 type OkeyPrototypeAutoSortMode = "off" | OkeyPrototypeRackSortMode;
 type OkeyPrototypeBotDifficulty = "easy" | "normal" | "hard";
+type OkeyPrototypeDrawPlacement =
+  | { mode: "slot"; slotIndex: number }
+  | { mode: "near"; targetTileId: string; insertSide: "before" | "after" };
 type OkeyPrototypeDealState = {
   rackState: OkeyPrototypeRackState;
   wallTiles: OkeyPrototypeTile[];
@@ -3737,6 +3740,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     clientY: 0,
     active: false,
   });
+  const [okeyPrototypeDragPreviewTileSize, setOkeyPrototypeDragPreviewTileSize] = useState<{
+    width: number;
+    height: number;
+    fontSize: number;
+  } | null>(null);
   const [okeyPrototypeFlippedJokerTileIds, setOkeyPrototypeFlippedJokerTileIds] = useState<string[]>([]);
   const [okeyPrototypeOpenedMelds, setOkeyPrototypeOpenedMelds] = useState<OkeyPrototypeMeldEntry[]>([]);
   const [okeyPrototypeAttachTargetMeldId, setOkeyPrototypeAttachTargetMeldId] = useState("");
@@ -3817,6 +3825,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         clientY: 0,
         active: false,
       });
+      setOkeyPrototypeDragPreviewTileSize(null);
     };
     window.addEventListener("dragover", handleWindowDragOver);
     window.addEventListener("drop", handleWindowDragStop);
@@ -8326,6 +8335,89 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     return pointerOffsetX >= rect.width / 2 ? "after" : "before";
   }
 
+  function captureOkeyPrototypeDragPreviewTileSize(sourceElement?: HTMLElement | null) {
+    if (typeof window === "undefined") return;
+    let tileElement = sourceElement ?? null;
+    if (!tileElement) {
+      tileElement = document.querySelector(
+        ".my-game-coming-room-shell[data-table-active=\"true\"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile",
+      ) as HTMLElement | null;
+    }
+    if (!tileElement) {
+      setOkeyPrototypeDragPreviewTileSize(null);
+      return;
+    }
+    const rect = tileElement.getBoundingClientRect();
+    if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height) || rect.width <= 0 || rect.height <= 0) {
+      setOkeyPrototypeDragPreviewTileSize(null);
+      return;
+    }
+    const computed = window.getComputedStyle(tileElement);
+    const parsedFontSize = Number.parseFloat(computed.fontSize || "");
+    setOkeyPrototypeDragPreviewTileSize({
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+      fontSize: Number.isFinite(parsedFontSize) ? parsedFontSize : 0,
+    });
+  }
+
+  function placeOkeyPrototypeNewDrawnTileInRack(
+    seatNo: OkeyPrototypeSeatNo,
+    rackBeforeDraw: OkeyPrototypeTile[],
+    newTileId: string,
+    placement?: OkeyPrototypeDrawPlacement | null,
+  ) {
+    if (!placement) return;
+    if (!okeyPrototypeSeatReservation) return;
+    if (seatNo !== okeyPrototypeSeatNoForRack) return;
+    const safeSeatNo = okeyPrototypeSeatNoForRack as OkeyPrototypeSeatNo;
+    setOkeyPrototypeRackSlotsBySeat((current) => {
+      const baseSlots = current[safeSeatNo] ?? createEmptyOkeyPrototypeRackSlots();
+      const normalizedSlots = fillOkeyPrototypeRackSlotsFromTiles(baseSlots, rackBeforeDraw);
+      const preparedSlots = normalizedSlots.map((slotTileId) => (slotTileId === newTileId ? null : slotTileId));
+      const sourceIndex = preparedSlots.findIndex((slotTileId) => !slotTileId);
+      if (sourceIndex < 0) return current;
+      const nextSlots = preparedSlots.slice();
+      nextSlots[sourceIndex] = newTileId;
+
+      const moveInsertedTile = (targetIndex: number, insertSide: "before" | "after") => {
+        let fromIndex = nextSlots.findIndex((slotTileId) => slotTileId === newTileId);
+        if (fromIndex < 0) return;
+        let insertAt = insertSide === "after" ? targetIndex + 1 : targetIndex;
+        if (fromIndex < insertAt) insertAt -= 1;
+        insertAt = Math.max(0, Math.min(nextSlots.length - 1, insertAt));
+        if (insertAt === fromIndex) return;
+        if (insertAt > fromIndex) {
+          for (let index = fromIndex; index < insertAt; index += 1) {
+            nextSlots[index] = nextSlots[index + 1] ?? null;
+          }
+        } else {
+          for (let index = fromIndex; index > insertAt; index -= 1) {
+            nextSlots[index] = nextSlots[index - 1] ?? null;
+          }
+        }
+        nextSlots[insertAt] = newTileId;
+      };
+
+      if (placement.mode === "slot") {
+        const safeSlotIndex = Math.max(0, Math.min(OKEY_PROTOTYPE_RACK_SLOT_COUNT - 1, placement.slotIndex));
+        moveInsertedTile(safeSlotIndex, "before");
+      } else {
+        const targetIndex = nextSlots.findIndex((slotTileId) => slotTileId === placement.targetTileId);
+        if (targetIndex >= 0) {
+          moveInsertedTile(targetIndex, placement.insertSide);
+        }
+      }
+
+      const changed = nextSlots.some((slotTileId, index) => slotTileId !== baseSlots[index]);
+      if (!changed) return current;
+      return {
+        ...current,
+        [safeSeatNo]: nextSlots,
+      };
+    });
+  }
+
   function startOkeyPrototypeDragPreview(sourceId: string, clientX: number, clientY: number) {
     const safeX = Number.isFinite(clientX) ? clientX : 0;
     const safeY = Number.isFinite(clientY) ? clientY : 0;
@@ -8360,6 +8452,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       clientY: 0,
       active: false,
     });
+    setOkeyPrototypeDragPreviewTileSize(null);
   }
 
   function handleOkeyPrototypeRackDrag(event: DragEvent<HTMLElement>) {
@@ -8373,6 +8466,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function handleOkeyPrototypeRackDragStart(event: DragEvent<HTMLButtonElement>, tileId: string) {
     if (!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2) return;
+    captureOkeyPrototypeDragPreviewTileSize(event.currentTarget);
     setOkeyPrototypeRackDragTileId(tileId);
     startOkeyPrototypeDragPreview(tileId, event.clientX, event.clientY);
     if (event.dataTransfer) {
@@ -8388,6 +8482,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function handleOkeyPrototypeDrawPocketDragStart(event: DragEvent<HTMLButtonElement>) {
     if (!okeyPrototypeCanDrawTile || !event.dataTransfer) return;
+    captureOkeyPrototypeDragPreviewTileSize(null);
     const sourceId = "okey-proto-draw-deck";
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", sourceId);
@@ -8405,7 +8500,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   ) {
     const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
     if (sourceTileId === "okey-proto-draw-deck") {
-      drawOkeyPrototypeTile();
+      drawOkeyPrototypeTile({ mode: "near", targetTileId, insertSide });
       handleOkeyPrototypeRackDragEnd();
       okeyPrototypeSuppressRackClickRef.current = true;
       window.setTimeout(() => {
@@ -8419,7 +8514,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const preferredSeatNo = [1, 2, 3, 4].includes(preferredSeatNoRaw)
         ? (preferredSeatNoRaw as OkeyPrototypeSeatNo)
         : undefined;
-      drawOkeyPrototypeTileFromDiscard(preferredSeatNo);
+      drawOkeyPrototypeTileFromDiscard(preferredSeatNo, { mode: "near", targetTileId, insertSide });
       handleOkeyPrototypeRackDragEnd();
       okeyPrototypeSuppressRackClickRef.current = true;
       window.setTimeout(() => {
@@ -8442,7 +8537,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   function handleOkeyPrototypeRackDropToSlot(slotIndex: number, draggedTileIdFromData = "") {
     const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
     if (sourceTileId === "okey-proto-draw-deck") {
-      drawOkeyPrototypeTile();
+      drawOkeyPrototypeTile({ mode: "slot", slotIndex });
       handleOkeyPrototypeRackDragEnd();
       okeyPrototypeSuppressRackClickRef.current = true;
       window.setTimeout(() => {
@@ -8456,7 +8551,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const preferredSeatNo = [1, 2, 3, 4].includes(preferredSeatNoRaw)
         ? (preferredSeatNoRaw as OkeyPrototypeSeatNo)
         : undefined;
-      drawOkeyPrototypeTileFromDiscard(preferredSeatNo);
+      drawOkeyPrototypeTileFromDiscard(preferredSeatNo, { mode: "slot", slotIndex });
       handleOkeyPrototypeRackDragEnd();
       okeyPrototypeSuppressRackClickRef.current = true;
       window.setTimeout(() => {
@@ -9194,7 +9289,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }, 760);
   }
 
-  function drawOkeyPrototypeTile() {
+  function drawOkeyPrototypeTile(
+    placementOrEvent?: OkeyPrototypeDrawPlacement | React.MouseEvent<HTMLButtonElement> | null,
+  ) {
+    const placement = placementOrEvent && typeof placementOrEvent === "object" && "mode" in placementOrEvent
+      ? placementOrEvent as OkeyPrototypeDrawPlacement
+      : null;
     if (okeyPrototypeHandCompleted) {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
       return;
@@ -9227,6 +9327,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         return sortOkeyPrototypeRackTiles(nextRack, okeyPrototypeAutoSortMode, okeyPrototypeOkeyTile);
       })(),
     }));
+    placeOkeyPrototypeNewDrawnTileInRack(seatNo, currentRack, tile.id, placement);
     setOkeyPrototypeTurnPhase("discard");
     setOkeyPrototypePendingDiscardTileId("");
     setOkeyPrototypePendingDiscardPickup(null);
@@ -9240,7 +9341,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
   }
 
-  function drawOkeyPrototypeTileFromDiscard(preferredSeatNo?: OkeyPrototypeSeatNo) {
+  function drawOkeyPrototypeTileFromDiscard(
+    preferredSeatNo?: OkeyPrototypeSeatNo,
+    placement?: OkeyPrototypeDrawPlacement | null,
+  ) {
     if (okeyPrototypeHandCompleted) {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
       return;
@@ -9285,6 +9389,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         return sortOkeyPrototypeRackTiles(nextRack, okeyPrototypeAutoSortMode, okeyPrototypeOkeyTile);
       })(),
     }));
+    placeOkeyPrototypeNewDrawnTileInRack(seatNo, okeyPrototypeRackState[seatNo] ?? [], tile.id, placement);
     setOkeyPrototypeTurnPhase("discard");
     setOkeyPrototypePendingDiscardTileId(tile.id);
     setOkeyPrototypeDiscardDraftTileId(tile.id);
@@ -16314,6 +16419,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 draggable={isTakeableFromPocket}
                                 onDragStart={(event) => {
                                   if (!isTakeableFromPocket || !event.dataTransfer) return;
+                                  captureOkeyPrototypeDragPreviewTileSize(event.currentTarget);
                                   event.dataTransfer.effectAllowed = "move";
                                   const sourceId = `okey-proto-take-discard:${seatNo}`;
                                   event.dataTransfer.setData("text/plain", sourceId);
@@ -16530,11 +16636,28 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       {okeyPrototypeDragPreviewTile ? (
                         <span
                           className={`my-game-coming-prototype-rack-tile my-okey-drag-cursor-preview-tile tile-${okeyPrototypeDragPreviewTile.color} ${okeyPrototypeDragPreviewTileIsJoker ? "joker-tile" : ""} ${okeyPrototypeDragPreviewTileIsFlipped ? "okey-flipped" : ""}`}
+                          style={okeyPrototypeDragPreviewTileSize ? {
+                            width: `${okeyPrototypeDragPreviewTileSize.width}px`,
+                            minWidth: `${okeyPrototypeDragPreviewTileSize.width}px`,
+                            height: `${okeyPrototypeDragPreviewTileSize.height}px`,
+                            fontSize: okeyPrototypeDragPreviewTileSize.fontSize > 0
+                              ? `${okeyPrototypeDragPreviewTileSize.fontSize}px`
+                              : undefined,
+                            padding: 0,
+                          } : undefined}
                         >
                           {okeyPrototypeDragPreviewTileIsFlipped ? "\u00A0" : renderOkeyPrototypeTileFace(okeyPrototypeDragPreviewTile)}
                         </span>
                       ) : (
-                        <span className="my-game-coming-prototype-rack-tile my-okey-drag-cursor-preview-tile my-okey-drag-cursor-preview-deck">
+                        <span
+                          className="my-game-coming-prototype-rack-tile my-okey-drag-cursor-preview-tile my-okey-drag-cursor-preview-deck"
+                          style={okeyPrototypeDragPreviewTileSize ? {
+                            width: `${okeyPrototypeDragPreviewTileSize.width}px`,
+                            minWidth: `${okeyPrototypeDragPreviewTileSize.width}px`,
+                            height: `${okeyPrototypeDragPreviewTileSize.height}px`,
+                            padding: 0,
+                          } : undefined}
+                        >
                           {"\u00A0"}
                         </span>
                       )}
