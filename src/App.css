@@ -7907,7 +7907,7 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
-    padding: 2px 1px;
+    padding: 2px 1mm;
     gap: 2px;
   }
 
