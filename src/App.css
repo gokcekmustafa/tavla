@@ -7807,8 +7807,24 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket {
     position: relative;
-    height: calc(78px * var(--okey-proto-tile-scale, 1));
-    overflow: hidden;
+    width: auto;
+    min-height: 0;
+    height: auto;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    display: inline-grid;
+    align-content: start;
+    justify-items: center;
+    gap: 2px;
+    overflow: visible;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket.suggested {
+    border-color: transparent;
+    box-shadow: none;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket-ghost {
