@@ -7582,7 +7582,7 @@
     --okey-board-side-col: 186px;
     --okey-board-height: clamp(372px, 50vh, 432px);
     --okey-board-bottom-stretch: 2.3cm;
-    --okey-open-meld-extend: 40px;
+    --okey-open-meld-extend: 56px;
     width: min(100vw - 12px, 1016px);
     max-width: none !important;
     margin-inline: auto;
@@ -7918,13 +7918,13 @@
     min-height: 0;
     height: 100%;
     border: 0;
-    border-left: 2px solid rgba(232, 249, 241, 0.85);
+    border-left: 1px solid rgba(232, 249, 241, 0.85);
     border-radius: 0;
     background: transparent;
-    padding: 3px 2px 2px;
+    padding: 2px 1px 2px;
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
-    gap: 4px;
+    gap: 2px;
     align-content: stretch;
   }
 
@@ -7947,14 +7947,16 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-body {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    align-content: flex-start;
-    justify-content: flex-start;
-    gap: 2px;
+    display: grid;
+    grid-template-rows: repeat(10, 14px);
+    grid-auto-rows: 14px;
+    align-content: start;
+    justify-items: start;
+    row-gap: 1px;
     min-height: 0;
     width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-group {
@@ -7964,6 +7966,16 @@
     gap: 1px;
     width: fit-content;
     max-width: 100%;
+    white-space: nowrap;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-group .my-game-coming-prototype-rack-tile {
+    min-width: 8px;
+    width: 8px;
+    height: 14px;
+    padding: 0;
+    font-size: 0.43rem;
+    line-height: 1;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pile-card > span:first-child,
