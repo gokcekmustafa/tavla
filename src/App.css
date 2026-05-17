@@ -6393,7 +6393,7 @@
   box-shadow: 0 0 0 1px rgba(247, 224, 156, 0.34) inset;
 }
 
-.my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket > span:first-child {
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket > span:first-child:not(.my-game-coming-prototype-rack-tile) {
   color: #dbf7ea;
   font-size: 0.62rem;
   font-weight: 800;
@@ -8318,7 +8318,7 @@
     justify-items: center;
   }
 
-  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket > span:first-child {
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket > span:first-child:not(.my-game-coming-prototype-rack-tile) {
     font-size: 0.42rem;
     max-width: 100%;
     white-space: nowrap;
