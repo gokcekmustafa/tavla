@@ -7666,7 +7666,7 @@
     padding: 6px;
     gap: 6px;
     align-content: stretch;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header {
@@ -7803,7 +7803,9 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
-    bottom: calc(6px - 1cm);
+    bottom: 6px;
+    transform: translateY(1cm);
+    z-index: 6;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
