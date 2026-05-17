@@ -7913,27 +7913,27 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row {
     display: grid !important;
-    grid-template-columns: repeat(16, 28px) !important;
-    justify-content: center;
+    grid-template-columns: repeat(16, minmax(0, 1fr)) !important;
+    justify-content: stretch;
     align-items: start;
     overflow-x: hidden !important;
     overflow-y: hidden !important;
-    gap: 1px;
+    gap: 2px;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot {
-    width: 28px;
-    min-width: 28px;
-    max-width: 28px;
+    width: auto;
+    min-width: 0;
+    max-width: none;
     height: 62px;
     padding: 0;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
-    width: 100%;
+    width: calc(100% - 9px);
     min-width: 0;
     max-width: 100%;
-    margin-inline: 0;
+    margin-inline: auto;
     height: 60px;
     font-size: 1.48rem;
     padding: 0;
