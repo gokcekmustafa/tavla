@@ -7582,6 +7582,7 @@
     --okey-board-side-col: 186px;
     --okey-board-height: clamp(372px, 50vh, 432px);
     --okey-board-bottom-stretch: 2.3cm;
+    --okey-open-meld-extend: 40px;
     width: min(100vw - 12px, 1016px);
     max-width: none !important;
     margin-inline: auto;
@@ -7818,7 +7819,8 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface {
     min-height: 0;
     max-height: none;
-    height: 100%;
+    height: calc(100% + var(--okey-open-meld-extend));
+    margin-bottom: calc(-1 * var(--okey-open-meld-extend));
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -7896,8 +7898,9 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
     min-height: 0;
-    height: 100%;
+    height: calc(100% + var(--okey-open-meld-extend));
     max-height: 100%;
+    margin-bottom: calc(-1 * var(--okey-open-meld-extend));
     overflow-y: auto;
     overflow-x: hidden;
     align-content: stretch;
@@ -7935,12 +7938,12 @@
     writing-mode: vertical-rl;
     text-orientation: mixed;
     transform: rotate(180deg);
-    font-size: 0.54rem;
-    padding: 2px 3px;
-    border-radius: 4px;
-    border: 1px solid rgba(205, 234, 221, 0.5);
-    background: rgba(188, 220, 207, 0.32);
-    color: #dbf7eb;
+    font-size: 0.44rem;
+    padding: 1px 2px;
+    border-radius: 3px;
+    border: 1px solid rgba(205, 234, 221, 0.42);
+    background: rgba(188, 220, 207, 0.24);
+    color: rgba(221, 247, 236, 0.92);
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-body {
