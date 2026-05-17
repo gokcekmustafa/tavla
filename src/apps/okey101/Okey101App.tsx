@@ -16079,7 +16079,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             <div className="my-okey-center-pair-columns" aria-label="Cift acma sutunlari">
                               {([1, 2, 3, 4] as OkeyPrototypeSeatNo[]).map((displayPosition) => {
                                 const seatNo = okeyPrototypeSeatByDisplayPosition[displayPosition] ?? displayPosition;
-                                const seatName = okeyPrototypeSeatNameByDisplayPosition[displayPosition] || `K${seatNo}`;
+                                const seatNameRaw = okeyPrototypeSeatNameByDisplayPosition[displayPosition] || `K${seatNo}`;
+                                const seatName = seatNameRaw.replace(/\s*\(K\d+\)\s*$/i, "").trim();
                                 const seatPairMelds = (okeyPrototypeOpenedMeldsBySeat[seatNo] ?? [])
                                   .filter((meld) => meld.kind === "set" && meld.tiles.length === 2);
                                 return (

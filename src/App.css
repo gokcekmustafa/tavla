@@ -7933,20 +7933,23 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-title {
+    grid-row: 2;
     align-self: end;
     justify-self: center;
     writing-mode: vertical-rl;
     text-orientation: mixed;
     transform: rotate(180deg);
-    font-size: 0.44rem;
-    padding: 1px 2px;
-    border-radius: 3px;
-    border: 1px solid rgba(205, 234, 221, 0.42);
-    background: rgba(188, 220, 207, 0.24);
-    color: rgba(221, 247, 236, 0.92);
+    font-size: 0.38rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: rgba(226, 250, 240, 0.94);
+    line-height: 1;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-body {
+    grid-row: 1;
     display: grid;
     grid-template-rows: repeat(10, 14px);
     grid-auto-rows: 14px;
