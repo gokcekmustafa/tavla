@@ -16004,6 +16004,78 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           </div>
 
                           <aside className="my-okey-center-side-lanes" aria-label="Kapali deste ve cift acma sutunlari">
+                            <div className="my-okey-center-middle-controls" aria-label="Orta kontrol alani">
+                              <div className="my-okey-indicator-card">
+                                <span>Gosterge</span>
+                                <div className="my-okey-indicator-card-tile-wrap">
+                                  {okeyPrototypeIndicatorTile ? (
+                                    <span
+                                      className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeIndicatorTile.color}`}
+                                      title={formatOkeyPrototypeTile(okeyPrototypeIndicatorTile)}
+                                    >
+                                      {renderOkeyPrototypeTileFace(okeyPrototypeIndicatorTile)}
+                                    </span>
+                                  ) : (
+                                    <strong>-</strong>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                className={`my-okey-draw-pocket ${okeyPrototypeCanDrawTile ? "suggested" : ""} ${okeyPrototypeDeckDrawTile && okeyPrototypeDeckDrawSeatNo === okeyPrototypeLocalSeatNo && okeyPrototypeDeckDrawPulse ? "draw-pulse" : ""}`}
+                                onClick={drawOkeyPrototypeTile}
+                                disabled={!okeyPrototypeCanDrawTile}
+                                aria-label="Kapali deste"
+                              >
+                                <span>Kapali Deste</span>
+                                <div className="my-okey-draw-pocket-stack" aria-hidden="true">
+                                  <i />
+                                  <i />
+                                  <i />
+                                </div>
+                                <strong>{okeyPrototypeDrawPileRemaining}</strong>
+                                {okeyPrototypeDeckDrawTile && okeyPrototypeDeckDrawSeatNo === okeyPrototypeLocalSeatNo ? (
+                                  <span
+                                    className={`my-game-coming-prototype-rack-tile my-okey-draw-pocket-ghost tile-${okeyPrototypeDeckDrawTile.color} ${isOkeyPrototypeJokerTile(okeyPrototypeDeckDrawTile, okeyPrototypeOkeyTile) ? "joker-tile" : ""}`}
+                                    title={`Cekilen tas: ${formatOkeyPrototypeTile(okeyPrototypeDeckDrawTile)}`}
+                                  >
+                                    {renderOkeyPrototypeTileFace(okeyPrototypeDeckDrawTile)}
+                                  </span>
+                                ) : null}
+                              </button>
+                              <button
+                                type="button"
+                                className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
+                                onClick={clearOkeyPrototypeTileSelections}
+                                disabled={!okeyPrototypeDiscardDraftTileId && okeyPrototypeMeldDraftTileIds.length === 0}
+                              >
+                                Geri Topla
+                              </button>
+                              <button
+                                type="button"
+                                className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
+                                onClick={returnOkeyPrototypeTakenDiscardTile}
+                                disabled={!okeyPrototypeCanReturnTakenDiscard}
+                              >
+                                Geri Birak
+                              </button>
+                              <button
+                                type="button"
+                                className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
+                                onClick={sortOkeyPrototypeAsSeries}
+                                disabled={!okeyPrototypeCanProcessSeries}
+                              >
+                                Seri Isle
+                              </button>
+                              <button
+                                type="button"
+                                className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
+                                onClick={sortOkeyPrototypeAsPairs}
+                                disabled={!okeyPrototypeCanProcessPairs}
+                              >
+                                Cift Isle
+                              </button>
+                            </div>
                             <div className="my-okey-center-pair-columns" aria-label="Cift acma sutunlari">
                               {([1, 2, 3, 4] as OkeyPrototypeSeatNo[]).map((displayPosition) => {
                                 const seatNo = okeyPrototypeSeatByDisplayPosition[displayPosition] ?? displayPosition;
@@ -16047,14 +16119,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       {OKEY_PROTOTYPE_SEATS.map((seatNo) => {
                         const isTurnSeat = seatNo === okeyPrototypeTurnSeat;
                         const isLocalSeat = seatNo === okeyPrototypeLocalSeatNo;
-                        const canDrawHere = isLocalSeat && okeyPrototypeCanDrawTile;
-                        const showDrawTile = Boolean(
-                          isLocalSeat
-                          && okeyPrototypeDeckDrawTile
-                          && okeyPrototypeDeckDrawSeatNo === seatNo,
-                        );
-                        const drawTile = showDrawTile ? okeyPrototypeDeckDrawTile : null;
-                        const drawTileIsJoker = drawTile ? isOkeyPrototypeJokerTile(drawTile, okeyPrototypeOkeyTile) : false;
                         const displaySeatPosition = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
                         const seatRole = okeyPrototypeSeatRoleLabels[seatNo];
                         const seatName = okeyPrototypeSeatDisplayNames[seatNo];
@@ -16076,31 +16140,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 </strong>
                               </header>
                             ) : null}
-                            {isLocalSeat ? (
-                              <button
-                                type="button"
-                                className={`my-okey-draw-pocket ${canDrawHere ? "suggested" : ""} ${showDrawTile && okeyPrototypeDeckDrawPulse ? "draw-pulse" : ""}`}
-                                onClick={canDrawHere ? drawOkeyPrototypeTile : undefined}
-                                disabled={!canDrawHere}
-                                aria-label={`${seatName} kapali deste`}
-                              >
-                                <span>Kapali Deste</span>
-                                <div className="my-okey-draw-pocket-stack" aria-hidden="true">
-                                  <i />
-                                  <i />
-                                  <i />
-                                </div>
-                                <strong>{okeyPrototypeDrawPileRemaining}</strong>
-                                {drawTile ? (
-                                  <span
-                                    className={`my-game-coming-prototype-rack-tile my-okey-draw-pocket-ghost tile-${drawTile.color} ${drawTileIsJoker ? "joker-tile" : ""}`}
-                                    title={`Cekilen tas: ${formatOkeyPrototypeTile(drawTile)}`}
-                                  >
-                                    {renderOkeyPrototypeTileFace(drawTile)}
-                                  </span>
-                                ) : null}
-                              </button>
-                            ) : null}
+                            {null}
                           </article>
                         );
                       })}
