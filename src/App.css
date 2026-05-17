@@ -7803,7 +7803,7 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-main-layout {
-    grid-template-columns: minmax(0, 1fr) 184px;
+    grid-template-columns: minmax(0, 1fr) 198px;
     gap: 4px;
     min-height: 0;
     height: 100%;
@@ -7946,8 +7946,8 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-body {
     grid-row: 1;
     display: grid;
-    grid-template-rows: repeat(10, 14px);
-    grid-auto-rows: 14px;
+    grid-template-rows: repeat(10, 16px);
+    grid-auto-rows: 16px;
     align-content: start;
     justify-items: start;
     row-gap: 1px;
@@ -7968,11 +7968,11 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-group .my-game-coming-prototype-rack-tile {
-    min-width: 8px;
-    width: 8px;
-    height: 14px;
+    min-width: 10px;
+    width: 10px;
+    height: 16px;
     padding: 0;
-    font-size: 0.43rem;
+    font-size: 0.5rem;
     line-height: 1;
   }
 
