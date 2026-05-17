@@ -7811,7 +7811,7 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-side-lanes {
     display: grid;
-    grid-template-columns: 84px minmax(0, 1fr);
+    grid-template-columns: 94px minmax(0, 1fr);
     gap: 4px;
     min-height: 0;
     height: 100%;
@@ -7843,14 +7843,14 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card-tile-wrap {
-    min-height: 28px;
+    min-height: 32px;
     justify-content: center;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile {
-    min-width: 24px;
-    height: 34px;
-    font-size: 0.9rem;
+    min-width: 27px;
+    height: 38px;
+    font-size: 0.98rem;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket {
@@ -7858,6 +7858,17 @@
     justify-items: center;
     transform: none;
     margin: 0;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack {
+    width: 34px;
+    height: 46px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack > i {
+    width: 32px;
+    height: 44px;
+    border-radius: 6px;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-action-btn {
@@ -7976,8 +7987,8 @@
     padding: 2px 6px 6px;
     width: calc(100% - 6cm);
     max-width: calc(100% - 6cm);
-    margin-left: calc(1cm - 3mm);
-    margin-right: calc(5cm + 3mm);
+    margin-left: auto;
+    margin-right: auto;
     align-self: end;
     overflow: visible;
     gap: 0;
@@ -8030,7 +8041,7 @@
     position: absolute;
     left: 50%;
     bottom: calc(100% + 12px);
-    transform: translateX(calc(-50% - 2cm - 3mm));
+    transform: translateX(-50%);
     display: grid;
     grid-template-columns: 1fr 1fr;
     justify-content: stretch;
@@ -8049,7 +8060,7 @@
     transform: none;
     width: calc(100% - 6cm);
     max-width: calc(100% - 6cm);
-    margin: 0 calc(5cm + 3mm) 6px calc(1cm - 3mm);
+    margin: 0 auto 6px;
     gap: 0 20px;
     z-index: 5;
     pointer-events: auto;
@@ -8063,10 +8074,12 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child {
     justify-items: start;
+    transform: translateX(2cm);
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child {
     justify-items: end;
+    transform: translateX(-2cm);
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col .my-action-btn:nth-child(2) {
