@@ -316,16 +316,30 @@ export function getRackPenaltyPoints(tiles: OkeyTile[], okeyTile: OkeyTile | nul
 
 export function countIdenticalPairs(tiles: OkeyTile[], okeyTile: OkeyTile | null = null) {
   const counts = new Map<string, number>();
+  let jokerCount = 0;
   tiles.forEach((sourceTile) => {
     const tile = getEffectiveTileForRules(sourceTile, okeyTile);
-    if (isJokerTile(tile, okeyTile)) return;
+    if (isJokerTile(tile, okeyTile)) {
+      jokerCount += 1;
+      return;
+    }
     const key = `${tile.color}-${tile.value}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   });
   let pairCount = 0;
+  let leftoverSingles = 0;
   counts.forEach((count) => {
     pairCount += Math.floor(count / 2);
+    leftoverSingles += count % 2;
   });
+  if (jokerCount > 0 && leftoverSingles > 0) {
+    const jokerNormalPairs = Math.min(jokerCount, leftoverSingles);
+    pairCount += jokerNormalPairs;
+    jokerCount -= jokerNormalPairs;
+  }
+  if (jokerCount >= 2) {
+    pairCount += Math.floor(jokerCount / 2);
+  }
   return pairCount;
 }
 
