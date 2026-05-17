@@ -7913,12 +7913,12 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row {
     display: grid !important;
-    grid-template-columns: repeat(16, minmax(0, 1fr)) !important;
-    justify-content: stretch;
+    grid-template-columns: repeat(16, minmax(0, calc((100% - 174px) / 16))) !important;
+    justify-content: center;
     align-items: start;
     overflow-x: hidden !important;
     overflow-y: hidden !important;
-    gap: 2px;
+    gap: 0;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot {
@@ -7930,10 +7930,10 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
-    width: calc(100% - 9px);
+    width: 100%;
     min-width: 0;
     max-width: 100%;
-    margin-inline: auto;
+    margin-inline: 0;
     height: 60px;
     font-size: 1.48rem;
     padding: 0;
