@@ -6140,6 +6140,34 @@
   cursor: grabbing;
 }
 
+.my-okey-drag-cursor-preview {
+  position: fixed;
+  z-index: 1200;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  will-change: transform, left, top;
+}
+
+.my-okey-drag-cursor-preview .my-okey-drag-cursor-preview-tile {
+  cursor: grabbing;
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.64);
+  animation: my-okey-drag-cursor-float 0.72s ease-in-out infinite;
+}
+
+@keyframes my-okey-drag-cursor-float {
+  0% {
+    transform: translateY(0) rotate(-1.6deg) scale(1.02);
+  }
+  50% {
+    transform: translateY(-5px) rotate(1.3deg) scale(1.06);
+  }
+  100% {
+    transform: translateY(0) rotate(-1.6deg) scale(1.02);
+  }
+}
+
 .my-game-coming-prototype-rack-slots-row {
   display: grid !important;
   grid-template-columns: repeat(16, calc(44px * var(--okey-proto-tile-scale, 1)));

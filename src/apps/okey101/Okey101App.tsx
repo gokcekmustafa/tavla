@@ -3688,6 +3688,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const [okeyPrototypeLastDrawnTileId, setOkeyPrototypeLastDrawnTileId] = useState("");
   const [okeyPrototypeFinalWallDrawSeat, setOkeyPrototypeFinalWallDrawSeat] = useState<OkeyPrototypeSeatNo | null>(null);
   const [okeyPrototypeRackDragTileId, setOkeyPrototypeRackDragTileId] = useState("");
+  const [okeyPrototypeDragPreview, setOkeyPrototypeDragPreview] = useState<{
+    sourceId: string;
+    clientX: number;
+    clientY: number;
+    active: boolean;
+  }>({
+    sourceId: "",
+    clientX: 0,
+    clientY: 0,
+    active: false,
+  });
   const [okeyPrototypeFlippedJokerTileIds, setOkeyPrototypeFlippedJokerTileIds] = useState<string[]>([]);
   const [okeyPrototypeOpenedMelds, setOkeyPrototypeOpenedMelds] = useState<OkeyPrototypeMeldEntry[]>([]);
   const [okeyPrototypeAttachTargetMeldId, setOkeyPrototypeAttachTargetMeldId] = useState("");
@@ -3744,6 +3755,40 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       }
     };
   }, []);
+  useEffect(() => {
+    if (!okeyPrototypeDragPreview.active) return;
+    const handleWindowDragOver = (event: globalThis.DragEvent) => {
+      if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return;
+      if (event.clientX <= 0 && event.clientY <= 0) return;
+      const nextX = Math.round(event.clientX);
+      const nextY = Math.round(event.clientY);
+      setOkeyPrototypeDragPreview((current) => {
+        if (!current.active) return current;
+        if (current.clientX === nextX && current.clientY === nextY) return current;
+        return {
+          ...current,
+          clientX: nextX,
+          clientY: nextY,
+        };
+      });
+    };
+    const handleWindowDragStop = () => {
+      setOkeyPrototypeDragPreview({
+        sourceId: "",
+        clientX: 0,
+        clientY: 0,
+        active: false,
+      });
+    };
+    window.addEventListener("dragover", handleWindowDragOver);
+    window.addEventListener("drop", handleWindowDragStop);
+    window.addEventListener("dragend", handleWindowDragStop);
+    return () => {
+      window.removeEventListener("dragover", handleWindowDragOver);
+      window.removeEventListener("drop", handleWindowDragStop);
+      window.removeEventListener("dragend", handleWindowDragStop);
+    };
+  }, [okeyPrototypeDragPreview.active]);
   const okeyPrototypeRoomStatsById = useMemo(() => {
     return OKEY_PROTOTYPE_ROOMS.reduce<Record<string, { activeTables: number; players: number }>>((acc, room) => {
       const roomTables = okeyPrototypeTablesByRoom[room.id] ?? [];
@@ -4174,6 +4219,23 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     });
     return bySeat;
   }, [okeyPrototypeDiscardPile]);
+  const okeyPrototypeDragPreviewTile = useMemo(() => {
+    if (!okeyPrototypeDragPreview.active || !okeyPrototypeDragPreview.sourceId) return null;
+    if (okeyPrototypeDragPreview.sourceId.startsWith("okey-proto-take-discard:")) {
+      const rawSeatNo = Number(okeyPrototypeDragPreview.sourceId.split(":")[1] ?? "");
+      if (![1, 2, 3, 4].includes(rawSeatNo)) return null;
+      return okeyPrototypeDiscardBySeat[rawSeatNo as OkeyPrototypeSeatNo]?.tile ?? null;
+    }
+    return okeyPrototypeSeatRackTileMap.get(okeyPrototypeDragPreview.sourceId) ?? null;
+  }, [okeyPrototypeDragPreview, okeyPrototypeDiscardBySeat, okeyPrototypeSeatRackTileMap]);
+  const okeyPrototypeDragPreviewTileIsJoker = okeyPrototypeDragPreviewTile
+    ? isOkeyPrototypeJokerTile(okeyPrototypeDragPreviewTile, okeyPrototypeOkeyTile)
+    : false;
+  const okeyPrototypeDragPreviewTileIsFlipped = Boolean(
+    okeyPrototypeDragPreviewTile
+    && okeyPrototypeDragPreviewTileIsJoker
+    && okeyPrototypeFlippedJokerTileIds.includes(okeyPrototypeDragPreviewTile.id),
+  );
   const okeyPrototypePreviousTurnSeat = useMemo(() => {
     const seats = okeyPrototypeActiveTurnSeats.length > 0
       ? okeyPrototypeActiveTurnSeats
@@ -4768,6 +4830,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   useEffect(() => {
     if (!okeyPrototypeSeatReservation) {
       setOkeyPrototypeRackDragTileId("");
+      stopOkeyPrototypeDragPreview();
       return;
     }
     const seatNo = okeyPrototypeSeatNoForRack as OkeyPrototypeSeatNo;
@@ -8201,9 +8264,55 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     return pointerOffsetX >= rect.width / 2 ? "after" : "before";
   }
 
+  function startOkeyPrototypeDragPreview(sourceId: string, clientX: number, clientY: number) {
+    const safeX = Number.isFinite(clientX) ? clientX : 0;
+    const safeY = Number.isFinite(clientY) ? clientY : 0;
+    setOkeyPrototypeDragPreview({
+      sourceId,
+      clientX: safeX,
+      clientY: safeY,
+      active: true,
+    });
+  }
+
+  function updateOkeyPrototypeDragPreview(clientX: number, clientY: number) {
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return;
+    if (clientX <= 0 && clientY <= 0) return;
+    const nextX = Math.round(clientX);
+    const nextY = Math.round(clientY);
+    setOkeyPrototypeDragPreview((current) => {
+      if (!current.active) return current;
+      if (current.clientX === nextX && current.clientY === nextY) return current;
+      return {
+        ...current,
+        clientX: nextX,
+        clientY: nextY,
+      };
+    });
+  }
+
+  function stopOkeyPrototypeDragPreview() {
+    setOkeyPrototypeDragPreview({
+      sourceId: "",
+      clientX: 0,
+      clientY: 0,
+      active: false,
+    });
+  }
+
+  function handleOkeyPrototypeRackDrag(event: DragEvent<HTMLElement>) {
+    updateOkeyPrototypeDragPreview(event.clientX, event.clientY);
+  }
+
+  function handleOkeyPrototypeRackDragEnd() {
+    setOkeyPrototypeRackDragTileId("");
+    stopOkeyPrototypeDragPreview();
+  }
+
   function handleOkeyPrototypeRackDragStart(event: DragEvent<HTMLButtonElement>, tileId: string) {
     if (!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2) return;
     setOkeyPrototypeRackDragTileId(tileId);
+    startOkeyPrototypeDragPreview(tileId, event.clientX, event.clientY);
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", tileId);
@@ -8228,7 +8337,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         ? (preferredSeatNoRaw as OkeyPrototypeSeatNo)
         : undefined;
       drawOkeyPrototypeTileFromDiscard(preferredSeatNo);
-      setOkeyPrototypeRackDragTileId("");
+      handleOkeyPrototypeRackDragEnd();
       okeyPrototypeSuppressRackClickRef.current = true;
       window.setTimeout(() => {
         okeyPrototypeSuppressRackClickRef.current = false;
@@ -8236,11 +8345,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     if (!sourceTileId || sourceTileId === targetTileId) {
-      setOkeyPrototypeRackDragTileId("");
+      handleOkeyPrototypeRackDragEnd();
       return;
     }
     reorderOkeyPrototypeRackTiles(sourceTileId, targetTileId, insertSide);
-    setOkeyPrototypeRackDragTileId("");
+    handleOkeyPrototypeRackDragEnd();
     okeyPrototypeSuppressRackClickRef.current = true;
     window.setTimeout(() => {
       okeyPrototypeSuppressRackClickRef.current = false;
@@ -8256,7 +8365,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         ? (preferredSeatNoRaw as OkeyPrototypeSeatNo)
         : undefined;
       drawOkeyPrototypeTileFromDiscard(preferredSeatNo);
-      setOkeyPrototypeRackDragTileId("");
+      handleOkeyPrototypeRackDragEnd();
       okeyPrototypeSuppressRackClickRef.current = true;
       window.setTimeout(() => {
         okeyPrototypeSuppressRackClickRef.current = false;
@@ -8264,7 +8373,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     if (!okeyPrototypeSeatReservation || !sourceTileId) {
-      setOkeyPrototypeRackDragTileId("");
+      handleOkeyPrototypeRackDragEnd();
       return;
     }
     const safeSlotIndex = Math.max(0, Math.min(OKEY_PROTOTYPE_RACK_SLOT_COUNT - 1, slotIndex));
@@ -8284,7 +8393,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         [seatNo]: nextSlots,
       };
     });
-    setOkeyPrototypeRackDragTileId("");
+    handleOkeyPrototypeRackDragEnd();
     okeyPrototypeSuppressRackClickRef.current = true;
     window.setTimeout(() => {
       okeyPrototypeSuppressRackClickRef.current = false;
@@ -8294,15 +8403,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   function handleOkeyPrototypeDiscardDrop(draggedTileIdFromData = "") {
     const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
     if (!sourceTileId) {
-      setOkeyPrototypeRackDragTileId("");
+      handleOkeyPrototypeRackDragEnd();
       return;
     }
     if (!okeyPrototypeCanDiscardTile) {
-      setOkeyPrototypeRackDragTileId("");
+      handleOkeyPrototypeRackDragEnd();
       return;
     }
     discardOkeyPrototypeTileWithForced(sourceTileId);
-    setOkeyPrototypeRackDragTileId("");
+    handleOkeyPrototypeRackDragEnd();
     okeyPrototypeSuppressRackClickRef.current = true;
     window.setTimeout(() => {
       okeyPrototypeSuppressRackClickRef.current = false;
@@ -14691,6 +14800,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
                               draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
                               onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
+                              onDrag={handleOkeyPrototypeRackDrag}
                               onDragOver={(event) => {
                                 if (!okeyPrototypeRackDragTileId || okeyPrototypeRackDragTileId === tile.id) return;
                                 event.preventDefault();
@@ -14702,7 +14812,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 const insertSide = getOkeyPrototypeDropSideByPointer(event);
                                 handleOkeyPrototypeRackDrop(tile.id, draggedTileId, insertSide);
                               }}
-                              onDragEnd={() => setOkeyPrototypeRackDragTileId("")}
+                              onDragEnd={handleOkeyPrototypeRackDragEnd}
                               aria-disabled={!okeyPrototypeCanSelectRackTiles}
                               aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
                               title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (joker)" : ""}`}
@@ -16037,8 +16147,16 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 onDragStart={(event) => {
                                   if (!isTakeableFromPocket || !event.dataTransfer) return;
                                   event.dataTransfer.effectAllowed = "move";
-                                  event.dataTransfer.setData("text/plain", `okey-proto-take-discard:${seatNo}`);
+                                  const sourceId = `okey-proto-take-discard:${seatNo}`;
+                                  event.dataTransfer.setData("text/plain", sourceId);
+                                  startOkeyPrototypeDragPreview(sourceId, event.clientX, event.clientY);
+                                  const ghost = document.createElement("canvas");
+                                  ghost.width = 1;
+                                  ghost.height = 1;
+                                  event.dataTransfer.setDragImage(ghost, 0, 0);
                                 }}
+                                onDrag={handleOkeyPrototypeRackDrag}
+                                onDragEnd={handleOkeyPrototypeRackDragEnd}
                               >
                                 {renderOkeyPrototypeTileFace(seatDiscardTile)}
                               </span>
@@ -16153,6 +16271,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                       onContextMenu={(event) => handleOkeyPrototypeRackTileContextMenu(event, tile)}
                                       draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
                                       onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
+                                      onDrag={handleOkeyPrototypeRackDrag}
                                       onDragOver={(event) => {
                                         if (!okeyPrototypeRackDragTileId || okeyPrototypeRackDragTileId === tile.id) return;
                                         event.preventDefault();
@@ -16166,7 +16285,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                         const insertSide = getOkeyPrototypeDropSideByPointer(event);
                                         handleOkeyPrototypeRackDrop(tile.id, draggedTileId, insertSide);
                                       }}
-                                      onDragEnd={() => setOkeyPrototypeRackDragTileId("")}
+                                      onDragEnd={handleOkeyPrototypeRackDragEnd}
                                       aria-disabled={!okeyPrototypeCanSelectRackTiles}
                                       aria-pressed={okeyPrototypeDiscardDraftTileId === tile.id}
                                       title={`${formatOkeyPrototypeTile(tile)}${tileIsJoker ? " (okey - sag tikla cevir)" : ""}`}
@@ -16235,6 +16354,23 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       </section>
                     </aside>
                   </div>
+
+                  {okeyPrototypeDragPreview.active && okeyPrototypeDragPreviewTile ? (
+                    <div
+                      className="my-okey-drag-cursor-preview"
+                      style={{
+                        left: `${okeyPrototypeDragPreview.clientX + 14}px`,
+                        top: `${okeyPrototypeDragPreview.clientY - 18}px`,
+                      }}
+                      aria-hidden="true"
+                    >
+                      <span
+                        className={`my-game-coming-prototype-rack-tile my-okey-drag-cursor-preview-tile tile-${okeyPrototypeDragPreviewTile.color} ${okeyPrototypeDragPreviewTileIsJoker ? "joker-tile" : ""} ${okeyPrototypeDragPreviewTileIsFlipped ? "okey-flipped" : ""}`}
+                      >
+                        {okeyPrototypeDragPreviewTileIsFlipped ? "?" : renderOkeyPrototypeTileFace(okeyPrototypeDragPreviewTile)}
+                      </span>
+                    </div>
+                  ) : null}
 
                   {(okeyPrototypeScorePopupVisible || okeyPrototypeScorePanelOpen) ? (
                     <div className="my-okey-score-popup" role="status" aria-live="polite" aria-atomic="true">
