@@ -7673,10 +7673,26 @@
     display: none !important;
   }
 
-  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header {
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
     display: flex;
     align-items: center;
-    gap: 5px;
+    justify-content: center;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header {
+    width: 142px;
+    min-height: 44px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(171, 224, 199, 0.56);
+    background: linear-gradient(180deg, rgba(6, 97, 71, 0.52), rgba(4, 74, 55, 0.62));
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     flex-wrap: nowrap;
   }
 
@@ -7686,14 +7702,6 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    padding: 0;
-    gap: 3px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     transform: translateY(1cm);
   }
 
@@ -7707,26 +7715,31 @@
     outline: none;
   }
 
-  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self > header {
-    order: 2;
-    width: fit-content;
-    max-width: 100%;
-    padding: 1px 6px;
-    border-radius: 6px;
-    border: 1px solid rgba(171, 224, 199, 0.56);
-    background: rgba(6, 97, 71, 0.42);
-    gap: 4px;
-  }
-
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat-title {
     flex: 1 1 auto;
     min-width: 0;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
+    color: #ecfff6;
+    font-size: 0.84rem;
+    font-weight: 800;
+    line-height: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat-avatar {
+    flex: 0 0 auto;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-seat-name-label {
+    display: inline-block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-seat-status {

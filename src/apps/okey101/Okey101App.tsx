@@ -16127,20 +16127,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             key={`okey-live-seat-${seatNo}`}
                             className={`my-game-coming-prototype-board-seat seat-${displaySeatPosition} ${isTurnSeat ? "active" : ""} ${isLocalSeat ? "self" : ""}`}
                           >
-                            {!isLocalSeat ? (
-                              <header>
-                                <strong className="my-game-coming-prototype-board-seat-title">
-                                  <AvatarBadge
-                                    avatarId={okeyPrototypeSeatAvatarIds[seatNo] ?? DEFAULT_AVATAR_BY_GENDER.unknown}
-                                    gender={seatNo === okeyPrototypeLocalSeatNo ? sanitizeMemberGender(member?.gender ?? currentProfile.gender) : "unknown"}
-                                    size="sm"
-                                    className="my-game-coming-prototype-board-seat-avatar"
-                                  />
-                                  {seatRole === "Bos" ? "Bos" : seatName}
-                                </strong>
-                              </header>
-                            ) : null}
-                            {null}
+                            <header>
+                              <strong className="my-game-coming-prototype-board-seat-title">
+                                <AvatarBadge
+                                  avatarId={okeyPrototypeSeatAvatarIds[seatNo] ?? DEFAULT_AVATAR_BY_GENDER.unknown}
+                                  gender={seatNo === okeyPrototypeLocalSeatNo ? sanitizeMemberGender(member?.gender ?? currentProfile.gender) : "unknown"}
+                                  size="sm"
+                                  className="my-game-coming-prototype-board-seat-avatar"
+                                />
+                                <span className="my-okey-seat-name-label">{seatRole === "Bos" ? "Bos" : seatName}</span>
+                              </strong>
+                            </header>
                           </article>
                         );
                       })}
