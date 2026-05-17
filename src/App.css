@@ -7930,7 +7930,7 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
-    width: 96%;
+    width: calc(100% - 9px);
     min-width: 0;
     max-width: 100%;
     margin-inline: auto;
