@@ -7925,12 +7925,12 @@
     bottom: calc(100% + 12px);
     transform: translateX(calc(-50% - 2cm - 3mm));
     display: grid;
-    grid-template-columns: repeat(2, max-content);
-    justify-content: center;
-    align-items: center;
-    width: max-content;
-    max-width: calc(100vw - 30px);
-    gap: 4px 12px;
+    grid-template-columns: 1fr 1fr;
+    justify-content: stretch;
+    align-items: end;
+    width: calc(100% - 6cm);
+    max-width: calc(100% - 6cm);
+    gap: 0 20px;
     margin-top: 0;
     z-index: 5;
   }
@@ -7939,26 +7939,38 @@
     position: static;
     left: auto;
     bottom: auto;
-    transform: translateX(calc(-2cm - 3mm));
-    width: max-content;
-    max-width: 100%;
-    margin: 0 auto 6px;
-    gap: 4px 12px;
+    transform: none;
+    width: calc(100% - 6cm);
+    max-width: calc(100% - 6cm);
+    margin: 0 calc(5cm + 3mm) 6px calc(1cm - 3mm);
+    gap: 0 20px;
     z-index: 5;
     pointer-events: auto;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col {
-    display: flex;
-    justify-content: center;
-    flex-wrap: nowrap;
-    gap: 2px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child {
+    justify-items: start;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child {
+    justify-items: end;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col .my-action-btn:nth-child(2) {
+    display: none;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
-    min-height: 30px;
-    padding: 0 9px;
-    font-size: 0.82rem;
+    min-height: 34px;
+    min-width: 116px;
+    padding: 0 11px;
+    font-size: 0.86rem;
     white-space: nowrap;
   }
 

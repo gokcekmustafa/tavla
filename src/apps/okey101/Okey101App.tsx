@@ -4540,6 +4540,16 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   ]);
   const okeyPrototypeCanProcessPairs = okeyPrototypeAttachableCounts.set > 0 || okeyPrototypeCanOpenPairGroupFromRack;
   const okeyPrototypeCanProcessSeries = okeyPrototypeAttachableCounts.seri > 0 || okeyPrototypeCanOpenSerialGroupFromRack;
+  const okeyPrototypeCanOpenPairsNow = okeyPrototypeCanAdvanceTurn
+    && okeyPrototypeTurnPhase === "discard"
+    && !okeyPrototypeCurrentSeatOpened
+    && okeyPrototypeCurrentSeatPairOpenCount >= OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS;
+  const okeyPrototypeCanUsePairOpenAction = okeyPrototypeCurrentSeatOpened
+    ? okeyPrototypeCanProcessPairs
+    : okeyPrototypeCanOpenPairsNow;
+  const okeyPrototypeCanUseSerialOpenAction = okeyPrototypeCurrentSeatOpened
+    ? okeyPrototypeCanProcessSeries
+    : okeyPrototypeCanOpenSerialNow;
   // smoke-compat:
   // const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
   // && okeyPrototypeDiscardPile.length > 0;
@@ -8894,7 +8904,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     if (okeyPrototypeSeatOpenedState[seatNo]) {
-      appendOkeyPrototypeAction(`Koltuk ${seatNo} zaten acik.`);
+      processOkeyPrototypeAttachments("set", "Cift Ac");
       return;
     }
     const slotOrder = seatNo === okeyPrototypeSeatNoForRack ? okeyPrototypeSeatRackSlots : null;
@@ -9691,6 +9701,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   function openOkeyPrototypeSerialMeld() {
     if (!okeyPrototypeCanSelectRackTiles) {
       appendOkeyPrototypeAction("Seri acmak icin once tas cekme adimini tamamlamalisin.");
+      return;
+    }
+    if (okeyPrototypeCurrentSeatOpened) {
+      processOkeyPrototypeAttachments("seri", "Seri Ac");
       return;
     }
     if (
@@ -14874,14 +14888,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           </button>
                           <button
                             type="button"
-                            className="my-action-btn soft"
                             onClick={openOkeyPrototypePairs}
-                            disabled={
-                              !okeyPrototypeCanAdvanceTurn
-                              || okeyPrototypeTurnPhase !== "discard"
-                              || okeyPrototypeCurrentSeatOpened
-                              || okeyPrototypeCurrentSeatPairOpenCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS
-                            }
+                            className={`my-action-btn soft ${okeyPrototypeCanUsePairOpenAction ? "suggested" : ""}`}
+                            disabled={!okeyPrototypeCanUsePairOpenAction}
                           >
                             5 Cift Ac
                           </button>
@@ -16175,14 +16184,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         <div className="my-okey-open-actions-col">
                           <button
                             type="button"
-                            className="my-action-btn soft"
+                            className={`my-action-btn soft ${okeyPrototypeCanUsePairOpenAction ? "suggested" : ""}`}
                             onClick={openOkeyPrototypePairs}
-                            disabled={
-                              !okeyPrototypeCanAdvanceTurn
-                              || okeyPrototypeTurnPhase !== "discard"
-                              || okeyPrototypeCurrentSeatOpened
-                              || okeyPrototypeCurrentSeatPairOpenCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS
-                            }
+                            disabled={!okeyPrototypeCanUsePairOpenAction}
                           >
                             Çift Aç
                           </button>
@@ -16206,9 +16210,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         <div className="my-okey-open-actions-col">
                           <button
                             type="button"
-                            className={`my-action-btn soft ${okeyPrototypeCanOpenSerialNow ? "suggested" : ""}`}
+                            className={`my-action-btn soft ${okeyPrototypeCanUseSerialOpenAction ? "suggested" : ""}`}
                             onClick={openOkeyPrototypeSerialMeld}
-                            disabled={!okeyPrototypeCanOpenSerialNow}
+                            disabled={!okeyPrototypeCanUseSerialOpenAction}
                           >
                             Seri Aç
                           </button>
