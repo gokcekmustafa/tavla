@@ -7899,7 +7899,7 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
     min-height: 0;
     height: calc(100% + var(--okey-open-meld-extend));
-    max-height: 100%;
+    max-height: none;
     margin-bottom: calc(-1 * var(--okey-open-meld-extend));
     overflow-y: auto;
     overflow-x: hidden;
