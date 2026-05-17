@@ -16036,9 +16036,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         </section>
 
                       {OKEY_PROTOTYPE_SEATS.map((seatNo) => {
-                        const seatTiles = okeyPrototypeRackState[seatNo] ?? [];
                         const isTurnSeat = seatNo === okeyPrototypeTurnSeat;
-                        const isOpenedSeat = okeyPrototypeSeatOpenedState[seatNo] ?? false;
                         const isLocalSeat = seatNo === okeyPrototypeLocalSeatNo;
                         const canDrawHere = isLocalSeat && okeyPrototypeCanDrawTile;
                         const showDrawTile = Boolean(
@@ -16049,27 +16047,26 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         const drawTile = showDrawTile ? okeyPrototypeDeckDrawTile : null;
                         const drawTileIsJoker = drawTile ? isOkeyPrototypeJokerTile(drawTile, okeyPrototypeOkeyTile) : false;
                         const displaySeatPosition = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
-                        const compactSeatStatus = displaySeatPosition === 1 || displaySeatPosition === 3;
                         const seatRole = okeyPrototypeSeatRoleLabels[seatNo];
                         const seatName = okeyPrototypeSeatDisplayNames[seatNo];
-                        const seatStatusText = `${isTurnSeat ? "SIRA | " : ""}${isOpenedSeat ? "ACIK" : "KAPALI"} | ${seatTiles.length}`;
                         return (
                           <article
                             key={`okey-live-seat-${seatNo}`}
                             className={`my-game-coming-prototype-board-seat seat-${displaySeatPosition} ${isTurnSeat ? "active" : ""} ${isLocalSeat ? "self" : ""}`}
                           >
-                            <header>
-                              <strong className="my-game-coming-prototype-board-seat-title">
-                                <AvatarBadge
-                                  avatarId={okeyPrototypeSeatAvatarIds[seatNo] ?? DEFAULT_AVATAR_BY_GENDER.unknown}
-                                  gender={seatNo === okeyPrototypeLocalSeatNo ? sanitizeMemberGender(member?.gender ?? currentProfile.gender) : "unknown"}
-                                  size="sm"
-                                  className="my-game-coming-prototype-board-seat-avatar"
-                                />
-                                {seatRole === "Bos" ? `K${seatNo} - Bos` : `${seatName} (K${seatNo})`}
-                              </strong>
-                              <span className={`my-okey-seat-status ${compactSeatStatus ? "compact" : ""}`}>{seatStatusText}</span>
-                            </header>
+                            {!isLocalSeat ? (
+                              <header>
+                                <strong className="my-game-coming-prototype-board-seat-title">
+                                  <AvatarBadge
+                                    avatarId={okeyPrototypeSeatAvatarIds[seatNo] ?? DEFAULT_AVATAR_BY_GENDER.unknown}
+                                    gender={seatNo === okeyPrototypeLocalSeatNo ? sanitizeMemberGender(member?.gender ?? currentProfile.gender) : "unknown"}
+                                    size="sm"
+                                    className="my-game-coming-prototype-board-seat-avatar"
+                                  />
+                                  {seatRole === "Bos" ? "Bos" : seatName}
+                                </strong>
+                              </header>
+                            ) : null}
                             {isLocalSeat ? (
                               <button
                                 type="button"
