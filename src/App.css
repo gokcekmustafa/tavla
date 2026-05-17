@@ -7675,6 +7675,11 @@
     display: grid;
     grid-template-rows: minmax(0, 1fr);
     align-content: stretch;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
@@ -7814,7 +7819,11 @@
     min-height: 0;
     max-height: none;
     height: 100%;
-    padding: 2px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-side-lanes {
@@ -7891,7 +7900,67 @@
     max-height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
-    align-content: start;
+    align-content: stretch;
+    padding: 3px 2px 4px;
+    gap: 0;
+    border: 2px solid rgba(228, 248, 239, 0.9);
+    border-radius: 6px;
+    background:
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 18px),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 18px),
+      linear-gradient(180deg, rgba(7, 96, 67, 0.76), rgba(6, 82, 58, 0.86));
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column {
+    min-height: 0;
+    height: 100%;
+    border: 0;
+    border-left: 2px solid rgba(232, 249, 241, 0.85);
+    border-radius: 0;
+    background: transparent;
+    padding: 3px 2px 2px;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 4px;
+    align-content: stretch;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column:first-child {
+    border-left: 0;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-title {
+    align-self: end;
+    justify-self: center;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    font-size: 0.54rem;
+    padding: 2px 3px;
+    border-radius: 4px;
+    border: 1px solid rgba(205, 234, 221, 0.5);
+    background: rgba(188, 220, 207, 0.32);
+    color: #dbf7eb;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    align-content: flex-start;
+    justify-content: flex-start;
+    gap: 2px;
+    min-height: 0;
+    width: 100%;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-group {
+    display: inline-flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 1px;
+    width: fit-content;
+    max-width: 100%;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pile-card > span:first-child,
