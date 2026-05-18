@@ -10299,9 +10299,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setRoomPickerOpen(false);
     pushEntryScreenHistory("lobby", effectiveSelectedGameId);
     const roomName = lobbyRooms.find((room) => room.id === safeId)?.name || DEFAULT_LOBBY_NAME;
-    setLobbyNotice(`${sanitizeLobbyName(roomName)} odasına girildi.`);
+    if (effectiveSelectedGameId === "okey101") {
+      setLobbyNotice("");
+      return;
+    }
+    setLobbyNotice(`${sanitizeLobbyName(roomName)} odasina girildi.`);
   }
-
   function openAdminPanelWindow() {
     if (!member || member.role !== "admin") return;
     if (typeof window === "undefined") return;
@@ -15557,21 +15560,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                 </div>
               ) : null}
             </div>
-
-            {!isTavlaSelectedGame && !roomSession && !useTavlaLikeOkeyLayout ? (
-              <section className="my-okey-lobby-controls" aria-label="101 masa acma bolumu">
-                <h3>101 Masa Açma</h3>
-                <p>Yeni masa açtığında masa sahibi olursun. Masada 4 oyuncu dolunca oyun başlar.</p>
-                <div className="my-okey-lobby-controls-actions">
-                  <button className="my-action-btn" type="button" onClick={onOpenTable}>
-                    Yeni Masa Aç
-                  </button>
-                  <button className="my-action-btn soft" type="button" onClick={onQuickPlay}>
-                    Hızlı Otur
-                  </button>
-                </div>
-              </section>
-            ) : null}
 
             {normalizedLobbyNotice ? <p className="my-notice">{normalizedLobbyNotice}</p> : null}
             {incomingInviteTable ? (
