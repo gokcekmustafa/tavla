@@ -2809,7 +2809,9 @@ function cleanupOkeyPrototypeTablesByRoom(
           return;
         }
         const sessionId = sanitizeGuestId(seat.sessionId);
-        const keepSeat = Boolean(sessionId && activeSessionIds.has(sessionId));
+        const joinedAt = Number.isFinite(seat.joinedAt) ? Number(seat.joinedAt) : 0;
+        const recentlyJoined = joinedAt > 0 && now - joinedAt <= SEAT_STALE_MS;
+        const keepSeat = Boolean((sessionId && activeSessionIds.has(sessionId)) || recentlyJoined);
         if (keepSeat) {
           nextHumanSeats[seatNo] = seat;
           return;
@@ -4736,7 +4738,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     && okeyPrototypeJoinedTable.started
     && okeyPrototypeJoinedOccupiedSeatNos.length >= 4,
   );
-  const okeyPrototypeMissingSeatCount = Math.max(0, 4 - okeyPrototypeJoinedOccupiedSeatNos.length);
   const okeyPrototypeIsLocalTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeTurnSeat === okeyPrototypeLocalSeatNo);
   const okeyPrototypeIsBotTurn = okeyPrototypeBotModeEnabled
     && Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable)
@@ -5050,9 +5051,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const seatedCount = okeyPrototypeJoinedOccupiedSeatNos.length;
       const waitingSeats = Math.max(0, 4 - seatedCount);
       if (waitingSeats > 0) {
-        return `Oyun henuz baslamadi. ${waitingSeats} koltuk daha dolmali veya botlarla baslatilabilir.`;
+        return `Oyun henuz baslamadi. ${waitingSeats} koltuk daha dolmali.`;
       }
-      return "Masa hazir. Oyunu baslat butonuna basarak dagitimi baslatabilirsin.";
+      return "Masa hazir. Oyun otomatik olarak baslatiliyor.";
     }
     if (okeyPrototypeHandCompleted) {
       return okeyPrototypeHandDrawn
@@ -7149,10 +7150,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         if (existingTable) {
           setOkeyPrototypeSelectedTableId(existingTable.id);
           setLobbyNotice(`Zaten Masa ${existingTable.tableNo} / Koltuk ${okeyPrototypeSeatReservation.seatNo} uzerindesin.`);
-        } else {
-          setLobbyNotice("Ayni anda sadece bir 101 masasinda oturabilirsin.");
+          return;
         }
-        return;
+        resetOkeyPrototypeSeatSessionState();
       }
       const safeUserId = sanitizeGuestId(currentProfile.userId);
       if (!safeUserId) {
@@ -7228,10 +7228,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         if (existingTable) {
           setOkeyPrototypeSelectedTableId(existingTable.id);
           setLobbyNotice(`Zaten Masa ${existingTable.tableNo} / Koltuk ${okeyPrototypeSeatReservation.seatNo} uzerindesin.`);
-        } else {
-          setLobbyNotice("Ayni anda sadece bir 101 masasinda oturabilirsin.");
+          return;
         }
-        return;
+        resetOkeyPrototypeSeatSessionState();
       }
       const targetTable = okeyPrototypeVisibleTableSketchRows
         .filter((row) => row.seated < 4)
@@ -7294,16 +7293,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const reservedTable = Object.values(latestTablesByRoom)
         .flat()
         .find((table) => table.id === okeyPrototypeSeatReservation.tableId) ?? null;
+      if (!reservedTable) {
+        resetOkeyPrototypeSeatSessionState();
+      }
       if (reservedTable) {
         setSelectedLobbyId(reservedTable.roomId);
         setOkeyPrototypeSelectedRoomId(reservedTable.roomId);
         setOkeyPrototypeSelectedTableId(reservedTable.id);
+        setViewMode("table");
+        setRoomPickerOpen(false);
+        setGamePickerOpen(false);
+        startOkeyPrototypeGameWithTable(true);
+        return;
       }
-      setViewMode("table");
-      setRoomPickerOpen(false);
-      setGamePickerOpen(false);
-      startOkeyPrototypeGameWithTable(true);
-      return;
     }
     if (!okeyPrototypeSelectedRoom) {
       setLobbyNotice("Lutfen once bir oda sec.");
@@ -9253,7 +9255,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const waitingSeats = Math.max(0, 4 - seatedCount);
     appendOkeyPrototypeAction(
       waitingSeats > 0
-        ? `${actionLabel}: Oyun baslamadi. ${waitingSeats} koltuk daha dolmali veya botlarla baslatilmali.`
+        ? `${actionLabel}: Oyun baslamadi. ${waitingSeats} koltuk daha dolmali.`
         : `${actionLabel}: Oyun baslamadi. Once masayi baslatmalisin.`,
     );
     return false;
@@ -16089,7 +16091,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                   </>
                 ) : (
                   <button className="my-room-picker-tab" type="button" onClick={startOkeyPrototypeBotsFromRoomPicker}>
-                    Botlarla Oyna
+                    Bilgisayarla Oyna
                   </button>
                 )}
               </div>
@@ -16764,17 +16766,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                   <span>{okeyPrototypeJoinedTable ? "Canli Masa" : "Masa Bekleniyor"}</span>
                   {okeyPrototypeSeatReservation ? (
                     <div className="my-okey-room-head-actions">
-                      {!okeyPrototypeGameStarted ? (
-                        <button
-                          className="my-action-btn"
-                          type="button"
-                          onClick={() => startOkeyPrototypeGameWithTable(okeyPrototypeMissingSeatCount > 0)}
-                        >
-                          {okeyPrototypeMissingSeatCount > 0
-                            ? `Bot Baslat (${Math.max(0, 4 - okeyPrototypeMissingSeatCount)}/4)`
-                            : "Baslat"}
-                        </button>
-                      ) : null}
                       <button className="my-action-btn soft" type="button" onClick={dealOkeyPrototypeWithSeed}>
                         Yeni
                       </button>
@@ -17309,17 +17300,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                     <aside className="my-okey-quick-side">
                       <section className="my-okey-quick-card">
                         <h4>Özellikler</h4>
-                        {!okeyPrototypeGameStarted ? (
-                          <button
-                            className="my-action-btn"
-                            type="button"
-                            onClick={() => startOkeyPrototypeGameWithTable(okeyPrototypeMissingSeatCount > 0)}
-                          >
-                            {okeyPrototypeMissingSeatCount > 0
-                              ? `Botlarla Baslat (${Math.max(0, 4 - okeyPrototypeMissingSeatCount)}/4)`
-                              : "Oyunu Baslat"}
-                          </button>
-                        ) : null}
                         <button className="my-action-btn soft" type="button" onClick={dealOkeyPrototypeWithSeed}>
                           Yeni Oyun
                         </button>
