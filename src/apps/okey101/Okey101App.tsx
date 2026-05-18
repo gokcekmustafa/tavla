@@ -480,7 +480,6 @@ const OPPONENT_MOVE_TIMEOUT_MS = 60_000;
 const ROOM_MISSING_CHECK_DELAY_MS = 2_200;
 const ROOM_MISSING_CLOSE_GRACE_MS = 9_000;
 const ACTIVITY_CLOCK_SKEW_LIMIT_MS = 24 * 60 * 60 * 1000;
-const OKEY_TABLE_MERGE_CONCURRENT_WINDOW_MS = 30_000;
 const OKEY_TABLE_CLOSE_TOMBSTONE_MS = 30 * 60 * 1000;
 const ENABLE_WS_DEBUG_LOGS = false;
 const WS_PREOPEN_FAIL_DISABLE_THRESHOLD = 3;
@@ -3705,47 +3704,31 @@ function mergeOkeyPrototypeTablesByRoom(
   local: Record<string, OkeyPrototypeLobbyTableState[]>,
   remote: Record<string, OkeyPrototypeLobbyTableState[]>,
   closedTableIds: Record<string, number>,
-  preferRemote: boolean,
-  localStateUpdatedAt: number,
-  remoteStateUpdatedAt: number,
 ) {
-  const preferred = normalizeOkeyPrototypeTablesByRoom(preferRemote ? remote : local);
-  const fallback = normalizeOkeyPrototypeTablesByRoom(preferRemote ? local : remote);
-  const preferredSnapshotUpdatedAt = normalizeNonNegativeInt(
-    preferRemote ? remoteStateUpdatedAt : localStateUpdatedAt,
-    0,
-  );
+  const normalizedLocal = normalizeOkeyPrototypeTablesByRoom(local);
+  const normalizedRemote = normalizeOkeyPrototypeTablesByRoom(remote);
   const roomIds = new Set<string>([
-    ...Object.keys(preferred),
-    ...Object.keys(fallback),
+    ...Object.keys(normalizedLocal),
+    ...Object.keys(normalizedRemote),
   ]);
   const merged: Record<string, OkeyPrototypeLobbyTableState[]> = {};
 
   roomIds.forEach((roomId) => {
-    const preferredTables = preferred[roomId] ?? [];
-    const fallbackTables = fallback[roomId] ?? [];
+    const localTables = normalizedLocal[roomId] ?? [];
+    const remoteTables = normalizedRemote[roomId] ?? [];
     const byId = new Map<string, OkeyPrototypeLobbyTableState>();
-    preferredTables.forEach((table) => {
-      byId.set(table.id, table);
-    });
-    fallbackTables.forEach((fallbackTable) => {
-      if (isOkeyPrototypeTableSuppressedByCloseTombstone(fallbackTable, closedTableIds)) return;
-      const existing = byId.get(fallbackTable.id);
-      if (existing) {
-        if (getOkeyPrototypeTableUpdatedAt(fallbackTable) > getOkeyPrototypeTableUpdatedAt(existing)) {
-          byId.set(fallbackTable.id, fallbackTable);
-        }
-        return;
+    const upsert = (table: OkeyPrototypeLobbyTableState) => {
+      if (isOkeyPrototypeTableSuppressedByCloseTombstone(table, closedTableIds)) return;
+      const existing = byId.get(table.id);
+      if (!existing || getOkeyPrototypeTableUpdatedAt(table) >= getOkeyPrototypeTableUpdatedAt(existing)) {
+        byId.set(table.id, table);
       }
-      const fallbackUpdatedAt = getOkeyPrototypeTableUpdatedAt(fallbackTable);
-      const looksConcurrent = fallbackUpdatedAt + OKEY_TABLE_MERGE_CONCURRENT_WINDOW_MS >= preferredSnapshotUpdatedAt;
-      if (fallbackUpdatedAt > preferredSnapshotUpdatedAt + ACTIVITY_CLOCK_SKEW_LIMIT_MS || looksConcurrent) {
-        byId.set(fallbackTable.id, fallbackTable);
-      }
+    };
+    localTables.forEach((table) => {
+      upsert(table);
     });
-    preferredTables.forEach((table) => {
-      if (!isOkeyPrototypeTableSuppressedByCloseTombstone(table, closedTableIds)) return;
-      byId.delete(table.id);
+    remoteTables.forEach((table) => {
+      upsert(table);
     });
     const mergedTables = Array.from(byId.values()).sort((left, right) => left.tableNo - right.tableNo);
     if (mergedTables.length > 0) {
@@ -3766,9 +3749,6 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     local.okeyPrototypeTablesByRoom,
     remote.okeyPrototypeTablesByRoom,
     mergedOkeyPrototypeClosedTableIds,
-    preferRemote,
-    local.updatedAt,
-    remote.updatedAt,
   );
   const keyOf = (table: LobbyTable) => sanitizeRoomCode(table.roomCode) || `id-${table.id}`;
   const mergedTables = new Map<string, LobbyTable>();
@@ -8874,7 +8854,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function adminCloseOkeyPrototypeTable(tableRow: OkeyPrototypeTableSketchRow) {
-    if (!isAdmin) return;
+    const safeCurrentUserId = sanitizeGuestId(currentProfile.userId);
+    const safeOwnerUserId = sanitizeGuestId(tableRow.ownerUserId);
+    if (!safeCurrentUserId || safeOwnerUserId !== safeCurrentUserId) {
+      setLobbyNotice("Masayi sadece masa sahibi kapatabilir.");
+      return;
+    }
     let removed = false;
     updateOkeyPrototypeTablesByRoom((current) => {
       const roomTables = (current[tableRow.roomId] ?? []).slice();
@@ -16422,6 +16407,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       const mySeatNo = okeyPrototypeSeatReservation?.tableId === row.id
                         ? Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo))
                         : null;
+                      const isOkeyTableOwner = sanitizeGuestId(row.ownerUserId) === sanitizeGuestId(currentProfile.userId);
                       const seatLockedByOtherTable = Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatReservation.tableId !== row.id);
                       return (
                         <article key={`okey-lobby-table-${row.id}`} className={`my-okey-lobby-card ${row.active ? "active" : "waiting"} ${mySeatNo ? "mine" : ""}`}>
@@ -16463,7 +16449,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             <span>{occupiedSeatNos.length}/4 Dolu</span>
                             <div className="my-mini-actions">
                               <span>OP: {Math.max(1, Math.ceil(occupiedSeatNos.length / 2))}</span>
-                              {isAdmin ? (
+                              {isOkeyTableOwner ? (
                                 <button className="my-action-btn danger" onClick={() => adminCloseOkeyPrototypeTable(row)}>
                                   Masayı Kapat
                                 </button>
