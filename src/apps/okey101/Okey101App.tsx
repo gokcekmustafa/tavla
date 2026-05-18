@@ -9290,8 +9290,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function triggerOkeyPrototypeDeckDrawAnimation(tile: OkeyPrototypeTile, seatNo: OkeyPrototypeSeatNo) {
-    void tile;
-    void seatNo;
+    if (seatNo === okeyPrototypeLocalSeatNo) {
+      return;
+    }
+    setOkeyPrototypeDeckDrawTile(tile);
+    setOkeyPrototypeDeckDrawPulse(true);
+    setOkeyPrototypeDeckDrawSeatNo(seatNo);
+    window.setTimeout(() => {
+      setOkeyPrototypeDeckDrawPulse(false);
+    }, 280);
+    window.setTimeout(() => {
+      setOkeyPrototypeDeckDrawTile((current) => (current?.id === tile.id ? null : current));
+      setOkeyPrototypeDeckDrawSeatNo((current) => (current === seatNo ? null : current));
+    }, 760);
   }
 
   function drawOkeyPrototypeTile(
@@ -16275,11 +16286,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 <strong>{okeyPrototypeDrawPileRemaining}</strong>
                                 {okeyPrototypeDeckDrawTile ? (
                                   <span
-                                    className={`my-game-coming-prototype-rack-tile my-okey-draw-pocket-ghost tile-${okeyPrototypeDeckDrawTile.color} ${isOkeyPrototypeJokerTile(okeyPrototypeDeckDrawTile, okeyPrototypeOkeyTile) ? "joker-tile" : ""}`}
-                                    title={`Cekilen tas: ${formatOkeyPrototypeTile(okeyPrototypeDeckDrawTile)}`}
-                                  >
-                                    {renderOkeyPrototypeTileFace(okeyPrototypeDeckDrawTile)}
-                                  </span>
+                                    className="my-game-coming-prototype-rack-tile my-okey-draw-pocket-ghost okey-flipped"
+                                    title="Rakip tas cekti"
+                                    aria-hidden="true"
+                                  />
                                 ) : null}
                               </button>
                               <button
@@ -16367,10 +16377,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           && okeyPrototypeDeckDrawSeatNo === seatNo
                           && okeyPrototypeDeckDrawPulse,
                         );
-                        const seatDrawTileIsJoker = Boolean(
-                          okeyPrototypeDeckDrawTile
-                          && isOkeyPrototypeJokerTile(okeyPrototypeDeckDrawTile, okeyPrototypeOkeyTile),
-                        );
                         return (
                           <article
                             key={`okey-live-seat-${seatNo}`}
@@ -16388,11 +16394,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               </strong>
                               {seatDrawTileIsAnimating && okeyPrototypeDeckDrawTile ? (
                                 <span
-                                  className={`my-game-coming-prototype-rack-tile my-okey-seat-draw-arrive pos-${displaySeatPosition} tile-${okeyPrototypeDeckDrawTile.color} ${seatDrawTileIsJoker ? "joker-tile" : ""}`}
+                                  className={`my-game-coming-prototype-rack-tile my-okey-seat-draw-arrive pos-${displaySeatPosition} okey-flipped`}
                                   aria-hidden="true"
-                                >
-                                  {renderOkeyPrototypeTileFace(okeyPrototypeDeckDrawTile)}
-                                </span>
+                                />
                               ) : null}
                             </header>
                           </article>
