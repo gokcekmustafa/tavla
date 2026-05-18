@@ -7270,7 +7270,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       }
       const occupiedSeatNos = getOkeyLobbyOccupiedSeatNos(targetTable);
       const targetSeat = (OKEY_PROTOTYPE_SEATS.find((seatNo) => !occupiedSeatNos.includes(seatNo)) ?? 1) as OkeyPrototypeSeatNo;
-      reserveOkeyPrototypeSeat(targetTable, targetSeat, "Hizli oturuldu");
+      void reserveOkeyPrototypeSeat(targetTable, targetSeat, "Hizli oturuldu");
       return;
     }
     const openGameView = true;
@@ -8484,11 +8484,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeFinalWallDrawSeat(null);
   }
 
-  function reserveOkeyPrototypeSeat(
+  async function reserveOkeyPrototypeSeat(
     tableRow: OkeyPrototypeTableSketchRow,
     seatDraftNo: number,
     sourceLabel: string,
   ) {
+    await pullRealtimeViaHttp("okey-seat-reserve-prep");
     const reservedSeat = Math.max(1, Math.min(4, seatDraftNo)) as OkeyPrototypeSeatNo;
     const now = Date.now();
     const safeUserId = sanitizeGuestId(currentProfile.userId);
@@ -8826,6 +8827,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         return;
       }
       setLobbyNotice("Masadan ayrilma tamamlanamadi.");
+      resetOkeyPrototypeSeatSessionState();
+      setViewMode("lobby");
+      setRoomPickerOpen(false);
+      setGamePickerOpen(false);
+      setLobbyNotice("Masadan ayrilma tamamlanamadi, yerel oturum kapatildi.");
       return;
     }
     appendOkeyPrototypeAction(`${sourceLabel}: Masa ${leftTableNo}, Koltuk ${reservation.seatNo}`);
@@ -15247,7 +15253,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             onClick={() => {
                               const occupiedSeatNos = getOkeyLobbyOccupiedSeatNos(okeyPrototypeQuickJoinTable);
                               const quickSeat = (OKEY_PROTOTYPE_SEATS.find((seatNo) => !occupiedSeatNos.includes(seatNo)) ?? 1) as OkeyPrototypeSeatNo;
-                              reserveOkeyPrototypeSeat(okeyPrototypeQuickJoinTable, quickSeat, "Hizli oturuldu");
+                            void reserveOkeyPrototypeSeat(okeyPrototypeQuickJoinTable, quickSeat, "Hizli oturuldu");
                             }}
                             disabled={okeyPrototypeQuickJoinTable.seated >= 4}
                           >
@@ -15304,7 +15310,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           onClick={() => {
                             if (!okeyPrototypeSelectedTable) return;
                             if (okeyPrototypeAvailableSeatNos.length === 0) return;
-                            reserveOkeyPrototypeSeat(okeyPrototypeSelectedTable, okeyPrototypeSeatDraft, "Masaya oturuldu");
+                            void reserveOkeyPrototypeSeat(okeyPrototypeSelectedTable, okeyPrototypeSeatDraft, "Masaya oturuldu");
                           }}
                           disabled={!okeyPrototypeSelectedTable || okeyPrototypeAvailableSeatNos.length === 0}
                         >
@@ -16424,7 +16430,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                       type="button"
                                       className="my-otur-btn my-okey-otur-btn"
                                       onClick={() => {
-                                        reserveOkeyPrototypeSeat(row, seatNo, "Masaya oturuldu");
+                                        void reserveOkeyPrototypeSeat(row, seatNo, "Masaya oturuldu");
                                       }}
                                       disabled={seatLockedByOtherTable}
                                       title={seatLockedByOtherTable ? "Önce mevcut 101 masandan ayrılmalısın." : `Masa ${row.tableNo}, Koltuk ${seatNo}`}
