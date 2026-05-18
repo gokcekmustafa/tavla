@@ -4900,10 +4900,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   useEffect(() => {
     if (!okeyPrototypeSeatReservation) return;
-    const exists = okeyPrototypeTableSketchRows.some((row) => row.id === okeyPrototypeSeatReservation.tableId);
+    const exists = Object.values(okeyPrototypeTablesByRoom).some((tables) => (
+      tables.some((table) => table.id === okeyPrototypeSeatReservation.tableId)
+    ));
     if (exists) return;
     resetOkeyPrototypeSeatSessionState();
-  }, [okeyPrototypeSeatReservation, okeyPrototypeTableSketchRows]);
+  }, [okeyPrototypeSeatReservation, okeyPrototypeTablesByRoom]);
 
   useEffect(() => {
     if (!okeyPrototypeSeatReservation) {
@@ -8102,6 +8104,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const reservation = okeyPrototypeSeatReservation;
     if (!reservation) return;
     let leftTableNo = 0;
+    let leftRoomId = "";
     let tableClosed = false;
     let leftSuccessfully = false;
     const safeUserId = sanitizeGuestId(currentProfile.userId);
@@ -8116,6 +8119,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         const table = tables[tableIndex];
         if (!table) return current;
         leftTableNo = table.tableNo;
+        leftRoomId = table.roomId;
         const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = { ...table.seats };
         const reservedSeatNo = Math.max(1, Math.min(4, reservation.seatNo)) as OkeyPrototypeSeatNo;
         const reservedSeat = nextSeats[reservedSeatNo];
@@ -8173,6 +8177,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     appendOkeyPrototypeAction(`${sourceLabel}: Masa ${leftTableNo}, Koltuk ${reservation.seatNo}`);
     resetOkeyPrototypeSeatSessionState();
+    if (leftRoomId) {
+      setSelectedLobbyId(leftRoomId);
+      setOkeyPrototypeSelectedRoomId(leftRoomId);
+      rememberRoomPickerSelection(leftRoomId);
+    }
     setViewMode("lobby");
     setRoomPickerOpen(false);
     setGamePickerOpen(false);
@@ -10155,15 +10164,49 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setLobbyNotice("Lobiye gecildi. Masaya donerek oyuna devam edebilirsin.");
       return;
     }
+    if (okeyPrototypeSeatReservation) {
+      const reservedTable = Object.values(okeyPrototypeTablesByRoom)
+        .flat()
+        .find((table) => table.id === okeyPrototypeSeatReservation.tableId) ?? null;
+      const roomId = reservedTable?.roomId ?? "";
+      if (roomId) {
+        setSelectedLobbyId(roomId);
+        setOkeyPrototypeSelectedRoomId(roomId);
+        rememberRoomPickerSelection(roomId);
+      }
+      setLobbyNotice("Lobiye gecildi. Masadan kalkmadan oyuna devam ediyorsun; Masaya Don ile geri donebilirsin.");
+      return;
+    }
     setLobbyNotice("Lobiye gecildi.");
   }
 
   function returnToActiveTableView() {
-    if (!roomSession) return;
-    setViewMode("table");
-    setRoomPickerOpen(false);
-    setGamePickerOpen(false);
-    setLobbyNotice("Masaya geri donuldu.");
+    if (roomSession) {
+      setViewMode("table");
+      setRoomPickerOpen(false);
+      setGamePickerOpen(false);
+      setLobbyNotice("Masaya geri donuldu.");
+      return;
+    }
+    if (okeyPrototypeSeatReservation) {
+      const reservedTable = Object.values(okeyPrototypeTablesByRoom)
+        .flat()
+        .find((table) => table.id === okeyPrototypeSeatReservation.tableId) ?? null;
+      if (!reservedTable) {
+        resetOkeyPrototypeSeatSessionState();
+        setLobbyNotice("Aktif masa bulunamadi. Lutfen tekrar masaya otur.");
+        return;
+      }
+      setSelectedLobbyId(reservedTable.roomId);
+      setOkeyPrototypeSelectedRoomId(reservedTable.roomId);
+      setOkeyPrototypeSelectedTableId(reservedTable.id);
+      setViewMode("table");
+      setRoomPickerOpen(false);
+      setGamePickerOpen(false);
+      setLobbyNotice(`Masaya geri donuldu: Masa ${reservedTable.tableNo} / Koltuk ${okeyPrototypeSeatReservation.seatNo}.`);
+      return;
+    }
+    setLobbyNotice("Donulecek aktif masa bulunamadi.");
   }
 
   function openAllRoomsPicker() {
@@ -13703,6 +13746,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             ) : null}
             {!roomSession && !showGamePicker && !showRoomPicker ? (
               <>
+                {!isTavlaSelectedGame && okeyPrototypeSeatReservation ? (
+                  <button className="my-top-btn my-btn-member-alt" onClick={returnToActiveTableView}>
+                    Masaya Don
+                  </button>
+                ) : null}
                 <button
                   className="my-top-btn my-btn-member-alt"
                   style={{ order: lobbyTopButtonOrder.indexOf("home") }}
@@ -15421,6 +15469,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
               </div>
               {!roomSession ? (
                 <div className="my-lobby-header-actions">
+                  {!isTavlaSelectedGame && okeyPrototypeSeatReservation ? (
+                    <button className="my-top-btn my-btn-member-alt" type="button" onClick={returnToActiveTableView}>
+                      Masaya Don
+                    </button>
+                  ) : null}
                   <button
                     className="my-top-btn my-btn-open my-design-label-btn"
                     data-design-label={activeDesign.texts.lobbyOpenTable || "Masa Aç"}
