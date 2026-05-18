@@ -2888,6 +2888,7 @@ function normalizeOkeyPrototypeTablesByRoom(raw: unknown): Record<string, OkeyPr
     rows.forEach((row, index) => {
       const table = normalizeOkeyPrototypeLobbyTable(row, roomId, index);
       if (!table) return;
+      if (isOkeyPrototypeLocalBotTableId(table.id)) return;
       const existing = byId.get(table.id);
       if (!existing || getOkeyPrototypeTableUpdatedAt(table) >= getOkeyPrototypeTableUpdatedAt(existing)) {
         byId.set(table.id, table);
@@ -2989,6 +2990,14 @@ function cleanupOkeyPrototypeTablesByRoom(
         if (!seat) return;
         if (isOkeyPrototypeBotUserIdValue(seat.userId)) {
           nextBotSeats[seatNo] = seat;
+          return;
+        }
+        const seatSessionId = sanitizeGuestId(seat.sessionId);
+        const seatJoinedAt = getOkeyPrototypeSeatJoinedAt(seat);
+        const recentlyJoined = seatJoinedAt > 0 && now - seatJoinedAt <= OKEY_TABLE_OPEN_GRACE_MS;
+        const activeSeat = Boolean(seatSessionId && activeSessionIds.has(seatSessionId));
+        if (!activeSeat && !recentlyJoined) {
+          tableChanged = true;
           return;
         }
         nextHumanSeats[seatNo] = seat;
