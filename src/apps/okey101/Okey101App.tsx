@@ -8401,7 +8401,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
       if (placement.mode === "slot") {
         const safeSlotIndex = Math.max(0, Math.min(OKEY_PROTOTYPE_RACK_SLOT_COUNT - 1, placement.slotIndex));
-        moveInsertedTile(safeSlotIndex, "before");
+        // Slot drop: existing tiles stay fixed; only place the new tile if slot is empty.
+        if (!nextSlots[safeSlotIndex]) {
+          nextSlots[safeSlotIndex] = newTileId;
+          if (safeSlotIndex !== sourceIndex) {
+            nextSlots[sourceIndex] = null;
+          }
+        }
       } else {
         const targetIndex = nextSlots.findIndex((slotTileId) => slotTileId === placement.targetTileId);
         if (targetIndex >= 0) {
