@@ -218,6 +218,7 @@ type LobbyState = {
   lobbyName: string;
   tables: LobbyTable[];
   okeyPrototypeTablesByRoom: Record<string, OkeyPrototypeLobbyTableState[]>;
+  okeyPrototypeClosedTableIds: Record<string, number>;
   presence: LobbyPresenceState[];
   lobbyChat: ChatMessage[];
   tableChats: Record<string, ChatMessage[]>;
@@ -479,6 +480,7 @@ const ROOM_MISSING_CHECK_DELAY_MS = 2_200;
 const ROOM_MISSING_CLOSE_GRACE_MS = 9_000;
 const ACTIVITY_CLOCK_SKEW_LIMIT_MS = 24 * 60 * 60 * 1000;
 const OKEY_TABLE_MERGE_CONCURRENT_WINDOW_MS = 30_000;
+const OKEY_TABLE_CLOSE_TOMBSTONE_MS = 30 * 60 * 1000;
 const ENABLE_WS_DEBUG_LOGS = false;
 const WS_PREOPEN_FAIL_DISABLE_THRESHOLD = 3;
 const WS_DISABLE_DURATION_MS = 2 * 60 * 1000;
@@ -2715,14 +2717,59 @@ function normalizeOkeyPrototypeTablesByRoom(raw: unknown): Record<string, OkeyPr
   return result;
 }
 
+function normalizeOkeyPrototypeClosedTableIds(raw: unknown, now = Date.now()) {
+  if (!raw || typeof raw !== "object") return {} as Record<string, number>;
+  const candidate = raw as Record<string, unknown>;
+  const next: Record<string, number> = {};
+  Object.entries(candidate).forEach(([tableIdRaw, closedAtRaw]) => {
+    const tableId = sanitizeOkeyPrototypeTableId(tableIdRaw);
+    if (!tableId) return;
+    const closedAt = normalizeNonNegativeInt(closedAtRaw, 0);
+    if (!closedAt) return;
+    if (now - closedAt > OKEY_TABLE_CLOSE_TOMBSTONE_MS) return;
+    next[tableId] = closedAt;
+  });
+  return next;
+}
+
+function isOkeyPrototypeTableSuppressedByCloseTombstone(
+  table: OkeyPrototypeLobbyTableState,
+  closedTableIds: Record<string, number>,
+) {
+  const closedAt = normalizeNonNegativeInt(closedTableIds[table.id], 0);
+  if (!closedAt) return false;
+  return closedAt >= getOkeyPrototypeTableUpdatedAt(table);
+}
+
+function collectOkeyPrototypeTableIds(tablesByRoom: Record<string, OkeyPrototypeLobbyTableState[]>) {
+  const ids = new Set<string>();
+  Object.values(tablesByRoom).forEach((tables) => {
+    tables.forEach((table) => {
+      if (table.id) ids.add(table.id);
+    });
+  });
+  return ids;
+}
+
 function cleanupOkeyPrototypeTablesByRoom(
   tablesByRoom: Record<string, OkeyPrototypeLobbyTableState[]>,
+  closedTableIds: Record<string, number>,
   presenceRows: LobbyPresenceState[],
   now = Date.now(),
 ) {
   const normalizedTablesByRoom = normalizeOkeyPrototypeTablesByRoom(tablesByRoom);
+  const normalizedClosedTableIds = normalizeOkeyPrototypeClosedTableIds(closedTableIds, now);
   if (presenceRows.length === 0) {
-    return { tablesByRoom: normalizedTablesByRoom, changed: false };
+    let changed = false;
+    const nextTablesByRoom: Record<string, OkeyPrototypeLobbyTableState[]> = {};
+    Object.entries(normalizedTablesByRoom).forEach(([roomId, tables]) => {
+      const filtered = tables.filter((table) => !isOkeyPrototypeTableSuppressedByCloseTombstone(table, normalizedClosedTableIds));
+      if (filtered.length > 0) {
+        nextTablesByRoom[roomId] = filtered;
+      }
+      if (filtered.length !== tables.length) changed = true;
+    });
+    return { tablesByRoom: normalizeOkeyPrototypeTablesByRoom(nextTablesByRoom), changed };
   }
   const activeSessionIds = new Set<string>();
   presenceRows.forEach((row) => {
@@ -2741,23 +2788,37 @@ function cleanupOkeyPrototypeTablesByRoom(
   Object.entries(normalizedTablesByRoom).forEach(([roomId, tables]) => {
     const nextTables: OkeyPrototypeLobbyTableState[] = [];
     tables.forEach((table) => {
+      if (isOkeyPrototypeTableSuppressedByCloseTombstone(table, normalizedClosedTableIds)) {
+        changed = true;
+        return;
+      }
       let tableChanged = false;
-      const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = {};
+      const nextHumanSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = {};
+      const nextBotSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = {};
       OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
         const seat = table.seats[seatNo];
         if (!seat) return;
         if (isOkeyPrototypeBotUserIdValue(seat.userId)) {
-          nextSeats[seatNo] = seat;
+          nextBotSeats[seatNo] = seat;
           return;
         }
         const sessionId = sanitizeGuestId(seat.sessionId);
         const keepSeat = Boolean(sessionId && activeSessionIds.has(sessionId));
         if (keepSeat) {
-          nextSeats[seatNo] = seat;
+          nextHumanSeats[seatNo] = seat;
           return;
         }
         tableChanged = true;
       });
+      const activeHumanSeatNos = getOkeyPrototypeOccupiedSeatNosFromSeats(nextHumanSeats);
+      if (activeHumanSeatNos.length === 0) {
+        changed = true;
+        return;
+      }
+      const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = {
+        ...nextHumanSeats,
+        ...nextBotSeats,
+      };
       const occupiedSeatNos = getOkeyPrototypeOccupiedSeatNosFromSeats(nextSeats);
       if (occupiedSeatNos.length === 0) {
         changed = true;
@@ -2804,6 +2865,7 @@ function createDefaultLobbyState(lobbyName = DEFAULT_LOBBY_NAME): LobbyState {
     lobbyName: sanitizeLobbyName(lobbyName),
     tables: [],
     okeyPrototypeTablesByRoom: {},
+    okeyPrototypeClosedTableIds: {},
     presence: [],
     lobbyChat: [],
     tableChats: {},
@@ -3163,8 +3225,10 @@ function normalizeLobbyState(raw: unknown): LobbyState {
     return rows;
   });
   const cleanedPresence = cleanupPresenceRows([...normalizedPresenceRows, ...seatPresenceRows]).presence;
+  const okeyPrototypeClosedTableIds = normalizeOkeyPrototypeClosedTableIds(candidate.okeyPrototypeClosedTableIds, now);
   const cleanedOkeyPrototype = cleanupOkeyPrototypeTablesByRoom(
     normalizeOkeyPrototypeTablesByRoom(candidate.okeyPrototypeTablesByRoom),
+    okeyPrototypeClosedTableIds,
     cleanedPresence,
     now,
   );
@@ -3194,6 +3258,7 @@ function normalizeLobbyState(raw: unknown): LobbyState {
     lobbyName,
     tables: cleaned,
     okeyPrototypeTablesByRoom,
+    okeyPrototypeClosedTableIds,
     presence: cleanedPresence,
     lobbyChat,
     tableChats,
@@ -3601,9 +3666,25 @@ function mergeReadyStamp(base: number | null, incoming: number | null) {
   return incoming >= base ? incoming : base;
 }
 
+function mergeOkeyPrototypeClosedTableIds(
+  local: Record<string, number>,
+  remote: Record<string, number>,
+  now = Date.now(),
+) {
+  const normalizedLocal = normalizeOkeyPrototypeClosedTableIds(local, now);
+  const normalizedRemote = normalizeOkeyPrototypeClosedTableIds(remote, now);
+  const merged: Record<string, number> = { ...normalizedLocal };
+  Object.entries(normalizedRemote).forEach(([tableId, closedAt]) => {
+    const existing = normalizeNonNegativeInt(merged[tableId], 0);
+    merged[tableId] = Math.max(existing, normalizeNonNegativeInt(closedAt, 0));
+  });
+  return normalizeOkeyPrototypeClosedTableIds(merged, now);
+}
+
 function mergeOkeyPrototypeTablesByRoom(
   local: Record<string, OkeyPrototypeLobbyTableState[]>,
   remote: Record<string, OkeyPrototypeLobbyTableState[]>,
+  closedTableIds: Record<string, number>,
   preferRemote: boolean,
   localStateUpdatedAt: number,
   remoteStateUpdatedAt: number,
@@ -3628,6 +3709,7 @@ function mergeOkeyPrototypeTablesByRoom(
       byId.set(table.id, table);
     });
     fallbackTables.forEach((fallbackTable) => {
+      if (isOkeyPrototypeTableSuppressedByCloseTombstone(fallbackTable, closedTableIds)) return;
       const existing = byId.get(fallbackTable.id);
       if (existing) {
         if (getOkeyPrototypeTableUpdatedAt(fallbackTable) > getOkeyPrototypeTableUpdatedAt(existing)) {
@@ -3641,6 +3723,10 @@ function mergeOkeyPrototypeTablesByRoom(
         byId.set(fallbackTable.id, fallbackTable);
       }
     });
+    preferredTables.forEach((table) => {
+      if (!isOkeyPrototypeTableSuppressedByCloseTombstone(table, closedTableIds)) return;
+      byId.delete(table.id);
+    });
     const mergedTables = Array.from(byId.values()).sort((left, right) => left.tableNo - right.tableNo);
     if (mergedTables.length > 0) {
       merged[roomId] = mergedTables;
@@ -3652,9 +3738,14 @@ function mergeOkeyPrototypeTablesByRoom(
 function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
   const preferRemote = remote.updatedAt >= local.updatedAt;
   const closedTableRooms = mergeClosedTableRooms(local.closedTableRooms, remote.closedTableRooms);
+  const mergedOkeyPrototypeClosedTableIds = mergeOkeyPrototypeClosedTableIds(
+    local.okeyPrototypeClosedTableIds,
+    remote.okeyPrototypeClosedTableIds,
+  );
   const mergedOkeyPrototypeTablesByRoom = mergeOkeyPrototypeTablesByRoom(
     local.okeyPrototypeTablesByRoom,
     remote.okeyPrototypeTablesByRoom,
+    mergedOkeyPrototypeClosedTableIds,
     preferRemote,
     local.updatedAt,
     remote.updatedAt,
@@ -3790,6 +3881,7 @@ function mergeLobbyStates(local: LobbyState, remote: LobbyState): LobbyState {
     lobbyName: sanitizeLobbyName(remote.lobbyName || local.lobbyName),
     tables: Array.from(mergedTables.values()),
     okeyPrototypeTablesByRoom: mergedOkeyPrototypeTablesByRoom,
+    okeyPrototypeClosedTableIds: mergedOkeyPrototypeClosedTableIds,
     presence: Array.from(presenceBySession.values()),
     lobbyChat: mergedLobbyChat,
     tableChats: mergedTableChats,
@@ -6349,23 +6441,55 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     mutator: (current: Record<string, OkeyPrototypeLobbyTableState[]>) => Record<string, OkeyPrototypeLobbyTableState[]>,
   ) {
     let nextState: Record<string, OkeyPrototypeLobbyTableState[]> | null = null;
+    let nextClosedTableIds: Record<string, number> | null = null;
     writeLobby((current) => {
+      const now = Date.now();
       const currentOkeyTables = normalizeOkeyPrototypeTablesByRoom(current.okeyPrototypeTablesByRoom);
+      const currentClosedTableIds = normalizeOkeyPrototypeClosedTableIds(current.okeyPrototypeClosedTableIds, now);
       const mutated = mutator(currentOkeyTables);
       const normalizedNext = normalizeOkeyPrototypeTablesByRoom(mutated);
+      const currentIds = collectOkeyPrototypeTableIds(currentOkeyTables);
+      const nextIds = collectOkeyPrototypeTableIds(normalizedNext);
+      const mergedClosedIds: Record<string, number> = { ...currentClosedTableIds };
+      currentIds.forEach((tableId) => {
+        if (nextIds.has(tableId)) return;
+        mergedClosedIds[tableId] = now;
+      });
+      const tableUpdatedAtById = new Map<string, number>();
+      Object.values(normalizedNext).forEach((tables) => {
+        tables.forEach((table) => {
+          tableUpdatedAtById.set(table.id, getOkeyPrototypeTableUpdatedAt(table));
+        });
+      });
+      Object.entries(mergedClosedIds).forEach(([tableId, closedAt]) => {
+        if (now - closedAt > OKEY_TABLE_CLOSE_TOMBSTONE_MS) {
+          delete mergedClosedIds[tableId];
+          return;
+        }
+        const tableUpdatedAt = tableUpdatedAtById.get(tableId) ?? 0;
+        if (tableUpdatedAt > closedAt) {
+          delete mergedClosedIds[tableId];
+        }
+      });
+      const normalizedClosedIds = normalizeOkeyPrototypeClosedTableIds(mergedClosedIds, now);
       nextState = normalizedNext;
-      if (JSON.stringify(normalizedNext) === JSON.stringify(currentOkeyTables)) {
+      nextClosedTableIds = normalizedClosedIds;
+      const tablesUnchanged = JSON.stringify(normalizedNext) === JSON.stringify(currentOkeyTables);
+      const closedUnchanged = JSON.stringify(normalizedClosedIds) === JSON.stringify(currentClosedTableIds);
+      if (tablesUnchanged && closedUnchanged) {
         return current;
       }
       return {
         ...current,
         okeyPrototypeTablesByRoom: normalizedNext,
-        updatedAt: Date.now(),
+        okeyPrototypeClosedTableIds: normalizedClosedIds,
+        updatedAt: now,
       };
     });
     if (nextState) {
       setOkeyPrototypeTablesByRoom(nextState);
     }
+    void nextClosedTableIds;
   }
 
   function getLatestOkeyPrototypeTablesByRoom() {
@@ -8526,6 +8650,80 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     });
 
     if (!leftSuccessfully) {
+      let fallbackRemoved = false;
+      let fallbackClosed = false;
+      let fallbackTableNo = 0;
+      let fallbackRoomId = "";
+      updateOkeyPrototypeTablesByRoom((current) => {
+        let changed = false;
+        const nextState: Record<string, OkeyPrototypeLobbyTableState[]> = {};
+        Object.entries(current).forEach(([roomId, tables]) => {
+          const nextTables: OkeyPrototypeLobbyTableState[] = [];
+          tables.forEach((table) => {
+            const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = { ...table.seats };
+            let removedMine = false;
+            OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+              const occupant = nextSeats[seatNo];
+              if (!occupant) return;
+              if (sanitizeGuestId(occupant.userId) !== safeUserId && occupant.sessionId !== appSessionId) return;
+              delete nextSeats[seatNo];
+              removedMine = true;
+            });
+            if (!removedMine) {
+              nextTables.push(table);
+              return;
+            }
+            changed = true;
+            fallbackRemoved = true;
+            fallbackTableNo = table.tableNo;
+            fallbackRoomId = table.roomId;
+            OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+              const occupant = nextSeats[seatNo];
+              if (!occupant) return;
+              if (!isOkeyPrototypeBotUserId(occupant.userId)) return;
+              delete nextSeats[seatNo];
+            });
+            const occupiedSeatNos = getOkeyPrototypeOccupiedSeatNos({ seats: nextSeats });
+            if (occupiedSeatNos.length === 0) {
+              fallbackClosed = true;
+              return;
+            }
+            const nextOwnerSeatNo = occupiedSeatNos[0];
+            const nextOwnerSeat = nextOwnerSeatNo ? nextSeats[nextOwnerSeatNo] ?? null : null;
+            nextTables.push({
+              ...table,
+              seats: nextSeats,
+              ownerUserId: nextOwnerSeat?.userId ?? "",
+              ownerSessionId: nextOwnerSeat?.sessionId ?? "",
+              startedAt: occupiedSeatNos.length >= 4 ? table.startedAt ?? Date.now() : null,
+              updatedAt: Date.now(),
+            });
+          });
+          if (nextTables.length > 0) {
+            nextState[roomId] = nextTables;
+          }
+        });
+        if (!changed) return current;
+        return nextState;
+      });
+      if (fallbackRemoved) {
+        appendOkeyPrototypeAction(`${sourceLabel}: Masa ${fallbackTableNo || "?"}, Koltuk ${reservation.seatNo}`);
+        resetOkeyPrototypeSeatSessionState();
+        if (fallbackRoomId) {
+          setSelectedLobbyId(fallbackRoomId);
+          setOkeyPrototypeSelectedRoomId(fallbackRoomId);
+          rememberRoomPickerSelection(fallbackRoomId);
+        }
+        setViewMode("lobby");
+        setRoomPickerOpen(false);
+        setGamePickerOpen(false);
+        if (fallbackClosed) {
+          setLobbyNotice(`Masa ${fallbackTableNo || "?"} kapandi.`);
+        } else {
+          setLobbyNotice(`Masa ${fallbackTableNo || "?"} masasindan ayrildin.`);
+        }
+        return;
+      }
       setLobbyNotice("Masadan ayrilma tamamlanamadi.");
       return;
     }
@@ -13422,6 +13620,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const latest = getCurrentLobbyState();
       const cleanedTables = cleanupStaleAndPrune(latest.tables).tables;
       const latestOkeyTablesByRoom = normalizeOkeyPrototypeTablesByRoom(latest.okeyPrototypeTablesByRoom);
+      const latestOkeyClosedTableIds = normalizeOkeyPrototypeClosedTableIds(latest.okeyPrototypeClosedTableIds);
       const scopedUserId = roomSession && roomSession.role === "player" ? sanitizeGuestId(currentProfile.userId) : "";
       const scopedRoomCode = roomSession && roomSession.role === "player" ? sanitizeRoomCode(roomSession.code) : "";
       const scopedTableId = roomSession && roomSession.role === "player" ? Math.max(1, roomSession.tableNo) : 0;
@@ -13486,14 +13685,25 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const tableChanged = cleared.changed || JSON.stringify(cleanedTables) !== JSON.stringify(prunedTables);
       const closedChanged = JSON.stringify(nextClosedTableRooms) !== JSON.stringify(latest.closedTableRooms);
       const presenceChanged = nextPresence.length !== latest.presence.length || cleanedPresence.length !== latest.presence.length;
-      if (!tableChanged && !presenceChanged && !closedChanged && !okeyTablesChanged) return;
+      const now = Date.now();
+      const currentOkeyTableIds = collectOkeyPrototypeTableIds(latestOkeyTablesByRoom);
+      const nextOkeyTableIds = collectOkeyPrototypeTableIds(nextOkeyTablesByRoom);
+      const nextOkeyClosedTableIds = { ...latestOkeyClosedTableIds };
+      currentOkeyTableIds.forEach((tableId) => {
+        if (nextOkeyTableIds.has(tableId)) return;
+        nextOkeyClosedTableIds[tableId] = now;
+      });
+      const normalizedNextOkeyClosedTableIds = normalizeOkeyPrototypeClosedTableIds(nextOkeyClosedTableIds, now);
+      const okeyClosedChanged = JSON.stringify(normalizedNextOkeyClosedTableIds) !== JSON.stringify(latestOkeyClosedTableIds);
+      if (!tableChanged && !presenceChanged && !closedChanged && !okeyTablesChanged && !okeyClosedChanged) return;
       const next = {
         ...latest,
         tables: prunedTables,
         okeyPrototypeTablesByRoom: nextOkeyTablesByRoom,
+        okeyPrototypeClosedTableIds: normalizedNextOkeyClosedTableIds,
         presence: nextPresence,
         closedTableRooms: nextClosedTableRooms,
-        updatedAt: Date.now(),
+        updatedAt: now,
       };
       saveJson(activeLobbyStorageKey, next);
     };
