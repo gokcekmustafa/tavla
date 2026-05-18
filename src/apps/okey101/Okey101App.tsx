@@ -508,6 +508,7 @@ const HTTP_SYNC_RUN_INTERVAL_MS = 4_000;
 const HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS = 10_000;
 const HTTP_SYNC_ERROR_BACKOFF_MIN_MS = 1_500;
 const HTTP_SYNC_ERROR_BACKOFF_MAX_MS = 30_000;
+const OKEY_PROTOTYPE_SEAT_RESERVATION_SYNC_GRACE_MS = 4_000;
 const ROOM_START_GATE_RESYNC_DELAY_MS = 700;
 const FLOW_EVENT_LOG_LIMIT = 120;
 const FLOW_EVENT_DEDUPE_DEFAULT_MS = 2_500;
@@ -5496,6 +5497,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeLastStableTurnSeatsRef = useRef<OkeyPrototypeSeatNo[]>([]);
   const okeyPrototypeLastPublishedPublicSignatureRef = useRef("");
   const okeyPrototypeSkipNextPublicPublishRef = useRef(false);
+  const okeyPrototypeSeatReservationGraceUntilRef = useRef(0);
   const okeyPrototypeAutoNextDrawHandKeyRef = useRef("");
   const okeyPrototypeSetSummaryHandKeyRef = useRef("");
   const flowEventSeqRef = useRef(0);
@@ -5602,6 +5604,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       tables.some((table) => table.id === okeyPrototypeSeatReservation.tableId)
     ));
     if (exists) return;
+    const latestTablesByRoom = getLatestOkeyPrototypeTablesByRoom();
+    const existsInLatest = Object.values(latestTablesByRoom).some((tables) => (
+      tables.some((table) => table.id === okeyPrototypeSeatReservation.tableId)
+    ));
+    if (existsInLatest) {
+      setOkeyPrototypeTablesByRoom(latestTablesByRoom);
+      return;
+    }
+    if (Date.now() < okeyPrototypeSeatReservationGraceUntilRef.current) return;
     resetOkeyPrototypeSeatSessionState();
   }, [okeyPrototypeLocalBotTable, okeyPrototypeSeatReservation, okeyPrototypeTablesByRoom]);
 
@@ -7639,6 +7650,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       });
       setOkeyPrototypeSelectedTableId(createdTable.id);
       setOkeyPrototypeSeatDraft(seatNo);
+      okeyPrototypeSeatReservationGraceUntilRef.current = Date.now() + OKEY_PROTOTYPE_SEAT_RESERVATION_SYNC_GRACE_MS;
       setOkeyPrototypeSeatReservation({
         tableId: createdTable.id,
         seatNo,
@@ -7780,6 +7792,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const activeSeats = getOkeyPrototypeOccupiedSeatNos(localTable);
     setOkeyPrototypeLocalBotTable(localTable);
     setOkeyPrototypeSeatDraft(localSeatNo);
+    okeyPrototypeSeatReservationGraceUntilRef.current = Date.now() + OKEY_PROTOTYPE_SEAT_RESERVATION_SYNC_GRACE_MS;
     setOkeyPrototypeSeatReservation({
       tableId: localTableId,
       seatNo: localSeatNo,
@@ -8890,6 +8903,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     okeyPrototypeLastStableTurnSeatsRef.current = [];
     okeyPrototypeLastPublishedPublicSignatureRef.current = "";
     okeyPrototypeSkipNextPublicPublishRef.current = false;
+    okeyPrototypeSeatReservationGraceUntilRef.current = 0;
     setOkeyPrototypeSeatReservation(null);
     setOkeyPrototypeLocalBotTable(null);
     setOkeyPrototypeTurnSeat(1);
@@ -9043,6 +9057,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
     setOkeyPrototypeSelectedTableId(tableRow.id);
     setOkeyPrototypeSeatDraft(reservedSeat);
+    okeyPrototypeSeatReservationGraceUntilRef.current = Date.now() + OKEY_PROTOTYPE_SEAT_RESERVATION_SYNC_GRACE_MS;
     setOkeyPrototypeSeatReservation({
       tableId: tableRow.id,
       seatNo: reservedSeat,
