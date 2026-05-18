@@ -3678,6 +3678,98 @@ function mergeReadyStamp(base: number | null, incoming: number | null) {
   return incoming >= base ? incoming : base;
 }
 
+function getOkeyPrototypeSeatJoinedAt(seat: OkeyPrototypeLobbySeatState | null | undefined) {
+  const joinedAt = Number(seat?.joinedAt ?? 0);
+  return Number.isFinite(joinedAt) ? joinedAt : 0;
+}
+
+function mergeOkeyPrototypeSeatState(
+  baseSeat: OkeyPrototypeLobbySeatState | null | undefined,
+  incomingSeat: OkeyPrototypeLobbySeatState | null | undefined,
+  baseTableUpdatedAt: number,
+  incomingTableUpdatedAt: number,
+  preferBase: boolean,
+) {
+  if (baseSeat && !incomingSeat) {
+    if (incomingTableUpdatedAt - getOkeyPrototypeSeatJoinedAt(baseSeat) > SEAT_NULL_MERGE_GRACE_MS) return null;
+    return baseSeat;
+  }
+  if (!baseSeat && incomingSeat) {
+    if (baseTableUpdatedAt - getOkeyPrototypeSeatJoinedAt(incomingSeat) > SEAT_NULL_MERGE_GRACE_MS) return null;
+    return incomingSeat;
+  }
+  if (!baseSeat && !incomingSeat) return null;
+  if (!baseSeat || !incomingSeat) return null;
+  const baseJoinedAt = getOkeyPrototypeSeatJoinedAt(baseSeat);
+  const incomingJoinedAt = getOkeyPrototypeSeatJoinedAt(incomingSeat);
+  if (incomingJoinedAt === baseJoinedAt) {
+    const baseIdentity = `${sanitizeGuestId(baseSeat.userId)}:${sanitizeGuestId(baseSeat.sessionId)}`;
+    const incomingIdentity = `${sanitizeGuestId(incomingSeat.userId)}:${sanitizeGuestId(incomingSeat.sessionId)}`;
+    if (baseIdentity === incomingIdentity) return preferBase ? baseSeat : incomingSeat;
+    return incomingIdentity > baseIdentity ? incomingSeat : baseSeat;
+  }
+  return incomingJoinedAt > baseJoinedAt ? incomingSeat : baseSeat;
+}
+
+function mergeOkeyPrototypeTableState(
+  base: OkeyPrototypeLobbyTableState,
+  incoming: OkeyPrototypeLobbyTableState,
+) {
+  const baseUpdatedAt = getOkeyPrototypeTableUpdatedAt(base);
+  const incomingUpdatedAt = getOkeyPrototypeTableUpdatedAt(incoming);
+  const preferBase = baseUpdatedAt >= incomingUpdatedAt;
+  const preferred = preferBase ? base : incoming;
+  const fallback = preferBase ? incoming : base;
+
+  const mergedSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = {};
+  OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+    const mergedSeat = mergeOkeyPrototypeSeatState(
+      base.seats[seatNo],
+      incoming.seats[seatNo],
+      baseUpdatedAt,
+      incomingUpdatedAt,
+      preferBase,
+    );
+    if (!mergedSeat) return;
+    mergedSeats[seatNo] = mergedSeat;
+  });
+
+  const occupiedSeatNos = getOkeyPrototypeOccupiedSeatNosFromSeats(mergedSeats);
+  const preferredOwnerUserId = sanitizeGuestId(preferred.ownerUserId);
+  const preferredOwnerSessionId = sanitizeGuestId(preferred.ownerSessionId);
+  const fallbackOwnerUserId = sanitizeGuestId(fallback.ownerUserId);
+  const fallbackOwnerSessionId = sanitizeGuestId(fallback.ownerSessionId);
+  const ownerSeatNo = occupiedSeatNos.find(
+    (seatNo) => sanitizeGuestId(mergedSeats[seatNo]?.userId ?? "") === preferredOwnerUserId,
+  ) ?? occupiedSeatNos.find(
+    (seatNo) => sanitizeGuestId(mergedSeats[seatNo]?.sessionId ?? "") === preferredOwnerSessionId,
+  ) ?? occupiedSeatNos.find(
+    (seatNo) => sanitizeGuestId(mergedSeats[seatNo]?.userId ?? "") === fallbackOwnerUserId,
+  ) ?? occupiedSeatNos.find(
+    (seatNo) => sanitizeGuestId(mergedSeats[seatNo]?.sessionId ?? "") === fallbackOwnerSessionId,
+  ) ?? occupiedSeatNos[0];
+  const ownerSeat = ownerSeatNo ? mergedSeats[ownerSeatNo] ?? null : null;
+  const maxSeatJoinedAt = occupiedSeatNos.reduce((max, seatNo) => {
+    return Math.max(max, getOkeyPrototypeSeatJoinedAt(mergedSeats[seatNo]));
+  }, 0);
+  const startedAt = occupiedSeatNos.length >= 4
+    ? mergeReadyStamp(base.startedAt, incoming.startedAt) ?? Math.max(base.startedAt ?? 0, incoming.startedAt ?? 0, maxSeatJoinedAt)
+    : null;
+
+  return normalizeOkeyPrototypeLobbyTable({
+    ...preferred,
+    createdAt: Math.min(
+      normalizeNonNegativeInt(base.createdAt, Date.now()),
+      normalizeNonNegativeInt(incoming.createdAt, Date.now()),
+    ),
+    seats: mergedSeats,
+    ownerUserId: ownerSeat?.userId ?? "",
+    ownerSessionId: ownerSeat?.sessionId ?? "",
+    startedAt,
+    updatedAt: Math.max(baseUpdatedAt, incomingUpdatedAt, maxSeatJoinedAt),
+  }, preferred.roomId, preferred.tableNo - 1) ?? preferred;
+}
+
 function mergeOkeyPrototypeClosedTableIds(
   local: Record<string, number>,
   remote: Record<string, number>,
@@ -3713,9 +3805,11 @@ function mergeOkeyPrototypeTablesByRoom(
     const upsert = (table: OkeyPrototypeLobbyTableState) => {
       if (isOkeyPrototypeTableSuppressedByCloseTombstone(table, closedTableIds)) return;
       const existing = byId.get(table.id);
-      if (!existing || getOkeyPrototypeTableUpdatedAt(table) >= getOkeyPrototypeTableUpdatedAt(existing)) {
+      if (!existing) {
         byId.set(table.id, table);
+        return;
       }
+      byId.set(table.id, mergeOkeyPrototypeTableState(existing, table));
     };
     localTables.forEach((table) => {
       upsert(table);
@@ -8622,6 +8716,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     ) ?? null;
     if (!finalizedTable) {
       setLobbyNotice("Masaya oturma senkronu tamamlanamadi.");
+      return;
+    }
+    const finalizedSeat = finalizedTable.seats[reservedSeat] ?? null;
+    const finalizedSeatIsMine = Boolean(
+      finalizedSeat
+      && (
+        sanitizeGuestId(finalizedSeat.userId) === safeUserId
+        || finalizedSeat.sessionId === appSessionId
+      ),
+    );
+    if (!finalizedSeatIsMine) {
+      setLobbyNotice("Koltuk ayrilamadi. Lobi senkronu tekrar denenecek.");
+      void pullRealtimeViaHttp("okey-seat-reserve-verify");
       return;
     }
 
