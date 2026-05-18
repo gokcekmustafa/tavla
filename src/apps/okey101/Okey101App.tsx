@@ -555,6 +555,7 @@ const OKEY_PROTOTYPE_OPPONENT_NAMES = [
   "CiftOkey",
 ] as const;
 const OKEY_PROTOTYPE_BOT_USER_ID_PREFIX = "okey-bot-";
+const OKEY_PROTOTYPE_LOCAL_BOT_TABLE_ID_PREFIX = "local-bot-";
 
 function hashOkeyPrototypeText(input: string) {
   let hash = 0;
@@ -2623,6 +2624,11 @@ function isOkeyPrototypeBotUserIdValue(userId: string) {
   return safe.startsWith(OKEY_PROTOTYPE_BOT_USER_ID_PREFIX);
 }
 
+function isOkeyPrototypeLocalBotTableId(tableId: string) {
+  const safeTableId = sanitizeOkeyPrototypeTableId(tableId);
+  return safeTableId.startsWith(OKEY_PROTOTYPE_LOCAL_BOT_TABLE_ID_PREFIX);
+}
+
 function getOkeyPrototypeOccupiedSeatNosFromSeats(
   seats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>>,
 ) {
@@ -4074,6 +4080,7 @@ function Okey101App() {
   const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState("");
   const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState<OkeyPrototypeSeatNo>(1);
   const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: OkeyPrototypeSeatNo } | null>(null);
+  const [okeyPrototypeLocalBotTable, setOkeyPrototypeLocalBotTable] = useState<OkeyPrototypeLobbyTableState | null>(null);
   const [okeyPrototypeTurnSeat, setOkeyPrototypeTurnSeat] = useState<1 | 2 | 3 | 4>(1);
   const [okeyPrototypeHandFirstSeat, setOkeyPrototypeHandFirstSeat] = useState<OkeyPrototypeSeatNo>(1);
   const [okeyPrototypeTurnRound, setOkeyPrototypeTurnRound] = useState(1);
@@ -4406,10 +4413,32 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeAvailableSeatNos = useMemo(() => {
     return okeyPrototypeSelectedTableSeats.filter((seat) => !seat.occupied).map((seat) => seat.seatNo);
   }, [okeyPrototypeSelectedTableSeats]);
+  const okeyPrototypeLocalBotTableSketchRow = useMemo<OkeyPrototypeTableSketchRow | null>(() => {
+    if (!okeyPrototypeLocalBotTable) return null;
+    const occupiedSeatNos = OKEY_PROTOTYPE_SEATS.filter((seatNo) => Boolean(okeyPrototypeLocalBotTable.seats[seatNo]));
+    const seated = occupiedSeatNos.length;
+    const started = seated >= 4 && Boolean(okeyPrototypeLocalBotTable.startedAt);
+    return {
+      id: okeyPrototypeLocalBotTable.id,
+      roomId: okeyPrototypeLocalBotTable.roomId,
+      tableNo: okeyPrototypeLocalBotTable.tableNo,
+      active: started,
+      started,
+      seated,
+      occupiedSeatNos,
+      ownerUserId: okeyPrototypeLocalBotTable.ownerUserId,
+      seats: okeyPrototypeLocalBotTable.seats,
+    };
+  }, [okeyPrototypeLocalBotTable]);
   const okeyPrototypeJoinedTable = useMemo(() => {
     if (!okeyPrototypeSeatReservation) return null;
+    if (isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) {
+      if (!okeyPrototypeLocalBotTableSketchRow) return null;
+      if (okeyPrototypeLocalBotTableSketchRow.id !== okeyPrototypeSeatReservation.tableId) return null;
+      return okeyPrototypeLocalBotTableSketchRow;
+    }
     return okeyPrototypeTableSketchRows.find((row) => row.id === okeyPrototypeSeatReservation.tableId) ?? null;
-  }, [okeyPrototypeSeatReservation, okeyPrototypeTableSketchRows]);
+  }, [okeyPrototypeLocalBotTableSketchRow, okeyPrototypeSeatReservation, okeyPrototypeTableSketchRows]);
   const okeyPrototypeActiveTurnSeats = useMemo(() => {
     if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) {
       return [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
@@ -5284,12 +5313,21 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   useEffect(() => {
     if (!okeyPrototypeSeatReservation) return;
+    if (isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) {
+      const localActive = Boolean(
+        okeyPrototypeLocalBotTable
+        && okeyPrototypeLocalBotTable.id === okeyPrototypeSeatReservation.tableId,
+      );
+      if (localActive) return;
+      resetOkeyPrototypeSeatSessionState();
+      return;
+    }
     const exists = Object.values(okeyPrototypeTablesByRoom).some((tables) => (
       tables.some((table) => table.id === okeyPrototypeSeatReservation.tableId)
     ));
     if (exists) return;
     resetOkeyPrototypeSeatSessionState();
-  }, [okeyPrototypeSeatReservation, okeyPrototypeTablesByRoom]);
+  }, [okeyPrototypeLocalBotTable, okeyPrototypeSeatReservation, okeyPrototypeTablesByRoom]);
 
   useEffect(() => {
     if (!okeyPrototypeStartWithBotsPendingRef.current) return;
@@ -7146,6 +7184,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         return;
       }
       if (okeyPrototypeSeatReservation) {
+        if (isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) {
+          setViewMode("table");
+          setRoomPickerOpen(false);
+          setGamePickerOpen(false);
+          setLobbyNotice("Bilgisayar masan zaten acik. Masaya geri donuldu.");
+          return;
+        }
         const existingTable = okeyPrototypeVisibleTableSketchRows.find((row) => row.id === okeyPrototypeSeatReservation.tableId) ?? null;
         if (existingTable) {
           setOkeyPrototypeSelectedTableId(existingTable.id);
@@ -7224,6 +7269,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (selectedGameId !== "tavla") {
       if (!canAccessOkeyPrototype) return;
       if (okeyPrototypeSeatReservation) {
+        if (isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) {
+          setViewMode("table");
+          setRoomPickerOpen(false);
+          setGamePickerOpen(false);
+          setLobbyNotice("Bilgisayar masan zaten acik. Masaya geri donuldu.");
+          return;
+        }
         const existingTable = okeyPrototypeVisibleTableSketchRows.find((row) => row.id === okeyPrototypeSeatReservation.tableId) ?? null;
         if (existingTable) {
           setOkeyPrototypeSelectedTableId(existingTable.id);
@@ -7282,37 +7334,81 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     sitToTable(tableId, "white", createRoomCode(), openGameView);
   }
 
+  function startLocalOkeyPrototypeBotGame() {
+    if (!okeyPrototypeSelectedRoom) {
+      setLobbyNotice("Lutfen once bir oda sec.");
+      return;
+    }
+    const safeUserId = sanitizeGuestId(currentProfile.userId);
+    if (!safeUserId) {
+      setLobbyNotice("Kullanici bilgisi alinmadi. Sayfayi yenileyip tekrar dene.");
+      return;
+    }
+    const now = Date.now();
+    const roomId = okeyPrototypeSelectedRoom.id;
+    const localSeatNo = 3 as OkeyPrototypeSeatNo;
+    const localTableId = `${OKEY_PROTOTYPE_LOCAL_BOT_TABLE_ID_PREFIX}${appSessionId.slice(-10)}-${now.toString(36)}`;
+    const tableMeta = {
+      id: localTableId,
+      tableNo: 1,
+      roomId,
+    } as const;
+    const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = {
+      [localSeatNo]: getOkeyPrototypeCurrentSeatState(now),
+    };
+    OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+      if (seatNo === localSeatNo) return;
+      nextSeats[seatNo] = createOkeyPrototypeBotSeatState(tableMeta, seatNo, now + seatNo);
+    });
+    const localTable: OkeyPrototypeLobbyTableState = {
+      id: localTableId,
+      roomId,
+      tableNo: 1,
+      ownerUserId: safeUserId,
+      ownerSessionId: appSessionId,
+      seats: nextSeats,
+      createdAt: now,
+      startedAt: now,
+      updatedAt: now,
+    };
+    const activeSeats = getOkeyPrototypeOccupiedSeatNos(localTable);
+    setOkeyPrototypeLocalBotTable(localTable);
+    setOkeyPrototypeSeatDraft(localSeatNo);
+    setOkeyPrototypeSeatReservation({
+      tableId: localTableId,
+      seatNo: localSeatNo,
+    });
+    setOkeyPrototypeSelectedTableId(localTableId);
+    setSelectedLobbyId(roomId);
+    setOkeyPrototypeSelectedRoomId(roomId);
+    rememberRoomPickerSelection(roomId);
+    setMode("local");
+    setViewMode("table");
+    setRoomPickerOpen(false);
+    setGamePickerOpen(false);
+    setOkeyPrototypeSessionHandNo(1);
+    setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
+    setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
+    setOkeyPrototypeDrawHandCount(0);
+    setOkeyPrototypeLastHandSummary("");
+    setOkeyPrototypeBotModeEnabled(true);
+    applyOkeyPrototypeDeal(localSeatNo, now, activeSeats);
+    setLobbyNotice("Bilgisayara karsi oyun baslatildi.");
+    appendOkeyPrototypeAction("Bilgisayarla oyna baslatildi.");
+  }
+
   function startOkeyPrototypeBotsFromRoomPicker() {
     if (isTavlaSelectedGame) {
       startBotGame();
       return;
     }
     if (!canAccessOkeyPrototype) return;
-    if (okeyPrototypeSeatReservation) {
-      const latestTablesByRoom = getLatestOkeyPrototypeTablesByRoom();
-      const reservedTable = Object.values(latestTablesByRoom)
-        .flat()
-        .find((table) => table.id === okeyPrototypeSeatReservation.tableId) ?? null;
-      if (!reservedTable) {
-        resetOkeyPrototypeSeatSessionState();
-      }
-      if (reservedTable) {
-        setSelectedLobbyId(reservedTable.roomId);
-        setOkeyPrototypeSelectedRoomId(reservedTable.roomId);
-        setOkeyPrototypeSelectedTableId(reservedTable.id);
-        setViewMode("table");
-        setRoomPickerOpen(false);
-        setGamePickerOpen(false);
-        startOkeyPrototypeGameWithTable(true);
-        return;
-      }
-    }
-    if (!okeyPrototypeSelectedRoom) {
-      setLobbyNotice("Lutfen once bir oda sec.");
+    if (okeyPrototypeSeatReservation && !isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) {
+      setLobbyNotice("Online masadayken Bilgisayarla Oyna baslatmak icin once Masadan Kalk.");
       return;
     }
-    okeyPrototypeStartWithBotsPendingRef.current = true;
-    onOpenTable();
+    okeyPrototypeStartWithBotsPendingRef.current = false;
+    startLocalOkeyPrototypeBotGame();
   }
 
   function onJoinByCode() {
@@ -8385,6 +8481,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function resetOkeyPrototypeSeatSessionState() {
     setOkeyPrototypeSeatReservation(null);
+    setOkeyPrototypeLocalBotTable(null);
     setOkeyPrototypeTurnSeat(1);
     setOkeyPrototypeTurnRound(1);
     setOkeyPrototypeTurnPhase("draw");
@@ -8596,6 +8693,22 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   function leaveOkeyPrototypeSeat(sourceLabel: string) {
     const reservation = okeyPrototypeSeatReservation;
     if (!reservation) return;
+    if (isOkeyPrototypeLocalBotTableId(reservation.tableId)) {
+      const localTableNo = okeyPrototypeLocalBotTable?.tableNo ?? 1;
+      const localRoomId = okeyPrototypeLocalBotTable?.roomId ?? okeyPrototypeSelectedRoomId;
+      appendOkeyPrototypeAction(`${sourceLabel}: Bilgisayar masasi ${localTableNo} kapatildi.`);
+      resetOkeyPrototypeSeatSessionState();
+      if (localRoomId) {
+        setSelectedLobbyId(localRoomId);
+        setOkeyPrototypeSelectedRoomId(localRoomId);
+        rememberRoomPickerSelection(localRoomId);
+      }
+      setViewMode("lobby");
+      setRoomPickerOpen(false);
+      setGamePickerOpen(false);
+      setLobbyNotice("Bilgisayar masasi kapatildi.");
+      return;
+    }
     let leftTableNo = 0;
     let leftRoomId = "";
     let tableClosed = false;
@@ -10752,6 +10865,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     if (okeyPrototypeSeatReservation) {
+      if (isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) {
+        setLobbyNotice("Lobiye gecildi. Bilgisayar oyununa Masaya Don ile geri donebilirsin.");
+        return;
+      }
       const reservedTable = Object.values(okeyPrototypeTablesByRoom)
         .flat()
         .find((table) => table.id === okeyPrototypeSeatReservation.tableId) ?? null;
@@ -10776,6 +10893,21 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     if (okeyPrototypeSeatReservation) {
+      if (isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) {
+        if (!okeyPrototypeLocalBotTable || okeyPrototypeLocalBotTable.id !== okeyPrototypeSeatReservation.tableId) {
+          resetOkeyPrototypeSeatSessionState();
+          setLobbyNotice("Aktif bilgisayar masasi bulunamadi. Lutfen yeniden baslat.");
+          return;
+        }
+        setSelectedLobbyId(okeyPrototypeLocalBotTable.roomId);
+        setOkeyPrototypeSelectedRoomId(okeyPrototypeLocalBotTable.roomId);
+        setOkeyPrototypeSelectedTableId(okeyPrototypeLocalBotTable.id);
+        setViewMode("table");
+        setRoomPickerOpen(false);
+        setGamePickerOpen(false);
+        setLobbyNotice("Bilgisayar masasına geri donuldu.");
+        return;
+      }
       const reservedTable = Object.values(okeyPrototypeTablesByRoom)
         .flat()
         .find((table) => table.id === okeyPrototypeSeatReservation.tableId) ?? null;
