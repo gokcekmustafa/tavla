@@ -5213,6 +5213,12 @@
     0 2px 4px rgba(0, 0, 0, 0.22);
 }
 
+/* 101: tas altindaki/orta alandaki renkli nokta isaretlerini kapat */
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile::before {
+  content: none !important;
+  display: none !important;
+}
+
 .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot {
   border: 0 !important;
   background: transparent !important;

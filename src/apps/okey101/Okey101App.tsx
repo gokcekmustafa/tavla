@@ -8486,6 +8486,25 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     stopOkeyPrototypeDragPreview();
   }
 
+  function applyOkeyPrototypeHiddenDragImage(dataTransfer: DataTransfer | null) {
+    if (!dataTransfer || typeof document === "undefined") return;
+    const ghost = document.createElement("span");
+    ghost.style.position = "fixed";
+    ghost.style.left = "-9999px";
+    ghost.style.top = "-9999px";
+    ghost.style.width = "1px";
+    ghost.style.height = "1px";
+    ghost.style.opacity = "0";
+    ghost.style.pointerEvents = "none";
+    document.body.appendChild(ghost);
+    dataTransfer.setDragImage(ghost, 0, 0);
+    window.setTimeout(() => {
+      if (ghost.parentNode) {
+        ghost.parentNode.removeChild(ghost);
+      }
+    }, 0);
+  }
+
   function handleOkeyPrototypeRackDragStart(event: DragEvent<HTMLButtonElement>, tileId: string) {
     if (!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2) return;
     captureOkeyPrototypeDragPreviewTileSize(event.currentTarget);
@@ -8495,10 +8514,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", tileId);
       // Browser'in default ghost tas gorselini gizle.
-      const ghost = document.createElement("canvas");
-      ghost.width = 1;
-      ghost.height = 1;
-      event.dataTransfer.setDragImage(ghost, 0, 0);
+      applyOkeyPrototypeHiddenDragImage(event.dataTransfer);
     }
   }
 
@@ -8509,10 +8525,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", sourceId);
     startOkeyPrototypeDragPreview(sourceId, event.clientX, event.clientY);
-    const ghost = document.createElement("canvas");
-    ghost.width = 1;
-    ghost.height = 1;
-    event.dataTransfer.setDragImage(ghost, 0, 0);
+    applyOkeyPrototypeHiddenDragImage(event.dataTransfer);
   }
 
   function handleOkeyPrototypeRackDrop(
@@ -16507,10 +16520,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                   const sourceId = `okey-proto-take-discard:${seatNo}`;
                                   event.dataTransfer.setData("text/plain", sourceId);
                                   startOkeyPrototypeDragPreview(sourceId, event.clientX, event.clientY);
-                                  const ghost = document.createElement("canvas");
-                                  ghost.width = 1;
-                                  ghost.height = 1;
-                                  event.dataTransfer.setDragImage(ghost, 0, 0);
+                                  applyOkeyPrototypeHiddenDragImage(event.dataTransfer);
                                 }}
                                 onDrag={handleOkeyPrototypeRackDrag}
                                 onDragEnd={handleOkeyPrototypeRackDragEnd}
