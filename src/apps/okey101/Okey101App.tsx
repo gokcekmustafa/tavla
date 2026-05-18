@@ -10201,9 +10201,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setLobbyNotice("Anasayfaya donmek icin once masadan kalkmalisin.");
       return;
     }
+    if (okeyPrototypeSeatReservation) {
+      leaveOkeyPrototypeSeat("Anasayfaya donuldu");
+    }
+    clearRoomPickerSessionState("okey101");
     if (typeof window !== "undefined") {
       safeStorageRemoveItem(window.sessionStorage, ROOT_GAME_CHOICE_KEY);
       safeStorageRemoveItem(window.sessionStorage, GAME_SELECTION_SESSION_KEY);
+      safeStorageRemoveItem(window.localStorage, getActiveLobbyStorageKey("okey101"));
+      safeStorageRemoveItem(window.localStorage, ACTIVE_LOBBY_ID_KEY);
       window.location.assign(window.location.pathname);
       return;
     }
