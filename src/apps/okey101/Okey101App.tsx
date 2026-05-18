@@ -458,6 +458,7 @@ const DEFAULT_LOBBY_ID = "lobi-1";
 const DEFAULT_GAME_ID: GameId = "okey101";
 const SEAT_STALE_MS = 180_000;
 const PRESENCE_STALE_MS = 20_000;
+const OKEY_TABLE_OPEN_GRACE_MS = 10_000;
 const HEARTBEAT_MS = 8_000;
 // Cihaz saatleri arasındaki fark (özellikle mobil/masaüstü) seat-null merge sırasında
 // koltuğun yanlışlıkla düşmesine neden olabiliyor. Daha geniş tolerans kullanıyoruz.
@@ -2795,6 +2796,11 @@ function cleanupOkeyPrototypeTablesByRoom(
       let tableChanged = false;
       const nextHumanSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = {};
       const nextBotSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = {};
+      const hadHumanSeat = OKEY_PROTOTYPE_SEATS.some((seatNo) => {
+        const seat = table.seats[seatNo];
+        if (!seat) return false;
+        return !isOkeyPrototypeBotUserIdValue(seat.userId);
+      });
       OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
         const seat = table.seats[seatNo];
         if (!seat) return;
@@ -2812,6 +2818,12 @@ function cleanupOkeyPrototypeTablesByRoom(
       });
       const activeHumanSeatNos = getOkeyPrototypeOccupiedSeatNosFromSeats(nextHumanSeats);
       if (activeHumanSeatNos.length === 0) {
+        const tableUpdatedAt = getOkeyPrototypeTableUpdatedAt(table);
+        const recentlyUpdated = now - tableUpdatedAt <= OKEY_TABLE_OPEN_GRACE_MS;
+        if (hadHumanSeat && recentlyUpdated) {
+          nextTables.push(table);
+          return;
+        }
         changed = true;
         return;
       }
@@ -7153,27 +7165,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const existingRoomTables = latestTablesByRoom[roomId] ?? [];
       const nextTableNo = existingRoomTables.reduce((max, table) => Math.max(max, table.tableNo), 0) + 1;
       const now = Date.now();
+      const seatState = getOkeyPrototypeCurrentSeatState(now);
       const createdTable: OkeyPrototypeLobbyTableState = {
         id: `${roomId}-table-${nextTableNo}-${now.toString(36).slice(-5)}`,
         roomId,
         tableNo: nextTableNo,
         ownerUserId: safeUserId,
         ownerSessionId: appSessionId,
-        seats: {},
+        seats: {
+          [seatNo]: seatState,
+        },
         createdAt: now,
         startedAt: null,
         updatedAt: now,
-      };
-      const createdRow: OkeyPrototypeTableSketchRow = {
-        id: createdTable.id,
-        roomId,
-        tableNo: createdTable.tableNo,
-        active: false,
-        started: false,
-        seated: 0,
-        occupiedSeatNos: [],
-        ownerUserId: createdTable.ownerUserId,
-        seats: createdTable.seats,
       };
       updateOkeyPrototypeTablesByRoom((current) => {
         const roomTables = (current[roomId] ?? []).slice();
@@ -7182,8 +7186,18 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
           [roomId]: [...roomTables, createdTable],
         };
       });
-      setOkeyPrototypeSelectedTableId(createdRow.id);
-      reserveOkeyPrototypeSeat(createdRow, seatNo, "Masa acildi");
+      setOkeyPrototypeSelectedTableId(createdTable.id);
+      setOkeyPrototypeSeatDraft(seatNo);
+      setOkeyPrototypeSeatReservation({
+        tableId: createdTable.id,
+        seatNo,
+      });
+      setMode("local");
+      setGamePickerOpen(false);
+      setRoomPickerOpen(false);
+      setViewMode("table");
+      setLobbyNotice(`Masa ${createdTable.tableNo} / Koltuk ${seatNo}. Oyun icin 3 oyuncu bekleniyor.`);
+      appendOkeyPrototypeAction(`Masa acildi: Masa ${createdTable.tableNo}, Koltuk ${seatNo}`);
       return;
     }
     const openGameView = true;
