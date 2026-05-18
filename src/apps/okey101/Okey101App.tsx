@@ -9290,16 +9290,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function triggerOkeyPrototypeDeckDrawAnimation(tile: OkeyPrototypeTile, seatNo: OkeyPrototypeSeatNo) {
-    setOkeyPrototypeDeckDrawTile(tile);
-    setOkeyPrototypeDeckDrawPulse(true);
-    setOkeyPrototypeDeckDrawSeatNo(seatNo);
-    window.setTimeout(() => {
-      setOkeyPrototypeDeckDrawPulse(false);
-    }, 280);
-    window.setTimeout(() => {
-      setOkeyPrototypeDeckDrawTile((current) => (current?.id === tile.id ? null : current));
-      setOkeyPrototypeDeckDrawSeatNo((current) => (current === seatNo ? null : current));
-    }, 760);
+    void tile;
+    void seatNo;
   }
 
   function drawOkeyPrototypeTile(
@@ -9348,7 +9340,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeLastDrawnTileId(tile.id);
     setOkeyPrototypeFinalWallDrawSeat(isFinalWallDraw ? seatNo : null);
     triggerOkeyPrototypeDeckDrawAnimation(tile, seatNo);
-    appendOkeyPrototypeAction(`Tas cekildi: Koltuk ${seatNo} (${formatOkeyPrototypeTile(tile)})`);
+    if (seatNo === okeyPrototypeLocalSeatNo) {
+      appendOkeyPrototypeAction(`Tas cekildi: Koltuk ${seatNo} (${formatOkeyPrototypeTile(tile)})`);
+    } else {
+      appendOkeyPrototypeAction(`Tas cekildi: Koltuk ${seatNo}`);
+    }
     if (isFinalWallDraw) {
       appendOkeyPrototypeAction("Kapali deste bitti: Son tas cekildi.");
     }

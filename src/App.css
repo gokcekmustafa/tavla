@@ -5213,6 +5213,23 @@
     0 2px 4px rgba(0, 0, 0, 0.22);
 }
 
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot.filled {
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot.drag-ready:hover,
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot.drag-ready.empty:hover {
+  border: 0 !important;
+  background: transparent !important;
+}
+
 .my-game-coming-prototype-rack-tile.okey-flipped::before {
   display: none;
 }
