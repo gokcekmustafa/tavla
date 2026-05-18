@@ -2813,15 +2813,7 @@ function cleanupOkeyPrototypeTablesByRoom(
           nextBotSeats[seatNo] = seat;
           return;
         }
-        const sessionId = sanitizeGuestId(seat.sessionId);
-        const joinedAt = Number.isFinite(seat.joinedAt) ? Number(seat.joinedAt) : 0;
-        const recentlyJoined = joinedAt > 0 && now - joinedAt <= SEAT_STALE_MS;
-        const keepSeat = Boolean((sessionId && activeSessionIds.has(sessionId)) || recentlyJoined);
-        if (keepSeat) {
-          nextHumanSeats[seatNo] = seat;
-          return;
-        }
-        tableChanged = true;
+        nextHumanSeats[seatNo] = seat;
       });
       const activeHumanSeatNos = getOkeyPrototypeOccupiedSeatNosFromSeats(nextHumanSeats);
       if (activeHumanSeatNos.length === 0) {
