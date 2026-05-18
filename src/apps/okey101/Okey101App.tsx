@@ -3768,6 +3768,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const [okeyPrototypeScorePopupVisible, setOkeyPrototypeScorePopupVisible] = useState(false);
   const [okeyPrototypeScorePanelOpen, setOkeyPrototypeScorePanelOpen] = useState(false);
   const okeyPrototypeScorePopupTimeoutRef = useRef<number | null>(null);
+  const okeyPrototypeStartWithBotsPendingRef = useRef(false);
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
   const canAccessOkeyPrototype = true;
   const useTavlaLikeOkeyLayout = false;
@@ -4906,6 +4907,16 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (exists) return;
     resetOkeyPrototypeSeatSessionState();
   }, [okeyPrototypeSeatReservation, okeyPrototypeTablesByRoom]);
+
+  useEffect(() => {
+    if (!okeyPrototypeStartWithBotsPendingRef.current) return;
+    if (!okeyPrototypeSeatReservation) return;
+    okeyPrototypeStartWithBotsPendingRef.current = false;
+    setViewMode("table");
+    setRoomPickerOpen(false);
+    setGamePickerOpen(false);
+    startOkeyPrototypeGameWithTable(true);
+  }, [okeyPrototypeSeatReservation]);
 
   useEffect(() => {
     if (!okeyPrototypeSeatReservation) {
@@ -6824,6 +6835,35 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
     const tableId = getNextTableId(cleanedTables);
     sitToTable(tableId, "white", createRoomCode(), openGameView);
+  }
+
+  function startOkeyPrototypeBotsFromRoomPicker() {
+    if (isTavlaSelectedGame) {
+      startBotGame();
+      return;
+    }
+    if (!canAccessOkeyPrototype) return;
+    if (okeyPrototypeSeatReservation) {
+      const reservedTable = Object.values(okeyPrototypeTablesByRoom)
+        .flat()
+        .find((table) => table.id === okeyPrototypeSeatReservation.tableId) ?? null;
+      if (reservedTable) {
+        setSelectedLobbyId(reservedTable.roomId);
+        setOkeyPrototypeSelectedRoomId(reservedTable.roomId);
+        setOkeyPrototypeSelectedTableId(reservedTable.id);
+      }
+      setViewMode("table");
+      setRoomPickerOpen(false);
+      setGamePickerOpen(false);
+      startOkeyPrototypeGameWithTable(true);
+      return;
+    }
+    if (!okeyPrototypeSelectedRoom) {
+      setLobbyNotice("Lutfen once bir oda sec.");
+      return;
+    }
+    okeyPrototypeStartWithBotsPendingRef.current = true;
+    onOpenTable();
   }
 
   function onJoinByCode() {
@@ -15443,11 +15483,21 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             <div className={`my-room-picker-topbar ${isTavlaSelectedGame ? "" : "my-room-picker-topbar-okey"}`}>
               <div className="my-room-picker-tabs my-room-picker-tabs-secondary">
                 <button className="my-room-picker-tab my-room-picker-tab-roomselect active" type="button">Tum Odalar</button>
-                <button className="my-room-picker-tab" type="button" disabled>Hizli</button>
-                <button className="my-room-picker-tab" type="button" disabled>Kalabalik</button>
+                {isTavlaSelectedGame ? (
+                  <>
+                    <button className="my-room-picker-tab" type="button" disabled>Hizli</button>
+                    <button className="my-room-picker-tab" type="button" disabled>Kalabalik</button>
+                  </>
+                ) : (
+                  <button className="my-room-picker-tab" type="button" onClick={startOkeyPrototypeBotsFromRoomPicker}>
+                    Botlarla Oyna
+                  </button>
+                )}
               </div>
               <div className="my-room-picker-actions">
-                <button className="my-action-btn" type="button" onClick={onQuickPlay}>{activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}</button>
+                {isTavlaSelectedGame ? (
+                  <button className="my-action-btn" type="button" onClick={onQuickPlay}>{activeDesign.texts.lobbyQuickPlay || "Hemen Oyna"}</button>
+                ) : null}
                 <button className="my-action-btn soft" type="button" onClick={() => void loadLobbyRoomsFromService()} disabled={lobbyRoomsBusy}>
                   {lobbyRoomsBusy ? "Yukleniyor..." : "Listeyi Yenile"}
                 </button>
