@@ -372,6 +372,17 @@ type OkeyPrototypeDiscardEntry = {
   round: number;
   at: number;
 };
+type OkeyPrototypeLiveAction = {
+  id: string;
+  kind: "discard";
+  actorSeatNo: OkeyPrototypeSeatNo;
+  discardEntry: OkeyPrototypeDiscardEntry;
+  nextSeatNo: OkeyPrototypeSeatNo;
+  nextRound: number;
+  nextTurnPhase: OkeyPrototypeTurnPhase;
+  at: number;
+  sourceSessionId: string;
+};
 type OkeyPrototypeMeldKind = "seri" | "set";
 type OkeyPrototypeMeldEntry = {
   id: string;
@@ -423,6 +434,7 @@ type OkeyPrototypeLobbyTableState = {
   createdAt: number;
   startedAt: number | null;
   updatedAt: number;
+  liveAction?: OkeyPrototypeLiveAction | null;
 };
 
 type OkeyPrototypeTableSketchRow = {
@@ -436,6 +448,7 @@ type OkeyPrototypeTableSketchRow = {
   occupiedSeatNos: OkeyPrototypeSeatNo[];
   ownerUserId: string;
   seats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>>;
+  liveAction?: OkeyPrototypeLiveAction | null;
 };
 
 const GUEST_STORAGE_KEY = "tavla.guestName";
@@ -2605,6 +2618,99 @@ function sanitizeOkeyPrototypeTableId(raw: unknown) {
   return raw.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 72);
 }
 
+function sanitizeOkeyPrototypeLiveActionId(raw: unknown) {
+  if (typeof raw !== "string") return "";
+  return raw.trim().replace(/[^a-zA-Z0-9:_-]/g, "").slice(0, 120);
+}
+
+function normalizeOkeyPrototypeSeatNo(raw: unknown): OkeyPrototypeSeatNo | null {
+  const numeric = Number.parseInt(String(raw ?? ""), 10);
+  if (!OKEY_PROTOTYPE_SEATS.includes(numeric as OkeyPrototypeSeatNo)) return null;
+  return numeric as OkeyPrototypeSeatNo;
+}
+
+function normalizeOkeyPrototypeTurnPhase(raw: unknown): OkeyPrototypeTurnPhase | null {
+  if (raw === "draw" || raw === "discard") return raw;
+  return null;
+}
+
+function sanitizeOkeyPrototypeTileId(raw: unknown) {
+  if (typeof raw !== "string") return "";
+  return raw.trim().replace(/[^a-zA-Z0-9:_-]/g, "").slice(0, 120);
+}
+
+function normalizeOkeyPrototypeTile(raw: unknown): OkeyPrototypeTile | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<OkeyPrototypeTile>;
+  const id = sanitizeOkeyPrototypeTileId(candidate.id);
+  if (!id) return null;
+  const kind = candidate.kind === "normal" || candidate.kind === "sahte" ? candidate.kind : null;
+  if (!kind) return null;
+  if (kind === "sahte") {
+    return {
+      id,
+      kind: "sahte",
+      color: "sahte",
+      value: 0,
+    };
+  }
+  const color = OKEY_PROTOTYPE_TILE_COLORS.includes(candidate.color as OkeyPrototypeNormalColor)
+    ? candidate.color as OkeyPrototypeNormalColor
+    : null;
+  const value = normalizeNonNegativeInt(candidate.value, 0);
+  if (!color || value < 1 || value > 13) return null;
+  return {
+    id,
+    kind: "normal",
+    color,
+    value,
+  };
+}
+
+function normalizeOkeyPrototypeDiscardEntry(raw: unknown): OkeyPrototypeDiscardEntry | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<OkeyPrototypeDiscardEntry>;
+  const id = sanitizeOkeyPrototypeLiveActionId(candidate.id);
+  const seatNo = normalizeOkeyPrototypeSeatNo(candidate.seatNo);
+  const tile = normalizeOkeyPrototypeTile(candidate.tile);
+  if (!id || !seatNo || !tile) return null;
+  const round = Math.max(1, normalizeNonNegativeInt(candidate.round, 1));
+  const at = Number.isFinite(candidate.at) ? Number(candidate.at) : Date.now();
+  return {
+    id,
+    seatNo,
+    tile,
+    round,
+    at,
+  };
+}
+
+function normalizeOkeyPrototypeLiveAction(raw: unknown): OkeyPrototypeLiveAction | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<OkeyPrototypeLiveAction>;
+  const id = sanitizeOkeyPrototypeLiveActionId(candidate.id);
+  const kind = candidate.kind === "discard" ? "discard" : null;
+  const actorSeatNo = normalizeOkeyPrototypeSeatNo(candidate.actorSeatNo);
+  const discardEntry = normalizeOkeyPrototypeDiscardEntry(candidate.discardEntry);
+  const nextSeatNo = normalizeOkeyPrototypeSeatNo(candidate.nextSeatNo);
+  const nextRound = Math.max(1, normalizeNonNegativeInt(candidate.nextRound, 1));
+  const nextTurnPhase = normalizeOkeyPrototypeTurnPhase(candidate.nextTurnPhase) ?? "draw";
+  const at = Number.isFinite(candidate.at) ? Number(candidate.at) : Date.now();
+  const sourceSessionId = sanitizeGuestId(typeof candidate.sourceSessionId === "string" ? candidate.sourceSessionId : "");
+  if (!id || !kind || !actorSeatNo || !discardEntry || !nextSeatNo) return null;
+  return {
+    id,
+    kind,
+    actorSeatNo,
+    discardEntry,
+    nextSeatNo,
+    nextRound,
+    nextTurnPhase,
+    at,
+    sourceSessionId,
+  };
+}
+
 function getOkeyPrototypeTableUpdatedAt(
   table: Pick<OkeyPrototypeLobbyTableState, "updatedAt" | "createdAt" | "startedAt" | "seats">,
 ) {
@@ -2679,13 +2785,14 @@ function normalizeOkeyPrototypeLobbyTable(raw: unknown, roomIdFallback: string, 
   });
   const createdAt = Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now();
   const startedAt = Number.isFinite(candidate.startedAt) ? Number(candidate.startedAt) : null;
+  const liveAction = normalizeOkeyPrototypeLiveAction(candidate.liveAction);
   const lastJoinedAt = OKEY_PROTOTYPE_SEATS.reduce((max, seatNo) => {
     const joinedAt = Number(seats[seatNo]?.joinedAt ?? 0);
     return Number.isFinite(joinedAt) ? Math.max(max, joinedAt) : max;
   }, 0);
   const updatedAt = Number.isFinite(candidate.updatedAt)
     ? Number(candidate.updatedAt)
-    : Math.max(createdAt, startedAt ?? 0, lastJoinedAt);
+    : Math.max(createdAt, startedAt ?? 0, lastJoinedAt, liveAction?.at ?? 0);
   return {
     id,
     roomId,
@@ -2696,6 +2803,7 @@ function normalizeOkeyPrototypeLobbyTable(raw: unknown, roomIdFallback: string, 
     createdAt,
     startedAt,
     updatedAt,
+    liveAction,
   };
 }
 
@@ -3755,6 +3863,16 @@ function mergeOkeyPrototypeTableState(
   const startedAt = occupiedSeatNos.length >= 4
     ? mergeReadyStamp(base.startedAt, incoming.startedAt) ?? Math.max(base.startedAt ?? 0, incoming.startedAt ?? 0, maxSeatJoinedAt)
     : null;
+  const baseLiveAction = normalizeOkeyPrototypeLiveAction(base.liveAction);
+  const incomingLiveAction = normalizeOkeyPrototypeLiveAction(incoming.liveAction);
+  const mergedLiveAction = (() => {
+    if (!baseLiveAction) return incomingLiveAction;
+    if (!incomingLiveAction) return baseLiveAction;
+    if (incomingLiveAction.at === baseLiveAction.at) {
+      return incomingLiveAction.id >= baseLiveAction.id ? incomingLiveAction : baseLiveAction;
+    }
+    return incomingLiveAction.at > baseLiveAction.at ? incomingLiveAction : baseLiveAction;
+  })();
 
   return normalizeOkeyPrototypeLobbyTable({
     ...preferred,
@@ -3766,6 +3884,7 @@ function mergeOkeyPrototypeTableState(
     ownerUserId: ownerSeat?.userId ?? "",
     ownerSessionId: ownerSeat?.sessionId ?? "",
     startedAt,
+    liveAction: mergedLiveAction ?? null,
     updatedAt: Math.max(baseUpdatedAt, incomingUpdatedAt, maxSeatJoinedAt),
   }, preferred.roomId, preferred.tableNo - 1) ?? preferred;
 }
@@ -4362,6 +4481,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         occupiedSeatNos,
         ownerUserId: table.ownerUserId,
         seats: table.seats,
+        liveAction: table.liveAction ?? null,
       };
     });
   }, [okeyPrototypeSelectedRoom, okeyPrototypeTablesByRoom]);
@@ -4498,6 +4618,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       occupiedSeatNos,
       ownerUserId: okeyPrototypeLocalBotTable.ownerUserId,
       seats: okeyPrototypeLocalBotTable.seats,
+      liveAction: null,
     };
   }, [okeyPrototypeLocalBotTable]);
   const okeyPrototypeJoinedTable = useMemo(() => {
@@ -5290,6 +5411,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const roomMissingSinceRef = useRef<number | null>(null);
   const okeyPrototypeSuppressRackClickRef = useRef(false);
   const okeyPrototypeDiscardArrivalLastIdRef = useRef("");
+  const okeyPrototypePublishedLiveActionIdRef = useRef("");
+  const okeyPrototypeAppliedLiveActionIdRef = useRef("");
   const okeyPrototypeAutoNextDrawHandKeyRef = useRef("");
   const okeyPrototypeSetSummaryHandKeyRef = useRef("");
   const flowEventSeqRef = useRef(0);
@@ -5437,6 +5560,34 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setLobbyNotice(`Masa ${okeyPrototypeJoinedTable.tableNo} basladi. Okey belirlendi ve taslar dagitildi.`);
     }
     appendOkeyPrototypeAction(`Masa senkron baslangici: Masa ${okeyPrototypeJoinedTable.tableNo}.`);
+  }, [okeyPrototypeJoinedTable, okeyPrototypeSeatReservation]);
+
+  useEffect(() => {
+    if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) return;
+    if (isOkeyPrototypeLocalBotTableId(okeyPrototypeJoinedTable.id)) return;
+    const liveAction = normalizeOkeyPrototypeLiveAction(okeyPrototypeJoinedTable.liveAction);
+    if (!liveAction) return;
+    if (liveAction.id === okeyPrototypeAppliedLiveActionIdRef.current) return;
+    okeyPrototypeAppliedLiveActionIdRef.current = liveAction.id;
+    if (liveAction.id === okeyPrototypePublishedLiveActionIdRef.current) return;
+    if (liveAction.kind !== "discard") return;
+
+    setOkeyPrototypeDiscardPile((current) => {
+      if (current.some((entry) => entry.id === liveAction.discardEntry.id)) return current;
+      return [liveAction.discardEntry, ...current].slice(0, 40);
+    });
+    setOkeyPrototypeTurnSeat(liveAction.nextSeatNo);
+    setOkeyPrototypeTurnRound(liveAction.nextRound);
+    setOkeyPrototypeTurnPhase(liveAction.nextTurnPhase);
+    setOkeyPrototypeTurnLockedAfterMeld(false);
+    setOkeyPrototypeTurnOpeningPoints(0);
+    setOkeyPrototypePendingDiscardTileId("");
+    setOkeyPrototypeDiscardDraftTileId("");
+    setOkeyPrototypeMeldDraftTileIds([]);
+    setOkeyPrototypeAttachTargetMeldId("");
+    setOkeyPrototypePendingDiscardPickup(null);
+    setOkeyPrototypeLastDrawnTileId("");
+    setOkeyPrototypeFinalWallDrawSeat(null);
   }, [okeyPrototypeJoinedTable, okeyPrototypeSeatReservation]);
 
   useEffect(() => {
@@ -9063,6 +9214,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     seed = Date.now(),
     activeSeats: readonly OkeyPrototypeSeatNo[] = OKEY_PROTOTYPE_SEATS,
   ) {
+    okeyPrototypePublishedLiveActionIdRef.current = "";
+    okeyPrototypeAppliedLiveActionIdRef.current = "";
     okeyPrototypeAutoNextDrawHandKeyRef.current = "";
     okeyPrototypeSetSummaryHandKeyRef.current = "";
     const deal = createOkeyPrototypeDealState(seed, firstSeat, activeSeats);
@@ -9117,6 +9270,36 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return { nextSeat, nextRound };
     }
     return { nextSeat, nextRound: okeyPrototypeTurnRound };
+  }
+
+  function publishOkeyPrototypeDiscardLiveAction(
+    action: OkeyPrototypeLiveAction,
+  ) {
+    if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) return;
+    if (isOkeyPrototypeLocalBotTableId(okeyPrototypeJoinedTable.id)) return;
+    const safeAction = normalizeOkeyPrototypeLiveAction(action);
+    if (!safeAction) return;
+    okeyPrototypePublishedLiveActionIdRef.current = safeAction.id;
+    okeyPrototypeAppliedLiveActionIdRef.current = safeAction.id;
+    updateOkeyPrototypeTablesByRoom((current) => {
+      const roomId = okeyPrototypeJoinedTable.roomId;
+      const roomTables = current[roomId] ?? [];
+      const tableIndex = roomTables.findIndex((table) => table.id === okeyPrototypeJoinedTable.id);
+      if (tableIndex < 0) return current;
+      const table = roomTables[tableIndex];
+      if (table.liveAction?.id === safeAction.id) return current;
+      const nextTable: OkeyPrototypeLobbyTableState = {
+        ...table,
+        liveAction: safeAction,
+        updatedAt: Math.max(Date.now(), getOkeyPrototypeTableUpdatedAt(table) + 1, safeAction.at),
+      };
+      const nextRoomTables = roomTables.slice();
+      nextRoomTables[tableIndex] = nextTable;
+      return {
+        ...current,
+        [roomId]: nextRoomTables,
+      };
+    });
   }
 
   function reorderOkeyPrototypeRackTiles(
@@ -10433,6 +10616,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     const next = moveOkeyPrototypeTurnToNextSeat();
+    publishOkeyPrototypeDiscardLiveAction({
+      id: `okey-live-discard-${discardEntry.id}`,
+      kind: "discard",
+      actorSeatNo: seatNo,
+      discardEntry,
+      nextSeatNo: next.nextSeat,
+      nextRound: next.nextRound,
+      nextTurnPhase: "draw",
+      at: Date.now(),
+      sourceSessionId: appSessionId,
+    });
     appendOkeyPrototypeAction(
       `Tas atildi: Koltuk ${seatNo} (${formatOkeyPrototypeTile(droppedTile)}) -> Siradaki Koltuk ${next.nextSeat} (El ${next.nextRound})`,
     );
