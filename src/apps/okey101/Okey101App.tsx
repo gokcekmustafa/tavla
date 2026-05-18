@@ -380,6 +380,9 @@ type OkeyPrototypeLiveAction = {
   nextSeatNo: OkeyPrototypeSeatNo;
   nextRound: number;
   nextTurnPhase: OkeyPrototypeTurnPhase;
+  publicOpenedMelds: OkeyPrototypeMeldEntry[];
+  publicSeatOpenedState: OkeyPrototypeSeatOpenedState;
+  publicSeatOpenModes: OkeyPrototypeSeatOpenModes;
   at: number;
   sourceSessionId: string;
 };
@@ -2685,6 +2688,62 @@ function normalizeOkeyPrototypeDiscardEntry(raw: unknown): OkeyPrototypeDiscardE
   };
 }
 
+function normalizeOkeyPrototypeMeldKind(raw: unknown): OkeyPrototypeMeldKind | null {
+  if (raw === "seri" || raw === "set") return raw;
+  return null;
+}
+
+function normalizeOkeyPrototypeMeldEntry(raw: unknown): OkeyPrototypeMeldEntry | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<OkeyPrototypeMeldEntry>;
+  const id = sanitizeOkeyPrototypeLiveActionId(candidate.id);
+  const seatNo = normalizeOkeyPrototypeSeatNo(candidate.seatNo);
+  const round = Math.max(1, normalizeNonNegativeInt(candidate.round, 1));
+  const kind = normalizeOkeyPrototypeMeldKind(candidate.kind);
+  const at = Number.isFinite(candidate.at) ? Number(candidate.at) : Date.now();
+  const tileRows = Array.isArray(candidate.tiles) ? candidate.tiles : [];
+  const tiles = tileRows
+    .map((tileRaw) => normalizeOkeyPrototypeTile(tileRaw))
+    .filter((tile): tile is OkeyPrototypeTile => Boolean(tile));
+  if (!id || !seatNo || !kind || tiles.length < 2) return null;
+  return {
+    id,
+    seatNo,
+    round,
+    kind,
+    tiles,
+    at,
+  };
+}
+
+function normalizeOkeyPrototypeSeatOpenedState(raw: unknown): OkeyPrototypeSeatOpenedState {
+  const fallback = createDefaultOkeyPrototypeSeatOpenedState();
+  if (!raw || typeof raw !== "object") return fallback;
+  const candidate = raw as Partial<Record<OkeyPrototypeSeatNo, unknown>>;
+  return {
+    1: Boolean(candidate[1]),
+    2: Boolean(candidate[2]),
+    3: Boolean(candidate[3]),
+    4: Boolean(candidate[4]),
+  };
+}
+
+function normalizeOkeyPrototypeSeatOpenModes(raw: unknown): OkeyPrototypeSeatOpenModes {
+  const fallback = createDefaultOkeyPrototypeSeatOpenModes();
+  if (!raw || typeof raw !== "object") return fallback;
+  const candidate = raw as Partial<Record<OkeyPrototypeSeatNo, unknown>>;
+  const normalizeMode = (value: unknown): OkeyPrototypeSeatOpenMode => {
+    if (value === "seri" || value === "pair" || value === "none") return value;
+    return "none";
+  };
+  return {
+    1: normalizeMode(candidate[1]),
+    2: normalizeMode(candidate[2]),
+    3: normalizeMode(candidate[3]),
+    4: normalizeMode(candidate[4]),
+  };
+}
+
 function normalizeOkeyPrototypeLiveAction(raw: unknown): OkeyPrototypeLiveAction | null {
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Partial<OkeyPrototypeLiveAction>;
@@ -2695,6 +2754,13 @@ function normalizeOkeyPrototypeLiveAction(raw: unknown): OkeyPrototypeLiveAction
   const nextSeatNo = normalizeOkeyPrototypeSeatNo(candidate.nextSeatNo);
   const nextRound = Math.max(1, normalizeNonNegativeInt(candidate.nextRound, 1));
   const nextTurnPhase = normalizeOkeyPrototypeTurnPhase(candidate.nextTurnPhase) ?? "draw";
+  const publicOpenedMeldsRaw = Array.isArray(candidate.publicOpenedMelds) ? candidate.publicOpenedMelds : [];
+  const publicOpenedMelds = publicOpenedMeldsRaw
+    .map((entryRaw) => normalizeOkeyPrototypeMeldEntry(entryRaw))
+    .filter((entry): entry is OkeyPrototypeMeldEntry => Boolean(entry))
+    .slice(0, 40);
+  const publicSeatOpenedState = normalizeOkeyPrototypeSeatOpenedState(candidate.publicSeatOpenedState);
+  const publicSeatOpenModes = normalizeOkeyPrototypeSeatOpenModes(candidate.publicSeatOpenModes);
   const at = Number.isFinite(candidate.at) ? Number(candidate.at) : Date.now();
   const sourceSessionId = sanitizeGuestId(typeof candidate.sourceSessionId === "string" ? candidate.sourceSessionId : "");
   if (!id || !kind || !actorSeatNo || !discardEntry || !nextSeatNo) return null;
@@ -2706,6 +2772,9 @@ function normalizeOkeyPrototypeLiveAction(raw: unknown): OkeyPrototypeLiveAction
     nextSeatNo,
     nextRound,
     nextTurnPhase,
+    publicOpenedMelds,
+    publicSeatOpenedState,
+    publicSeatOpenModes,
     at,
     sourceSessionId,
   };
@@ -4341,6 +4410,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeScorePopupTimeoutRef = useRef<number | null>(null);
   const okeyPrototypeStartWithBotsPendingRef = useRef(false);
   const okeyPrototypeLastStartedTableKeyRef = useRef("");
+  const okeyPrototypeLastStableTurnSeatsRef = useRef<OkeyPrototypeSeatNo[]>([]);
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
   const canAccessOkeyPrototype = true;
   const useTavlaLikeOkeyLayout = false;
@@ -4643,6 +4713,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       seats.push(reservedSeatNo);
     }
     const orderedSeats = sortOkeyPrototypeSeatsCounterClockwise(seats);
+    if (orderedSeats.length >= 2) {
+      okeyPrototypeLastStableTurnSeatsRef.current = orderedSeats.slice();
+      return orderedSeats;
+    }
+    const stableFallback = okeyPrototypeLastStableTurnSeatsRef.current;
+    if (stableFallback.length >= 2) {
+      return stableFallback.slice();
+    }
     return orderedSeats.length > 0 ? orderedSeats : [reservedSeatNo];
   }, [okeyPrototypeJoinedTable, okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
   const okeyPrototypeSeatNoForRack = useMemo(() => {
@@ -5571,11 +5649,23 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (liveAction.id === okeyPrototypeAppliedLiveActionIdRef.current) return;
     okeyPrototypeAppliedLiveActionIdRef.current = liveAction.id;
     if (liveAction.id === okeyPrototypePublishedLiveActionIdRef.current) return;
-    if (liveAction.kind !== "discard") return;
 
     setOkeyPrototypeDiscardPile((current) => {
       if (current.some((entry) => entry.id === liveAction.discardEntry.id)) return current;
       return [liveAction.discardEntry, ...current].slice(0, 40);
+    });
+    setOkeyPrototypeOpenedMelds(liveAction.publicOpenedMelds.slice(0, 40));
+    setOkeyPrototypeSeatOpenedState({
+      1: Boolean(liveAction.publicSeatOpenedState[1]),
+      2: Boolean(liveAction.publicSeatOpenedState[2]),
+      3: Boolean(liveAction.publicSeatOpenedState[3]),
+      4: Boolean(liveAction.publicSeatOpenedState[4]),
+    });
+    setOkeyPrototypeSeatOpenModes({
+      1: liveAction.publicSeatOpenModes[1] ?? "none",
+      2: liveAction.publicSeatOpenModes[2] ?? "none",
+      3: liveAction.publicSeatOpenModes[3] ?? "none",
+      4: liveAction.publicSeatOpenModes[4] ?? "none",
     });
     setOkeyPrototypeTurnSeat(liveAction.nextSeatNo);
     setOkeyPrototypeTurnRound(liveAction.nextRound);
@@ -8733,6 +8823,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function resetOkeyPrototypeSeatSessionState() {
     okeyPrototypeLastStartedTableKeyRef.current = "";
+    okeyPrototypeLastStableTurnSeatsRef.current = [];
     setOkeyPrototypeSeatReservation(null);
     setOkeyPrototypeLocalBotTable(null);
     setOkeyPrototypeTurnSeat(1);
@@ -9215,6 +9306,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     seed = Date.now(),
     activeSeats: readonly OkeyPrototypeSeatNo[] = OKEY_PROTOTYPE_SEATS,
   ) {
+    const normalizedActiveSeats = sortOkeyPrototypeSeatsCounterClockwise(activeSeats);
+    okeyPrototypeLastStableTurnSeatsRef.current = normalizedActiveSeats.length >= 2
+      ? normalizedActiveSeats
+      : [];
     okeyPrototypePublishedLiveActionIdRef.current = "";
     okeyPrototypeAppliedLiveActionIdRef.current = "";
     okeyPrototypeAutoNextDrawHandKeyRef.current = "";
@@ -9250,9 +9345,22 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function moveOkeyPrototypeTurnToNextSeat() {
-    const seats = okeyPrototypeActiveTurnSeats.length > 0
+    let seats = okeyPrototypeActiveTurnSeats.length > 0
       ? okeyPrototypeActiveTurnSeats
       : [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
+    if (seats.length < 2) {
+      const stableSeats = okeyPrototypeLastStableTurnSeatsRef.current;
+      if (stableSeats.length >= 2) {
+        seats = stableSeats.slice();
+      }
+    }
+    if (seats.length < 2 && okeyPrototypeJoinedTable?.started) {
+      const occupiedSeatNos = getOkeyLobbyOccupiedSeatNos(okeyPrototypeJoinedTable);
+      const normalized = sortOkeyPrototypeSeatsCounterClockwise(occupiedSeatNos);
+      if (normalized.length >= 2) {
+        seats = normalized;
+      }
+    }
     const currentIndex = seats.findIndex((seatNo) => seatNo === okeyPrototypeTurnSeat);
     const safeCurrentIndex = currentIndex >= 0 ? currentIndex : 0;
     const nextIndex = (safeCurrentIndex + 1) % seats.length;
@@ -9271,6 +9379,34 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return { nextSeat, nextRound };
     }
     return { nextSeat, nextRound: okeyPrototypeTurnRound };
+  }
+
+  function buildOkeyPrototypeLiveActionPublicPayload(
+    turnSeat: OkeyPrototypeSeatNo,
+    turnRound: number,
+    turnPhase: OkeyPrototypeTurnPhase,
+    openedMelds: OkeyPrototypeMeldEntry[],
+    seatOpenedState: OkeyPrototypeSeatOpenedState,
+    seatOpenModes: OkeyPrototypeSeatOpenModes,
+  ) {
+    return {
+      nextSeatNo: turnSeat,
+      nextRound: turnRound,
+      nextTurnPhase: turnPhase,
+      publicOpenedMelds: openedMelds.slice(0, 40),
+      publicSeatOpenedState: {
+        1: Boolean(seatOpenedState[1]),
+        2: Boolean(seatOpenedState[2]),
+        3: Boolean(seatOpenedState[3]),
+        4: Boolean(seatOpenedState[4]),
+      } as OkeyPrototypeSeatOpenedState,
+      publicSeatOpenModes: {
+        1: seatOpenModes[1] ?? "none",
+        2: seatOpenModes[2] ?? "none",
+        3: seatOpenModes[3] ?? "none",
+        4: seatOpenModes[4] ?? "none",
+      } as OkeyPrototypeSeatOpenModes,
+    };
   }
 
   function publishOkeyPrototypeDiscardLiveAction(
@@ -10617,14 +10753,25 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     const next = moveOkeyPrototypeTurnToNextSeat();
+    const nextPublicPayload = buildOkeyPrototypeLiveActionPublicPayload(
+      next.nextSeat,
+      next.nextRound,
+      "draw",
+      okeyPrototypeOpenedMelds,
+      okeyPrototypeSeatOpenedState,
+      okeyPrototypeSeatOpenModes,
+    );
     publishOkeyPrototypeDiscardLiveAction({
       id: `okey-live-discard-${discardEntry.id}`,
       kind: "discard",
       actorSeatNo: seatNo,
-      discardEntry,
-      nextSeatNo: next.nextSeat,
-      nextRound: next.nextRound,
-      nextTurnPhase: "draw",
+      discardEntry: discardEntry,
+      nextSeatNo: nextPublicPayload.nextSeatNo,
+      nextRound: nextPublicPayload.nextRound,
+      nextTurnPhase: nextPublicPayload.nextTurnPhase,
+      publicOpenedMelds: nextPublicPayload.publicOpenedMelds,
+      publicSeatOpenedState: nextPublicPayload.publicSeatOpenedState,
+      publicSeatOpenModes: nextPublicPayload.publicSeatOpenModes,
       at: Date.now(),
       sourceSessionId: appSessionId,
     });
