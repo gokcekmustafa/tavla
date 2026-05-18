@@ -431,6 +431,7 @@ type OkeyPrototypeTableSketchRow = {
   tableNo: number;
   active: boolean;
   started: boolean;
+  startedAt: number | null;
   seated: number;
   occupiedSeatNos: OkeyPrototypeSeatNo[];
   ownerUserId: string;
@@ -4126,6 +4127,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const [okeyPrototypeScorePanelOpen, setOkeyPrototypeScorePanelOpen] = useState(false);
   const okeyPrototypeScorePopupTimeoutRef = useRef<number | null>(null);
   const okeyPrototypeStartWithBotsPendingRef = useRef(false);
+  const okeyPrototypeLastStartedTableKeyRef = useRef("");
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
   const canAccessOkeyPrototype = true;
   const useTavlaLikeOkeyLayout = false;
@@ -4261,6 +4263,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         tableNo: table.tableNo,
         active: started,
         started,
+        startedAt: table.startedAt ?? null,
         seated,
         occupiedSeatNos,
         ownerUserId: table.ownerUserId,
@@ -4396,6 +4399,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       tableNo: okeyPrototypeLocalBotTable.tableNo,
       active: started,
       started,
+      startedAt: okeyPrototypeLocalBotTable.startedAt ?? null,
       seated,
       occupiedSeatNos,
       ownerUserId: okeyPrototypeLocalBotTable.ownerUserId,
@@ -5310,6 +5314,36 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setGamePickerOpen(false);
     startOkeyPrototypeGameWithTable(true);
   }, [okeyPrototypeSeatReservation]);
+
+  useEffect(() => {
+    if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) return;
+    if (!okeyPrototypeJoinedTable.started) return;
+    const activeSeats = getOkeyLobbyOccupiedSeatNos(okeyPrototypeJoinedTable);
+    if (activeSeats.length < 4) return;
+    const startedAt = Number.isFinite(okeyPrototypeJoinedTable.startedAt) ? Number(okeyPrototypeJoinedTable.startedAt) : 0;
+    if (!startedAt) return;
+    const startKey = `${okeyPrototypeJoinedTable.id}:${startedAt}`;
+    if (okeyPrototypeLastStartedTableKeyRef.current === startKey) return;
+    okeyPrototypeLastStartedTableKeyRef.current = startKey;
+
+    const ownerSeat = activeSeats.find(
+      (seatNo) => sanitizeGuestId(okeyPrototypeJoinedTable.seats[seatNo]?.userId ?? "") === sanitizeGuestId(okeyPrototypeJoinedTable.ownerUserId),
+    ) ?? activeSeats[0];
+    const safeOwnerSeat = ownerSeat ?? (Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo);
+    const botModeNeeded = activeSeats.some((seatNo) => isOkeyPrototypeBotUserId(okeyPrototypeJoinedTable.seats[seatNo]?.userId ?? ""));
+
+    setOkeyPrototypeSessionHandNo(1);
+    setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
+    setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
+    setOkeyPrototypeDrawHandCount(0);
+    setOkeyPrototypeLastHandSummary("");
+    setOkeyPrototypeBotModeEnabled(botModeNeeded);
+    applyOkeyPrototypeDeal(safeOwnerSeat, startedAt, activeSeats);
+    if (!isOkeyPrototypeLocalBotTableId(okeyPrototypeJoinedTable.id)) {
+      setLobbyNotice(`Masa ${okeyPrototypeJoinedTable.tableNo} basladi. Okey belirlendi ve taslar dagitildi.`);
+    }
+    appendOkeyPrototypeAction(`Masa senkron baslangici: Masa ${okeyPrototypeJoinedTable.tableNo}.`);
+  }, [okeyPrototypeJoinedTable, okeyPrototypeSeatReservation]);
 
   useEffect(() => {
     if (!okeyPrototypeSeatReservation) {
@@ -8452,6 +8486,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function resetOkeyPrototypeSeatSessionState() {
+    okeyPrototypeLastStartedTableKeyRef.current = "";
     setOkeyPrototypeSeatReservation(null);
     setOkeyPrototypeLocalBotTable(null);
     setOkeyPrototypeTurnSeat(1);
@@ -8495,67 +8530,101 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const safeUserId = sanitizeGuestId(currentProfile.userId);
     const currentSeatState = getOkeyPrototypeCurrentSeatState(now);
     const roomId = tableRow.roomId;
-    const latestTablesByRoom = getLatestOkeyPrototypeTablesByRoom();
-    const roomTables = (latestTablesByRoom[roomId] ?? []).slice();
-    const tableIndex = roomTables.findIndex((table) => table.id === tableRow.id);
-    if (tableIndex < 0) {
+    let reserveStatus: "ok" | "missing" | "other-table" | "occupied" | "full" = "missing";
+    let resolvedTableNo = tableRow.tableNo;
+    let startedNow = false;
+    let nextOccupiedSeatNos: OkeyPrototypeSeatNo[] = [];
+
+    updateOkeyPrototypeTablesByRoom((current) => {
+      const nextState: Record<string, OkeyPrototypeLobbyTableState[]> = {};
+      Object.entries(current).forEach(([entryRoomId, tables]) => {
+        nextState[entryRoomId] = tables.slice();
+      });
+      const roomTables = (nextState[roomId] ?? []).slice();
+      const tableIndex = roomTables.findIndex((table) => table.id === tableRow.id);
+      if (tableIndex < 0) {
+        reserveStatus = "missing";
+        return current;
+      }
+      const seatedAtOtherTable = Object.values(nextState).some((tables) => tables.some((table) => {
+        if (table.id === tableRow.id) return false;
+        return OKEY_PROTOTYPE_SEATS.some((seatNo) => {
+          const occupant = table.seats[seatNo];
+          if (!occupant) return false;
+          return sanitizeGuestId(occupant.userId) === safeUserId || occupant.sessionId === appSessionId;
+        });
+      }));
+      if (seatedAtOtherTable) {
+        reserveStatus = "other-table";
+        return current;
+      }
+
+      const table = roomTables[tableIndex];
+      if (!table) {
+        reserveStatus = "missing";
+        return current;
+      }
+      resolvedTableNo = table.tableNo;
+      const occupiedSeatNos = getOkeyPrototypeOccupiedSeatNos(table);
+      const occupiedSeat = table.seats[reservedSeat];
+      if (occupiedSeat && sanitizeGuestId(occupiedSeat.userId) !== safeUserId && occupiedSeat.sessionId !== appSessionId) {
+        reserveStatus = "occupied";
+        return current;
+      }
+      if (occupiedSeatNos.length >= 4 && !occupiedSeat) {
+        reserveStatus = "full";
+        return current;
+      }
+
+      const nextSeats = {
+        ...table.seats,
+        [reservedSeat]: currentSeatState,
+      };
+      nextOccupiedSeatNos = getOkeyPrototypeOccupiedSeatNos({ seats: nextSeats });
+      const shouldStart = nextOccupiedSeatNos.length >= 4;
+      startedNow = shouldStart && !table.startedAt;
+      const nextTable: OkeyPrototypeLobbyTableState = {
+        ...table,
+        ownerUserId: table.ownerUserId || safeUserId,
+        ownerSessionId: table.ownerSessionId || appSessionId,
+        seats: nextSeats,
+        startedAt: shouldStart ? (table.startedAt ?? now) : null,
+        updatedAt: now,
+      };
+      roomTables[tableIndex] = nextTable;
+      nextState[roomId] = roomTables;
+      reserveStatus = "ok";
+      return nextState;
+    });
+
+    if (reserveStatus === "missing") {
       setLobbyNotice("Masa bulunamadi.");
       return;
     }
-    const seatedAtOtherTable = Object.values(latestTablesByRoom).some((tables) => tables.some((table) => {
-      if (table.id === tableRow.id) return false;
-      return OKEY_PROTOTYPE_SEATS.some((seatNo) => {
-        const occupant = table.seats[seatNo];
-        if (!occupant) return false;
-        return sanitizeGuestId(occupant.userId) === safeUserId || occupant.sessionId === appSessionId;
-      });
-    }));
-    if (seatedAtOtherTable) {
+    if (reserveStatus === "other-table") {
       setLobbyNotice("Ayni anda sadece bir 101 masasinda oturabilirsin.");
       return;
     }
-
-    const table = roomTables[tableIndex];
-    if (!table) {
-      setLobbyNotice("Masa bulunamadi.");
-      return;
-    }
-    const occupiedSeatNos = getOkeyPrototypeOccupiedSeatNos(table);
-    const occupiedSeat = table.seats[reservedSeat];
-    if (occupiedSeat && sanitizeGuestId(occupiedSeat.userId) !== safeUserId && occupiedSeat.sessionId !== appSessionId) {
+    if (reserveStatus === "occupied") {
       setLobbyNotice("Bu koltuk dolu. Baska bir koltuk sec.");
       return;
     }
-    if (occupiedSeatNos.length >= 4 && !occupiedSeat) {
+    if (reserveStatus === "full") {
       setLobbyNotice("Masa dolu. Baska bir masa sec.");
       return;
     }
+    if (reserveStatus !== "ok") {
+      setLobbyNotice("Masaya oturulurken hata olustu.");
+      return;
+    }
+    const finalizedTable = (getLatestOkeyPrototypeTablesByRoom()[roomId] ?? []).find(
+      (table) => table.id === tableRow.id,
+    ) ?? null;
+    if (!finalizedTable) {
+      setLobbyNotice("Masaya oturma senkronu tamamlanamadi.");
+      return;
+    }
 
-    const nextSeats = {
-      ...table.seats,
-      [reservedSeat]: currentSeatState,
-    };
-    const nextOccupiedSeatNos = getOkeyPrototypeOccupiedSeatNos({ seats: nextSeats });
-    const shouldStart = nextOccupiedSeatNos.length >= 4;
-    const startedNow = shouldStart && !table.startedAt;
-    const nextTable: OkeyPrototypeLobbyTableState = {
-      ...table,
-      ownerUserId: table.ownerUserId || safeUserId,
-      ownerSessionId: table.ownerSessionId || appSessionId,
-      seats: nextSeats,
-      startedAt: shouldStart ? (table.startedAt ?? now) : null,
-      updatedAt: now,
-    };
-    updateOkeyPrototypeTablesByRoom((current) => {
-      const nextRoomTables = (current[roomId] ?? []).slice();
-      const nextIndex = nextRoomTables.findIndex((entry) => entry.id === tableRow.id);
-      if (nextIndex < 0) return current;
-      nextRoomTables[nextIndex] = nextTable;
-      return {
-        ...current,
-        [roomId]: nextRoomTables,
-      };
-    });
     setOkeyPrototypeSelectedTableId(tableRow.id);
     setOkeyPrototypeSeatDraft(reservedSeat);
     setOkeyPrototypeSeatReservation({
@@ -8572,17 +8641,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
       setOkeyPrototypeDrawHandCount(0);
       setOkeyPrototypeLastHandSummary("");
-      const ownerSeat = nextOccupiedSeatNos.find((seatNo) => sanitizeGuestId(nextTable.seats[seatNo]?.userId ?? "") === sanitizeGuestId(nextTable.ownerUserId ?? ""))
+      const ownerSeat = nextOccupiedSeatNos.find((seatNo) => sanitizeGuestId(finalizedTable.seats[seatNo]?.userId ?? "") === sanitizeGuestId(finalizedTable.ownerUserId ?? ""))
         ?? nextOccupiedSeatNos[0]
         ?? reservedSeat;
-      applyOkeyPrototypeDeal(ownerSeat, nextTable.startedAt ?? Date.now(), nextOccupiedSeatNos);
-      setLobbyNotice(`Masa ${tableRow.tableNo} doldu. Oyun basladi.`);
-      appendOkeyPrototypeAction(`Oyun basladi: Masa ${tableRow.tableNo} (4/4)`);
+      applyOkeyPrototypeDeal(ownerSeat, finalizedTable.startedAt ?? Date.now(), nextOccupiedSeatNos);
+      setLobbyNotice(`Masa ${resolvedTableNo} doldu. Oyun basladi.`);
+      appendOkeyPrototypeAction(`Oyun basladi: Masa ${resolvedTableNo} (4/4)`);
     } else {
       const waitingPlayers = Math.max(0, 4 - nextOccupiedSeatNos.length);
-      setLobbyNotice(`Masa ${tableRow.tableNo} / Koltuk ${reservedSeat}. Oyun icin ${waitingPlayers} oyuncu bekleniyor.`);
+      setLobbyNotice(`Masa ${resolvedTableNo} / Koltuk ${reservedSeat}. Oyun icin ${waitingPlayers} oyuncu bekleniyor.`);
     }
-    appendOkeyPrototypeAction(`${sourceLabel}: Masa ${tableRow.tableNo}, Koltuk ${reservedSeat}`);
+    appendOkeyPrototypeAction(`${sourceLabel}: Masa ${resolvedTableNo}, Koltuk ${reservedSeat}`);
   }
 
   function startOkeyPrototypeGameWithTable(fillMissingWithBots: boolean) {
