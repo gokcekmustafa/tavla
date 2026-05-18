@@ -611,6 +611,11 @@ function renderOkeyPrototypeTileFace(tile: OkeyPrototypeTile) {
   return String(tile.value);
 }
 
+function sanitizeOkeyPrototypeSeatName(name: string) {
+  const safe = sanitizeGuestName(name);
+  return safe.replace(/\s*\(K\d+\)\s*$/i, "").trim() || safe;
+}
+
 function isOkeyPrototypeJokerTile(tile: OkeyPrototypeTile, okeyTile: OkeyPrototypeTile | null = null) {
   return isJokerTileFromEngine(tile, okeyTile);
 }
@@ -4170,7 +4175,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     };
     OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
       const occupant = okeyPrototypeJoinedTable?.seats[seatNo] ?? null;
-      names[seatNo] = occupant?.displayName ?? "Bos";
+      names[seatNo] = occupant?.displayName
+        ? sanitizeOkeyPrototypeSeatName(occupant.displayName)
+        : "Bos";
     });
     return names;
   }, [okeyPrototypeJoinedTable]);
@@ -7864,7 +7871,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     joinedAt = Date.now(),
   ): OkeyPrototypeLobbySeatState {
     const baseName = OKEY_PROTOTYPE_OPPONENT_NAMES[(seatNo - 1) % OKEY_PROTOTYPE_OPPONENT_NAMES.length] ?? `Rakip${seatNo}`;
-    const displayName = `${baseName} (K${seatNo})`;
+    const displayName = sanitizeOkeyPrototypeSeatName(baseName);
     const botUserId = `${OKEY_PROTOTYPE_BOT_USER_ID_PREFIX}${tableRow.roomId}-${tableRow.tableNo}-${seatNo}`;
     const botSessionId = `${botUserId}-${hashOkeyPrototypeText(tableRow.id).toString(36)}`;
     const botAvatar = AVATAR_PRESETS[(seatNo + 1) % AVATAR_PRESETS.length]?.id ?? DEFAULT_AVATAR_BY_GENDER.unknown;
@@ -16254,7 +16261,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               </div>
                               <button
                                 type="button"
-                                className={`my-okey-draw-pocket ${okeyPrototypeCanDrawTile ? "suggested" : ""} ${okeyPrototypeDeckDrawTile && okeyPrototypeDeckDrawSeatNo === okeyPrototypeLocalSeatNo && okeyPrototypeDeckDrawPulse ? "draw-pulse" : ""}`}
+                                className={`my-okey-draw-pocket ${okeyPrototypeCanDrawTile ? "suggested" : ""} ${okeyPrototypeDeckDrawTile && okeyPrototypeDeckDrawPulse ? "draw-pulse" : ""}`}
                                 onClick={handleOkeyPrototypeDrawPocketClick}
                                 draggable={okeyPrototypeCanDrawTile}
                                 onDragStart={handleOkeyPrototypeDrawPocketDragStart}
@@ -16270,7 +16277,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                   <i />
                                 </div>
                                 <strong>{okeyPrototypeDrawPileRemaining}</strong>
-                                {okeyPrototypeDeckDrawTile && okeyPrototypeDeckDrawSeatNo === okeyPrototypeLocalSeatNo ? (
+                                {okeyPrototypeDeckDrawTile ? (
                                   <span
                                     className={`my-game-coming-prototype-rack-tile my-okey-draw-pocket-ghost tile-${okeyPrototypeDeckDrawTile.color} ${isOkeyPrototypeJokerTile(okeyPrototypeDeckDrawTile, okeyPrototypeOkeyTile) ? "joker-tile" : ""}`}
                                     title={`Cekilen tas: ${formatOkeyPrototypeTile(okeyPrototypeDeckDrawTile)}`}
@@ -16359,6 +16366,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         const displaySeatPosition = okeyPrototypeDisplaySeatPositionBySeat[seatNo] ?? seatNo;
                         const seatRole = okeyPrototypeSeatRoleLabels[seatNo];
                         const seatName = okeyPrototypeSeatDisplayNames[seatNo];
+                        const seatDrawTileIsAnimating = Boolean(
+                          okeyPrototypeDeckDrawTile
+                          && okeyPrototypeDeckDrawSeatNo === seatNo
+                          && okeyPrototypeDeckDrawPulse,
+                        );
+                        const seatDrawTileIsJoker = Boolean(
+                          okeyPrototypeDeckDrawTile
+                          && isOkeyPrototypeJokerTile(okeyPrototypeDeckDrawTile, okeyPrototypeOkeyTile),
+                        );
                         return (
                           <article
                             key={`okey-live-seat-${seatNo}`}
@@ -16374,6 +16390,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 />
                                 <span className="my-okey-seat-name-label">{seatRole === "Bos" ? "Bos" : seatName}</span>
                               </strong>
+                              {seatDrawTileIsAnimating && okeyPrototypeDeckDrawTile ? (
+                                <span
+                                  className={`my-game-coming-prototype-rack-tile my-okey-seat-draw-arrive pos-${displaySeatPosition} tile-${okeyPrototypeDeckDrawTile.color} ${seatDrawTileIsJoker ? "joker-tile" : ""}`}
+                                  aria-hidden="true"
+                                >
+                                  {renderOkeyPrototypeTileFace(okeyPrototypeDeckDrawTile)}
+                                </span>
+                              ) : null}
                             </header>
                           </article>
                         );
@@ -16420,7 +16444,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           >
                             {seatDiscardTile ? (
                               <span
-                                className={`my-game-coming-prototype-rack-tile tile-${seatDiscardTile.color} ${seatDiscardTileIsJoker ? "joker-tile" : ""} ${isArrivalAnimation ? "discard-arrive" : ""}`}
+                                className={`my-game-coming-prototype-rack-tile tile-${seatDiscardTile.color} ${seatDiscardTileIsJoker ? "joker-tile" : ""} ${isArrivalAnimation ? `discard-arrive pos-${displayPosition}` : ""}`}
                                 title={`${formatOkeyPrototypeTile(seatDiscardTile)} | K${seatNo}${isTakeableFromPocket ? " | Soldan alinabilir" : ""}`}
                                 draggable={isTakeableFromPocket}
                                 onDragStart={(event) => {
