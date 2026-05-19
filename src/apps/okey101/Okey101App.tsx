@@ -383,6 +383,9 @@ type OkeyPrototypeLiveAction = {
   publicOpenedMelds: OkeyPrototypeMeldEntry[];
   publicSeatOpenedState: OkeyPrototypeSeatOpenedState;
   publicSeatOpenModes: OkeyPrototypeSeatOpenModes;
+  publicRackState?: OkeyPrototypeRackState;
+  publicWallTiles?: OkeyPrototypeTile[];
+  publicDiscardPile?: OkeyPrototypeDiscardEntry[];
   at: number;
   sourceSessionId: string;
 };
@@ -2745,6 +2748,41 @@ function normalizeOkeyPrototypeSeatOpenModes(raw: unknown): OkeyPrototypeSeatOpe
   };
 }
 
+function normalizeOkeyPrototypeRackState(raw: unknown): OkeyPrototypeRackState | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<Record<OkeyPrototypeSeatNo, unknown>>;
+  const next: OkeyPrototypeRackState = {
+    1: [],
+    2: [],
+    3: [],
+    4: [],
+  };
+  OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+    const row = Array.isArray(candidate[seatNo]) ? candidate[seatNo] : [];
+    next[seatNo] = row
+      .map((tileRaw) => normalizeOkeyPrototypeTile(tileRaw))
+      .filter((tile): tile is OkeyPrototypeTile => Boolean(tile))
+      .slice(0, OKEY_PROTOTYPE_RACK_SLOT_COUNT);
+  });
+  return next;
+}
+
+function normalizeOkeyPrototypeTileList(raw: unknown, limit = 106): OkeyPrototypeTile[] | null {
+  if (!Array.isArray(raw)) return null;
+  return raw
+    .map((tileRaw) => normalizeOkeyPrototypeTile(tileRaw))
+    .filter((tile): tile is OkeyPrototypeTile => Boolean(tile))
+    .slice(0, limit);
+}
+
+function normalizeOkeyPrototypeDiscardList(raw: unknown, limit = 40): OkeyPrototypeDiscardEntry[] | null {
+  if (!Array.isArray(raw)) return null;
+  return raw
+    .map((entryRaw) => normalizeOkeyPrototypeDiscardEntry(entryRaw))
+    .filter((entry): entry is OkeyPrototypeDiscardEntry => Boolean(entry))
+    .slice(0, limit);
+}
+
 function normalizeOkeyPrototypeLiveAction(raw: unknown): OkeyPrototypeLiveAction | null {
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Partial<OkeyPrototypeLiveAction>;
@@ -2762,6 +2800,9 @@ function normalizeOkeyPrototypeLiveAction(raw: unknown): OkeyPrototypeLiveAction
     .slice(0, 40);
   const publicSeatOpenedState = normalizeOkeyPrototypeSeatOpenedState(candidate.publicSeatOpenedState);
   const publicSeatOpenModes = normalizeOkeyPrototypeSeatOpenModes(candidate.publicSeatOpenModes);
+  const publicRackState = normalizeOkeyPrototypeRackState(candidate.publicRackState);
+  const publicWallTiles = normalizeOkeyPrototypeTileList(candidate.publicWallTiles);
+  const publicDiscardPile = normalizeOkeyPrototypeDiscardList(candidate.publicDiscardPile, 40);
   const at = Number.isFinite(candidate.at) ? Number(candidate.at) : Date.now();
   const sourceSessionId = sanitizeGuestId(typeof candidate.sourceSessionId === "string" ? candidate.sourceSessionId : "");
   if (!id || !kind || !actorSeatNo || !discardEntry || !nextSeatNo) return null;
@@ -2776,6 +2817,9 @@ function normalizeOkeyPrototypeLiveAction(raw: unknown): OkeyPrototypeLiveAction
     publicOpenedMelds,
     publicSeatOpenedState,
     publicSeatOpenModes,
+    publicRackState: publicRackState ?? undefined,
+    publicWallTiles: publicWallTiles ?? undefined,
+    publicDiscardPile: publicDiscardPile ?? undefined,
     at,
     sourceSessionId,
   };
@@ -5707,10 +5751,25 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     okeyPrototypeAppliedLiveActionIdRef.current = liveAction.id;
     if (liveAction.id === okeyPrototypePublishedLiveActionIdRef.current) return;
 
-    setOkeyPrototypeDiscardPile((current) => {
-      if (current.some((entry) => entry.id === liveAction.discardEntry.id)) return current;
-      return [liveAction.discardEntry, ...current].slice(0, 40);
-    });
+    if (liveAction.publicDiscardPile && liveAction.publicDiscardPile.length > 0) {
+      setOkeyPrototypeDiscardPile(liveAction.publicDiscardPile.slice(0, 40));
+    } else {
+      setOkeyPrototypeDiscardPile((current) => {
+        if (current.some((entry) => entry.id === liveAction.discardEntry.id)) return current;
+        return [liveAction.discardEntry, ...current].slice(0, 40);
+      });
+    }
+    if (liveAction.publicRackState) {
+      setOkeyPrototypeRackState({
+        1: liveAction.publicRackState[1] ?? [],
+        2: liveAction.publicRackState[2] ?? [],
+        3: liveAction.publicRackState[3] ?? [],
+        4: liveAction.publicRackState[4] ?? [],
+      });
+    }
+    if (liveAction.publicWallTiles) {
+      setOkeyPrototypeWallTiles(liveAction.publicWallTiles.slice(0, 106));
+    }
     setOkeyPrototypeOpenedMelds(liveAction.publicOpenedMelds.slice(0, 40));
     setOkeyPrototypeSeatOpenedState({
       1: Boolean(liveAction.publicSeatOpenedState[1]),
@@ -9578,6 +9637,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     openedMelds: OkeyPrototypeMeldEntry[],
     seatOpenedState: OkeyPrototypeSeatOpenedState,
     seatOpenModes: OkeyPrototypeSeatOpenModes,
+    rackStateSnapshot?: OkeyPrototypeRackState | null,
+    wallTilesSnapshot?: OkeyPrototypeTile[] | null,
+    discardPileSnapshot?: OkeyPrototypeDiscardEntry[] | null,
   ) {
     return {
       nextSeatNo: turnSeat,
@@ -9596,6 +9658,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         3: seatOpenModes[3] ?? "none",
         4: seatOpenModes[4] ?? "none",
       } as OkeyPrototypeSeatOpenModes,
+      publicRackState: rackStateSnapshot ? {
+        1: (rackStateSnapshot[1] ?? []).slice(),
+        2: (rackStateSnapshot[2] ?? []).slice(),
+        3: (rackStateSnapshot[3] ?? []).slice(),
+        4: (rackStateSnapshot[4] ?? []).slice(),
+      } as OkeyPrototypeRackState : undefined,
+      publicWallTiles: wallTilesSnapshot ? wallTilesSnapshot.slice(0, 106) : undefined,
+      publicDiscardPile: discardPileSnapshot ? discardPileSnapshot.slice(0, 40) : undefined,
     };
   }
 
@@ -10942,6 +11012,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       );
       return;
     }
+    const nextRackStateSnapshot: OkeyPrototypeRackState = {
+      1: (okeyPrototypeRackState[1] ?? []).slice(),
+      2: (okeyPrototypeRackState[2] ?? []).slice(),
+      3: (okeyPrototypeRackState[3] ?? []).slice(),
+      4: (okeyPrototypeRackState[4] ?? []).slice(),
+    };
+    nextRackStateSnapshot[seatNo] = nextRack.slice();
+    const nextDiscardPileSnapshot = [discardEntry, ...okeyPrototypeDiscardPile].slice(0, 40);
     const next = moveOkeyPrototypeTurnToNextSeat();
     const nextPublicPayload = buildOkeyPrototypeLiveActionPublicPayload(
       next.nextSeat,
@@ -10950,6 +11028,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       okeyPrototypeOpenedMelds,
       okeyPrototypeSeatOpenedState,
       okeyPrototypeSeatOpenModes,
+      nextRackStateSnapshot,
+      okeyPrototypeWallTiles.slice(),
+      nextDiscardPileSnapshot,
     );
     publishOkeyPrototypeDiscardLiveAction({
       id: `okey-live-discard-${discardEntry.id}`,
@@ -10962,6 +11043,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       publicOpenedMelds: nextPublicPayload.publicOpenedMelds,
       publicSeatOpenedState: nextPublicPayload.publicSeatOpenedState,
       publicSeatOpenModes: nextPublicPayload.publicSeatOpenModes,
+      publicRackState: nextPublicPayload.publicRackState,
+      publicWallTiles: nextPublicPayload.publicWallTiles,
+      publicDiscardPile: nextPublicPayload.publicDiscardPile,
       at: Date.now(),
       sourceSessionId: appSessionId,
     });
