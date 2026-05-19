@@ -3910,11 +3910,11 @@ function mergeOkeyPrototypeSeatState(
   preferBase: boolean,
 ) {
   if (baseSeat && !incomingSeat) {
-    if (incomingTableUpdatedAt > baseTableUpdatedAt) return null;
+    if (incomingTableUpdatedAt - baseTableUpdatedAt > OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS) return null;
     return baseSeat;
   }
   if (!baseSeat && incomingSeat) {
-    if (baseTableUpdatedAt > incomingTableUpdatedAt) return null;
+    if (baseTableUpdatedAt - incomingTableUpdatedAt > OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS) return null;
     return incomingSeat;
   }
   if (!baseSeat && !incomingSeat) return null;
@@ -5652,6 +5652,21 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setGamePickerOpen(false);
     startOkeyPrototypeGameWithTable(true);
   }, [okeyPrototypeSeatReservation]);
+
+  useEffect(() => {
+    if (!okeyPrototypeSeatReservation) return;
+    if (isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) return;
+    syncOkeyPrototypeSeatHeartbeat();
+    const timer = window.setInterval(() => {
+      syncOkeyPrototypeSeatHeartbeat();
+    }, HEARTBEAT_MS);
+    return () => window.clearInterval(timer);
+  }, [
+    okeyPrototypeSeatReservation,
+    appSessionId,
+    guestId,
+    member?.id,
+  ]);
 
   useEffect(() => {
     if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) return;
@@ -8896,6 +8911,67 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeBotModeEnabled(false);
     setOkeyPrototypeLastDrawnTileId("");
     setOkeyPrototypeFinalWallDrawSeat(null);
+  }
+
+  function syncOkeyPrototypeSeatHeartbeat() {
+    const reservation = okeyPrototypeSeatReservation;
+    if (!reservation) return;
+    if (isOkeyPrototypeLocalBotTableId(reservation.tableId)) return;
+    const safeUserId = sanitizeGuestId(currentProfile.userId);
+    if (!safeUserId) return;
+    const now = Date.now();
+    updateOkeyPrototypeTablesByRoom((current) => {
+      let changed = false;
+      const nextState: Record<string, OkeyPrototypeLobbyTableState[]> = {};
+      Object.entries(current).forEach(([roomId, tables]) => {
+        const nextTables = tables.slice();
+        const tableIndex = nextTables.findIndex((table) => table.id === reservation.tableId);
+        if (tableIndex < 0) {
+          nextState[roomId] = nextTables;
+          return;
+        }
+        const table = nextTables[tableIndex];
+        if (!table) {
+          nextState[roomId] = nextTables;
+          return;
+        }
+        let targetSeatNo = Math.max(1, Math.min(4, reservation.seatNo)) as OkeyPrototypeSeatNo;
+        let seat = table.seats[targetSeatNo] ?? null;
+        if (!seat || (sanitizeGuestId(seat.userId) !== safeUserId && seat.sessionId !== appSessionId)) {
+          const fallbackSeatNo = OKEY_PROTOTYPE_SEATS.find((seatNo) => {
+            const occupant = table.seats[seatNo];
+            if (!occupant) return false;
+            return sanitizeGuestId(occupant.userId) === safeUserId || occupant.sessionId === appSessionId;
+          });
+          if (!fallbackSeatNo) {
+            nextState[roomId] = nextTables;
+            return;
+          }
+          targetSeatNo = fallbackSeatNo;
+          seat = table.seats[targetSeatNo] ?? null;
+        }
+        if (!seat) {
+          nextState[roomId] = nextTables;
+          return;
+        }
+        const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = {
+          ...table.seats,
+          [targetSeatNo]: {
+            ...seat,
+            joinedAt: now,
+          },
+        };
+        nextTables[tableIndex] = {
+          ...table,
+          seats: nextSeats,
+          updatedAt: now,
+        };
+        changed = true;
+        nextState[roomId] = nextTables;
+      });
+      if (!changed) return current;
+      return nextState;
+    });
   }
 
   async function reserveOkeyPrototypeSeat(
