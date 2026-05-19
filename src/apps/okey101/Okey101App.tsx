@@ -2993,7 +2993,8 @@ function cleanupOkeyPrototypeTablesByRoom(
         const seat = table.seats[seatNo];
         if (!seat) return;
         if (isOkeyPrototypeBotUserIdValue(seat.userId)) {
-          nextBotSeats[seatNo] = seat;
+          // Online tabloda bot koltuklari kalici olmamali; yalnizca local-bot masa id'si kullanilir.
+          tableChanged = true;
           return;
         }
         const seatSessionId = sanitizeGuestId(seat.sessionId);
@@ -8939,6 +8940,33 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const nextState: Record<string, OkeyPrototypeLobbyTableState[]> = {};
       Object.entries(current).forEach(([entryRoomId, tables]) => {
         nextState[entryRoomId] = tables.slice();
+      });
+      // Kullanici yeni bir koltuga otururken, diger masalarda kalmis stale/kopya koltuk kayitlarini temizle.
+      Object.entries(nextState).forEach(([entryRoomId, tables]) => {
+        nextState[entryRoomId] = tables.map((table) => {
+          if (table.id === tableRow.id) return table;
+          let seatsChanged = false;
+          const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = { ...table.seats };
+          OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+            const occupant = nextSeats[seatNo];
+            if (!occupant) return;
+            if (sanitizeGuestId(occupant.userId) !== safeUserId && occupant.sessionId !== appSessionId) return;
+            delete nextSeats[seatNo];
+            seatsChanged = true;
+          });
+          if (!seatsChanged) return table;
+          const occupiedSeatNos = getOkeyPrototypeOccupiedSeatNos({ seats: nextSeats });
+          const nextOwnerSeat = occupiedSeatNos[0];
+          const nextOwner = nextOwnerSeat ? nextSeats[nextOwnerSeat] ?? null : null;
+          return {
+            ...table,
+            seats: nextSeats,
+            ownerUserId: nextOwner?.userId ?? "",
+            ownerSessionId: nextOwner?.sessionId ?? "",
+            startedAt: occupiedSeatNos.length >= 4 ? (table.startedAt ?? now) : null,
+            updatedAt: now,
+          };
+        }).filter((table) => getOkeyPrototypeOccupiedSeatNos(table).length > 0);
       });
       const roomTables = (nextState[roomId] ?? []).slice();
       const tableIndex = roomTables.findIndex((table) => table.id === tableRow.id);
