@@ -6927,10 +6927,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     realtimePendingSnapshotRef.current = normalized;
     saveJson(activeLobbyStorageKey, normalized);
     setLobbyState(normalized);
+    const previousPushAt = realtimeLastPushAtRef.current;
     const sent = sendRealtimeSnapshot(normalized, "lobby-update");
     if (!sent) {
       void syncRealtimeViaHttp("lobby-update-fallback");
-    } else if (Date.now() - realtimeLastPushAtRef.current >= HTTP_SYNC_MIRROR_MIN_INTERVAL_MS) {
+    } else if (Date.now() - previousPushAt >= HTTP_SYNC_MIRROR_MIN_INTERVAL_MS) {
       void syncRealtimeViaHttp("lobby-update-mirror");
     }
     broadcastLobbySync();
@@ -9707,6 +9708,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         [roomId]: nextRoomTables,
       };
     });
+    // Hamle sirasinda WS gecikirse, HTTP kanalina da anlik mirror basarak
+    // tur gecislerinin diger cihazlara hizli ulasmasini sagla.
+    void syncRealtimeViaHttp("okey-live-discard");
   }
 
   function reorderOkeyPrototypeRackTiles(
