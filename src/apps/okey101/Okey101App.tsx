@@ -477,7 +477,7 @@ const DEFAULT_LOBBY_NAME = "Lobi 1";
 const DEFAULT_LOBBY_ID = "lobi-1";
 const DEFAULT_GAME_ID: GameId = "okey101";
 const SEAT_STALE_MS = 180_000;
-const PRESENCE_STALE_MS = 20_000;
+const PRESENCE_STALE_MS = 120_000;
 const OKEY_TABLE_OPEN_GRACE_MS = 10_000;
 const HEARTBEAT_MS = 8_000;
 // Cihaz saatleri arasındaki fark (özellikle mobil/masaüstü) seat-null merge sırasında
@@ -501,7 +501,7 @@ const ROOM_MISSING_CHECK_DELAY_MS = 2_200;
 const ROOM_MISSING_CLOSE_GRACE_MS = 9_000;
 const ACTIVITY_CLOCK_SKEW_LIMIT_MS = 24 * 60 * 60 * 1000;
 const OKEY_TABLE_CLOSE_TOMBSTONE_MS = 30 * 60 * 1000;
-const OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS = 60_000;
+const OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS = 300_000;
 const ENABLE_WS_DEBUG_LOGS = false;
 const WS_PREOPEN_FAIL_DISABLE_THRESHOLD = 3;
 const WS_DISABLE_DURATION_MS = 2 * 60 * 1000;
@@ -3104,7 +3104,7 @@ function cleanupOkeyPrototypeTablesByRoom(
         (seatNo) => sanitizeGuestId(nextSeats[seatNo]?.userId ?? "") === safeOwnerUserId,
       ) ?? occupiedSeatNos[0];
       const ownerSeat = ownerSeatNo ? nextSeats[ownerSeatNo] ?? null : null;
-      const startedAt = occupiedSeatNos.length >= 4 ? (table.startedAt ?? now) : null;
+      const startedAt = table.startedAt ?? (occupiedSeatNos.length >= 4 ? now : null);
       const ownerUserId = ownerSeat?.userId ?? "";
       const ownerSessionId = ownerSeat?.sessionId ?? "";
       const ownerChanged = ownerUserId !== table.ownerUserId || ownerSessionId !== table.ownerSessionId;
@@ -4015,9 +4015,10 @@ function mergeOkeyPrototypeTableState(
   const maxSeatJoinedAt = occupiedSeatNos.reduce((max, seatNo) => {
     return Math.max(max, getOkeyPrototypeSeatJoinedAt(mergedSeats[seatNo]));
   }, 0);
-  const startedAt = occupiedSeatNos.length >= 4
-    ? mergeReadyStamp(base.startedAt, incoming.startedAt) ?? Math.max(base.startedAt ?? 0, incoming.startedAt ?? 0, maxSeatJoinedAt)
-    : null;
+  const startedAt = mergeReadyStamp(base.startedAt, incoming.startedAt)
+    ?? (occupiedSeatNos.length >= 4
+      ? Math.max(base.startedAt ?? 0, incoming.startedAt ?? 0, maxSeatJoinedAt)
+      : null);
   const baseLiveAction = normalizeOkeyPrototypeLiveAction(base.liveAction);
   const incomingLiveAction = normalizeOkeyPrototypeLiveAction(incoming.liveAction);
   const mergedLiveAction = (() => {
@@ -4625,7 +4626,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     return roomTables.map((table) => {
       const occupiedSeatNos = OKEY_PROTOTYPE_SEATS.filter((seatNo) => Boolean(table.seats[seatNo]));
       const seated = occupiedSeatNos.length;
-      const started = seated >= 4 && Boolean(table.startedAt);
+      const started = Boolean(table.startedAt);
       return {
         id: table.id,
         roomId: table.roomId,
@@ -4762,7 +4763,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (!okeyPrototypeLocalBotTable) return null;
     const occupiedSeatNos = OKEY_PROTOTYPE_SEATS.filter((seatNo) => Boolean(okeyPrototypeLocalBotTable.seats[seatNo]));
     const seated = occupiedSeatNos.length;
-    const started = seated >= 4 && Boolean(okeyPrototypeLocalBotTable.startedAt);
+    const started = Boolean(okeyPrototypeLocalBotTable.startedAt);
     return {
       id: okeyPrototypeLocalBotTable.id,
       roomId: okeyPrototypeLocalBotTable.roomId,
@@ -9110,7 +9111,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             seats: nextSeats,
             ownerUserId: nextOwner?.userId ?? "",
             ownerSessionId: nextOwner?.sessionId ?? "",
-            startedAt: occupiedSeatNos.length >= 4 ? (table.startedAt ?? now) : null,
+            startedAt: table.startedAt ?? (occupiedSeatNos.length >= 4 ? now : null),
             updatedAt: now,
           };
         }).filter((table) => getOkeyPrototypeOccupiedSeatNos(table).length > 0);
@@ -9179,7 +9180,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         ownerUserId: table.ownerUserId || safeUserId,
         ownerSessionId: table.ownerSessionId || appSessionId,
         seats: nextSeats,
-        startedAt: shouldStart ? (table.startedAt ?? now) : null,
+        startedAt: table.startedAt ?? (shouldStart ? now : null),
         updatedAt: now,
       };
       roomTables[tableIndex] = nextTable;
@@ -9412,7 +9413,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             seats: nextSeats,
             ownerUserId: nextOwner?.userId ?? "",
             ownerSessionId: nextOwner?.sessionId ?? "",
-            startedAt: occupiedSeatNos.length >= 4 ? table.startedAt ?? Date.now() : null,
+            startedAt: table.startedAt ?? (occupiedSeatNos.length >= 4 ? Date.now() : null),
             updatedAt: Date.now(),
           };
           tables[tableIndex] = nextTable;
@@ -9470,7 +9471,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
               seats: nextSeats,
               ownerUserId: nextOwnerSeat?.userId ?? "",
               ownerSessionId: nextOwnerSeat?.sessionId ?? "",
-              startedAt: occupiedSeatNos.length >= 4 ? table.startedAt ?? Date.now() : null,
+              startedAt: table.startedAt ?? (occupiedSeatNos.length >= 4 ? Date.now() : null),
               updatedAt: Date.now(),
             });
           });
@@ -14616,7 +14617,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             seats: nextSeats,
             ownerUserId: nextOwnerSeat?.userId ?? "",
             ownerSessionId: nextOwnerSeat?.sessionId ?? "",
-            startedAt: occupiedSeatNos.length >= 4 ? table.startedAt ?? Date.now() : null,
+            startedAt: table.startedAt ?? (occupiedSeatNos.length >= 4 ? Date.now() : null),
             updatedAt: Date.now(),
           });
           okeyTablesChanged = true;
