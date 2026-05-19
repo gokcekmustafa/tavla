@@ -5058,13 +5058,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     && okeyPrototypeFlippedJokerTileIds.includes(okeyPrototypeDragPreviewTile.id),
   );
   const okeyPrototypePreviousTurnSeat = useMemo(() => {
+    const latestDiscardSeatNo = okeyPrototypeDiscardPile[0]?.seatNo;
+    if (latestDiscardSeatNo && okeyPrototypeActiveTurnSeats.includes(latestDiscardSeatNo)) {
+      return latestDiscardSeatNo;
+    }
     const seats = okeyPrototypeActiveTurnSeats.length > 0
       ? okeyPrototypeActiveTurnSeats
       : [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
     const currentIndex = seats.findIndex((seatNo) => seatNo === okeyPrototypeTurnSeat);
     const safeIndex = currentIndex >= 0 ? currentIndex : 0;
     return seats[(safeIndex - 1 + seats.length) % seats.length] ?? (okeyPrototypeTurnSeat as OkeyPrototypeSeatNo);
-  }, [okeyPrototypeActiveTurnSeats, okeyPrototypeTurnSeat]);
+  }, [okeyPrototypeActiveTurnSeats, okeyPrototypeDiscardPile, okeyPrototypeTurnSeat]);
   const okeyPrototypeTakeableDiscardEntry = useMemo(() => {
     return okeyPrototypeDiscardBySeat[okeyPrototypePreviousTurnSeat] ?? null;
   }, [okeyPrototypeDiscardBySeat, okeyPrototypePreviousTurnSeat]);
@@ -5241,6 +5245,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     && okeyPrototypeTurnPhase === "draw"
     && okeyPrototypeTurnRackTiles.length === okeyPrototypeTurnExpectedRackCountBeforeDraw
     && okeyPrototypeDrawPileRemaining > 0
+    && (okeyPrototypeCurrentSeatOpened || okeyPrototypeCanTakeDiscardWhenClosed)
     && Boolean(okeyPrototypeTakeableDiscardEntry);
   const okeyPrototypeCanSelectRackTiles = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
@@ -6706,6 +6711,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     realtimeReceivedSnapshotRef.current = true;
     saveJson(storageKey, merged);
     setLobbyState(merged);
+    const mergedOkeyTablesByRoom = normalizeOkeyPrototypeTablesByRoom(merged.okeyPrototypeTablesByRoom);
+    setOkeyPrototypeTablesByRoom((current) => (
+      JSON.stringify(mergedOkeyTablesByRoom) === JSON.stringify(current)
+        ? current
+        : mergedOkeyTablesByRoom
+    ));
     setSyncHealth((prev) => ({
       ...prev,
       lastIncomingAt: now,
@@ -10833,6 +10844,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       }
       appendOkeyPrototypeAction("Gecersiz hamle: Ortada alinacak tas yok.");
       return;
+    }
+    if (!okeyPrototypeCurrentSeatOpened) {
+      const canTakeWhenClosed = canOkeyPrototypeTakeDiscardWhenClosed(
+        okeyPrototypeTurnRackTiles,
+        topDiscard.tile,
+        okeyPrototypeOkeyTile,
+      );
+      if (!canTakeWhenClosed) {
+        appendOkeyPrototypeAction(
+          "Gecersiz hamle: Kapali elde ortadan tas almak icin bu tasla 101 acabilmeli veya 5 cift yapabilmelisin.",
+        );
+        return;
+      }
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     const tile = {
