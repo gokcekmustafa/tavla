@@ -506,10 +506,10 @@ const ENABLE_WS_DEBUG_LOGS = false;
 const WS_PREOPEN_FAIL_DISABLE_THRESHOLD = 3;
 const WS_DISABLE_DURATION_MS = 2 * 60 * 1000;
 const HTTP_SYNC_TIMEOUT_MS = 8_000;
-const HTTP_SYNC_THROTTLE_MS = 900;
-const HTTP_SYNC_MIRROR_MIN_INTERVAL_MS = 8_000;
-const HTTP_SYNC_RUN_INTERVAL_MS = 4_000;
-const HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS = 10_000;
+const HTTP_SYNC_THROTTLE_MS = 250;
+const HTTP_SYNC_MIRROR_MIN_INTERVAL_MS = 1_200;
+const HTTP_SYNC_RUN_INTERVAL_MS = 1_500;
+const HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS = 4_000;
 const HTTP_SYNC_ERROR_BACKOFF_MIN_MS = 1_500;
 const HTTP_SYNC_ERROR_BACKOFF_MAX_MS = 30_000;
 const ROOM_START_GATE_RESYNC_DELAY_MS = 700;
@@ -5556,6 +5556,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const roomPickerRemoteFailCountRef = useRef(0);
   const appSessionId = useMemo(() => createSessionId(), []);
   const guestId = useMemo(() => getOrCreateGuestId(), []);
+  const realtimeSenderIdRef = useRef(`${appSessionId}-${Math.random().toString(36).slice(2, 8)}`);
   const [realtimeStatus, setRealtimeStatus] = useState<"offline" | "connecting" | "online">("offline");
   const processedMatchTokensRef = useRef<Set<string>>(new Set());
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -6735,7 +6736,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const message: RealtimeMessage = {
       kind: "snapshot",
       channel: activeRealtimeLobbyChannel,
-      sender: appSessionId,
+      sender: realtimeSenderIdRef.current,
       counter: realtimeSyncCounterRef.current,
       at: Date.now(),
       payload,
@@ -6801,7 +6802,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const outgoing: RealtimeMessage = {
         kind: "snapshot",
         channel: activeRealtimeLobbyChannel,
-        sender: appSessionId,
+        sender: realtimeSenderIdRef.current,
         counter: realtimeSyncCounterRef.current,
         at: Date.now(),
         payload,
@@ -13583,7 +13584,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         const helloMessage: RealtimeMessage = {
           kind: "hello",
           channel: channelForConnection,
-          sender: appSessionId,
+          sender: realtimeSenderIdRef.current,
           counter: realtimeSyncCounterRef.current,
           at: Date.now(),
         };
@@ -13702,11 +13703,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const pending = realtimePendingSnapshotRef.current;
       if (socket && socket.readyState === WebSocket.OPEN && !pending) {
         const now = Date.now();
-        if (now - realtimeLastPushAtRef.current >= 12_000) {
+        if (now - realtimeLastPushAtRef.current >= 6_000) {
           await syncRealtimeViaHttp("http-write-heartbeat");
           return;
         }
-        if (now - realtimeLastPullAtRef.current >= 10_000) {
+        if (now - realtimeLastPullAtRef.current >= 2_500) {
           await pullRealtimeViaHttp("http-read-backup");
         }
         return;
