@@ -5585,6 +5585,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeAppliedLiveActionIdRef = useRef("");
   const okeyPrototypeAutoNextDrawHandKeyRef = useRef("");
   const okeyPrototypeSetSummaryHandKeyRef = useRef("");
+  const okeyPrototypeTurnPhaseSelfHealKeyRef = useRef("");
   const flowEventSeqRef = useRef(0);
   const flowEventLastSeenRef = useRef<Map<string, number>>(new Map());
   const previousLobbyIdRef = useRef<string>("");
@@ -5996,6 +5997,52 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     okeyPrototypeGameStarted,
     okeyPrototypeHandCompleted,
     okeyPrototypeTurnPhase,
+  ]);
+
+  useEffect(() => {
+    if (!okeyPrototypeGameStarted) return;
+    if (okeyPrototypeHandCompleted) return;
+    if (!okeyPrototypeCanAdvanceTurn) return;
+    const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+    if (!OKEY_PROTOTYPE_SEATS.includes(seatNo)) return;
+    const expectedBeforeDraw = Math.max(
+      0,
+      OKEY_PROTOTYPE_HAND_TILE_COUNT - (okeyPrototypeOpenedTileCountBySeat[seatNo] ?? 0),
+    );
+    const currentRackCount = okeyPrototypeTurnRackTiles.length;
+    let nextPhase: OkeyPrototypeTurnPhase | null = null;
+    if (okeyPrototypeTurnPhase === "draw" && currentRackCount === expectedBeforeDraw + 1) {
+      nextPhase = "discard";
+    } else if (okeyPrototypeTurnPhase === "discard" && currentRackCount === expectedBeforeDraw) {
+      nextPhase = "draw";
+    }
+    if (!nextPhase || nextPhase === okeyPrototypeTurnPhase) return;
+    const healKey = `${seatNo}-${okeyPrototypeTurnRound}-${okeyPrototypeTurnPhase}-${nextPhase}-${currentRackCount}-${expectedBeforeDraw}`;
+    if (okeyPrototypeTurnPhaseSelfHealKeyRef.current === healKey) return;
+    okeyPrototypeTurnPhaseSelfHealKeyRef.current = healKey;
+    setOkeyPrototypeTurnPhase(nextPhase);
+    if (nextPhase === "draw") {
+      setOkeyPrototypePendingDiscardTileId("");
+      setOkeyPrototypePendingDiscardPickup(null);
+    } else if (nextPhase === "discard") {
+      if (!okeyPrototypeDiscardDraftTileId && currentRackCount > 0) {
+        const fallbackTileId = okeyPrototypeTurnRackTiles[currentRackCount - 1]?.id ?? "";
+        if (fallbackTileId) setOkeyPrototypeDiscardDraftTileId(fallbackTileId);
+      }
+    }
+    appendOkeyPrototypeAction(
+      `Tur fazi otomatik duzeltildi: K${seatNo} ${okeyPrototypeTurnPhase} -> ${nextPhase}.`,
+    );
+  }, [
+    okeyPrototypeCanAdvanceTurn,
+    okeyPrototypeDiscardDraftTileId,
+    okeyPrototypeGameStarted,
+    okeyPrototypeHandCompleted,
+    okeyPrototypeOpenedTileCountBySeat,
+    okeyPrototypeTurnPhase,
+    okeyPrototypeTurnRackTiles,
+    okeyPrototypeTurnRound,
+    okeyPrototypeTurnSeat,
   ]);
 
   useEffect(() => {
