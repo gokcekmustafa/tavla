@@ -5119,8 +5119,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeGameStarted = Boolean(
     okeyPrototypeSeatReservation
     && okeyPrototypeJoinedTable
-    && okeyPrototypeJoinedTable.started
-    && okeyPrototypeJoinedOccupiedSeatNos.length >= 4,
+    && okeyPrototypeJoinedTable.started,
   );
   const okeyPrototypeIsLocalTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeTurnSeat === okeyPrototypeLocalSeatNo);
   const okeyPrototypeIsBotTurn = okeyPrototypeBotModeEnabled
