@@ -2992,17 +2992,33 @@ function cleanupOkeyPrototypeTablesByRoom(
           nextBotSeats[seatNo] = seat;
           return;
         }
-        const seatSessionId = sanitizeGuestId(seat.sessionId);
-        const seatJoinedAt = getOkeyPrototypeSeatJoinedAt(seat);
-        const recentlyJoined = seatJoinedAt > 0 && now - seatJoinedAt <= OKEY_TABLE_OPEN_GRACE_MS;
-        const activeSeat = Boolean(seatSessionId && activeSessionIds.has(seatSessionId));
-        if (!activeSeat && !recentlyJoined) {
-          tableChanged = true;
-          return;
-        }
         nextHumanSeats[seatNo] = seat;
       });
-      const activeHumanSeatNos = getOkeyPrototypeOccupiedSeatNosFromSeats(nextHumanSeats);
+      const dedupedHumanSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = {};
+      const seenSeatByIdentity = new Map<string, { seatNo: OkeyPrototypeSeatNo; joinedAt: number }>();
+      OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+        const seat = nextHumanSeats[seatNo];
+        if (!seat) return;
+        const identity = sanitizeGuestId(seat.sessionId) || sanitizeGuestId(seat.userId);
+        if (!identity) {
+          dedupedHumanSeats[seatNo] = seat;
+          return;
+        }
+        const seen = seenSeatByIdentity.get(identity);
+        const joinedAt = getOkeyPrototypeSeatJoinedAt(seat);
+        if (!seen) {
+          seenSeatByIdentity.set(identity, { seatNo, joinedAt });
+          dedupedHumanSeats[seatNo] = seat;
+          return;
+        }
+        tableChanged = true;
+        if (joinedAt >= seen.joinedAt) {
+          delete dedupedHumanSeats[seen.seatNo];
+          dedupedHumanSeats[seatNo] = seat;
+          seenSeatByIdentity.set(identity, { seatNo, joinedAt });
+        }
+      });
+      const activeHumanSeatNos = getOkeyPrototypeOccupiedSeatNosFromSeats(dedupedHumanSeats);
       if (activeHumanSeatNos.length === 0) {
         const tableUpdatedAt = getOkeyPrototypeTableUpdatedAt(table);
         const recentlyUpdated = now - tableUpdatedAt <= OKEY_TABLE_OPEN_GRACE_MS;
@@ -3014,7 +3030,7 @@ function cleanupOkeyPrototypeTablesByRoom(
         return;
       }
       const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = {
-        ...nextHumanSeats,
+        ...dedupedHumanSeats,
         ...nextBotSeats,
       };
       const occupiedSeatNos = getOkeyPrototypeOccupiedSeatNosFromSeats(nextSeats);
@@ -3877,11 +3893,11 @@ function mergeOkeyPrototypeSeatState(
   preferBase: boolean,
 ) {
   if (baseSeat && !incomingSeat) {
-    if (incomingTableUpdatedAt - getOkeyPrototypeSeatJoinedAt(baseSeat) > SEAT_NULL_MERGE_GRACE_MS) return null;
+    if (incomingTableUpdatedAt > baseTableUpdatedAt) return null;
     return baseSeat;
   }
   if (!baseSeat && incomingSeat) {
-    if (baseTableUpdatedAt - getOkeyPrototypeSeatJoinedAt(incomingSeat) > SEAT_NULL_MERGE_GRACE_MS) return null;
+    if (baseTableUpdatedAt > incomingTableUpdatedAt) return null;
     return incomingSeat;
   }
   if (!baseSeat && !incomingSeat) return null;
@@ -8922,10 +8938,16 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         return current;
       }
 
-      const nextSeats = {
-        ...table.seats,
-        [reservedSeat]: currentSeatState,
-      };
+      const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = { ...table.seats };
+      OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+        if (seatNo === reservedSeat) return;
+        const occupant = nextSeats[seatNo];
+        if (!occupant) return;
+        if (sanitizeGuestId(occupant.userId) === safeUserId || occupant.sessionId === appSessionId) {
+          delete nextSeats[seatNo];
+        }
+      });
+      nextSeats[reservedSeat] = currentSeatState;
       nextOccupiedSeatNos = getOkeyPrototypeOccupiedSeatNos({ seats: nextSeats });
       const shouldStart = nextOccupiedSeatNos.length >= 4;
       startedNow = shouldStart && !table.startedAt;
@@ -9282,7 +9304,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   function adminCloseOkeyPrototypeTable(tableRow: OkeyPrototypeTableSketchRow) {
     const safeCurrentUserId = sanitizeGuestId(currentProfile.userId);
     const safeOwnerUserId = sanitizeGuestId(tableRow.ownerUserId);
-    if (!safeCurrentUserId || safeOwnerUserId !== safeCurrentUserId) {
+    const ownerStillSeated = OKEY_PROTOTYPE_SEATS.some(
+      (seatNo) => sanitizeGuestId(tableRow.seats[seatNo]?.userId ?? "") === safeOwnerUserId,
+    );
+    const currentUserSeated = OKEY_PROTOTYPE_SEATS.some(
+      (seatNo) => sanitizeGuestId(tableRow.seats[seatNo]?.userId ?? "") === safeCurrentUserId,
+    );
+    const canCloseAsFallback = currentUserSeated && (!safeOwnerUserId || !ownerStillSeated);
+    if (!safeCurrentUserId || (safeOwnerUserId !== safeCurrentUserId && !canCloseAsFallback)) {
       setLobbyNotice("Masayi sadece masa sahibi kapatabilir.");
       return;
     }
