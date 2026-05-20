@@ -560,6 +560,7 @@ const OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS = 101;
 const OKEY_PROTOTYPE_UNOPENED_PENALTY_POINTS = 202;
 const OKEY_PROTOTYPE_SET_HAND_TARGET = 7;
 const OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS = 1_800;
+const OKEY_PROTOTYPE_AUTO_NEXT_SET_DELAY_MS = 2_600;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = OKEY_ENGINE_RULES.seats as readonly OkeyPrototypeSeatNo[];
 const OKEY_PROTOTYPE_COUNTERCLOCKWISE_SEAT_ORDER: readonly OkeyPrototypeSeatNo[] = [1, 4, 3, 2];
 const OKEY_PROTOTYPE_RACK_SLOT_COLUMNS = 16;
@@ -6098,24 +6099,34 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   ]);
 
   useEffect(() => {
-    if (!okeyPrototypeHandDrawn) return;
+    if (!okeyPrototypeHandCompleted) return;
     if (!okeyPrototypeGameStarted) return;
     if (!okeyPrototypeSeatReservation) return;
-    if (okeyPrototypeSessionHandNo >= OKEY_PROTOTYPE_SET_HAND_TARGET) return;
-    const handKey = `${okeyPrototypeSessionHandNo}-${okeyPrototypeDrawHandCount}`;
+    const setCompleted = okeyPrototypeSessionHandNo >= OKEY_PROTOTYPE_SET_HAND_TARGET;
+    const outcomeKey = okeyPrototypeHandDrawn
+      ? `draw-${okeyPrototypeDrawHandCount}`
+      : `win-${okeyPrototypeWinnerSeat ?? 0}`;
+    const handKey = `${okeyPrototypeSessionHandNo}-${outcomeKey}-${setCompleted ? "set" : "hand"}`;
     if (okeyPrototypeAutoNextDrawHandKeyRef.current === handKey) return;
     okeyPrototypeAutoNextDrawHandKeyRef.current = handKey;
+    const delayMs = setCompleted ? OKEY_PROTOTYPE_AUTO_NEXT_SET_DELAY_MS : OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS;
     const timer = window.setTimeout(() => {
       startNewOkeyPrototypeHand();
-      appendOkeyPrototypeAction("Kapali deste bittigi icin yeni el otomatik baslatildi.");
-    }, OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS);
+      appendOkeyPrototypeAction(
+        setCompleted
+          ? "Set tamamlandi, yeni set otomatik baslatildi."
+          : "El tamamlandi, yeni el otomatik baslatildi.",
+      );
+    }, delayMs);
     return () => window.clearTimeout(timer);
   }, [
     okeyPrototypeDrawHandCount,
     okeyPrototypeGameStarted,
+    okeyPrototypeHandCompleted,
     okeyPrototypeHandDrawn,
     okeyPrototypeSeatReservation,
     okeyPrototypeSessionHandNo,
+    okeyPrototypeWinnerSeat,
   ]);
 
   useEffect(() => {
@@ -6149,7 +6160,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       `${OKEY_PROTOTYPE_SET_HAND_TARGET} ellik set tamamlandi. En dusuk ceza ${bestPenalty}. Kazanan: ${winnerText}.`,
     );
     appendOkeyPrototypeAction(`Set siralamasi: ${rankingText}`);
-    appendOkeyPrototypeAction(`Kaybedenler: ${loserText}. Yeni set icin Yeni Oyun butonunu kullan.`);
+    appendOkeyPrototypeAction(`Kaybedenler: ${loserText}. Yeni set otomatik olarak baslayacak.`);
     setOkeyPrototypeLastHandSummary(
       `Set tamamlandi (${OKEY_PROTOTYPE_SET_HAND_TARGET} el). Kazanan: ${winnerText}. En dusuk ceza: ${bestPenalty}.`,
     );
