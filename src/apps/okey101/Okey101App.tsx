@@ -5623,6 +5623,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeAppliedLiveActionIdRef = useRef("");
   const okeyPrototypeAppliedLiveActionRef = useRef<OkeyPrototypeLiveAction | null>(null);
   const okeyPrototypeAutoNextDrawHandKeyRef = useRef("");
+  const okeyPrototypeAutoNextHandTimerRef = useRef<number | null>(null);
   const okeyPrototypeSetSummaryHandKeyRef = useRef("");
   const okeyPrototypeTurnPhaseSelfHealKeyRef = useRef("");
   const flowEventSeqRef = useRef(0);
@@ -6094,18 +6095,46 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   ]);
 
   useEffect(() => {
-    if (!okeyPrototypeHandCompleted) return;
-    if (!okeyPrototypeGameStarted) return;
-    if (!okeyPrototypeSeatReservation) return;
+    const clearAutoNextTimer = () => {
+      if (okeyPrototypeAutoNextHandTimerRef.current === null) return;
+      window.clearTimeout(okeyPrototypeAutoNextHandTimerRef.current);
+      okeyPrototypeAutoNextHandTimerRef.current = null;
+    };
+    if (!okeyPrototypeHandCompleted || !okeyPrototypeGameStarted || !okeyPrototypeSeatReservation) {
+      clearAutoNextTimer();
+      okeyPrototypeAutoNextDrawHandKeyRef.current = "";
+      return;
+    }
+    const joinedTable = okeyPrototypeJoinedTable;
+    const onlineTable = Boolean(joinedTable && !isOkeyPrototypeLocalBotTableId(joinedTable.id));
+    const localSeatNo = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
+    const localSeatUserId = sanitizeGuestId(joinedTable?.seats[localSeatNo]?.userId ?? "");
+    const localIsOwner = Boolean(
+      joinedTable
+      && localSeatUserId
+      && sanitizeGuestId(joinedTable.ownerUserId) === localSeatUserId,
+    );
+    if (onlineTable && !localIsOwner) {
+      clearAutoNextTimer();
+      okeyPrototypeAutoNextDrawHandKeyRef.current = "";
+      return;
+    }
     const setCompleted = okeyPrototypeSessionHandNo >= OKEY_PROTOTYPE_SET_HAND_TARGET;
     const outcomeKey = okeyPrototypeHandDrawn
       ? `draw-${okeyPrototypeDrawHandCount}`
       : `win-${okeyPrototypeWinnerSeat ?? 0}`;
     const handKey = `${okeyPrototypeSessionHandNo}-${outcomeKey}-${setCompleted ? "set" : "hand"}`;
-    if (okeyPrototypeAutoNextDrawHandKeyRef.current === handKey) return;
+    if (
+      okeyPrototypeAutoNextDrawHandKeyRef.current === handKey
+      && okeyPrototypeAutoNextHandTimerRef.current !== null
+    ) {
+      return;
+    }
+    clearAutoNextTimer();
     okeyPrototypeAutoNextDrawHandKeyRef.current = handKey;
     const delayMs = setCompleted ? OKEY_PROTOTYPE_AUTO_NEXT_SET_DELAY_MS : OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS;
-    const timer = window.setTimeout(() => {
+    okeyPrototypeAutoNextHandTimerRef.current = window.setTimeout(() => {
+      okeyPrototypeAutoNextHandTimerRef.current = null;
       startNewOkeyPrototypeHand();
       appendOkeyPrototypeAction(
         setCompleted
@@ -6113,16 +6142,22 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
           : "El tamamlandi, yeni el otomatik baslatildi.",
       );
     }, delayMs);
-    return () => window.clearTimeout(timer);
   }, [
     okeyPrototypeDrawHandCount,
     okeyPrototypeGameStarted,
     okeyPrototypeHandCompleted,
     okeyPrototypeHandDrawn,
+    okeyPrototypeJoinedTable,
     okeyPrototypeSeatReservation,
     okeyPrototypeSessionHandNo,
     okeyPrototypeWinnerSeat,
   ]);
+
+  useEffect(() => () => {
+    if (okeyPrototypeAutoNextHandTimerRef.current === null) return;
+    window.clearTimeout(okeyPrototypeAutoNextHandTimerRef.current);
+    okeyPrototypeAutoNextHandTimerRef.current = null;
+  }, []);
 
   useEffect(() => {
     if (!okeyPrototypeHandCompleted) return;
@@ -9065,6 +9100,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function resetOkeyPrototypeSeatSessionState() {
+    if (okeyPrototypeAutoNextHandTimerRef.current !== null) {
+      window.clearTimeout(okeyPrototypeAutoNextHandTimerRef.current);
+      okeyPrototypeAutoNextHandTimerRef.current = null;
+    }
     okeyPrototypeLastStartedTableKeyRef.current = "";
     okeyPrototypeLastStableTurnSeatsRef.current = [];
     okeyPrototypePublishedLiveActionIdRef.current = "";
@@ -9688,6 +9727,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     seed = Date.now(),
     activeSeats: readonly OkeyPrototypeSeatNo[] = OKEY_PROTOTYPE_SEATS,
   ) {
+    if (okeyPrototypeAutoNextHandTimerRef.current !== null) {
+      window.clearTimeout(okeyPrototypeAutoNextHandTimerRef.current);
+      okeyPrototypeAutoNextHandTimerRef.current = null;
+    }
     const normalizedActiveSeats = sortOkeyPrototypeSeatsCounterClockwise(activeSeats);
     okeyPrototypeLastStableTurnSeatsRef.current = normalizedActiveSeats.length >= 2
       ? normalizedActiveSeats
@@ -10522,7 +10565,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (attachableDiscardPenalty > 0) {
       appendOkeyPrototypeAction(`Ek kural cezasi uygulandi: K${seatNo} +${attachableDiscardPenalty}.`);
     }
-    appendOkeyPrototypeAction("Yeni el icin 'Yeni El Baslat' butonunu kullan.");
+    appendOkeyPrototypeAction("Yeni el otomatik olarak baslayacak.");
   }
 
   function openOkeyPrototypeMeldGroups(
@@ -11166,7 +11209,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       if (attachableDiscardPenalty > 0) {
         appendOkeyPrototypeAction(`Ek kural cezasi uygulandi: K${seatNo} +${attachableDiscardPenalty}.`);
       }
-      appendOkeyPrototypeAction("Yeni el icin 'Yeni El Baslat' butonunu kullan.");
+      appendOkeyPrototypeAction("Yeni el otomatik olarak baslayacak.");
       return;
     }
     if (shouldFinishByFinalWallDraw) {
@@ -11265,6 +11308,46 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const safeIndex = currentFirstSeatIndex >= 0 ? currentFirstSeatIndex : 0;
       nextFirstSeat = activeSeats[(safeIndex + 1) % activeSeats.length] ?? activeSeats[0] ?? baseSeat;
     }
+    const joinedTable = okeyPrototypeJoinedTable;
+    const onlineTable = Boolean(joinedTable && !isOkeyPrototypeLocalBotTableId(joinedTable.id));
+    const localSeatUserId = sanitizeGuestId(joinedTable?.seats[baseSeat]?.userId ?? "");
+    const localIsTableOwner = Boolean(
+      joinedTable
+      && localSeatUserId
+      && sanitizeGuestId(joinedTable.ownerUserId) === localSeatUserId,
+    );
+    if (onlineTable && !localIsTableOwner) {
+      appendOkeyPrototypeAction("Yeni el bekleniyor: Masa sahibi otomatik baslatacak.");
+      return;
+    }
+    let nextDealSeed = Date.now();
+    if (joinedTable && onlineTable) {
+      const roomId = joinedTable.roomId;
+      const tableId = joinedTable.id;
+      const currentSeed = nextDealSeed;
+      updateOkeyPrototypeTablesByRoom((current) => {
+        const roomTables = current[roomId] ?? [];
+        const tableIndex = roomTables.findIndex((table) => table.id === tableId);
+        if (tableIndex < 0) return current;
+        const table = roomTables[tableIndex];
+        if (!table) return current;
+        const synchronizedSeed = Math.max(currentSeed, (table.startedAt ?? 0) + 1);
+        nextDealSeed = synchronizedSeed;
+        const nextTable: OkeyPrototypeLobbyTableState = {
+          ...table,
+          startedAt: synchronizedSeed,
+          updatedAt: synchronizedSeed,
+          liveAction: null,
+        };
+        const nextRoomTables = roomTables.slice();
+        nextRoomTables[tableIndex] = nextTable;
+        return {
+          ...current,
+          [roomId]: nextRoomTables,
+        };
+      });
+      okeyPrototypeLastStartedTableKeyRef.current = `${tableId}:${nextDealSeed}`;
+    }
     const setCompleted = okeyPrototypeSessionHandNo >= OKEY_PROTOTYPE_SET_HAND_TARGET;
     if (setCompleted) {
       setOkeyPrototypeSessionHandNo(1);
@@ -11272,12 +11355,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
       setOkeyPrototypeDrawHandCount(0);
       setOkeyPrototypeLastHandSummary("");
-      applyOkeyPrototypeDeal(nextFirstSeat, Date.now(), activeSeats);
+      applyOkeyPrototypeDeal(nextFirstSeat, nextDealSeed, activeSeats);
       appendOkeyPrototypeAction(`Yeni set baslatildi (${OKEY_PROTOTYPE_SET_HAND_TARGET} el): Koltuk ${nextFirstSeat} basliyor.`);
       return;
     }
     setOkeyPrototypeSessionHandNo((current) => current + 1);
-    applyOkeyPrototypeDeal(nextFirstSeat, Date.now(), activeSeats);
+    applyOkeyPrototypeDeal(nextFirstSeat, nextDealSeed, activeSeats);
     appendOkeyPrototypeAction(`Yeni el baslatildi: Koltuk ${nextFirstSeat} basliyor.`);
   }
 
