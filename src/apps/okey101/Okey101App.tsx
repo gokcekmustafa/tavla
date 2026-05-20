@@ -3980,8 +3980,11 @@ function compareOkeyPrototypeLiveActionRecency(
   occupiedSeatNos: readonly OkeyPrototypeSeatNo[],
 ) {
   void occupiedSeatNos;
-  const leftRound = Math.max(1, normalizeNonNegativeInt(left.discardEntry.round, left.nextRound));
-  const rightRound = Math.max(1, normalizeNonNegativeInt(right.discardEntry.round, right.nextRound));
+  // Aksiyon siralamasinda "hamlenin atildigi el" esas alinmali.
+  // nextRound degeri, tur K2->K1 donusunde bir sonraki eli gosterdigi icin
+  // onceki hamleyi yanlislikla daha yeni gosterebilir.
+  const leftRound = Math.max(1, normalizeNonNegativeInt(left.discardEntry.round, 1));
+  const rightRound = Math.max(1, normalizeNonNegativeInt(right.discardEntry.round, 1));
   if (leftRound !== rightRound) return leftRound - rightRound;
   // Tur recency hesabinda oyuncu baglantisi dalgalansa bile (koltuk listesi gecici eksik gelse bile)
   // sabit masa yonunu kullan. Aksi halde karsilastirma timestamp'e duser ve saat kaymasi rollback yaratir.
@@ -6052,9 +6055,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     );
     const currentRackCount = okeyPrototypeTurnRackTiles.length;
     let nextPhase: OkeyPrototypeTurnPhase | null = null;
-    if (okeyPrototypeTurnPhase === "draw" && currentRackCount === expectedBeforeDraw + 1) {
+    if (okeyPrototypeTurnPhase === "draw" && currentRackCount > expectedBeforeDraw) {
       nextPhase = "discard";
-    } else if (okeyPrototypeTurnPhase === "discard" && currentRackCount === expectedBeforeDraw) {
+    } else if (okeyPrototypeTurnPhase === "discard" && currentRackCount <= expectedBeforeDraw) {
       nextPhase = "draw";
     }
     if (!nextPhase || nextPhase === okeyPrototypeTurnPhase) return;
