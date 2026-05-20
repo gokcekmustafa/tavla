@@ -3974,6 +3974,32 @@ function mergeOkeyPrototypeSeatState(
   return incomingJoinedAt > baseJoinedAt ? incomingSeat : baseSeat;
 }
 
+function compareOkeyPrototypeLiveActionRecency(
+  left: OkeyPrototypeLiveAction,
+  right: OkeyPrototypeLiveAction,
+  occupiedSeatNos: OkeyPrototypeSeatNo[],
+) {
+  const leftRound = Math.max(1, normalizeNonNegativeInt(left.discardEntry.round, left.nextRound));
+  const rightRound = Math.max(1, normalizeNonNegativeInt(right.discardEntry.round, right.nextRound));
+  if (leftRound !== rightRound) return leftRound - rightRound;
+  const orderedSeats = sortOkeyPrototypeSeatsCounterClockwise(
+    occupiedSeatNos.length > 0 ? occupiedSeatNos : OKEY_PROTOTYPE_SEATS,
+  );
+  const leftSeatIndex = orderedSeats.findIndex((seatNo) => seatNo === left.actorSeatNo);
+  const rightSeatIndex = orderedSeats.findIndex((seatNo) => seatNo === right.actorSeatNo);
+  if (leftSeatIndex >= 0 && rightSeatIndex >= 0 && leftSeatIndex !== rightSeatIndex) {
+    return leftSeatIndex - rightSeatIndex;
+  }
+  if (left.nextRound !== right.nextRound) return left.nextRound - right.nextRound;
+  const leftNextSeatIndex = orderedSeats.findIndex((seatNo) => seatNo === left.nextSeatNo);
+  const rightNextSeatIndex = orderedSeats.findIndex((seatNo) => seatNo === right.nextSeatNo);
+  if (leftNextSeatIndex >= 0 && rightNextSeatIndex >= 0 && leftNextSeatIndex !== rightNextSeatIndex) {
+    return leftNextSeatIndex - rightNextSeatIndex;
+  }
+  if (left.at !== right.at) return left.at - right.at;
+  return left.id.localeCompare(right.id);
+}
+
 function mergeOkeyPrototypeTableState(
   base: OkeyPrototypeLobbyTableState,
   incoming: OkeyPrototypeLobbyTableState,
@@ -4024,10 +4050,12 @@ function mergeOkeyPrototypeTableState(
   const mergedLiveAction = (() => {
     if (!baseLiveAction) return incomingLiveAction;
     if (!incomingLiveAction) return baseLiveAction;
-    if (incomingLiveAction.at === baseLiveAction.at) {
-      return incomingLiveAction.id >= baseLiveAction.id ? incomingLiveAction : baseLiveAction;
-    }
-    return incomingLiveAction.at > baseLiveAction.at ? incomingLiveAction : baseLiveAction;
+    const comparison = compareOkeyPrototypeLiveActionRecency(
+      incomingLiveAction,
+      baseLiveAction,
+      occupiedSeatNos,
+    );
+    return comparison >= 0 ? incomingLiveAction : baseLiveAction;
   })();
 
   return normalizeOkeyPrototypeLobbyTable({
