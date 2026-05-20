@@ -3977,14 +3977,15 @@ function mergeOkeyPrototypeSeatState(
 function compareOkeyPrototypeLiveActionRecency(
   left: OkeyPrototypeLiveAction,
   right: OkeyPrototypeLiveAction,
-  occupiedSeatNos: OkeyPrototypeSeatNo[],
+  occupiedSeatNos: readonly OkeyPrototypeSeatNo[],
 ) {
+  void occupiedSeatNos;
   const leftRound = Math.max(1, normalizeNonNegativeInt(left.discardEntry.round, left.nextRound));
   const rightRound = Math.max(1, normalizeNonNegativeInt(right.discardEntry.round, right.nextRound));
   if (leftRound !== rightRound) return leftRound - rightRound;
-  const orderedSeats = sortOkeyPrototypeSeatsCounterClockwise(
-    occupiedSeatNos.length > 0 ? occupiedSeatNos : OKEY_PROTOTYPE_SEATS,
-  );
+  // Tur recency hesabinda oyuncu baglantisi dalgalansa bile (koltuk listesi gecici eksik gelse bile)
+  // sabit masa yonunu kullan. Aksi halde karsilastirma timestamp'e duser ve saat kaymasi rollback yaratir.
+  const orderedSeats = sortOkeyPrototypeSeatsCounterClockwise(OKEY_PROTOTYPE_SEATS);
   const leftSeatIndex = orderedSeats.findIndex((seatNo) => seatNo === left.actorSeatNo);
   const rightSeatIndex = orderedSeats.findIndex((seatNo) => seatNo === right.actorSeatNo);
   if (leftSeatIndex >= 0 && rightSeatIndex >= 0 && leftSeatIndex !== rightSeatIndex) {
@@ -5611,6 +5612,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeDiscardArrivalLastIdRef = useRef("");
   const okeyPrototypePublishedLiveActionIdRef = useRef("");
   const okeyPrototypeAppliedLiveActionIdRef = useRef("");
+  const okeyPrototypeAppliedLiveActionRef = useRef<OkeyPrototypeLiveAction | null>(null);
   const okeyPrototypeAutoNextDrawHandKeyRef = useRef("");
   const okeyPrototypeSetSummaryHandKeyRef = useRef("");
   const okeyPrototypeTurnPhaseSelfHealKeyRef = useRef("");
@@ -5782,8 +5784,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (isOkeyPrototypeLocalBotTableId(okeyPrototypeJoinedTable.id)) return;
     const liveAction = normalizeOkeyPrototypeLiveAction(okeyPrototypeJoinedTable.liveAction);
     if (!liveAction) return;
+    const lastAppliedLiveAction = okeyPrototypeAppliedLiveActionRef.current;
+    if (lastAppliedLiveAction) {
+      const recency = compareOkeyPrototypeLiveActionRecency(
+        liveAction,
+        lastAppliedLiveAction,
+        OKEY_PROTOTYPE_SEATS,
+      );
+      if (recency < 0) return;
+      if (recency === 0 && liveAction.id === lastAppliedLiveAction.id) return;
+    }
     if (liveAction.id === okeyPrototypeAppliedLiveActionIdRef.current) return;
     okeyPrototypeAppliedLiveActionIdRef.current = liveAction.id;
+    okeyPrototypeAppliedLiveActionRef.current = liveAction;
     if (liveAction.id === okeyPrototypePublishedLiveActionIdRef.current) return;
 
     if (liveAction.publicDiscardPile && liveAction.publicDiscardPile.length > 0) {
@@ -6256,6 +6269,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       isMember: Boolean(member),
     };
   }, [member, safeGuestName, guestProfile.userId, guestProfile.gender, guestProfile.avatarId, guestProfile.points, guestProfile.stats]);
+  const currentProfileStatsSignature = useMemo(() => {
+    const stats = normalizeStats(currentProfile.stats);
+    return `${stats.gamesPlayed}|${stats.wins}|${stats.losses}|${stats.resigns}`;
+  }, [
+    currentProfile.stats.gamesPlayed,
+    currentProfile.stats.wins,
+    currentProfile.stats.losses,
+    currentProfile.stats.resigns,
+  ]);
 
   const isRoomMode = Boolean(roomSession);
 
@@ -9028,6 +9050,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   function resetOkeyPrototypeSeatSessionState() {
     okeyPrototypeLastStartedTableKeyRef.current = "";
     okeyPrototypeLastStableTurnSeatsRef.current = [];
+    okeyPrototypePublishedLiveActionIdRef.current = "";
+    okeyPrototypeAppliedLiveActionIdRef.current = "";
+    okeyPrototypeAppliedLiveActionRef.current = null;
+    okeyPrototypeAutoNextDrawHandKeyRef.current = "";
+    okeyPrototypeSetSummaryHandKeyRef.current = "";
     setOkeyPrototypeSeatReservation(null);
     setOkeyPrototypeLocalBotTable(null);
     setOkeyPrototypeTurnSeat(1);
@@ -9649,6 +9676,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       : [];
     okeyPrototypePublishedLiveActionIdRef.current = "";
     okeyPrototypeAppliedLiveActionIdRef.current = "";
+    okeyPrototypeAppliedLiveActionRef.current = null;
     okeyPrototypeAutoNextDrawHandKeyRef.current = "";
     okeyPrototypeSetSummaryHandKeyRef.current = "";
     const deal = createOkeyPrototypeDealState(seed, firstSeat, activeSeats);
@@ -9766,6 +9794,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (!safeAction) return;
     okeyPrototypePublishedLiveActionIdRef.current = safeAction.id;
     okeyPrototypeAppliedLiveActionIdRef.current = safeAction.id;
+    okeyPrototypeAppliedLiveActionRef.current = safeAction;
     updateOkeyPrototypeTablesByRoom((current) => {
       const roomId = okeyPrototypeJoinedTable.roomId;
       const roomTables = current[roomId] ?? [];
@@ -14404,7 +14433,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     currentProfile.gender,
     currentProfile.avatarId,
     currentProfile.points,
-    currentProfile.stats,
+    currentProfileStatsSignature,
     appSessionId,
   ]);
 
@@ -14565,7 +14594,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }, [roomSession, currentRoomTable]);
 
   useEffect(() => {
-    syncLobbyPresence(true);
+    syncLobbyPresence(false);
     const timer = window.setInterval(() => syncLobbyPresence(false), HEARTBEAT_MS);
     return () => window.clearInterval(timer);
   }, [
@@ -14576,9 +14605,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     currentProfile.gender,
     currentProfile.avatarId,
     currentProfile.points,
-    currentProfile.stats,
-    member,
-    lobbyState.guestLabels,
+    currentProfileStatsSignature,
+    currentProfile.isMember,
     guestId,
     activeLobbyId,
     activeLobbyStorageKey,
