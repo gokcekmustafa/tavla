@@ -5269,11 +5269,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   );
   const okeyPrototypeCanDrawTile = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
-    && okeyPrototypeTurnRackTiles.length === okeyPrototypeTurnExpectedRackCountBeforeDraw
+    && okeyPrototypeTurnRackTiles.length <= okeyPrototypeTurnExpectedRackCountBeforeDraw
     && okeyPrototypeDrawPileRemaining > 0;
   const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "draw"
-    && okeyPrototypeTurnRackTiles.length === okeyPrototypeTurnExpectedRackCountBeforeDraw
+    && okeyPrototypeTurnRackTiles.length <= okeyPrototypeTurnExpectedRackCountBeforeDraw
     && okeyPrototypeDrawPileRemaining > 0
     && (okeyPrototypeCurrentSeatOpened || okeyPrototypeCanTakeDiscardWhenClosed)
     && Boolean(okeyPrototypeTakeableDiscardEntry);
@@ -10890,8 +10890,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     const currentRack = okeyPrototypeRackState[seatNo] ?? [];
-    if (currentRack.length !== okeyPrototypeTurnExpectedRackCountBeforeDraw) {
-      appendOkeyPrototypeAction(`Gecersiz hamle: Tas cekmek icin rafta ${okeyPrototypeTurnExpectedRackCountBeforeDraw} tas olmali (su an ${currentRack.length}).`);
+    if (currentRack.length > okeyPrototypeTurnExpectedRackCountBeforeDraw) {
+      appendOkeyPrototypeAction(`Gecersiz hamle: Once tas atmalisin (rafta ${currentRack.length} tas var).`);
       return;
     }
     const tile = topWallTile;
@@ -10967,6 +10967,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         );
         return;
       }
+    }
+    if (okeyPrototypeTurnRackTiles.length > okeyPrototypeTurnExpectedRackCountBeforeDraw) {
+      appendOkeyPrototypeAction("Gecersiz hamle: Ortadan tas almadan once tas atmalisin.");
+      return;
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     const tile = {
