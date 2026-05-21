@@ -10480,6 +10480,38 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     return Math.max(0, Math.trunc(penalty));
   }
 
+  function queueOkeyPrototypeAutoNextHand(outcomeKey: string) {
+    if (!okeyPrototypeSeatReservation) return;
+    const setCompleted = okeyPrototypeSessionHandNo >= OKEY_PROTOTYPE_SET_HAND_TARGET;
+    const handKey = `${okeyPrototypeSessionHandNo}-${outcomeKey}-${setCompleted ? "set" : "hand"}`;
+    if (
+      okeyPrototypeAutoNextDrawHandKeyRef.current === handKey
+      && okeyPrototypeAutoNextHandTimerRef.current !== null
+    ) {
+      return;
+    }
+    if (okeyPrototypeAutoNextHandTimerRef.current !== null) {
+      window.clearTimeout(okeyPrototypeAutoNextHandTimerRef.current);
+      okeyPrototypeAutoNextHandTimerRef.current = null;
+    }
+    okeyPrototypeAutoNextDrawHandKeyRef.current = handKey;
+    const delayMs = setCompleted ? OKEY_PROTOTYPE_AUTO_NEXT_SET_DELAY_MS : OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS;
+    appendOkeyPrototypeAction(
+      setCompleted
+        ? "Set tamamlandi: otomatik yeni set zamanlandi."
+        : "El tamamlandi: otomatik yeni el zamanlandi.",
+    );
+    okeyPrototypeAutoNextHandTimerRef.current = window.setTimeout(() => {
+      okeyPrototypeAutoNextHandTimerRef.current = null;
+      startNewOkeyPrototypeHand();
+      appendOkeyPrototypeAction(
+        setCompleted
+          ? "Set tamamlandi, yeni set otomatik baslatildi."
+          : "El tamamlandi, yeni el otomatik baslatildi.",
+      );
+    }, delayMs);
+  }
+
   function finishOkeyPrototypeHandAsDraw(
     reason: string,
     rackStateOverride?: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeTile[]>>,
@@ -10510,6 +10542,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       `${reason} El berabere bitti. Acmayan oyunculara ${OKEY_PROTOTYPE_UNOPENED_PENALTY_POINTS}, `
       + "acanlara elde kalan tas puani yazildi.",
     );
+    queueOkeyPrototypeAutoNextHand(`draw-${okeyPrototypeDrawHandCount + 1}`);
   }
 
   function finishOkeyPrototypeHandWithFinalDiscard(
@@ -10581,6 +10614,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       appendOkeyPrototypeAction(`Ek kural cezasi uygulandi: K${seatNo} +${attachableDiscardPenalty}.`);
     }
     appendOkeyPrototypeAction("Yeni el otomatik olarak baslayacak.");
+    queueOkeyPrototypeAutoNextHand(`win-${seatNo}`);
   }
 
   function openOkeyPrototypeMeldGroups(
@@ -11225,6 +11259,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         appendOkeyPrototypeAction(`Ek kural cezasi uygulandi: K${seatNo} +${attachableDiscardPenalty}.`);
       }
       appendOkeyPrototypeAction("Yeni el otomatik olarak baslayacak.");
+      queueOkeyPrototypeAutoNextHand(`win-${seatNo}`);
       return;
     }
     if (shouldFinishByFinalWallDraw) {
