@@ -6100,7 +6100,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       window.clearTimeout(okeyPrototypeAutoNextHandTimerRef.current);
       okeyPrototypeAutoNextHandTimerRef.current = null;
     };
-    if (!okeyPrototypeHandCompleted || !okeyPrototypeGameStarted || !okeyPrototypeSeatReservation) {
+    if (!okeyPrototypeHandCompleted || !okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) {
       clearAutoNextTimer();
       okeyPrototypeAutoNextDrawHandKeyRef.current = "";
       return;
@@ -6109,12 +6109,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const onlineTable = Boolean(joinedTable && !isOkeyPrototypeLocalBotTableId(joinedTable.id));
     const localSeatNo = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
     const localSeatUserId = sanitizeGuestId(joinedTable?.seats[localSeatNo]?.userId ?? "");
+    const tableOwnerUserId = sanitizeGuestId(joinedTable?.ownerUserId ?? "");
     const localIsOwner = Boolean(
       joinedTable
       && localSeatUserId
-      && sanitizeGuestId(joinedTable.ownerUserId) === localSeatUserId,
+      && tableOwnerUserId
+      && tableOwnerUserId === localSeatUserId,
     );
-    if (onlineTable && !localIsOwner) {
+    const canValidateOwner = Boolean(localSeatUserId && tableOwnerUserId);
+    if (onlineTable && canValidateOwner && !localIsOwner) {
       clearAutoNextTimer();
       okeyPrototypeAutoNextDrawHandKeyRef.current = "";
       return;
@@ -6144,7 +6147,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }, delayMs);
   }, [
     okeyPrototypeDrawHandCount,
-    okeyPrototypeGameStarted,
     okeyPrototypeHandCompleted,
     okeyPrototypeHandDrawn,
     okeyPrototypeJoinedTable,
@@ -11292,8 +11294,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function startNewOkeyPrototypeHand() {
     if (!okeyPrototypeSeatReservation) return;
-    if (!okeyPrototypeGameStarted) {
-      appendOkeyPrototypeAction("Yeni el icin once masayi baslatmalisin.");
+    if (!okeyPrototypeJoinedTable) {
+      appendOkeyPrototypeAction("Yeni el icin once masaya oturmalisin.");
       return;
     }
     const baseSeat = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
@@ -11311,12 +11313,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const joinedTable = okeyPrototypeJoinedTable;
     const onlineTable = Boolean(joinedTable && !isOkeyPrototypeLocalBotTableId(joinedTable.id));
     const localSeatUserId = sanitizeGuestId(joinedTable?.seats[baseSeat]?.userId ?? "");
+    const tableOwnerUserId = sanitizeGuestId(joinedTable?.ownerUserId ?? "");
     const localIsTableOwner = Boolean(
       joinedTable
       && localSeatUserId
-      && sanitizeGuestId(joinedTable.ownerUserId) === localSeatUserId,
+      && tableOwnerUserId
+      && tableOwnerUserId === localSeatUserId,
     );
-    if (onlineTable && !localIsTableOwner) {
+    const canValidateOwner = Boolean(localSeatUserId && tableOwnerUserId);
+    if (onlineTable && canValidateOwner && !localIsTableOwner) {
       appendOkeyPrototypeAction("Yeni el bekleniyor: Masa sahibi otomatik baslatacak.");
       return;
     }
