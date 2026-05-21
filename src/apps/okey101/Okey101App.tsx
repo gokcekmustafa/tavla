@@ -10455,6 +10455,16 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function queueOkeyPrototypeAutoNextHand(outcomeKey: string) {
     if (!okeyPrototypeSeatReservation) return;
+    if (okeyPrototypeJoinedTable && !isOkeyPrototypeLocalBotTableId(okeyPrototypeJoinedTable.id)) {
+      const onlineSeats = getOkeyLobbyOccupiedSeatNos(okeyPrototypeJoinedTable);
+      const ownerSeat = onlineSeats.find(
+        (seatNo) => sanitizeGuestId(okeyPrototypeJoinedTable.seats[seatNo]?.userId ?? "") === sanitizeGuestId(okeyPrototypeJoinedTable.ownerUserId ?? ""),
+      ) ?? onlineSeats[0] ?? null;
+      if (ownerSeat && ownerSeat !== (okeyPrototypeSeatReservation.seatNo as OkeyPrototypeSeatNo)) {
+        appendOkeyPrototypeAction("El tamamlandi: yeni el masa sahibi tarafindan baslatilacak.");
+        return;
+      }
+    }
     const setCompleted = okeyPrototypeSessionHandNo >= OKEY_PROTOTYPE_SET_HAND_TARGET;
     const handKey = `${okeyPrototypeSessionHandNo}-${outcomeKey}-${setCompleted ? "set" : "hand"}`;
     if (
@@ -11316,19 +11326,34 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   function startNewOkeyPrototypeHand() {
     if (!okeyPrototypeSeatReservation) return;
     const baseSeat = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
-    const activeSeats = okeyPrototypeActiveTurnSeats.length > 0
-      ? okeyPrototypeActiveTurnSeats
-      : [baseSeat];
-    let nextFirstSeat: OkeyPrototypeSeatNo = baseSeat;
-    if (okeyPrototypeWinnerSeat && activeSeats.includes(okeyPrototypeWinnerSeat)) {
-      nextFirstSeat = okeyPrototypeWinnerSeat;
-    } else {
-      const currentFirstSeatIndex = activeSeats.findIndex((seatNo) => seatNo === okeyPrototypeHandFirstSeat);
-      const safeIndex = currentFirstSeatIndex >= 0 ? currentFirstSeatIndex : 0;
-      nextFirstSeat = activeSeats[(safeIndex + 1) % activeSeats.length] ?? activeSeats[0] ?? baseSeat;
-    }
     const joinedTable = okeyPrototypeJoinedTable;
     const onlineTable = Boolean(joinedTable && !isOkeyPrototypeLocalBotTableId(joinedTable.id));
+    const occupiedSeats = joinedTable
+      ? sortOkeyPrototypeSeatsCounterClockwise(getOkeyLobbyOccupiedSeatNos(joinedTable))
+      : [];
+    const dealSeats = occupiedSeats.length > 0
+      ? occupiedSeats
+      : (
+        okeyPrototypeActiveTurnSeats.length > 0
+          ? okeyPrototypeActiveTurnSeats
+          : [baseSeat]
+      );
+    if (onlineTable) {
+      const ownerSeat = dealSeats.find(
+        (seatNo) => sanitizeGuestId(joinedTable?.seats[seatNo]?.userId ?? "") === sanitizeGuestId(joinedTable?.ownerUserId ?? ""),
+      ) ?? dealSeats[0] ?? null;
+      if (ownerSeat && ownerSeat !== baseSeat) {
+        appendOkeyPrototypeAction("Yeni el bekleniyor: masa sahibi baslatacak.");
+        return;
+      }
+    }
+    const activeSeats = dealSeats.length > 0
+      ? dealSeats
+      : [baseSeat];
+    let nextFirstSeat: OkeyPrototypeSeatNo = baseSeat;
+    const currentFirstSeatIndex = activeSeats.findIndex((seatNo) => seatNo === okeyPrototypeHandFirstSeat);
+    const safeIndex = currentFirstSeatIndex >= 0 ? currentFirstSeatIndex : 0;
+    nextFirstSeat = activeSeats[(safeIndex + 1) % activeSeats.length] ?? activeSeats[0] ?? baseSeat;
     let nextDealSeed = Date.now();
     if (joinedTable && onlineTable) {
       const roomId = joinedTable.roomId;
