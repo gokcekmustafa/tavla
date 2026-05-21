@@ -1006,14 +1006,14 @@ function buildOkeyPrototypeBestOpeningArrangement(
     normalBucketsByColor.set(color, new Map<number, OkeyPrototypeTile[]>());
   });
   normalTiles.forEach((tile) => {
-    if (tile.kind !== "normal") return;
-    const color = tile.color as OkeyPrototypeNormalColor;
-    const colorBuckets = normalBucketsByColor.get(color);
+    const ruleFace = getOkeyPrototypeTileRuleFace(tile, okeyTile);
+    if (!ruleFace) return;
+    const colorBuckets = normalBucketsByColor.get(ruleFace.color);
     if (!colorBuckets) return;
-    const valueBucket = colorBuckets.get(tile.value) ?? [];
+    const valueBucket = colorBuckets.get(ruleFace.value) ?? [];
     valueBucket.push(tile);
     valueBucket.sort((left, right) => left.id.localeCompare(right.id));
-    colorBuckets.set(tile.value, valueBucket);
+    colorBuckets.set(ruleFace.value, valueBucket);
   });
 
   OKEY_PROTOTYPE_TILE_COLORS.forEach((color) => {
@@ -1060,7 +1060,7 @@ function buildOkeyPrototypeBestOpeningArrangement(
 
   for (let value = 1; value <= 13; value += 1) {
     const valueNormals = normalTiles
-      .filter((tile) => tile.kind === "normal" && tile.value === value)
+      .filter((tile) => (getOkeyPrototypeTileRuleFace(tile, okeyTile)?.value ?? -1) === value)
       .slice()
       .sort((left, right) => left.id.localeCompare(right.id));
     const pool = [...valueNormals, ...jokerTiles];
@@ -1157,8 +1157,9 @@ function buildOkeyPrototypeBestOpeningArrangement(
   if (selectedCandidates.length === 0) return null;
 
   const colorIndexOf = (tile: OkeyPrototypeTile) => {
-    if (tile.kind !== "normal") return Number.POSITIVE_INFINITY;
-    const colorIndex = OKEY_PROTOTYPE_TILE_COLORS.findIndex((color) => color === tile.color);
+    const ruleFace = getOkeyPrototypeTileRuleFace(tile, okeyTile);
+    if (!ruleFace) return Number.POSITIVE_INFINITY;
+    const colorIndex = OKEY_PROTOTYPE_TILE_COLORS.findIndex((color) => color === ruleFace.color);
     return colorIndex >= 0 ? colorIndex : Number.POSITIVE_INFINITY;
   };
 
@@ -1171,7 +1172,9 @@ function buildOkeyPrototypeBestOpeningArrangement(
       return left.tiles[0]?.id.localeCompare(right.tiles[0]?.id ?? "") ?? 0;
     })
     .map((candidate) => candidate.tiles.slice().sort((left, right) => {
-      if (left.value !== right.value) return left.value - right.value;
+      const leftValue = getOkeyPrototypeTileRuleFace(left, okeyTile)?.value ?? left.value;
+      const rightValue = getOkeyPrototypeTileRuleFace(right, okeyTile)?.value ?? right.value;
+      if (leftValue !== rightValue) return leftValue - rightValue;
       const colorDiff = colorIndexOf(left) - colorIndexOf(right);
       if (colorDiff !== 0) return colorDiff;
       return left.id.localeCompare(right.id);
@@ -1287,6 +1290,25 @@ function evaluateOkeyPrototypeMeldDraft(tiles: OkeyPrototypeTile[], okeyTile: Ok
     kind: OkeyPrototypeMeldKind | null;
     reason: string;
   };
+}
+
+function getOkeyPrototypeTileRuleFace(
+  tile: OkeyPrototypeTile,
+  okeyTile: OkeyPrototypeTile | null = null,
+): { color: OkeyPrototypeNormalColor; value: number } | null {
+  if (tile.kind === "normal") {
+    return {
+      color: tile.color as OkeyPrototypeNormalColor,
+      value: tile.value,
+    };
+  }
+  if (tile.kind === "sahte" && okeyTile?.kind === "normal") {
+    return {
+      color: okeyTile.color as OkeyPrototypeNormalColor,
+      value: okeyTile.value,
+    };
+  }
+  return null;
 }
 
 function getOkeyPrototypeMeldPointsWithJokers(tiles: OkeyPrototypeTile[], okeyTile: OkeyPrototypeTile | null = null) {
@@ -11819,6 +11841,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     const seatOpenMode = okeyPrototypeSeatOpenModes[seatNo] ?? "none";
+    const pairHostSeatNo = seatOpenMode === "pair"
+      ? seatNo
+      : (
+        OKEY_PROTOTYPE_SEATS.find((candidateSeatNo) => (
+          (okeyPrototypeSeatOpenedState[candidateSeatNo] ?? false)
+          && (okeyPrototypeSeatOpenModes[candidateSeatNo] ?? "none") === "pair"
+        )) ?? seatNo
+      );
     if (seatOpenMode === "pair" && kind === "seri") {
       appendOkeyPrototypeAction("Cift acan oyuncu bu elde sadece cift isleyebilir.");
       return;
@@ -11909,6 +11939,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
           points: getOkeyPrototypeMeldPointsWithJokers(pairTiles, okeyPrototypeOkeyTile),
         }))
         : [];
+      const openingPairGroups = canOpenPairsOnTable && pairOpenableGroups.length > 0;
       const openableGroups = pairOpenableGroups.length > 0
         ? pairOpenableGroups
         : okeyPrototypeRackValidMeldGroups.filter((group) => {
@@ -11943,7 +11974,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         }
         const meldEntry: OkeyPrototypeMeldEntry = {
           id: `okey-proto-auto-meld-${seatNo}-${now}-${index}-${Math.random().toString(36).slice(2, 7)}`,
-          seatNo,
+          seatNo: openingPairGroups && group.kind === "set" && group.tiles.length === 2
+            ? pairHostSeatNo
+            : seatNo,
           round: okeyPrototypeTurnRound,
           tiles: selectedTiles.slice().sort((left, right) => left.value - right.value),
           kind: group.kind,
