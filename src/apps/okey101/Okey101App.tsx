@@ -559,8 +559,8 @@ const OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS = OKEY_ENGINE_RULES.pairOpenMinPairs;
 const OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS = 101;
 const OKEY_PROTOTYPE_UNOPENED_PENALTY_POINTS = 202;
 const OKEY_PROTOTYPE_SET_HAND_TARGET = 7;
-const OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS = 1_800;
-const OKEY_PROTOTYPE_AUTO_NEXT_SET_DELAY_MS = 2_600;
+const OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS = 5_600;
+const OKEY_PROTOTYPE_AUTO_NEXT_SET_DELAY_MS = 5_600;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = OKEY_ENGINE_RULES.seats as readonly OkeyPrototypeSeatNo[];
 const OKEY_PROTOTYPE_COUNTERCLOCKWISE_SEAT_ORDER: readonly OkeyPrototypeSeatNo[] = [1, 4, 3, 2];
 const OKEY_PROTOTYPE_RACK_SLOT_COLUMNS = 16;
@@ -2900,7 +2900,10 @@ function normalizeOkeyPrototypeLobbyTable(raw: unknown, roomIdFallback: string, 
   });
   const createdAt = Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now();
   const startedAt = Number.isFinite(candidate.startedAt) ? Number(candidate.startedAt) : null;
-  const liveAction = normalizeOkeyPrototypeLiveAction(candidate.liveAction);
+  const normalizedLiveAction = normalizeOkeyPrototypeLiveAction(candidate.liveAction);
+  const liveAction = normalizedLiveAction && startedAt && normalizedLiveAction.at < startedAt
+    ? null
+    : normalizedLiveAction;
   const lastJoinedAt = OKEY_PROTOTYPE_SEATS.reduce((max, seatNo) => {
     const joinedAt = Number(seats[seatNo]?.joinedAt ?? 0);
     return Number.isFinite(joinedAt) ? Math.max(max, joinedAt) : max;
@@ -4062,6 +4065,9 @@ function mergeOkeyPrototypeTableState(
     );
     return comparison >= 0 ? incomingLiveAction : baseLiveAction;
   })();
+  const safeMergedLiveAction = mergedLiveAction && startedAt && mergedLiveAction.at < startedAt
+    ? null
+    : mergedLiveAction;
 
   return normalizeOkeyPrototypeLobbyTable({
     ...preferred,
@@ -4073,7 +4079,7 @@ function mergeOkeyPrototypeTableState(
     ownerUserId: ownerSeat?.userId ?? "",
     ownerSessionId: ownerSeat?.sessionId ?? "",
     startedAt,
-    liveAction: mergedLiveAction ?? null,
+    liveAction: safeMergedLiveAction ?? null,
     updatedAt: Math.max(baseUpdatedAt, incomingUpdatedAt, maxSeatJoinedAt),
   }, preferred.roomId, preferred.tableNo - 1) ?? preferred;
 }
@@ -4558,7 +4564,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setOkeyPrototypeScorePopupVisible(false);
       okeyPrototypeScorePopupTimeoutRef.current = null;
     }, 5600);
-  }, [okeyPrototypeLastHandSummary, okeyPrototypeSeatReservation]);
+  }, [
+    okeyPrototypeLastHandSummary,
+    okeyPrototypeSeatReservation,
+    okeyPrototypeSessionHandNo,
+  ]);
   useEffect(() => {
     if (okeyPrototypeSeatReservation) return;
     setOkeyPrototypeScorePanelOpen(false);
@@ -5819,6 +5829,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (isOkeyPrototypeLocalBotTableId(okeyPrototypeJoinedTable.id)) return;
     const liveAction = normalizeOkeyPrototypeLiveAction(okeyPrototypeJoinedTable.liveAction);
     if (!liveAction) return;
+    const tableStartedAt = Number.isFinite(okeyPrototypeJoinedTable.startedAt)
+      ? Number(okeyPrototypeJoinedTable.startedAt)
+      : 0;
+    if (tableStartedAt > 0 && liveAction.at < tableStartedAt) return;
     const lastAppliedLiveAction = okeyPrototypeAppliedLiveActionRef.current;
     if (lastAppliedLiveAction) {
       const recency = compareOkeyPrototypeLiveActionRecency(
@@ -6120,53 +6134,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   ]);
 
   useEffect(() => {
-    const clearAutoNextTimer = () => {
-      if (okeyPrototypeAutoNextHandTimerRef.current === null) return;
-      window.clearTimeout(okeyPrototypeAutoNextHandTimerRef.current);
-      okeyPrototypeAutoNextHandTimerRef.current = null;
-    };
-    if (!okeyPrototypeHandCompleted || !okeyPrototypeSeatReservation) {
-      clearAutoNextTimer();
-      okeyPrototypeAutoNextDrawHandKeyRef.current = "";
-      return;
-    }
-    const setCompleted = okeyPrototypeSessionHandNo >= OKEY_PROTOTYPE_SET_HAND_TARGET;
-    const outcomeKey = okeyPrototypeHandDrawn
-      ? `draw-${okeyPrototypeDrawHandCount}`
-      : `win-${okeyPrototypeWinnerSeat ?? 0}`;
-    const handKey = `${okeyPrototypeSessionHandNo}-${outcomeKey}-${setCompleted ? "set" : "hand"}`;
-    if (
-      okeyPrototypeAutoNextDrawHandKeyRef.current === handKey
-      && okeyPrototypeAutoNextHandTimerRef.current !== null
-    ) {
-      return;
-    }
-    clearAutoNextTimer();
-    okeyPrototypeAutoNextDrawHandKeyRef.current = handKey;
-    const delayMs = setCompleted ? OKEY_PROTOTYPE_AUTO_NEXT_SET_DELAY_MS : OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS;
-    appendOkeyPrototypeAction(
-      setCompleted
-        ? "Set tamamlandi: otomatik yeni set zamanlandi."
-        : "El tamamlandi: otomatik yeni el zamanlandi.",
-    );
-    okeyPrototypeAutoNextHandTimerRef.current = window.setTimeout(() => {
-      okeyPrototypeAutoNextHandTimerRef.current = null;
-      startNewOkeyPrototypeHand();
-      appendOkeyPrototypeAction(
-        setCompleted
-          ? "Set tamamlandi, yeni set otomatik baslatildi."
-          : "El tamamlandi, yeni el otomatik baslatildi.",
-      );
-    }, delayMs);
-  }, [
-    okeyPrototypeDrawHandCount,
-    okeyPrototypeHandCompleted,
-    okeyPrototypeHandDrawn,
-    okeyPrototypeJoinedTable,
-    okeyPrototypeSeatReservation,
-    okeyPrototypeSessionHandNo,
-    okeyPrototypeWinnerSeat,
-  ]);
+    if (okeyPrototypeHandCompleted) return;
+    if (okeyPrototypeAutoNextHandTimerRef.current === null) return;
+    window.clearTimeout(okeyPrototypeAutoNextHandTimerRef.current);
+    okeyPrototypeAutoNextHandTimerRef.current = null;
+    okeyPrototypeAutoNextDrawHandKeyRef.current = "";
+  }, [okeyPrototypeHandCompleted]);
 
   useEffect(() => () => {
     if (okeyPrototypeAutoNextHandTimerRef.current === null) return;
