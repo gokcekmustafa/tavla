@@ -395,6 +395,7 @@ type OkeyPrototypeLiveAction = {
   publicSessionHandNo?: number;
   publicLastHandSummary?: string;
   publicAutoNextOutcomeKey?: string;
+  handStartedAt?: number;
   at: number;
   sourceSessionId: string;
 };
@@ -2857,6 +2858,10 @@ function normalizeOkeyPrototypeLiveAction(raw: unknown): OkeyPrototypeLiveAction
   const hasPublicLastHandSummary = publicLastHandSummary.length > 0;
   const publicAutoNextOutcomeKey = sanitizeOkeyPrototypeOutcomeKey(candidate.publicAutoNextOutcomeKey);
   const hasPublicAutoNextOutcomeKey = publicAutoNextOutcomeKey.length > 0;
+  const hasHandStartedAt = Object.prototype.hasOwnProperty.call(candidate, "handStartedAt");
+  const handStartedAt = hasHandStartedAt
+    ? Math.max(0, normalizeNonNegativeInt(candidate.handStartedAt, 0))
+    : undefined;
   const at = Number.isFinite(candidate.at) ? Number(candidate.at) : Date.now();
   const sourceSessionId = sanitizeGuestId(typeof candidate.sourceSessionId === "string" ? candidate.sourceSessionId : "");
   if (!id || !kind || !actorSeatNo || !discardEntry || !nextSeatNo) return null;
@@ -2883,6 +2888,7 @@ function normalizeOkeyPrototypeLiveAction(raw: unknown): OkeyPrototypeLiveAction
     publicSessionHandNo,
     publicLastHandSummary: hasPublicLastHandSummary ? publicLastHandSummary : undefined,
     publicAutoNextOutcomeKey: hasPublicAutoNextOutcomeKey ? publicAutoNextOutcomeKey : undefined,
+    handStartedAt: handStartedAt && handStartedAt > 0 ? handStartedAt : undefined,
     at,
     sourceSessionId,
   };
@@ -2965,9 +2971,11 @@ function normalizeOkeyPrototypeLobbyTable(raw: unknown, roomIdFallback: string, 
   const normalizedDealStarterSeatNo = normalizeOkeyPrototypeSeatNo(candidate.dealStarterSeatNo);
   const dealStarterSeatNo = startedAt ? (normalizedDealStarterSeatNo ?? null) : null;
   const normalizedLiveAction = normalizeOkeyPrototypeLiveAction(candidate.liveAction);
-  const liveAction = normalizedLiveAction && startedAt && normalizedLiveAction.at < startedAt
-    ? null
-    : normalizedLiveAction;
+  const liveAction = normalizedLiveAction && startedAt
+    && normalizedLiveAction.handStartedAt
+    && normalizedLiveAction.handStartedAt !== startedAt
+      ? null
+      : normalizedLiveAction;
   const lastJoinedAt = OKEY_PROTOTYPE_SEATS.reduce((max, seatNo) => {
     const joinedAt = Number(seats[seatNo]?.joinedAt ?? 0);
     return Number.isFinite(joinedAt) ? Math.max(max, joinedAt) : max;
@@ -4130,9 +4138,11 @@ function mergeOkeyPrototypeTableState(
     );
     return comparison >= 0 ? incomingLiveAction : baseLiveAction;
   })();
-  const safeMergedLiveAction = mergedLiveAction && startedAt && mergedLiveAction.at < startedAt
-    ? null
-    : mergedLiveAction;
+  const safeMergedLiveAction = mergedLiveAction && startedAt
+    && mergedLiveAction.handStartedAt
+    && mergedLiveAction.handStartedAt !== startedAt
+      ? null
+      : mergedLiveAction;
   const preferredStarterSeatNo = normalizeOkeyPrototypeSeatNo(preferred.dealStarterSeatNo);
   const fallbackStarterSeatNo = normalizeOkeyPrototypeSeatNo(fallback.dealStarterSeatNo);
   const mergedStarterSeatNo = (
@@ -5942,7 +5952,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const tableStartedAt = Number.isFinite(okeyPrototypeJoinedTable.startedAt)
       ? Number(okeyPrototypeJoinedTable.startedAt)
       : 0;
-    if (tableStartedAt > 0 && liveAction.at < tableStartedAt) return;
+    if (tableStartedAt > 0 && liveAction.handStartedAt && liveAction.handStartedAt !== tableStartedAt) return;
     const lastAppliedLiveAction = okeyPrototypeAppliedLiveActionRef.current;
     if (lastAppliedLiveAction) {
       const recency = compareOkeyPrototypeLiveActionRecency(
@@ -10009,23 +10019,31 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   ) {
     if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) return;
     if (isOkeyPrototypeLocalBotTableId(okeyPrototypeJoinedTable.id)) return;
-    const safeAction = normalizeOkeyPrototypeLiveAction(action);
-    if (!safeAction) return;
-    okeyPrototypePublishedLiveActionIdRef.current = safeAction.id;
-    okeyPrototypeAppliedLiveActionIdRef.current = safeAction.id;
-    okeyPrototypeAppliedLiveActionRef.current = safeAction;
+    const normalizedInputAction = normalizeOkeyPrototypeLiveAction(action);
+    if (!normalizedInputAction) return;
+    let safeAction: OkeyPrototypeLiveAction = normalizedInputAction;
+    let published = false;
     updateOkeyPrototypeTablesByRoom((current) => {
       const roomId = okeyPrototypeJoinedTable.roomId;
       const roomTables = current[roomId] ?? [];
       const tableIndex = roomTables.findIndex((table) => table.id === okeyPrototypeJoinedTable.id);
       if (tableIndex < 0) return current;
       const table = roomTables[tableIndex];
-      if (table.liveAction?.id === safeAction.id) return current;
+      const tableStartedAt = Number.isFinite(table.startedAt) ? Number(table.startedAt) : 0;
+      const previousActionAt = Number.isFinite(table.liveAction?.at) ? Number(table.liveAction?.at) : 0;
+      const canonicalAt = Math.max(Date.now(), tableStartedAt, previousActionAt + 1);
+      safeAction = {
+        ...safeAction,
+        handStartedAt: tableStartedAt > 0 ? tableStartedAt : safeAction.handStartedAt,
+        at: canonicalAt,
+      };
+      if (table.liveAction?.id === safeAction.id && (table.liveAction?.at ?? 0) >= safeAction.at) return current;
       const nextTable: OkeyPrototypeLobbyTableState = {
         ...table,
         liveAction: safeAction,
         updatedAt: Math.max(Date.now(), getOkeyPrototypeTableUpdatedAt(table) + 1, safeAction.at),
       };
+      published = true;
       const nextRoomTables = roomTables.slice();
       nextRoomTables[tableIndex] = nextTable;
       return {
@@ -10033,6 +10051,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         [roomId]: nextRoomTables,
       };
     });
+    if (!published) return;
+    okeyPrototypePublishedLiveActionIdRef.current = safeAction.id;
+    okeyPrototypeAppliedLiveActionIdRef.current = safeAction.id;
+    okeyPrototypeAppliedLiveActionRef.current = safeAction;
     // Hamle sirasinda WS gecikirse, HTTP kanalina da anlik mirror basarak
     // tur gecislerinin diger cihazlara hizli ulasmasini sagla.
     void syncRealtimeViaHttp("okey-live-discard");
