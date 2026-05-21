@@ -445,6 +445,7 @@ type OkeyPrototypeLobbyTableState = {
   tableNo: number;
   ownerUserId: string;
   ownerSessionId: string;
+  dealStarterSeatNo?: OkeyPrototypeSeatNo | null;
   seats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>>;
   createdAt: number;
   startedAt: number | null;
@@ -462,6 +463,7 @@ type OkeyPrototypeTableSketchRow = {
   seated: number;
   occupiedSeatNos: OkeyPrototypeSeatNo[];
   ownerUserId: string;
+  dealStarterSeatNo?: OkeyPrototypeSeatNo | null;
   seats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>>;
   liveAction?: OkeyPrototypeLiveAction | null;
 };
@@ -2960,6 +2962,8 @@ function normalizeOkeyPrototypeLobbyTable(raw: unknown, roomIdFallback: string, 
   });
   const createdAt = Number.isFinite(candidate.createdAt) ? Number(candidate.createdAt) : Date.now();
   const startedAt = Number.isFinite(candidate.startedAt) ? Number(candidate.startedAt) : null;
+  const normalizedDealStarterSeatNo = normalizeOkeyPrototypeSeatNo(candidate.dealStarterSeatNo);
+  const dealStarterSeatNo = startedAt ? (normalizedDealStarterSeatNo ?? null) : null;
   const normalizedLiveAction = normalizeOkeyPrototypeLiveAction(candidate.liveAction);
   const liveAction = normalizedLiveAction && startedAt && normalizedLiveAction.at < startedAt
     ? null
@@ -2977,6 +2981,7 @@ function normalizeOkeyPrototypeLobbyTable(raw: unknown, roomIdFallback: string, 
     tableNo,
     ownerUserId: sanitizeGuestId(typeof candidate.ownerUserId === "string" ? candidate.ownerUserId : ""),
     ownerSessionId: sanitizeGuestId(typeof candidate.ownerSessionId === "string" ? candidate.ownerSessionId : ""),
+    dealStarterSeatNo,
     seats,
     createdAt,
     startedAt,
@@ -4128,6 +4133,17 @@ function mergeOkeyPrototypeTableState(
   const safeMergedLiveAction = mergedLiveAction && startedAt && mergedLiveAction.at < startedAt
     ? null
     : mergedLiveAction;
+  const preferredStarterSeatNo = normalizeOkeyPrototypeSeatNo(preferred.dealStarterSeatNo);
+  const fallbackStarterSeatNo = normalizeOkeyPrototypeSeatNo(fallback.dealStarterSeatNo);
+  const mergedStarterSeatNo = (
+    preferredStarterSeatNo && occupiedSeatNos.includes(preferredStarterSeatNo)
+      ? preferredStarterSeatNo
+      : (
+        fallbackStarterSeatNo && occupiedSeatNos.includes(fallbackStarterSeatNo)
+          ? fallbackStarterSeatNo
+          : ownerSeatNo ?? null
+      )
+  );
 
   return normalizeOkeyPrototypeLobbyTable({
     ...preferred,
@@ -4138,6 +4154,7 @@ function mergeOkeyPrototypeTableState(
     seats: mergedSeats,
     ownerUserId: ownerSeat?.userId ?? "",
     ownerSessionId: ownerSeat?.sessionId ?? "",
+    dealStarterSeatNo: startedAt ? mergedStarterSeatNo : null,
     startedAt,
     liveAction: safeMergedLiveAction ?? null,
     updatedAt: Math.max(baseUpdatedAt, incomingUpdatedAt, maxSeatJoinedAt),
@@ -4741,6 +4758,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         seated,
         occupiedSeatNos,
         ownerUserId: table.ownerUserId,
+        dealStarterSeatNo: table.dealStarterSeatNo ?? null,
         seats: table.seats,
         liveAction: table.liveAction ?? null,
       };
@@ -4878,6 +4896,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       seated,
       occupiedSeatNos,
       ownerUserId: okeyPrototypeLocalBotTable.ownerUserId,
+      dealStarterSeatNo: okeyPrototypeLocalBotTable.dealStarterSeatNo ?? null,
       seats: okeyPrototypeLocalBotTable.seats,
       liveAction: null,
     };
@@ -4907,6 +4926,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       seated: occupiedSeatNos.length,
       occupiedSeatNos,
       ownerUserId: fallbackTable.ownerUserId,
+      dealStarterSeatNo: fallbackTable.dealStarterSeatNo ?? null,
       seats: fallbackTable.seats,
       liveAction: fallbackTable.liveAction ?? null,
     } as OkeyPrototypeTableSketchRow;
@@ -5871,6 +5891,22 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       (seatNo) => sanitizeGuestId(okeyPrototypeJoinedTable.seats[seatNo]?.userId ?? "") === sanitizeGuestId(okeyPrototypeJoinedTable.ownerUserId),
     ) ?? activeSeats[0];
     const safeOwnerSeat = ownerSeat ?? (Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo);
+    const synchronizedStarterSeat = normalizeOkeyPrototypeSeatNo(okeyPrototypeJoinedTable.dealStarterSeatNo);
+    const rotatedStarterSeat = (() => {
+      if (!sameTableContinuation) return null;
+      const currentStarterIndex = activeSeats.findIndex((seatNo) => seatNo === okeyPrototypeHandFirstSeat);
+      const safeStarterIndex = currentStarterIndex >= 0 ? currentStarterIndex : 0;
+      return activeSeats[(safeStarterIndex + 1) % activeSeats.length] ?? null;
+    })();
+    const safeStarterSeat = (
+      synchronizedStarterSeat && activeSeats.includes(synchronizedStarterSeat)
+        ? synchronizedStarterSeat
+        : (
+          rotatedStarterSeat && activeSeats.includes(rotatedStarterSeat)
+            ? rotatedStarterSeat
+            : safeOwnerSeat
+        )
+    ) as OkeyPrototypeSeatNo;
     const botModeNeeded = activeSeats.some((seatNo) => isOkeyPrototypeBotUserId(okeyPrototypeJoinedTable.seats[seatNo]?.userId ?? ""));
 
     if (sameTableContinuation) {
@@ -5891,7 +5927,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setOkeyPrototypeLastHandSummary("");
     }
     setOkeyPrototypeBotModeEnabled(botModeNeeded);
-    applyOkeyPrototypeDeal(safeOwnerSeat, startedAt, activeSeats);
+    applyOkeyPrototypeDeal(safeStarterSeat, startedAt, activeSeats);
     if (!isOkeyPrototypeLocalBotTableId(okeyPrototypeJoinedTable.id)) {
       setLobbyNotice(`Masa ${okeyPrototypeJoinedTable.tableNo} basladi. Okey belirlendi ve taslar dagitildi.`);
     }
@@ -7946,6 +7982,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         tableNo: nextTableNo,
         ownerUserId: safeUserId,
         ownerSessionId: appSessionId,
+        dealStarterSeatNo: null,
         seats: {
           [seatNo]: seatState,
         },
@@ -8095,6 +8132,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       tableNo: 1,
       ownerUserId: safeUserId,
       ownerSessionId: appSessionId,
+      dealStarterSeatNo: localSeatNo,
       seats: nextSeats,
       createdAt: now,
       startedAt: now,
@@ -9443,10 +9481,18 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       nextOccupiedSeatNos = getOkeyPrototypeOccupiedSeatNos({ seats: nextSeats });
       const shouldStart = nextOccupiedSeatNos.length >= 4;
       startedNow = shouldStart && !table.startedAt;
+      const starterSeatForStart = shouldStart
+        ? (
+          nextOccupiedSeatNos.find(
+            (seatNo) => sanitizeGuestId(nextSeats[seatNo]?.userId ?? "") === sanitizeGuestId(table.ownerUserId ?? ""),
+          ) ?? nextOccupiedSeatNos[0] ?? reservedSeat
+        )
+        : null;
       const nextTable: OkeyPrototypeLobbyTableState = {
         ...table,
         ownerUserId: table.ownerUserId || safeUserId,
         ownerSessionId: table.ownerSessionId || appSessionId,
+        dealStarterSeatNo: table.dealStarterSeatNo ?? starterSeatForStart,
         seats: nextSeats,
         startedAt: table.startedAt ?? (shouldStart ? now : null),
         updatedAt: now,
@@ -9584,6 +9630,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const nextTable: OkeyPrototypeLobbyTableState = {
       ...table,
       seats: nextSeats,
+      dealStarterSeatNo: starterSeat,
       startedAt: table.startedAt ?? now,
       updatedAt: now,
     };
@@ -11627,6 +11674,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         nextDealSeed = synchronizedSeed;
         const nextTable: OkeyPrototypeLobbyTableState = {
           ...table,
+          dealStarterSeatNo: nextFirstSeat,
           startedAt: synchronizedSeed,
           updatedAt: synchronizedSeed,
           liveAction: null,
