@@ -879,7 +879,23 @@ function buildOkeyPrototypeRackGroupsForLayout(
     return left.id.localeCompare(right.id);
   });
   if (leftover.length > 0) {
-    pairGroups.push(leftover);
+    const remainingJokers = jokerTiles.slice().sort((left, right) => left.id.localeCompare(right.id));
+    const pairedWithJoker: OkeyPrototypeTile[][] = [];
+    const leftoverNormals = leftover.slice();
+    while (leftoverNormals.length > 0 && remainingJokers.length > 0) {
+      const normalTile = leftoverNormals.shift();
+      const jokerTile = remainingJokers.shift();
+      if (!normalTile || !jokerTile) break;
+      pairedWithJoker.push([normalTile, jokerTile]);
+    }
+    pairGroups.push(...pairedWithJoker);
+    if (leftoverNormals.length > 0) {
+      pairGroups.push(leftoverNormals);
+    }
+    if (remainingJokers.length > 0) {
+      pairGroups.push(remainingJokers);
+    }
+    return pairGroups;
   }
   if (jokerTiles.length > 0) {
     pairGroups.push(jokerTiles.slice());
@@ -892,16 +908,26 @@ function createOkeyPrototypeRackSlotsFromGroups(groups: OkeyPrototypeTile[][]) {
   let cursor = 0;
   const remainingTileIds = groups.flat().map((tile) => tile.id);
   const placedTileIds = new Set<string>();
+  const rowSize = OKEY_PROTOTYPE_RACK_SLOT_COLUMNS;
 
   for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
     const group = groups[groupIndex] ?? [];
+    if (group.length === 0) continue;
+    if (cursor >= OKEY_PROTOTYPE_RACK_SLOT_COUNT) break;
+    const cursorInRow = cursor % rowSize;
+    const remainingInRow = rowSize - cursorInRow;
+    // Grup tek satira sigiyorsa, satir sonunda bolunmesin; alt satira aktar.
+    if (cursorInRow > 0 && group.length <= rowSize && group.length > remainingInRow) {
+      cursor += remainingInRow;
+    }
     for (const tile of group) {
       if (cursor >= OKEY_PROTOTYPE_RACK_SLOT_COUNT) break;
       slots[cursor] = tile.id;
       placedTileIds.add(tile.id);
       cursor += 1;
     }
-    if (groupIndex < groups.length - 1 && cursor < OKEY_PROTOTYPE_RACK_SLOT_COUNT) {
+    const hasNextNonEmptyGroup = groups.slice(groupIndex + 1).some((entry) => entry && entry.length > 0);
+    if (hasNextNonEmptyGroup && cursor < OKEY_PROTOTYPE_RACK_SLOT_COUNT && (cursor % rowSize) !== 0) {
       cursor += 1;
     }
     if (cursor >= OKEY_PROTOTYPE_RACK_SLOT_COUNT) break;
@@ -1399,8 +1425,13 @@ function buildOkeyPrototypePairOpenPlan(
   const tryAddPairFromAdjacentTiles = (left: OkeyPrototypeTile, right: OkeyPrototypeTile) => {
     const leftIsJoker = isOkeyPrototypePairWildcardTile(left, okeyTile);
     const rightIsJoker = isOkeyPrototypePairWildcardTile(right, okeyTile);
-    // Adjacent matching is used only for exact pairs; joker pairs are resolved later.
-    if (leftIsJoker || rightIsJoker) return false;
+    // Slotta yanyana yapilan okey eslestirmeleri, oyuncunun secimini korumak icin onceliklidir.
+    if (leftIsJoker !== rightIsJoker) {
+      return addPair(left, right);
+    }
+    if (leftIsJoker && rightIsJoker) {
+      return addPair(left, right);
+    }
     if (!isOkeyPrototypeExactPairMatch(left, right)) return false;
     return addPair(left, right);
   };
