@@ -590,7 +590,6 @@ const OKEY_PROTOTYPE_SET_HAND_TARGET = 7;
 const OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS = 5_600;
 const OKEY_PROTOTYPE_AUTO_NEXT_SET_DELAY_MS = 5_600;
 const OKEY_PROTOTYPE_PENALTY_BUBBLE_DURATION_MS = 1_900;
-const OKEY_PROTOTYPE_OPEN_NOTICE_DURATION_MS = 3_200;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = OKEY_ENGINE_RULES.seats as readonly OkeyPrototypeSeatNo[];
 const OKEY_PROTOTYPE_COUNTERCLOCKWISE_SEAT_ORDER: readonly OkeyPrototypeSeatNo[] = [1, 4, 3, 2];
 const OKEY_PROTOTYPE_RACK_SLOT_COLUMNS = 16;
@@ -4933,7 +4932,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   );
   const okeyPrototypeScorePopupTimeoutRef = useRef<number | null>(null);
   const okeyPrototypePenaltyBubbleTimeoutRef = useRef<number | null>(null);
-  const okeyPrototypeSeatOpenNoticeTimeoutsRef = useRef<Partial<Record<OkeyPrototypeSeatNo, number>>>({});
   const okeyPrototypePrevSeatOpenedStateRef = useRef<OkeyPrototypeSeatOpenedState>(createDefaultOkeyPrototypeSeatOpenedState());
   const okeyPrototypeSeatOpenNoticesReadyRef = useRef(false);
   const okeyPrototypeStartWithBotsPendingRef = useRef(false);
@@ -4981,13 +4979,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       window.clearTimeout(okeyPrototypePenaltyBubbleTimeoutRef.current);
       okeyPrototypePenaltyBubbleTimeoutRef.current = null;
     }
-    OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
-      const timeoutId = okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
-      if (typeof timeoutId === "number") {
-        window.clearTimeout(timeoutId);
-      }
-      delete okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
-    });
   }, [okeyPrototypeSeatReservation]);
   useEffect(() => {
     return () => {
@@ -4997,12 +4988,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       if (okeyPrototypePenaltyBubbleTimeoutRef.current !== null) {
         window.clearTimeout(okeyPrototypePenaltyBubbleTimeoutRef.current);
       }
-      OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
-        const timeoutId = okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
-        if (typeof timeoutId === "number") {
-          window.clearTimeout(timeoutId);
-        }
-      });
     };
   }, []);
   useEffect(() => {
@@ -5675,11 +5660,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             [seatNo]: null,
           };
         });
-        const timeoutId = okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
-        if (typeof timeoutId === "number") {
-          window.clearTimeout(timeoutId);
-          delete okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
-        }
         return;
       }
       const seatOpenMode = okeyPrototypeSeatOpenModes[seatNo] ?? "none";
@@ -5695,7 +5675,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         }, 0);
         const fallbackPoints = okeyPrototypeLastOpeningSeatNo === seatNo ? okeyPrototypeLastOpeningPoints : 0;
         const resolvedPoints = openingPoints > 0 ? openingPoints : fallbackPoints;
-        noticeText = `${Math.max(0, resolvedPoints)} puan ile acti`;
+        noticeText = `${Math.max(0, resolvedPoints)}`;
       }
       showOkeyPrototypeSeatOpenNotice(seatNo, noticeText);
     });
@@ -9806,20 +9786,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         [seatNo]: normalizedText,
       };
     });
-    const currentTimeoutId = okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
-    if (typeof currentTimeoutId === "number") {
-      window.clearTimeout(currentTimeoutId);
-    }
-    okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo] = window.setTimeout(() => {
-      setOkeyPrototypeSeatOpenNotices((current) => {
-        if (!current[seatNo]) return current;
-        return {
-          ...current,
-          [seatNo]: null,
-        };
-      });
-      delete okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
-    }, OKEY_PROTOTYPE_OPEN_NOTICE_DURATION_MS);
   }
 
   function resetOkeyPrototypeTableFilters() {
@@ -19445,12 +19411,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 >
                                   <div className="my-okey-center-seat-head">
                                     <span className="my-okey-center-seat-name">{seatName}</span>
+                                    {seatOpenNotice ? (
+                                      <span className="my-okey-center-seat-open-bubble" role="status" aria-live="polite">
+                                        {seatOpenNotice}
+                                      </span>
+                                    ) : null}
                                   </div>
-                                  {seatOpenNotice ? (
-                                    <span className="my-okey-center-seat-open-bubble" role="status" aria-live="polite">
-                                      {seatOpenNotice}
-                                    </span>
-                                  ) : null}
                                   <div className="my-okey-center-seat-melds">
                                     {seatSerialMelds.length === 0 ? (
                                       <span className="my-okey-center-seat-empty">Acik yok</span>

@@ -5982,7 +5982,7 @@
 .my-okey-center-seat-head {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 6px;
 }
 
@@ -6018,10 +6018,9 @@
 }
 
 .my-okey-center-seat-open-bubble {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  max-width: calc(100% - 16px);
+  position: static;
+  margin-left: auto;
+  max-width: min(68%, 140px);
   border-radius: 999px;
   border: 1px solid rgba(255, 218, 160, 0.88);
   background: linear-gradient(180deg, rgba(193, 74, 45, 0.94), rgba(143, 42, 30, 0.96));
