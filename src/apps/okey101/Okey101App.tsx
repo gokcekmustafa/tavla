@@ -12630,6 +12630,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }));
     const attachedTileIds = new Set<string>();
     const updatedMeldById = new Map<string, OkeyPrototypeMeldEntry>();
+    const acquiredJokerTileIds = new Set<string>();
     let attachedCount = 0;
     let jokerSwapCount = 0;
     const collectProtectedSerialTileIds = () => {
@@ -12656,6 +12657,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         if (workingRack.length <= 1) break;
         const tile = workingRack[tileIndex];
         if (!tile) continue;
+        if (acquiredJokerTileIds.has(tile.id)) continue;
         if (protectedSerialTileIds.has(tile.id)) continue;
         const replacementTarget = workingMelds.find((meld) => {
           if (!canProcessOkeyPrototypeMeldByKind(kind, meld, okeyPrototypeSeatOpenModes)) return false;
@@ -12667,6 +12669,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
           const jokerTile = jokerIndex >= 0 ? replacementTarget.tiles[jokerIndex] ?? null : null;
           if (replacementPlan.valid && jokerTile) {
             workingRack[tileIndex] = jokerTile;
+            acquiredJokerTileIds.add(jokerTile.id);
             replacementTarget.tiles = replacementPlan.replacedTiles.slice();
             updatedMeldById.set(replacementTarget.id, replacementTarget);
             attachedTileIds.add(tile.id);
