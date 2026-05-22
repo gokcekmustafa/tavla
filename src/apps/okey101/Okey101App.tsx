@@ -11128,6 +11128,54 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     return OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS;
   }
 
+  function applyOkeyPrototypePenaltyForTakenDiscardOpening(
+    openerSeatNo: OkeyPrototypeSeatNo,
+    pickup: {
+      sourceEntry: OkeyPrototypeDiscardEntry;
+      pickedTileId: string;
+      seatNo: OkeyPrototypeSeatNo;
+    },
+    sourceLabel: string,
+  ) {
+    if (!okeyPrototypeGameOptions.penaltyPlay) return 0;
+    if (pickup.seatNo !== openerSeatNo) return 0;
+    const sourceSeatNo = pickup.sourceEntry.seatNo;
+    const ruleFace = getOkeyPrototypeTileRuleFace(pickup.sourceEntry.tile, okeyPrototypeOkeyTile);
+    const tileValue = Math.max(0, Math.trunc(ruleFace?.value ?? pickup.sourceEntry.tile.value ?? 0));
+    const penaltyPoints = Math.max(0, tileValue * 10);
+    if (penaltyPoints <= 0) return 0;
+    setOkeyPrototypeSeatPenaltyTotals((current) => ({
+      ...current,
+      [sourceSeatNo]: (current[sourceSeatNo] ?? 0) + penaltyPoints,
+    }));
+    appendOkeyPrototypeAction(
+      `${sourceLabel}: Cezali oyun - K${openerSeatNo} soldan aldigi `
+      + `${formatOkeyPrototypeTile(pickup.sourceEntry.tile)} ile el acti. `
+      + `K${sourceSeatNo} oyuncusuna ${penaltyPoints} ceza yazildi.`,
+    );
+    showOkeyPrototypePenaltyBubble(`${penaltyPoints} ceza`, sourceSeatNo);
+    return penaltyPoints;
+  }
+
+  function applyOkeyPrototypePenaltyForTakenJokerFromTable(
+    takerSeatNo: OkeyPrototypeSeatNo,
+    ownerSeatNo: OkeyPrototypeSeatNo,
+    sourceLabel: string,
+  ) {
+    if (!okeyPrototypeGameOptions.penaltyPlay) return 0;
+    if (takerSeatNo === ownerSeatNo) return 0;
+    setOkeyPrototypeSeatPenaltyTotals((current) => ({
+      ...current,
+      [ownerSeatNo]: (current[ownerSeatNo] ?? 0) + OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS,
+    }));
+    appendOkeyPrototypeAction(
+      `${sourceLabel}: Cezali oyun - K${takerSeatNo} oyuncusu K${ownerSeatNo} masasindan okey aldi. `
+      + `K${ownerSeatNo} oyuncusuna ${OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS} ceza yazildi.`,
+    );
+    showOkeyPrototypePenaltyBubble("101 ceza", ownerSeatNo);
+    return OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS;
+  }
+
   function getOkeyPrototypeRoundPenaltyByRules(
     seatNo: OkeyPrototypeSeatNo,
     seatRack: OkeyPrototypeTile[],
@@ -11522,6 +11570,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return false;
     }
     const seatAlreadyOpened = Boolean(okeyPrototypeSeatOpenedState[seatNo]);
+    const anySeatOpenedBefore = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
+      candidateSeatNo !== seatNo && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+    ));
     const consumedPendingDiscardTile = okeyPrototypePendingDiscardTileId
       ? selectedIds.has(okeyPrototypePendingDiscardTileId)
       : false;
@@ -11605,6 +11656,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         appendOkeyPrototypeAction(`Acilis puani: ${nextOpeningPoints}/${OKEY_PROTOTYPE_OPENING_TARGET_POINTS}`);
       }
     }
+    if (!seatAlreadyOpened && !anySeatOpenedBefore && consumedPendingDiscardTile && okeyPrototypePendingDiscardPickup) {
+      applyOkeyPrototypePenaltyForTakenDiscardOpening(
+        seatNo,
+        okeyPrototypePendingDiscardPickup,
+        sourceLabel,
+      );
+    }
     appendOkeyPrototypeAction(`${sourceLabel}: ${meldEntries.length} grup acildi.`);
     if (finalDiscardTile) {
       finishOkeyPrototypeHandWithFinalDiscard(
@@ -11675,6 +11733,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     const openedPairTileIds = new Set(openablePairs.flat().map((tile) => tile.id));
+    const anySeatOpenedBefore = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
+      candidateSeatNo !== seatNo && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+    ));
+    const consumedPendingDiscardTile = okeyPrototypePendingDiscardTileId
+      ? openedPairTileIds.has(okeyPrototypePendingDiscardTileId)
+      : false;
     if (okeyPrototypePendingDiscardTileId && !openedPairTileIds.has(okeyPrototypePendingDiscardTileId)) {
       const pendingTile = okeyPrototypeTurnRackTiles.find((tile) => tile.id === okeyPrototypePendingDiscardTileId) ?? null;
       appendOkeyPrototypeAction(
@@ -11753,6 +11817,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     updateOkeyPrototypeLastOpeningMarker(seatNo, OKEY_PROTOTYPE_OPENING_TARGET_POINTS);
     setOkeyPrototypePendingDiscardTileId("");
     setOkeyPrototypeTurnLockedAfterMeld(true);
+    if (!anySeatOpenedBefore && consumedPendingDiscardTile && okeyPrototypePendingDiscardPickup) {
+      applyOkeyPrototypePenaltyForTakenDiscardOpening(
+        seatNo,
+        okeyPrototypePendingDiscardPickup,
+        "Cift acma",
+      );
+    }
     appendOkeyPrototypeAction(
       `El cift acildi: Koltuk ${seatNo} (${pairCount} cift${pairPlan.jokerPairCount > 0 ? `, ${pairPlan.jokerPairCount} okeyli` : ""}).`,
     );
@@ -11822,6 +11893,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       }
       setOkeyPrototypeDiscardDraftTileId(jokerTile.id);
       setOkeyPrototypeMeldDraftTileIds((current) => current.filter((tileId) => tileId !== replacementTile.id));
+      applyOkeyPrototypePenaltyForTakenJokerFromTable(
+        seatNo,
+        targetMeld.seatNo,
+        "Masadan okey alma",
+      );
       appendOkeyPrototypeAction(
         `Masadan okey degistirildi: ${formatOkeyPrototypeTile(replacementTile)} verildi, `
         + `${formatOkeyPrototypeTile(jokerTile)} alindi.`,
@@ -12448,6 +12524,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             attachedTileIds.add(tile.id);
             attachedCount += 1;
             jokerSwapCount += 1;
+            applyOkeyPrototypePenaltyForTakenJokerFromTable(
+              seatNo,
+              replacementTarget.seatNo,
+              sourceLabel,
+            );
             changed = true;
             break;
           }
