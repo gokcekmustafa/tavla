@@ -1340,6 +1340,13 @@ function isOkeyPrototypeExactPairMatch(left: OkeyPrototypeTile, right: OkeyProto
   return left.color === right.color && left.value === right.value;
 }
 
+function isOkeyPrototypePairWildcardTile(
+  tile: OkeyPrototypeTile,
+  okeyTile: OkeyPrototypeTile | null = null,
+) {
+  return tile.kind === "sahte" || isOkeyPrototypeJokerTile(tile, okeyTile);
+}
+
 function buildOkeyPrototypePairOpenPlan(
   tiles: OkeyPrototypeTile[],
   okeyTile: OkeyPrototypeTile | null = null,
@@ -1359,15 +1366,15 @@ function buildOkeyPrototypePairOpenPlan(
     usedTileIds.add(left.id);
     usedTileIds.add(right.id);
     groups.push([left, right]);
-    if (isOkeyPrototypeJokerTile(left, okeyTile) || isOkeyPrototypeJokerTile(right, okeyTile)) {
+    if (isOkeyPrototypePairWildcardTile(left, okeyTile) || isOkeyPrototypePairWildcardTile(right, okeyTile)) {
       jokerPairCount += 1;
     }
     return true;
   };
 
   const tryAddPairFromAdjacentTiles = (left: OkeyPrototypeTile, right: OkeyPrototypeTile) => {
-    const leftIsJoker = isOkeyPrototypeJokerTile(left, okeyTile);
-    const rightIsJoker = isOkeyPrototypeJokerTile(right, okeyTile);
+    const leftIsJoker = isOkeyPrototypePairWildcardTile(left, okeyTile);
+    const rightIsJoker = isOkeyPrototypePairWildcardTile(right, okeyTile);
     // Adjacent matching is used only for exact pairs; joker pairs are resolved later.
     if (leftIsJoker || rightIsJoker) return false;
     if (!isOkeyPrototypeExactPairMatch(left, right)) return false;
@@ -1410,7 +1417,7 @@ function buildOkeyPrototypePairOpenPlan(
 
   const groupedByKey = new Map<string, OkeyPrototypeTile[]>();
   collectRemainingTiles(
-    (tile) => tile.kind === "normal" && !isOkeyPrototypeJokerTile(tile, okeyTile),
+    (tile) => tile.kind === "normal" && !isOkeyPrototypePairWildcardTile(tile, okeyTile),
   ).forEach((tile) => {
     if (usedTileIds.has(tile.id)) return;
     const key = `${tile.color}-${tile.value}`;
@@ -1428,10 +1435,10 @@ function buildOkeyPrototypePairOpenPlan(
   });
 
   const remainingNormalSingles = collectRemainingTiles(
-    (tile) => tile.kind === "normal" && !isOkeyPrototypeJokerTile(tile, okeyTile),
+    (tile) => tile.kind === "normal" && !isOkeyPrototypePairWildcardTile(tile, okeyTile),
   );
   const remainingJokers = collectRemainingTiles(
-    (tile) => isOkeyPrototypeJokerTile(tile, okeyTile),
+    (tile) => isOkeyPrototypePairWildcardTile(tile, okeyTile),
   );
 
   while (remainingNormalSingles.length > 0 && remainingJokers.length > 0) {
@@ -11930,6 +11937,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         (
           seatOpenMode === "pair"
           && kind === "set"
+          && workingRack.length >= 3
+        )
+        || (
+          kind === "set"
+          && okeyPrototypeAnyPairSeatOpened
           && workingRack.length >= 3
         )
         || (
