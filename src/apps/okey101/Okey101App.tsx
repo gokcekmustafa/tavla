@@ -5916,9 +5916,24 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       (
         okeyPrototypeMeldDraftTiles.length >= 3
         && okeyPrototypeMeldDraftValidation.valid
-        && okeyPrototypeMeldDraftValidation.kind === "seri"
+        && (
+          okeyPrototypeMeldDraftValidation.kind === "seri"
+          || (
+            okeyPrototypeCurrentSeatOpened
+            && (okeyPrototypeSeatOpenModes[okeyPrototypeTurnSeatNo] ?? "none") === "seri"
+            && okeyPrototypeMeldDraftValidation.kind === "set"
+          )
+        )
       )
-      || okeyPrototypeAutoSerialOpenGroups.length > 0
+      || (
+        !okeyPrototypeCurrentSeatOpened
+        && okeyPrototypeAutoSerialOpenGroups.length > 0
+      )
+      || (
+        okeyPrototypeCurrentSeatOpened
+        && (okeyPrototypeSeatOpenModes[okeyPrototypeTurnSeatNo] ?? "none") === "seri"
+        && okeyPrototypeRackValidMeldGroups.some((group) => group.kind === "seri" || group.kind === "set")
+      )
     );
   const okeyPrototypeAttachableCounts = useMemo(() => {
     const next = {
@@ -6046,7 +6061,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     && !okeyPrototypeCurrentSeatOpened
     && okeyPrototypeCurrentSeatPairOpenCount >= OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS;
   const okeyPrototypeCanUsePairOpenAction = !okeyPrototypeCurrentSeatOpened && okeyPrototypeCanOpenPairsNow;
-  const okeyPrototypeCanUseSerialOpenAction = !okeyPrototypeCurrentSeatOpened && okeyPrototypeCanOpenSerialNow;
+  const okeyPrototypeCanUseSerialOpenAction = okeyPrototypeCanOpenSerialNow
+    && (
+      !okeyPrototypeCurrentSeatOpened
+      || (okeyPrototypeSeatOpenModes[okeyPrototypeTurnSeatNo] ?? "none") === "seri"
+    );
   // smoke-compat:
   // const okeyPrototypeCanDrawFromDiscard = okeyPrototypeCanAdvanceTurn
   // && okeyPrototypeDiscardPile.length > 0;
@@ -11870,12 +11889,22 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       appendOkeyPrototypeAction("Cift Ac sadece ilk el acilisinda kullanilir. El acikken Cift Isle kullan.");
       return;
     }
+    const pendingDiscardTileId = (
+      okeyPrototypePendingDiscardTileId
+      && okeyPrototypeTurnRackTiles.some((tile) => tile.id === okeyPrototypePendingDiscardTileId)
+    )
+      ? okeyPrototypePendingDiscardTileId
+      : "";
+    if (okeyPrototypePendingDiscardTileId && !pendingDiscardTileId) {
+      setOkeyPrototypePendingDiscardTileId("");
+      setOkeyPrototypePendingDiscardPickup(null);
+    }
     const slotOrder = seatNo === okeyPrototypeSeatNoForRack ? okeyPrototypeSeatRackSlots : null;
     const pairPlan = buildOkeyPrototypePairOpenPlanWithRequiredTile(
       okeyPrototypeTurnRackTiles,
       okeyPrototypeOkeyTile,
       slotOrder,
-      okeyPrototypePendingDiscardTileId || null,
+      pendingDiscardTileId || null,
     );
     const pairCount = pairPlan.pairCount;
     if (pairCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS) {
@@ -11894,11 +11923,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const anySeatOpenedBefore = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
       candidateSeatNo !== seatNo && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
     ));
-    const consumedPendingDiscardTile = okeyPrototypePendingDiscardTileId
-      ? openedPairTileIds.has(okeyPrototypePendingDiscardTileId)
+    const consumedPendingDiscardTile = pendingDiscardTileId
+      ? openedPairTileIds.has(pendingDiscardTileId)
       : false;
-    if (okeyPrototypePendingDiscardTileId && !openedPairTileIds.has(okeyPrototypePendingDiscardTileId)) {
-      const pendingTile = okeyPrototypeTurnRackTiles.find((tile) => tile.id === okeyPrototypePendingDiscardTileId) ?? null;
+    if (pendingDiscardTileId && !openedPairTileIds.has(pendingDiscardTileId)) {
+      const pendingTile = okeyPrototypeTurnRackTiles.find((tile) => tile.id === pendingDiscardTileId) ?? null;
       appendOkeyPrototypeAction(
         `Cift acma: Soldan alinan tasi once islemelisin${pendingTile ? ` (${formatOkeyPrototypeTile(pendingTile)})` : ""}.`,
       );
@@ -12783,19 +12812,54 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       appendOkeyPrototypeAction("Seri acmak icin once tas cekme adimini tamamlamalisin.");
       return;
     }
-    if (okeyPrototypeCurrentSeatOpened) {
-      appendOkeyPrototypeAction("Seri Ac sadece ilk el acilisinda kullanilir. El acikken Seri Isle kullan.");
+    const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+    const seatOpenMode = okeyPrototypeSeatOpenModes[seatNo] ?? "none";
+    if (okeyPrototypeCurrentSeatOpened && seatOpenMode === "pair") {
+      appendOkeyPrototypeAction("Cift acmis oyuncu Seri Ac kullanamaz. Seri eklemek icin Seri Isle kullan.");
       return;
     }
-    if (
+    const canOpenFromDraft = (
       okeyPrototypeMeldDraftTiles.length >= 3
       && okeyPrototypeMeldDraftValidation.valid
-      && okeyPrototypeMeldDraftValidation.kind === "seri"
-    ) {
+      && (
+        okeyPrototypeMeldDraftValidation.kind === "seri"
+        || (
+          okeyPrototypeCurrentSeatOpened
+          && seatOpenMode === "seri"
+          && okeyPrototypeMeldDraftValidation.kind === "set"
+        )
+      )
+    );
+    if (canOpenFromDraft) {
       openOkeyPrototypeMeld();
       return;
     }
-    if (okeyPrototypeAutoSerialOpenGroups.length === 0) {
+    const autoGroups = !okeyPrototypeCurrentSeatOpened
+      ? okeyPrototypeAutoSerialOpenGroups.map((group) => ({
+        tiles: group.tiles,
+        kind: group.kind,
+      }))
+      : (
+        seatOpenMode === "seri"
+          ? okeyPrototypeRackValidMeldGroups
+            .filter((group) => group.kind === "seri" || group.kind === "set")
+            .map((group) => ({
+              tiles: group.tiles,
+              kind: group.kind,
+            }))
+          : []
+      );
+    if (autoGroups.length === 0) {
+      if (okeyPrototypeCurrentSeatOpened && seatOpenMode === "seri") {
+        if (okeyPrototypeMeldDraftTiles.length < 3) {
+          appendOkeyPrototypeAction("Ilave per acmak icin en az 3 tas sec veya rafinda gecerli per olustur.");
+        } else if (!okeyPrototypeMeldDraftValidation.valid) {
+          appendOkeyPrototypeAction(`Ilave per acma gecersiz: ${okeyPrototypeMeldDraftValidation.reason}`);
+        } else {
+          appendOkeyPrototypeAction("Secili grup gecerli bir per degil.");
+        }
+        return;
+      }
       if (okeyPrototypeMeldDraftTiles.length < 3) {
         appendOkeyPrototypeAction("Seri acmak icin en az 3 tas sec veya 101 ustu dizili gruplar olustur.");
       } else if (!okeyPrototypeMeldDraftValidation.valid) {
@@ -12805,13 +12869,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       }
       return;
     }
-    openOkeyPrototypeMeldGroups(
-      okeyPrototypeAutoSerialOpenGroups.map((group) => ({
-        tiles: group.tiles,
-        kind: group.kind,
-      })),
-      "Seri acma (otomatik)",
-    );
+    openOkeyPrototypeMeldGroups(autoGroups, okeyPrototypeCurrentSeatOpened ? "Seri acma (ilave)" : "Seri acma (otomatik)");
   }
 
   function createOkeyPrototypeScenarioTile(
