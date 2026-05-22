@@ -8766,3 +8766,24 @@
     padding: 0;
   }
 }
+
+.my-game-coming-prototype-rack-tile.processable {
+  position: relative;
+}
+
+.my-game-coming-prototype-rack-tile.processable::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(2px * var(--okey-proto-tile-scale, 1));
+  transform: translateX(-50%);
+  width: calc(8px * var(--okey-proto-tile-scale, 1));
+  height: calc(8px * var(--okey-proto-tile-scale, 1));
+  border-radius: 999px;
+  border: 1px solid rgba(255, 238, 238, 0.95);
+  background: radial-gradient(circle at 35% 35%, #ff8c8c 0 28%, #ea1b1b 38%, #a90a0a 100%);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(110, 0, 0, 0.35);
+  pointer-events: none;
+}

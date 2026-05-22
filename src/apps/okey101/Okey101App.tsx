@@ -5677,6 +5677,71 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     && okeyPrototypePendingCanProcessByKind.set;
   const okeyPrototypeCanProcessSeries = (okeyPrototypeAttachableCounts.seri > 0 || okeyPrototypeCanOpenSerialGroupFromRack)
     && okeyPrototypePendingCanProcessByKind.seri;
+  const okeyPrototypeProcessableTileIds = useMemo(() => {
+    const next = new Set<string>();
+    if (!okeyPrototypeCanAdvanceTurn || okeyPrototypeTurnPhase !== "discard" || !okeyPrototypeCurrentSeatOpened) {
+      return next;
+    }
+    if (okeyPrototypeTurnSeatNo !== okeyPrototypeSeatNoForRack) return next;
+    if (okeyPrototypeOpenedMelds.length === 0 || okeyPrototypeTurnRackTiles.length === 0) return next;
+    const seatOpenMode = okeyPrototypeSeatOpenModes[okeyPrototypeTurnSeatNo] ?? "none";
+    const rackTileIds = new Set(okeyPrototypeTurnRackTiles.map((tile) => tile.id));
+    const canProcessKindDirectly = (tile: OkeyPrototypeTile, kind: OkeyPrototypeMeldKind) => (
+      okeyPrototypeOpenedMelds.some((meld) => {
+        const matchesKind = kind === "seri"
+          ? (meld.kind === "seri" || meld.kind === "set")
+          : meld.kind === "set";
+        if (!matchesKind) return false;
+        return canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile).valid
+          || getOkeyPrototypeJokerReplacementPlan(tile, meld).valid;
+      })
+    );
+    okeyPrototypeTurnRackTiles.forEach((tile) => {
+      const canSetProcess = canProcessKindDirectly(tile, "set");
+      const canSeriProcess = seatOpenMode === "pair"
+        ? false
+        : canProcessKindDirectly(tile, "seri");
+      if (canSetProcess || canSeriProcess) {
+        next.add(tile.id);
+      }
+    });
+    const canOpenPairsOnTable = seatOpenMode === "pair" || okeyPrototypeAnyPairSeatOpened;
+    if (canOpenPairsOnTable) {
+      const pairPlan = buildOkeyPrototypePairOpenPlan(
+        okeyPrototypeTurnRackTiles,
+        okeyPrototypeOkeyTile,
+        okeyPrototypeSeatRackSlots,
+      );
+      pairPlan.groups.forEach((group) => {
+        if (group.length < 2) return;
+        if (okeyPrototypeTurnRackTiles.length - group.length < 1) return;
+        group.forEach((tile) => next.add(tile.id));
+      });
+    }
+    okeyPrototypeRackValidMeldGroups.forEach((group) => {
+      if (group.tiles.length < 3) return;
+      if (okeyPrototypeTurnRackTiles.length - group.tiles.length < 1) return;
+      if (!group.tiles.every((tile) => rackTileIds.has(tile.id))) return;
+      const canSetGroup = group.kind === "set";
+      const canSeriGroup = seatOpenMode !== "pair" && (group.kind === "seri" || group.kind === "set");
+      if (!canSetGroup && !canSeriGroup) return;
+      group.tiles.forEach((tile) => next.add(tile.id));
+    });
+    return next;
+  }, [
+    okeyPrototypeAnyPairSeatOpened,
+    okeyPrototypeCanAdvanceTurn,
+    okeyPrototypeCurrentSeatOpened,
+    okeyPrototypeOkeyTile,
+    okeyPrototypeOpenedMelds,
+    okeyPrototypeRackValidMeldGroups,
+    okeyPrototypeSeatNoForRack,
+    okeyPrototypeSeatOpenModes,
+    okeyPrototypeSeatRackSlots,
+    okeyPrototypeTurnPhase,
+    okeyPrototypeTurnRackTiles,
+    okeyPrototypeTurnSeatNo,
+  ]);
   const okeyPrototypeCanOpenPairsNow = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
     && !okeyPrototypeCurrentSeatOpened
@@ -17456,7 +17521,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             <button
                               key={tile.id}
                               type="button"
-                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${okeyPrototypeLastDrawnTileId === tile.id ? "drawn-last" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""}`}
+                              className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${okeyPrototypeLastDrawnTileId === tile.id ? "drawn-last" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""} ${okeyPrototypeProcessableTileIds.has(tile.id) ? "processable" : ""}`}
                               onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
                               draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
                               onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
@@ -18961,7 +19026,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                   {tile ? (
                                     <button
                                       type="button"
-                                      className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${okeyPrototypeLastDrawnTileId === tile.id ? "drawn-last" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""} ${okeyPrototypeFlippedJokerTileIds.includes(tile.id) ? "okey-flipped" : ""}`}
+                                      className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${okeyPrototypeLastDrawnTileId === tile.id ? "drawn-last" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""} ${okeyPrototypeFlippedJokerTileIds.includes(tile.id) ? "okey-flipped" : ""} ${okeyPrototypeProcessableTileIds.has(tile.id) ? "processable" : ""}`}
                                       onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
                                       onContextMenu={(event) => handleOkeyPrototypeRackTileContextMenu(event, tile)}
                                       draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
