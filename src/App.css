@@ -5968,6 +5968,7 @@
 }
 
 .my-okey-center-seat-area {
+  position: relative;
   border: 1px solid rgba(219, 247, 236, 0.42);
   border-radius: 8px;
   background: rgba(5, 81, 57, 0.5);
@@ -6014,6 +6015,38 @@
   font-weight: 700;
   line-height: 1;
   padding: 4px 7px;
+}
+
+.my-okey-center-seat-open-bubble {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  max-width: calc(100% - 16px);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 218, 160, 0.88);
+  background: linear-gradient(180deg, rgba(193, 74, 45, 0.94), rgba(143, 42, 30, 0.96));
+  color: #fff4e6;
+  font-size: 0.54rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 3px 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  box-shadow: 0 3px 10px rgba(52, 11, 7, 0.32);
+  animation: my-okey-seat-open-bubble-pop 0.28s ease-out;
+}
+
+@keyframes my-okey-seat-open-bubble-pop {
+  0% {
+    transform: translateY(-4px) scale(0.88);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 .my-okey-center-seat-melds {

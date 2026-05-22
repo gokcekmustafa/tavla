@@ -590,6 +590,7 @@ const OKEY_PROTOTYPE_SET_HAND_TARGET = 7;
 const OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS = 5_600;
 const OKEY_PROTOTYPE_AUTO_NEXT_SET_DELAY_MS = 5_600;
 const OKEY_PROTOTYPE_PENALTY_BUBBLE_DURATION_MS = 1_900;
+const OKEY_PROTOTYPE_OPEN_NOTICE_DURATION_MS = 3_200;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = OKEY_ENGINE_RULES.seats as readonly OkeyPrototypeSeatNo[];
 const OKEY_PROTOTYPE_COUNTERCLOCKWISE_SEAT_ORDER: readonly OkeyPrototypeSeatNo[] = [1, 4, 3, 2];
 const OKEY_PROTOTYPE_RACK_SLOT_COLUMNS = 16;
@@ -1549,6 +1550,114 @@ function buildOkeyPrototypePairOpenPlan(
   };
 }
 
+function canOkeyPrototypeTilesFormPair(
+  left: OkeyPrototypeTile,
+  right: OkeyPrototypeTile,
+  okeyTile: OkeyPrototypeTile | null = null,
+) {
+  const leftIsWildcard = isOkeyPrototypePairWildcardTile(left, okeyTile);
+  const rightIsWildcard = isOkeyPrototypePairWildcardTile(right, okeyTile);
+  if (leftIsWildcard || rightIsWildcard) return true;
+  return isOkeyPrototypeExactPairMatch(left, right);
+}
+
+function buildOkeyPrototypePairOpenPlanWithRequiredTile(
+  tiles: OkeyPrototypeTile[],
+  okeyTile: OkeyPrototypeTile | null = null,
+  orderedSlotTileIds: Array<string | null> | null = null,
+  requiredTileId?: string | null,
+): OkeyPrototypePairOpenPlan {
+  const basePlan = buildOkeyPrototypePairOpenPlan(tiles, okeyTile, orderedSlotTileIds);
+  if (!requiredTileId) return basePlan;
+  if (basePlan.groups.some((group) => group.some((tile) => tile.id === requiredTileId))) {
+    return basePlan;
+  }
+  const requiredTile = tiles.find((tile) => tile.id === requiredTileId) ?? null;
+  if (!requiredTile) return basePlan;
+
+  const slotIndexByTileId = new Map<string, number>();
+  if (orderedSlotTileIds) {
+    orderedSlotTileIds.forEach((slotTileId, slotIndex) => {
+      if (!slotTileId) return;
+      slotIndexByTileId.set(slotTileId, slotIndex);
+    });
+  }
+  const requiredSlotIndex = slotIndexByTileId.get(requiredTileId);
+  const isRequiredWildcard = isOkeyPrototypePairWildcardTile(requiredTile, okeyTile);
+  const candidates = tiles
+    .filter((tile) => tile.id !== requiredTileId)
+    .filter((tile) => canOkeyPrototypeTilesFormPair(requiredTile, tile, okeyTile))
+    .map((tile) => {
+      const tileSlotIndex = slotIndexByTileId.get(tile.id);
+      const adjacent = Number.isFinite(requiredSlotIndex)
+        && Number.isFinite(tileSlotIndex)
+        && Math.abs((requiredSlotIndex ?? -1) - (tileSlotIndex ?? -1)) === 1;
+      const tileIsWildcard = isOkeyPrototypePairWildcardTile(tile, okeyTile);
+      const exactPair = !isRequiredWildcard && !tileIsWildcard && isOkeyPrototypeExactPairMatch(requiredTile, tile);
+      const pairTypeRank = exactPair ? 0 : (tileIsWildcard || isRequiredWildcard ? 1 : 2);
+      const adjacencyRank = adjacent ? 0 : 1;
+      return {
+        tile,
+        pairTypeRank,
+        adjacencyRank,
+      };
+    })
+    .sort((left, right) => {
+      if (left.pairTypeRank !== right.pairTypeRank) return left.pairTypeRank - right.pairTypeRank;
+      if (left.adjacencyRank !== right.adjacencyRank) return left.adjacencyRank - right.adjacencyRank;
+      return left.tile.id.localeCompare(right.tile.id);
+    });
+
+  if (candidates.length === 0) return basePlan;
+
+  let bestPlan: OkeyPrototypePairOpenPlan | null = null;
+  let bestPairTypeRank = Number.POSITIVE_INFINITY;
+  let bestAdjacencyRank = Number.POSITIVE_INFINITY;
+
+  candidates.forEach((candidate) => {
+    const removedTileIds = new Set([requiredTileId, candidate.tile.id]);
+    const remainingTiles = tiles.filter((tile) => !removedTileIds.has(tile.id));
+    const remainingSlotOrder = orderedSlotTileIds
+      ? orderedSlotTileIds.map((slotTileId) => (slotTileId && !removedTileIds.has(slotTileId) ? slotTileId : null))
+      : null;
+    const subPlan = buildOkeyPrototypePairOpenPlan(remainingTiles, okeyTile, remainingSlotOrder);
+    const forcedGroup = [requiredTile, candidate.tile];
+    const forcedUsesWildcard = isOkeyPrototypePairWildcardTile(requiredTile, okeyTile)
+      || isOkeyPrototypePairWildcardTile(candidate.tile, okeyTile);
+    const forcedPlan: OkeyPrototypePairOpenPlan = {
+      groups: [forcedGroup, ...subPlan.groups],
+      pairCount: 1 + subPlan.pairCount,
+      jokerPairCount: subPlan.jokerPairCount + (forcedUsesWildcard ? 1 : 0),
+    };
+    if (!bestPlan) {
+      bestPlan = forcedPlan;
+      bestPairTypeRank = candidate.pairTypeRank;
+      bestAdjacencyRank = candidate.adjacencyRank;
+      return;
+    }
+    if (forcedPlan.pairCount > bestPlan.pairCount) {
+      bestPlan = forcedPlan;
+      bestPairTypeRank = candidate.pairTypeRank;
+      bestAdjacencyRank = candidate.adjacencyRank;
+      return;
+    }
+    if (forcedPlan.pairCount < bestPlan.pairCount) return;
+    if (candidate.pairTypeRank < bestPairTypeRank) {
+      bestPlan = forcedPlan;
+      bestPairTypeRank = candidate.pairTypeRank;
+      bestAdjacencyRank = candidate.adjacencyRank;
+      return;
+    }
+    if (candidate.pairTypeRank > bestPairTypeRank) return;
+    if (candidate.adjacencyRank < bestAdjacencyRank) {
+      bestPlan = forcedPlan;
+      bestAdjacencyRank = candidate.adjacencyRank;
+    }
+  });
+
+  return bestPlan ?? basePlan;
+}
+
 function canOkeyPrototypeTakeDiscardWhenClosed(
   currentRack: OkeyPrototypeTile[],
   discardedTile: OkeyPrototypeTile,
@@ -1584,6 +1693,15 @@ function createDefaultOkeyPrototypeSeatOpenedState(): OkeyPrototypeSeatOpenedSta
     2: false,
     3: false,
     4: false,
+  };
+}
+
+function createDefaultOkeyPrototypeSeatOpenNotices(): Record<OkeyPrototypeSeatNo, string | null> {
+  return {
+    1: null,
+    2: null,
+    3: null,
+    4: null,
   };
 }
 
@@ -4810,8 +4928,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     text: string;
     seatNo: OkeyPrototypeSeatNo | null;
   } | null>(null);
+  const [okeyPrototypeSeatOpenNotices, setOkeyPrototypeSeatOpenNotices] = useState<Record<OkeyPrototypeSeatNo, string | null>>(
+    () => createDefaultOkeyPrototypeSeatOpenNotices(),
+  );
   const okeyPrototypeScorePopupTimeoutRef = useRef<number | null>(null);
   const okeyPrototypePenaltyBubbleTimeoutRef = useRef<number | null>(null);
+  const okeyPrototypeSeatOpenNoticeTimeoutsRef = useRef<Partial<Record<OkeyPrototypeSeatNo, number>>>({});
+  const okeyPrototypePrevSeatOpenedStateRef = useRef<OkeyPrototypeSeatOpenedState>(createDefaultOkeyPrototypeSeatOpenedState());
+  const okeyPrototypeSeatOpenNoticesReadyRef = useRef(false);
   const okeyPrototypeStartWithBotsPendingRef = useRef(false);
   const okeyPrototypeLastStartedTableKeyRef = useRef("");
   const okeyPrototypeLastStableTurnSeatsRef = useRef<OkeyPrototypeSeatNo[]>([]);
@@ -4850,10 +4974,20 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (okeyPrototypeSeatReservation) return;
     setOkeyPrototypeScorePanelOpen(false);
     setOkeyPrototypePenaltyBubble(null);
+    setOkeyPrototypeSeatOpenNotices(createDefaultOkeyPrototypeSeatOpenNotices());
+    okeyPrototypeSeatOpenNoticesReadyRef.current = false;
+    okeyPrototypePrevSeatOpenedStateRef.current = createDefaultOkeyPrototypeSeatOpenedState();
     if (okeyPrototypePenaltyBubbleTimeoutRef.current !== null) {
       window.clearTimeout(okeyPrototypePenaltyBubbleTimeoutRef.current);
       okeyPrototypePenaltyBubbleTimeoutRef.current = null;
     }
+    OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+      const timeoutId = okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
+      if (typeof timeoutId === "number") {
+        window.clearTimeout(timeoutId);
+      }
+      delete okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
+    });
   }, [okeyPrototypeSeatReservation]);
   useEffect(() => {
     return () => {
@@ -4863,6 +4997,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       if (okeyPrototypePenaltyBubbleTimeoutRef.current !== null) {
         window.clearTimeout(okeyPrototypePenaltyBubbleTimeoutRef.current);
       }
+      OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+        const timeoutId = okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
+        if (typeof timeoutId === "number") {
+          window.clearTimeout(timeoutId);
+        }
+      });
     };
   }, []);
   useEffect(() => {
@@ -5506,6 +5646,75 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     });
     return next;
   }, [okeyPrototypeOpenedMelds]);
+  useEffect(() => {
+    if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) {
+      okeyPrototypeSeatOpenNoticesReadyRef.current = false;
+      okeyPrototypePrevSeatOpenedStateRef.current = createDefaultOkeyPrototypeSeatOpenedState();
+      return;
+    }
+    if (!okeyPrototypeSeatOpenNoticesReadyRef.current) {
+      okeyPrototypePrevSeatOpenedStateRef.current = {
+        1: Boolean(okeyPrototypeSeatOpenedState[1]),
+        2: Boolean(okeyPrototypeSeatOpenedState[2]),
+        3: Boolean(okeyPrototypeSeatOpenedState[3]),
+        4: Boolean(okeyPrototypeSeatOpenedState[4]),
+      };
+      okeyPrototypeSeatOpenNoticesReadyRef.current = true;
+      return;
+    }
+    const previousSeatOpenedState = okeyPrototypePrevSeatOpenedStateRef.current;
+    OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+      const wasOpened = Boolean(previousSeatOpenedState[seatNo]);
+      const isOpened = Boolean(okeyPrototypeSeatOpenedState[seatNo]);
+      if (wasOpened === isOpened) return;
+      if (!isOpened) {
+        setOkeyPrototypeSeatOpenNotices((current) => {
+          if (!current[seatNo]) return current;
+          return {
+            ...current,
+            [seatNo]: null,
+          };
+        });
+        const timeoutId = okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
+        if (typeof timeoutId === "number") {
+          window.clearTimeout(timeoutId);
+          delete okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
+        }
+        return;
+      }
+      const seatOpenMode = okeyPrototypeSeatOpenModes[seatNo] ?? "none";
+      const seatMelds = okeyPrototypeOpenedMeldsBySeat[seatNo] ?? [];
+      let noticeText = "";
+      if (seatOpenMode === "pair") {
+        const pairCount = seatMelds.filter((meld) => meld.kind === "set" && meld.tiles.length === 2).length;
+        noticeText = pairCount > 0 ? `${pairCount} cift ile acti` : "Cift ile acti";
+      } else {
+        const openingPoints = seatMelds.reduce((sum, meld) => {
+          if (!canProcessOkeyPrototypeMeldByKind("seri", meld, okeyPrototypeSeatOpenModes)) return sum;
+          return sum + getOkeyPrototypeMeldPointsWithJokers(meld.tiles, okeyPrototypeOkeyTile);
+        }, 0);
+        const fallbackPoints = okeyPrototypeLastOpeningSeatNo === seatNo ? okeyPrototypeLastOpeningPoints : 0;
+        const resolvedPoints = openingPoints > 0 ? openingPoints : fallbackPoints;
+        noticeText = `${Math.max(0, resolvedPoints)} puan ile acti`;
+      }
+      showOkeyPrototypeSeatOpenNotice(seatNo, noticeText);
+    });
+    okeyPrototypePrevSeatOpenedStateRef.current = {
+      1: Boolean(okeyPrototypeSeatOpenedState[1]),
+      2: Boolean(okeyPrototypeSeatOpenedState[2]),
+      3: Boolean(okeyPrototypeSeatOpenedState[3]),
+      4: Boolean(okeyPrototypeSeatOpenedState[4]),
+    };
+  }, [
+    okeyPrototypeJoinedTable,
+    okeyPrototypeLastOpeningPoints,
+    okeyPrototypeLastOpeningSeatNo,
+    okeyPrototypeOkeyTile,
+    okeyPrototypeOpenedMeldsBySeat,
+    okeyPrototypeSeatOpenModes,
+    okeyPrototypeSeatOpenedState,
+    okeyPrototypeSeatReservation,
+  ]);
   const okeyPrototypeDiscardPreview = okeyPrototypeDiscardPile.slice(0, 8);
   const okeyPrototypeOpenedMeldPreview = okeyPrototypeOpenedMelds.slice(0, 8);
   const okeyPrototypeDrawPileRemaining = okeyPrototypeWallTiles.length;
@@ -5538,7 +5747,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     () => {
       const isLocalTurnSeat = (okeyPrototypeTurnSeat as OkeyPrototypeSeatNo) === okeyPrototypeSeatNoForRack;
       const slotOrder = isLocalTurnSeat ? okeyPrototypeSeatRackSlots : null;
-      const plan = buildOkeyPrototypePairOpenPlan(okeyPrototypeTurnRackTiles, okeyPrototypeOkeyTile, slotOrder);
+      const plan = buildOkeyPrototypePairOpenPlanWithRequiredTile(
+        okeyPrototypeTurnRackTiles,
+        okeyPrototypeOkeyTile,
+        slotOrder,
+        okeyPrototypePendingDiscardTileId || null,
+      );
       return plan.pairCount;
     },
     [
@@ -5547,6 +5761,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       okeyPrototypeSeatRackSlots,
       okeyPrototypeTurnRackTiles,
       okeyPrototypeOkeyTile,
+      okeyPrototypePendingDiscardTileId,
     ],
   );
   const okeyPrototypeOpeningRemainingPoints = Math.max(0, OKEY_PROTOTYPE_OPENING_TARGET_POINTS - okeyPrototypeTurnOpeningPoints);
@@ -5800,10 +6015,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       if (seatNo !== okeyPrototypeSeatNoForRack) return false;
       const rackIds = new Set(okeyPrototypeTurnRackTiles.map((tile) => tile.id));
       if (kind === "set" && (seatOpenMode === "pair" || okeyPrototypeAnyPairSeatOpened)) {
-        const pairPlan = buildOkeyPrototypePairOpenPlan(
+        const pairPlan = buildOkeyPrototypePairOpenPlanWithRequiredTile(
           okeyPrototypeTurnRackTiles,
           okeyPrototypeOkeyTile,
           okeyPrototypeSeatRackSlots,
+          okeyPrototypePendingDiscardTileId,
         );
         return pairPlan.groups.some((group) => (
           group.length >= 2
@@ -9577,6 +9793,35 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }, OKEY_PROTOTYPE_PENALTY_BUBBLE_DURATION_MS);
   }
 
+  function showOkeyPrototypeSeatOpenNotice(
+    seatNo: OkeyPrototypeSeatNo,
+    text: string,
+  ) {
+    const normalizedText = text.replace(/\s+/g, " ").trim().slice(0, 64);
+    if (!normalizedText) return;
+    setOkeyPrototypeSeatOpenNotices((current) => {
+      if (current[seatNo] === normalizedText) return current;
+      return {
+        ...current,
+        [seatNo]: normalizedText,
+      };
+    });
+    const currentTimeoutId = okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
+    if (typeof currentTimeoutId === "number") {
+      window.clearTimeout(currentTimeoutId);
+    }
+    okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo] = window.setTimeout(() => {
+      setOkeyPrototypeSeatOpenNotices((current) => {
+        if (!current[seatNo]) return current;
+        return {
+          ...current,
+          [seatNo]: null,
+        };
+      });
+      delete okeyPrototypeSeatOpenNoticeTimeoutsRef.current[seatNo];
+    }, OKEY_PROTOTYPE_OPEN_NOTICE_DURATION_MS);
+  }
+
   function resetOkeyPrototypeTableFilters() {
     const hadAny = okeyPrototypeHasTableFilters;
     setOkeyPrototypeTableFilter("all");
@@ -11722,7 +11967,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     const slotOrder = seatNo === okeyPrototypeSeatNoForRack ? okeyPrototypeSeatRackSlots : null;
-    const pairPlan = buildOkeyPrototypePairOpenPlan(okeyPrototypeTurnRackTiles, okeyPrototypeOkeyTile, slotOrder);
+    const pairPlan = buildOkeyPrototypePairOpenPlanWithRequiredTile(
+      okeyPrototypeTurnRackTiles,
+      okeyPrototypeOkeyTile,
+      slotOrder,
+      okeyPrototypePendingDiscardTileId || null,
+    );
     const pairCount = pairPlan.pairCount;
     if (pairCount < OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS) {
       appendOkeyPrototypeAction(
@@ -19183,6 +19433,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               const seatNo = okeyPrototypeSeatByDisplayPosition[displayPosition] ?? displayPosition;
                               const seatName = okeyPrototypeSeatNameByDisplayPosition[displayPosition] || `K${seatNo}`;
                               const seatMelds = okeyPrototypeOpenedMeldsBySeat[seatNo] ?? [];
+                              const seatOpenNotice = okeyPrototypeSeatOpenNotices[seatNo] ?? null;
                               const seatSerialMelds = seatMelds.filter(
                                 (meld) => canProcessOkeyPrototypeMeldByKind("seri", meld, okeyPrototypeSeatOpenModes),
                               );
@@ -19195,6 +19446,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                   <div className="my-okey-center-seat-head">
                                     <span className="my-okey-center-seat-name">{seatName}</span>
                                   </div>
+                                  {seatOpenNotice ? (
+                                    <span className="my-okey-center-seat-open-bubble" role="status" aria-live="polite">
+                                      {seatOpenNotice}
+                                    </span>
+                                  ) : null}
                                   <div className="my-okey-center-seat-melds">
                                     {seatSerialMelds.length === 0 ? (
                                       <span className="my-okey-center-seat-empty">Acik yok</span>
