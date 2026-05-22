@@ -21,7 +21,7 @@ type GameId = "tavla" | "okey101";
 type EntryScreen = "game" | "room" | "lobby";
 type AuthMode = "login" | "register";
 type MatchOutcome = "win" | "loss" | "resign";
-type MemberRole = "user" | "admin";
+type MemberRole = "user" | "admin" | "superadmin";
 type MemberGender = "male" | "female" | "unknown";
 type AdminRoleFilter = "all" | MemberRole;
 type AdminSortKey = "name" | "points" | "games" | "wins" | "losses" | "resigns" | "createdAt";
@@ -1737,8 +1737,13 @@ function avatarOptionsForGender(gender: MemberGender) {
 }
 
 function sanitizeMemberRole(raw: unknown): MemberRole {
+  if (raw === "superadmin") return "superadmin";
   if (raw === "admin") return "admin";
   return "user";
+}
+
+function isSuperAdminRole(role: MemberRole | null | undefined) {
+  return role === "superadmin";
 }
 
 function createDefaultMemberPermissions(): MemberPermissions {
@@ -3148,7 +3153,10 @@ function cleanupOkeyPrototypeTablesByRoom(
         );
         const seatJoinedAt = getOkeyPrototypeSeatJoinedAt(seat);
         const seatLastSeenAt = seatJoinedAt > 0 ? seatJoinedAt : getOkeyPrototypeTableUpdatedAt(table);
-        if (!seatActive && now - seatLastSeenAt > OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS) {
+        const inactiveSeatPruneMs = table.startedAt
+          ? OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS
+          : OKEY_TABLE_OPEN_GRACE_MS;
+        if (!seatActive && now - seatLastSeenAt > inactiveSeatPruneMs) {
           tableChanged = true;
           return;
         }
@@ -9873,6 +9881,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function adminCloseOkeyPrototypeTable(tableRow: OkeyPrototypeTableSketchRow) {
+    const hasSuperAdminOverride = isSuperAdminRole(member?.role);
     const safeCurrentUserId = sanitizeGuestId(currentProfile.userId);
     const safeOwnerUserId = sanitizeGuestId(tableRow.ownerUserId);
     const ownerStillSeated = OKEY_PROTOTYPE_SEATS.some(
@@ -9882,7 +9891,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       (seatNo) => sanitizeGuestId(tableRow.seats[seatNo]?.userId ?? "") === safeCurrentUserId,
     );
     const canCloseAsFallback = currentUserSeated && (!safeOwnerUserId || !ownerStillSeated);
-    if (!safeCurrentUserId || (safeOwnerUserId !== safeCurrentUserId && !canCloseAsFallback)) {
+    if (!hasSuperAdminOverride && (!safeCurrentUserId || (safeOwnerUserId !== safeCurrentUserId && !canCloseAsFallback))) {
       setLobbyNotice("Masayi sadece masa sahibi kapatabilir.");
       return;
     }
@@ -13382,8 +13391,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function adminCloseTable(tableId: number) {
-    if (!member || member.role !== "admin") {
-      setLobbyNotice("Masayı kapatmak için admin olmalısın.");
+    const canCloseAnyTable = Boolean(member && (member.role === "admin" || isSuperAdminRole(member.role)));
+    if (!canCloseAnyTable) {
+      setLobbyNotice("Masayı kapatmak için admin veya superadmin olmalısın.");
       return;
     }
 
@@ -17851,6 +17861,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         ? Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo))
                         : null;
                       const isOkeyTableOwner = sanitizeGuestId(row.ownerUserId) === sanitizeGuestId(currentProfile.userId);
+                      const canCloseOkeyTable = isOkeyTableOwner || isSuperAdminRole(member?.role);
                       const seatLockedByOtherTable = Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatReservation.tableId !== row.id);
                       return (
                         <article key={`okey-lobby-table-${row.id}`} className={`my-okey-lobby-card ${row.active ? "active" : "waiting"} ${mySeatNo ? "mine" : ""}`}>
@@ -17892,7 +17903,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             <span>{occupiedSeatNos.length}/4 Dolu</span>
                             <div className="my-mini-actions">
                               <span>OP: {Math.max(1, Math.ceil(occupiedSeatNos.length / 2))}</span>
-                              {isOkeyTableOwner ? (
+                              {canCloseOkeyTable ? (
                                 <button className="my-action-btn danger" onClick={() => adminCloseOkeyPrototypeTable(row)}>
                                   Masayı Kapat
                                 </button>
