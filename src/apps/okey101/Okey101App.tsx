@@ -19072,13 +19072,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         />
                         <span>Cezali oyun</span>
                       </label>
-                      {!okeyPrototypeIsTableOwner ? (
-                        <p className="my-okey-game-settings-note">Ayarlari sadece masa sahibi degistirebilir.</p>
-                      ) : okeyPrototypeGameStarted ? (
+                      {okeyPrototypeGameStarted ? (
                         <p className="my-okey-game-settings-note">Oyun basladiktan sonra ayarlar degismez.</p>
-                      ) : (
-                        <p className="my-okey-game-settings-note">Masa sahibi oyuna baslamadan ayarlari secer.</p>
-                      )}
+                      ) : null}
                     </div>
                   </aside>
                 ) : null}
@@ -19623,9 +19619,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             />
                             <span>Cezali oyun</span>
                           </label>
-                          {!okeyPrototypeIsTableOwner ? (
-                            <p className="my-okey-game-settings-note">Ayarlari sadece masa sahibi degistirebilir.</p>
-                          ) : okeyPrototypeGameStarted ? (
+                          {okeyPrototypeGameStarted ? (
                             <p className="my-okey-game-settings-note">Oyun basladiktan sonra ayarlar degismez.</p>
                           ) : null}
                         </div>
