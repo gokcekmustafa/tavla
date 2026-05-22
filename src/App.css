@@ -5602,6 +5602,49 @@
   align-items: start;
 }
 
+.my-okey-table-main-layout {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+.my-okey-table-main-layout > .my-game-coming-prototype-board {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-left-settings-panel {
+  flex: 0 0 172px;
+  align-self: stretch;
+  border-radius: 10px;
+  border: 1px solid rgba(114, 77, 31, 0.92);
+  background: linear-gradient(180deg, rgba(124, 83, 37, 0.95), rgba(89, 57, 23, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(241, 208, 159, 0.24),
+    inset 0 0 0 1px rgba(54, 34, 11, 0.36);
+  padding: 8px 7px;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-left-settings-title {
+  margin: 0;
+  color: #fff3d8;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-left-settings-panel .my-okey-game-settings {
+  padding: 6px;
+  gap: 5px;
+  border-color: rgba(245, 221, 189, 0.22);
+  background: rgba(69, 43, 17, 0.22);
+}
+
 .my-okey-quick-side {
   display: grid;
   gap: 10px;
@@ -5677,6 +5720,14 @@
 }
 
 @media (max-width: 760px) {
+  .my-okey-table-main-layout {
+    display: block;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-left-settings-panel {
+    display: none !important;
+  }
+
   .my-okey-lower-strip {
     grid-template-columns: 1fr;
   }

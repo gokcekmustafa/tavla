@@ -5520,6 +5520,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     && okeyPrototypeJoinedTable
     && okeyPrototypeJoinedTable.started,
   );
+  const okeyPrototypeCanEditGameOptions = Boolean(
+    okeyPrototypeIsTableOwner
+    && !okeyPrototypeGameStarted,
+  );
   const okeyPrototypeIsLocalTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeTurnSeat === okeyPrototypeLocalSeatNo);
   const okeyPrototypeIsBotTurn = okeyPrototypeBotModeEnabled
     && Boolean(okeyPrototypeSeatReservation && okeyPrototypeJoinedTable)
@@ -12897,6 +12901,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setLobbyNotice("Oyun ayarlarini sadece masa sahibi degistirebilir.");
       return;
     }
+    if (okeyPrototypeGameStarted) {
+      setLobbyNotice("Oyun basladiktan sonra ayarlar kilitlenir.");
+      return;
+    }
     const nextOptions: OkeyPrototypeGameOptions = {
       ...okeyPrototypeGameOptions,
       [option]: enabled,
@@ -19032,6 +19040,48 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                 </div>
               </div>
 
+              <div className="my-okey-table-main-layout">
+                {okeyPrototypeSeatReservation ? (
+                  <aside className="my-okey-left-settings-panel" aria-label="Masa oyun ayarlari">
+                    <p className="my-okey-left-settings-title">Oyun Ayarlari</p>
+                    <div className="my-okey-game-settings">
+                      <label className="my-okey-game-settings-item">
+                        <input
+                          type="checkbox"
+                          checked={okeyPrototypeGameOptions.teamedPlay}
+                          onChange={(event) => updateOkeyPrototypeGameOption("teamedPlay", event.target.checked)}
+                          disabled={!okeyPrototypeCanEditGameOptions}
+                        />
+                        <span>Esli oyun</span>
+                      </label>
+                      <label className="my-okey-game-settings-item">
+                        <input
+                          type="checkbox"
+                          checked={okeyPrototypeGameOptions.increasingPlay}
+                          onChange={(event) => updateOkeyPrototypeGameOption("increasingPlay", event.target.checked)}
+                          disabled={!okeyPrototypeCanEditGameOptions}
+                        />
+                        <span>Artirmali oyun</span>
+                      </label>
+                      <label className="my-okey-game-settings-item">
+                        <input
+                          type="checkbox"
+                          checked={okeyPrototypeGameOptions.penaltyPlay}
+                          onChange={(event) => updateOkeyPrototypeGameOption("penaltyPlay", event.target.checked)}
+                          disabled={!okeyPrototypeCanEditGameOptions}
+                        />
+                        <span>Cezali oyun</span>
+                      </label>
+                      {!okeyPrototypeIsTableOwner ? (
+                        <p className="my-okey-game-settings-note">Ayarlari sadece masa sahibi degistirebilir.</p>
+                      ) : okeyPrototypeGameStarted ? (
+                        <p className="my-okey-game-settings-note">Oyun basladiktan sonra ayarlar degismez.</p>
+                      ) : (
+                        <p className="my-okey-game-settings-note">Masa sahibi oyuna baslamadan ayarlari secer.</p>
+                      )}
+                    </div>
+                  </aside>
+                ) : null}
               <div className="my-game-coming-prototype-board">
                 {!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable ? (
                   <div className="my-empty-state my-empty-state-lobby">
@@ -19413,6 +19463,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                   </>
                 )}
               </div>
+              </div>
 
               {okeyPrototypeSeatReservation ? (
                 <>
@@ -19550,7 +19601,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               type="checkbox"
                               checked={okeyPrototypeGameOptions.teamedPlay}
                               onChange={(event) => updateOkeyPrototypeGameOption("teamedPlay", event.target.checked)}
-                              disabled={!okeyPrototypeIsTableOwner}
+                              disabled={!okeyPrototypeCanEditGameOptions}
                             />
                             <span>Esli oyun</span>
                           </label>
@@ -19559,7 +19610,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               type="checkbox"
                               checked={okeyPrototypeGameOptions.increasingPlay}
                               onChange={(event) => updateOkeyPrototypeGameOption("increasingPlay", event.target.checked)}
-                              disabled={!okeyPrototypeIsTableOwner}
+                              disabled={!okeyPrototypeCanEditGameOptions}
                             />
                             <span>Artirmali oyun</span>
                           </label>
@@ -19568,12 +19619,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               type="checkbox"
                               checked={okeyPrototypeGameOptions.penaltyPlay}
                               onChange={(event) => updateOkeyPrototypeGameOption("penaltyPlay", event.target.checked)}
-                              disabled={!okeyPrototypeIsTableOwner}
+                              disabled={!okeyPrototypeCanEditGameOptions}
                             />
                             <span>Cezali oyun</span>
                           </label>
                           {!okeyPrototypeIsTableOwner ? (
                             <p className="my-okey-game-settings-note">Ayarlari sadece masa sahibi degistirebilir.</p>
+                          ) : okeyPrototypeGameStarted ? (
+                            <p className="my-okey-game-settings-note">Oyun basladiktan sonra ayarlar degismez.</p>
                           ) : null}
                         </div>
                         <button className="my-action-btn soft" type="button" onClick={dealOkeyPrototypeWithSeed}>
