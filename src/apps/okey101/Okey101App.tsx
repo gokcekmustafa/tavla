@@ -529,7 +529,7 @@ const ROOM_MISSING_CHECK_DELAY_MS = 2_200;
 const ROOM_MISSING_CLOSE_GRACE_MS = 9_000;
 const ACTIVITY_CLOCK_SKEW_LIMIT_MS = 24 * 60 * 60 * 1000;
 const OKEY_TABLE_CLOSE_TOMBSTONE_MS = 30 * 60 * 1000;
-const OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS = 300_000;
+const OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS = 120_000;
 const ENABLE_WS_DEBUG_LOGS = false;
 const WS_PREOPEN_FAIL_DISABLE_THRESHOLD = 3;
 const WS_DISABLE_DURATION_MS = 2 * 60 * 1000;
@@ -2468,6 +2468,11 @@ function formatSince(timestamp: number, now = Date.now()) {
   if (min < 60) return `${min} dk once`;
   const hour = Math.floor(min / 60);
   return `${hour} sa once`;
+}
+
+function formatRemainingSeconds(ms: number) {
+  const safeMs = Number.isFinite(ms) ? Math.max(0, ms) : 0;
+  return Math.max(0, Math.ceil(safeMs / 1000));
 }
 
 function websocketStateText(readyState: number) {
@@ -4979,6 +4984,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeLastStartedTableKeyRef = useRef("");
   const okeyPrototypeLastStableTurnSeatsRef = useRef<OkeyPrototypeSeatNo[]>([]);
   const [okeyPrototypeActionLog, setOkeyPrototypeActionLog] = useState<Array<{ id: string; at: number; text: string }>>([]);
+  const [syncHealthNow, setSyncHealthNow] = useState(() => Date.now());
   const canAccessOkeyPrototype = true;
   const useTavlaLikeOkeyLayout = false;
   const effectiveSelectedGameId: GameId = selectedGameId;
@@ -5562,6 +5568,52 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     });
     return byPosition;
   }, [okeyPrototypeDisplaySeatPositionBySeat]);
+  const okeyPrototypeReconnectWaitingSeats = useMemo(() => {
+    if (!okeyPrototypeJoinedTable) return [] as Array<{ seatNo: OkeyPrototypeSeatNo; name: string; remainingMs: number }>;
+    if (isOkeyPrototypeLocalBotTableId(okeyPrototypeJoinedTable.id)) return [] as Array<{ seatNo: OkeyPrototypeSeatNo; name: string; remainingMs: number }>;
+    const now = syncHealthNow;
+    const activeSessionIds = new Set<string>();
+    const activeUserIds = new Set<string>();
+    lobbyState.presence.forEach((row) => {
+      const touchedAt = normalizeActivityTimestamp(row.touchedAt, now, HEARTBEAT_MS * 2, row.sessionId);
+      if (now - touchedAt > HEARTBEAT_MS * 2) return;
+      const sessionId = sanitizeGuestId(row.sessionId);
+      if (sessionId) activeSessionIds.add(sessionId);
+      const userId = sanitizeGuestId(row.userId);
+      if (userId) activeUserIds.add(userId);
+    });
+    const waiting: Array<{ seatNo: OkeyPrototypeSeatNo; name: string; remainingMs: number }> = [];
+    OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+      if (seatNo === okeyPrototypeLocalSeatNo) return;
+      const seat = okeyPrototypeJoinedTable.seats[seatNo];
+      if (!seat) return;
+      if (isOkeyPrototypeBotUserId(seat.userId)) return;
+      const seatSessionId = sanitizeGuestId(seat.sessionId);
+      const seatUserId = sanitizeGuestId(seat.userId);
+      const active = Boolean(
+        (seatSessionId && activeSessionIds.has(seatSessionId))
+        || (seatUserId && activeUserIds.has(seatUserId)),
+      );
+      if (active) return;
+      const lastSeenAt = getOkeyPrototypeSeatJoinedAt(seat) || now;
+      const remainingMs = lastSeenAt + OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS - now;
+      if (remainingMs <= 0) return;
+      waiting.push({
+        seatNo,
+        name: sanitizeOkeyPrototypeSeatName(seat.displayName) || `K${seatNo}`,
+        remainingMs,
+      });
+    });
+    waiting.sort((left, right) => left.remainingMs - right.remainingMs || left.seatNo - right.seatNo);
+    return waiting;
+  }, [okeyPrototypeJoinedTable, okeyPrototypeLocalSeatNo, lobbyState.presence, syncHealthNow]);
+  const okeyPrototypeReconnectNoticeText = useMemo(() => {
+    if (okeyPrototypeReconnectWaitingSeats.length === 0) return "";
+    const details = okeyPrototypeReconnectWaitingSeats
+      .map((entry) => `${entry.name}: ${formatRemainingSeconds(entry.remainingMs)} sn`)
+      .join(" | ");
+    return `Baglanti koptu, oyuncu donusu bekleniyor (${details})`;
+  }, [okeyPrototypeReconnectWaitingSeats]);
   const okeyPrototypeDiscardDraftTile = useMemo(() => {
     if (!okeyPrototypeDiscardDraftTileId) return null;
     return okeyPrototypeSeatRackTiles.find((tile) => tile.id === okeyPrototypeDiscardDraftTileId) ?? null;
@@ -6189,7 +6241,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const [adminDesignDraggingAction, setAdminDesignDraggingAction] = useState<"openTable" | "quickPlay" | null>(null);
   const [adminDesignDraggingTopButton, setAdminDesignDraggingTopButton] = useState<"home" | "roomSelect" | "botMode" | null>(null);
   const [adminDesignDraggingRoomOwnerButton, setAdminDesignDraggingRoomOwnerButton] = useState<"invite" | "private" | "spectator" | "copyLink" | null>(null);
-  const [syncHealthNow, setSyncHealthNow] = useState(() => Date.now());
   const [realtimeSocketReadyState, setRealtimeSocketReadyState] = useState<number>(
     typeof WebSocket === "undefined" ? 3 : WebSocket.CLOSED,
   );
@@ -16056,10 +16107,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const scopedTableId = roomSession && roomSession.role === "player" ? Math.max(1, roomSession.tableNo) : 0;
       const cleared = clearSessionFromTables(cleanedTables, appSessionId, scopedUserId, scopedRoomCode, scopedTableId);
       const prunedTables = cleanupStaleAndPrune(cleared.tables).tables;
-      const safeCurrentUserId = sanitizeGuestId(currentProfile.userId);
       const nextOkeyTablesByRoom: Record<string, OkeyPrototypeLobbyTableState[]> = {};
       let okeyTablesChanged = false;
+      const preserveOkeySeatsOnUnload = true;
       Object.entries(latestOkeyTablesByRoom).forEach(([roomId, tables]) => {
+        if (preserveOkeySeatsOnUnload) {
+          nextOkeyTablesByRoom[roomId] = tables.slice().sort((left, right) => left.tableNo - right.tableNo);
+          return;
+        }
         const nextTables: OkeyPrototypeLobbyTableState[] = [];
         tables.forEach((table) => {
           const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = { ...table.seats };
@@ -16068,6 +16123,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             const seat = nextSeats[seatNo];
             if (!seat) return;
             const sameSession = sanitizeGuestId(seat.sessionId) === appSessionId;
+            const safeCurrentUserId = sanitizeGuestId(currentProfile.userId);
             const sameUser = safeCurrentUserId && sanitizeGuestId(seat.userId) === safeCurrentUserId;
             if (!sameSession && !sameUser) return;
             delete nextSeats[seatNo];
@@ -19244,6 +19300,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                   ) : null}
                 </div>
               </div>
+              {okeyPrototypeReconnectNoticeText ? (
+                <div className="my-okey-reconnect-banner" role="status" aria-live="polite" aria-atomic="true">
+                  <strong>Baglanti Bekleniyor:</strong>
+                  <span>{okeyPrototypeReconnectNoticeText}</span>
+                </div>
+              ) : null}
 
               <div className="my-okey-table-main-layout">
                 {okeyPrototypeSeatReservation ? (
