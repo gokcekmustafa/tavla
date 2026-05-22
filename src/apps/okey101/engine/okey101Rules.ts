@@ -317,12 +317,17 @@ export function getRackPenaltyPoints(tiles: OkeyTile[], okeyTile: OkeyTile | nul
 export function countIdenticalPairs(tiles: OkeyTile[], okeyTile: OkeyTile | null = null) {
   const counts = new Map<string, number>();
   let jokerCount = 0;
+  let sahteCount = 0;
   tiles.forEach((sourceTile) => {
-    const tile = getEffectiveTileForRules(sourceTile, okeyTile);
-    if (isJokerTile(tile, okeyTile)) {
+    if (sourceTile.kind === "sahte") {
+      sahteCount += 1;
+      return;
+    }
+    if (isJokerTile(sourceTile, okeyTile)) {
       jokerCount += 1;
       return;
     }
+    const tile = getEffectiveTileForRules(sourceTile, okeyTile);
     const key = `${tile.color}-${tile.value}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   });
@@ -339,6 +344,9 @@ export function countIdenticalPairs(tiles: OkeyTile[], okeyTile: OkeyTile | null
   }
   if (jokerCount >= 2) {
     pairCount += Math.floor(jokerCount / 2);
+  }
+  if (sahteCount >= 2) {
+    pairCount += Math.floor(sahteCount / 2);
   }
   return pairCount;
 }

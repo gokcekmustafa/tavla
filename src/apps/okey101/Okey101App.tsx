@@ -1372,6 +1372,28 @@ function getOkeyPrototypeTileRuleFace(
   return null;
 }
 
+function sortOkeyPrototypeMeldTilesForTable(
+  tiles: OkeyPrototypeTile[],
+  okeyTile: OkeyPrototypeTile | null = null,
+) {
+  const colorIndexOf = (tile: OkeyPrototypeTile) => {
+    const ruleFace = getOkeyPrototypeTileRuleFace(tile, okeyTile);
+    if (!ruleFace) return Number.POSITIVE_INFINITY;
+    const colorIndex = OKEY_PROTOTYPE_TILE_COLORS.findIndex((color) => color === ruleFace.color);
+    return colorIndex >= 0 ? colorIndex : Number.POSITIVE_INFINITY;
+  };
+  return tiles.slice().sort((left, right) => {
+    const leftRuleFace = getOkeyPrototypeTileRuleFace(left, okeyTile);
+    const rightRuleFace = getOkeyPrototypeTileRuleFace(right, okeyTile);
+    const leftValue = leftRuleFace?.value ?? left.value;
+    const rightValue = rightRuleFace?.value ?? right.value;
+    if (leftValue !== rightValue) return leftValue - rightValue;
+    const colorDiff = colorIndexOf(left) - colorIndexOf(right);
+    if (colorDiff !== 0) return colorDiff;
+    return left.id.localeCompare(right.id);
+  });
+}
+
 function getOkeyPrototypeMeldPointsWithJokers(tiles: OkeyPrototypeTile[], okeyTile: OkeyPrototypeTile | null = null) {
   return getMeldPointsWithJokersFromEngine(tiles, okeyTile);
 }
@@ -1405,7 +1427,7 @@ function isOkeyPrototypePairWildcardTile(
   tile: OkeyPrototypeTile,
   okeyTile: OkeyPrototypeTile | null = null,
 ) {
-  return tile.kind === "sahte" || isOkeyPrototypeJokerTile(tile, okeyTile);
+  return isOkeyPrototypeJokerTile(tile, okeyTile);
 }
 
 function areOkeyPrototypeTilesAdjacentInSlotOrder(
@@ -1455,6 +1477,12 @@ function buildOkeyPrototypePairOpenPlan(
   };
 
   const tryAddPairFromAdjacentTiles = (left: OkeyPrototypeTile, right: OkeyPrototypeTile) => {
+    if (left.kind === "sahte" || right.kind === "sahte") {
+      if (left.kind === "sahte" && right.kind === "sahte") {
+        return addPair(left, right);
+      }
+      return false;
+    }
     const leftIsJoker = isOkeyPrototypePairWildcardTile(left, okeyTile);
     const rightIsJoker = isOkeyPrototypePairWildcardTile(right, okeyTile);
     // Slotta yanyana yapilan okey eslestirmeleri, oyuncunun secimini korumak icin onceliklidir.
@@ -1527,6 +1555,9 @@ function buildOkeyPrototypePairOpenPlan(
   const remainingJokers = collectRemainingTiles(
     (tile) => isOkeyPrototypePairWildcardTile(tile, okeyTile),
   );
+  const remainingSahteTiles = collectRemainingTiles(
+    (tile) => tile.kind === "sahte",
+  );
 
   while (remainingNormalSingles.length > 0 && remainingJokers.length > 0) {
     const normalTile = remainingNormalSingles.shift();
@@ -1542,6 +1573,13 @@ function buildOkeyPrototypePairOpenPlan(
     addPair(leftJoker, rightJoker);
   }
 
+  while (remainingSahteTiles.length >= 2) {
+    const leftSahte = remainingSahteTiles.shift();
+    const rightSahte = remainingSahteTiles.shift();
+    if (!leftSahte || !rightSahte) break;
+    addPair(leftSahte, rightSahte);
+  }
+
   return {
     groups,
     pairCount: groups.length,
@@ -1554,6 +1592,9 @@ function canOkeyPrototypeTilesFormPair(
   right: OkeyPrototypeTile,
   okeyTile: OkeyPrototypeTile | null = null,
 ) {
+  if (left.kind === "sahte" || right.kind === "sahte") {
+    return left.kind === "sahte" && right.kind === "sahte";
+  }
   const leftIsWildcard = isOkeyPrototypePairWildcardTile(left, okeyTile);
   const rightIsWildcard = isOkeyPrototypePairWildcardTile(right, okeyTile);
   if (leftIsWildcard || rightIsWildcard) return true;
@@ -12014,7 +12055,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       id: `okey-proto-pair-${seatNo}-${now}-${index}-${Math.random().toString(36).slice(2, 7)}`,
       seatNo,
       round: okeyPrototypeTurnRound,
-      tiles: pairTiles.slice().sort((left, right) => left.value - right.value),
+      tiles: sortOkeyPrototypeMeldTilesForTable(pairTiles, okeyPrototypeOkeyTile),
       kind: "set",
       at: now + index,
     }));
@@ -12142,7 +12183,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       if (meld.id !== targetMeld.id) return meld;
       return {
         ...meld,
-        tiles: [...meld.tiles, attachedTile].slice().sort((left, right) => left.value - right.value),
+        tiles: sortOkeyPrototypeMeldTilesForTable([...meld.tiles, attachedTile], okeyPrototypeOkeyTile),
       };
     }));
     if (okeyPrototypePendingDiscardTileId && attachedTile.id === okeyPrototypePendingDiscardTileId) {
@@ -12760,7 +12801,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         });
         if (!targetMeld) continue;
         workingRack.splice(tileIndex, 1);
-        targetMeld.tiles = [...targetMeld.tiles, tile].slice().sort((left, right) => left.value - right.value);
+        targetMeld.tiles = sortOkeyPrototypeMeldTilesForTable([...targetMeld.tiles, tile], okeyPrototypeOkeyTile);
         updatedMeldById.set(targetMeld.id, targetMeld);
         attachedTileIds.add(tile.id);
         attachedCount += 1;
@@ -12835,7 +12876,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             ? pairHostSeatNo
             : seatNo,
           round: okeyPrototypeTurnRound,
-          tiles: selectedTiles.slice().sort((left, right) => left.value - right.value),
+          tiles: sortOkeyPrototypeMeldTilesForTable(selectedTiles, okeyPrototypeOkeyTile),
           kind: group.kind,
           at: now + index,
         };
