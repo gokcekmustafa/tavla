@@ -6555,6 +6555,14 @@
   cursor: pointer;
 }
 
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket.final-drop-target {
+  border-color: rgba(255, 201, 92, 0.98);
+  box-shadow:
+    0 0 0 1px rgba(255, 224, 134, 0.42) inset,
+    0 0 10px rgba(255, 196, 78, 0.32);
+  background: linear-gradient(180deg, rgba(15, 113, 79, 0.78), rgba(8, 86, 61, 0.86));
+}
+
 .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket > span:first-child {
   color: #dbf7ea;
   font-size: 0.6rem;
@@ -7795,6 +7803,29 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-score-popup .my-okey-quick-card {
     margin: 0;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-penalty-bubble {
+    position: fixed;
+    top: 52px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 92;
+    pointer-events: none;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 226, 226, 0.9);
+    background: linear-gradient(180deg, rgba(224, 43, 43, 0.96), rgba(169, 22, 22, 0.98));
+    box-shadow: 0 8px 20px rgba(56, 5, 5, 0.35);
+    padding: 6px 14px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-penalty-bubble strong {
+    color: #fff7f7;
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    white-space: nowrap;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {

@@ -395,6 +395,8 @@ type OkeyPrototypeLiveAction = {
   publicSessionHandNo?: number;
   publicLastHandSummary?: string;
   publicAutoNextOutcomeKey?: string;
+  publicPenaltyNoticeText?: string;
+  publicPenaltyNoticeSeatNo?: OkeyPrototypeSeatNo;
   handStartedAt?: number;
   at: number;
   sourceSessionId: string;
@@ -573,6 +575,7 @@ const OKEY_PROTOTYPE_UNOPENED_PENALTY_POINTS = 202;
 const OKEY_PROTOTYPE_SET_HAND_TARGET = 7;
 const OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS = 5_600;
 const OKEY_PROTOTYPE_AUTO_NEXT_SET_DELAY_MS = 5_600;
+const OKEY_PROTOTYPE_PENALTY_BUBBLE_DURATION_MS = 1_900;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = OKEY_ENGINE_RULES.seats as readonly OkeyPrototypeSeatNo[];
 const OKEY_PROTOTYPE_COUNTERCLOCKWISE_SEAT_ORDER: readonly OkeyPrototypeSeatNo[] = [1, 4, 3, 2];
 const OKEY_PROTOTYPE_RACK_SLOT_COLUMNS = 16;
@@ -2849,6 +2852,11 @@ function sanitizeOkeyPrototypeOutcomeKey(raw: unknown) {
   return raw.trim().replace(/[^a-zA-Z0-9:_-]/g, "").slice(0, 80);
 }
 
+function sanitizeOkeyPrototypePenaltyNoticeText(raw: unknown) {
+  if (typeof raw !== "string") return "";
+  return raw.trim().replace(/\s+/g, " ").slice(0, 36);
+}
+
 function normalizeOkeyPrototypeRackState(raw: unknown): OkeyPrototypeRackState | null {
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Partial<Record<OkeyPrototypeSeatNo, unknown>>;
@@ -2926,6 +2934,11 @@ function normalizeOkeyPrototypeLiveAction(raw: unknown): OkeyPrototypeLiveAction
   const hasPublicLastHandSummary = publicLastHandSummary.length > 0;
   const publicAutoNextOutcomeKey = sanitizeOkeyPrototypeOutcomeKey(candidate.publicAutoNextOutcomeKey);
   const hasPublicAutoNextOutcomeKey = publicAutoNextOutcomeKey.length > 0;
+  const publicPenaltyNoticeText = sanitizeOkeyPrototypePenaltyNoticeText(candidate.publicPenaltyNoticeText);
+  const hasPublicPenaltyNoticeText = publicPenaltyNoticeText.length > 0;
+  const publicPenaltyNoticeSeatNo = hasPublicPenaltyNoticeText
+    ? (normalizeOkeyPrototypeSeatNo(candidate.publicPenaltyNoticeSeatNo) ?? actorSeatNo ?? undefined)
+    : undefined;
   const hasHandStartedAt = Object.prototype.hasOwnProperty.call(candidate, "handStartedAt");
   const handStartedAt = hasHandStartedAt
     ? Math.max(0, normalizeNonNegativeInt(candidate.handStartedAt, 0))
@@ -2956,6 +2969,8 @@ function normalizeOkeyPrototypeLiveAction(raw: unknown): OkeyPrototypeLiveAction
     publicSessionHandNo,
     publicLastHandSummary: hasPublicLastHandSummary ? publicLastHandSummary : undefined,
     publicAutoNextOutcomeKey: hasPublicAutoNextOutcomeKey ? publicAutoNextOutcomeKey : undefined,
+    publicPenaltyNoticeText: hasPublicPenaltyNoticeText ? publicPenaltyNoticeText : undefined,
+    publicPenaltyNoticeSeatNo,
     handStartedAt: handStartedAt && handStartedAt > 0 ? handStartedAt : undefined,
     at,
     sourceSessionId,
@@ -4692,7 +4707,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const [okeyPrototypeLastHandSummary, setOkeyPrototypeLastHandSummary] = useState("");
   const [okeyPrototypeScorePopupVisible, setOkeyPrototypeScorePopupVisible] = useState(false);
   const [okeyPrototypeScorePanelOpen, setOkeyPrototypeScorePanelOpen] = useState(false);
+  const [okeyPrototypePenaltyBubble, setOkeyPrototypePenaltyBubble] = useState<{
+    text: string;
+    seatNo: OkeyPrototypeSeatNo | null;
+  } | null>(null);
   const okeyPrototypeScorePopupTimeoutRef = useRef<number | null>(null);
+  const okeyPrototypePenaltyBubbleTimeoutRef = useRef<number | null>(null);
   const okeyPrototypeStartWithBotsPendingRef = useRef(false);
   const okeyPrototypeLastStartedTableKeyRef = useRef("");
   const okeyPrototypeLastStableTurnSeatsRef = useRef<OkeyPrototypeSeatNo[]>([]);
@@ -4730,11 +4750,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   useEffect(() => {
     if (okeyPrototypeSeatReservation) return;
     setOkeyPrototypeScorePanelOpen(false);
+    setOkeyPrototypePenaltyBubble(null);
+    if (okeyPrototypePenaltyBubbleTimeoutRef.current !== null) {
+      window.clearTimeout(okeyPrototypePenaltyBubbleTimeoutRef.current);
+      okeyPrototypePenaltyBubbleTimeoutRef.current = null;
+    }
   }, [okeyPrototypeSeatReservation]);
   useEffect(() => {
     return () => {
       if (okeyPrototypeScorePopupTimeoutRef.current !== null) {
         window.clearTimeout(okeyPrototypeScorePopupTimeoutRef.current);
+      }
+      if (okeyPrototypePenaltyBubbleTimeoutRef.current !== null) {
+        window.clearTimeout(okeyPrototypePenaltyBubbleTimeoutRef.current);
       }
     };
   }, []);
@@ -5481,6 +5509,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     && okeyPrototypeTurnHasDrawn
     && okeyPrototypeTurnRackTiles.length > 0
     && !okeyPrototypePendingDiscardTileId;
+  const okeyPrototypeCanFinishByDeckDrop = okeyPrototypeCanDiscardTile
+    && okeyPrototypeTurnRackTiles.length === 1;
   const okeyPrototypeAnyPairSeatOpened = useMemo(
     () => OKEY_PROTOTYPE_SEATS.some((seatNo) => (
       (okeyPrototypeSeatOpenedState[seatNo] ?? false)
@@ -6242,6 +6272,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setOkeyPrototypeWinnerSeat(null);
       setOkeyPrototypeHandDrawn(false);
     }
+    if (liveAction.publicPenaltyNoticeText) {
+      showOkeyPrototypePenaltyBubble(
+        liveAction.publicPenaltyNoticeText,
+        liveAction.publicPenaltyNoticeSeatNo ?? liveAction.actorSeatNo,
+      );
+    }
     const shouldQueueAutoNextFromRemote = Boolean(
       liveAction.publicAutoNextOutcomeKey
       && (liveAction.publicHandCompleted || liveAction.publicWinnerSeat !== undefined || liveAction.publicHandDrawn !== undefined),
@@ -6415,9 +6451,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 	          setOkeyPrototypeTurnOpeningPoints(OKEY_PROTOTYPE_OPENING_TARGET_POINTS);
 	          appendOkeyPrototypeAction(`Bot K${turnSeat} ${botPairCount} cift ile el acti.`);
 	        }
-	      }
+      }
       if (okeyPrototypePendingDiscardTileId) {
-        discardOkeyPrototypeTileWithForced(okeyPrototypePendingDiscardTileId);
+        discardOkeyPrototypeTileWithForced(okeyPrototypePendingDiscardTileId, { finishViaDeck: true });
         return;
       }
       const forcedDiscardTileId = pickOkeyPrototypeBotDiscardTileId(
@@ -6425,7 +6461,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         okeyPrototypeOkeyTile,
         okeyPrototypeBotDifficulty,
       );
-      discardOkeyPrototypeTileWithForced(forcedDiscardTileId ?? undefined);
+      discardOkeyPrototypeTileWithForced(forcedDiscardTileId ?? undefined, { finishViaDeck: true });
     }, delay);
     return () => window.clearTimeout(timer);
   }, [
@@ -9331,6 +9367,25 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeActionLog((current) => [{ id, at: now, text }, ...current].slice(0, 14));
   }
 
+  function showOkeyPrototypePenaltyBubble(
+    text: string,
+    seatNo?: OkeyPrototypeSeatNo | null,
+  ) {
+    const normalizedText = sanitizeOkeyPrototypePenaltyNoticeText(text);
+    if (!normalizedText) return;
+    setOkeyPrototypePenaltyBubble({
+      text: normalizedText,
+      seatNo: seatNo ?? null,
+    });
+    if (okeyPrototypePenaltyBubbleTimeoutRef.current !== null) {
+      window.clearTimeout(okeyPrototypePenaltyBubbleTimeoutRef.current);
+    }
+    okeyPrototypePenaltyBubbleTimeoutRef.current = window.setTimeout(() => {
+      setOkeyPrototypePenaltyBubble(null);
+      okeyPrototypePenaltyBubbleTimeoutRef.current = null;
+    }, OKEY_PROTOTYPE_PENALTY_BUBBLE_DURATION_MS);
+  }
+
   function resetOkeyPrototypeTableFilters() {
     const hadAny = okeyPrototypeHasTableFilters;
     setOkeyPrototypeTableFilter("all");
@@ -10649,8 +10704,34 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function handleOkeyPrototypeDrawPocketClick() {
+    if (okeyPrototypeCanFinishByDeckDrop) {
+      appendOkeyPrototypeAction("Eli bitirmek icin son tasi raftan Kapali Deste ustune surukle.");
+      return;
+    }
     if (!okeyPrototypeCanDrawTile) return;
     appendOkeyPrototypeAction("Kapali desteden almak icin tasi tutup rafina suruklemelisin.");
+  }
+
+  function handleOkeyPrototypeDrawPocketDrop(draggedTileIdFromData = "") {
+    const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
+    if (!sourceTileId) {
+      handleOkeyPrototypeRackDragEnd();
+      return;
+    }
+    if (sourceTileId === "okey-proto-draw-deck" || sourceTileId.startsWith("okey-proto-take-discard:")) {
+      handleOkeyPrototypeRackDragEnd();
+      return;
+    }
+    if (!okeyPrototypeCanFinishByDeckDrop) {
+      handleOkeyPrototypeRackDragEnd();
+      return;
+    }
+    discardOkeyPrototypeTileWithForced(sourceTileId, { finishViaDeck: true });
+    handleOkeyPrototypeRackDragEnd();
+    okeyPrototypeSuppressRackClickRef.current = true;
+    window.setTimeout(() => {
+      okeyPrototypeSuppressRackClickRef.current = false;
+    }, 120);
   }
 
   function handleOkeyPrototypeRackTileClick(tileId: string) {
@@ -10827,6 +10908,29 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       `${sourceLabel}: K${seatNo} islenebilir tas atti (${formatOkeyPrototypeTile(droppedTile)}). `
       + `${OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS} ceza puani yazildi (hedef K${attachableTarget.seatNo}).`,
     );
+    showOkeyPrototypePenaltyBubble("101 ceza", seatNo);
+    return OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS;
+  }
+
+  function applyOkeyPrototypeOkeySideDiscardPenalty(
+    seatNo: OkeyPrototypeSeatNo,
+    droppedTile: OkeyPrototypeTile,
+    sourceLabel: string,
+    options?: { applyToState?: boolean },
+  ) {
+    if (!isOkeyPrototypeJokerTile(droppedTile, okeyPrototypeOkeyTile)) return 0;
+    const shouldApplyToState = options?.applyToState !== false;
+    if (shouldApplyToState) {
+      setOkeyPrototypeSeatPenaltyTotals((current) => ({
+        ...current,
+        [seatNo]: (current[seatNo] ?? 0) + OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS,
+      }));
+    }
+    appendOkeyPrototypeAction(
+      `${sourceLabel}: K${seatNo} okey tasi atti (${formatOkeyPrototypeTile(droppedTile)}). `
+      + `${OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS} ceza puani yazildi.`,
+    );
+    showOkeyPrototypePenaltyBubble("101 ceza", seatNo);
     return OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS;
   }
 
@@ -11153,6 +11257,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       publicWallTiles: nextPublicPayload.publicWallTiles,
       publicDiscardPile: nextPublicPayload.publicDiscardPile,
       ...completionPayload,
+      publicPenaltyNoticeText: attachableDiscardPenalty > 0 ? "101 ceza" : undefined,
+      publicPenaltyNoticeSeatNo: attachableDiscardPenalty > 0 ? seatNo : undefined,
       at: Date.now(),
       sourceSessionId: appSessionId,
     });
@@ -11713,7 +11819,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     appendOkeyPrototypeAction(`Soldan alinan tas geri birakildi: ${formatOkeyPrototypeTile(pickup.sourceEntry.tile)}`);
   }
 
-  function discardOkeyPrototypeTileWithForced(forcedTileId?: string) {
+  function discardOkeyPrototypeTileWithForced(
+    forcedTileId?: string,
+    options?: { finishViaDeck?: boolean },
+  ) {
     if (okeyPrototypeHandCompleted) {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
       return;
@@ -11748,6 +11857,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         nextRack = currentRack.filter((_, index) => index !== selectedIndex);
       }
     }
+    if (nextRack.length === 0 && !options?.finishViaDeck) {
+      appendOkeyPrototypeAction("Eli bitirmek icin son tasi Kapali Deste ustune birakmalisin.");
+      return;
+    }
+    if (nextRack.length === 0) {
+      finishOkeyPrototypeHandWithFinalDiscard(
+        seatNo,
+        droppedTile,
+        "Tas atma",
+        nextRack,
+      );
+      return;
+    }
     const discardEntry: OkeyPrototypeDiscardEntry = {
       id: `okey-proto-discard-${seatNo}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       seatNo,
@@ -11769,16 +11891,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeLastDrawnTileId("");
     const shouldFinishByFinalWallDraw = okeyPrototypeFinalWallDrawSeat === seatNo && okeyPrototypeDrawPileRemaining === 0;
     setOkeyPrototypeFinalWallDrawSeat(null);
-    if (nextRack.length === 0) {
-      finishOkeyPrototypeHandWithFinalDiscard(
-        seatNo,
-        droppedTile,
-        "Tas atma",
-        nextRack,
-      );
-      return;
-    }
-    applyOkeyPrototypeAttachableDiscardPenalty(seatNo, droppedTile, "Tas atma");
+    const attachableDiscardPenalty = applyOkeyPrototypeAttachableDiscardPenalty(seatNo, droppedTile, "Tas atma");
+    const okeySideDiscardPenalty = applyOkeyPrototypeOkeySideDiscardPenalty(seatNo, droppedTile, "Tas atma");
+    const discardPenaltyTotal = attachableDiscardPenalty + okeySideDiscardPenalty;
+    const nextPenaltyTotals = discardPenaltyTotal > 0
+      ? {
+        ...okeyPrototypeSeatPenaltyTotals,
+        [seatNo]: (okeyPrototypeSeatPenaltyTotals[seatNo] ?? 0) + discardPenaltyTotal,
+      } as Record<OkeyPrototypeSeatNo, number>
+      : null;
     if (shouldFinishByFinalWallDraw) {
       finishOkeyPrototypeHandAsDraw(
         `Koltuk ${seatNo} son kapali deste tasini cekip atti:`,
@@ -11821,6 +11942,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       publicRackState: nextPublicPayload.publicRackState,
       publicWallTiles: nextPublicPayload.publicWallTiles,
       publicDiscardPile: nextPublicPayload.publicDiscardPile,
+      publicSeatPenaltyTotals: nextPenaltyTotals ?? undefined,
+      publicPenaltyNoticeText: discardPenaltyTotal > 0 ? "101 ceza" : undefined,
+      publicPenaltyNoticeSeatNo: discardPenaltyTotal > 0 ? seatNo : undefined,
       at: Date.now(),
       sourceSessionId: appSessionId,
     });
@@ -18733,13 +18857,28 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               </div>
                               <button
                                 type="button"
-                                className={`my-okey-draw-pocket ${okeyPrototypeCanDrawTile ? "suggested" : ""} ${okeyPrototypeDeckDrawTile && okeyPrototypeDeckDrawPulse ? "draw-pulse" : ""}`}
+                                className={`my-okey-draw-pocket ${okeyPrototypeCanDrawTile || okeyPrototypeCanFinishByDeckDrop ? "suggested" : ""} ${okeyPrototypeCanFinishByDeckDrop ? "final-drop-target" : ""} ${okeyPrototypeDeckDrawTile && okeyPrototypeDeckDrawPulse ? "draw-pulse" : ""}`}
                                 onClick={handleOkeyPrototypeDrawPocketClick}
+                                onDragOver={(event) => {
+                                  if (!okeyPrototypeCanFinishByDeckDrop) return;
+                                  const sourceTileId = okeyPrototypeRackDragTileId || event.dataTransfer?.getData("text/plain") || "";
+                                  if (!sourceTileId || sourceTileId === "okey-proto-draw-deck" || sourceTileId.startsWith("okey-proto-take-discard:")) {
+                                    return;
+                                  }
+                                  event.preventDefault();
+                                  if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+                                }}
+                                onDrop={(event) => {
+                                  if (!okeyPrototypeCanFinishByDeckDrop) return;
+                                  event.preventDefault();
+                                  const draggedTileId = event.dataTransfer?.getData("text/plain") ?? "";
+                                  handleOkeyPrototypeDrawPocketDrop(draggedTileId);
+                                }}
                                 draggable={okeyPrototypeCanDrawTile}
                                 onDragStart={handleOkeyPrototypeDrawPocketDragStart}
                                 onDrag={handleOkeyPrototypeRackDrag}
                                 onDragEnd={handleOkeyPrototypeRackDragEnd}
-                                disabled={!okeyPrototypeCanDrawTile}
+                                disabled={!okeyPrototypeCanDrawTile && !okeyPrototypeCanFinishByDeckDrop}
                                 aria-label="Kapali deste"
                               >
                                 <span>Kapali Deste</span>
@@ -19142,6 +19281,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           {"\u00A0"}
                         </span>
                       )}
+                    </div>
+                  ) : null}
+
+                  {okeyPrototypePenaltyBubble ? (
+                    <div className="my-okey-penalty-bubble" role="status" aria-live="polite" aria-atomic="true">
+                      <strong>{okeyPrototypePenaltyBubble.text}</strong>
                     </div>
                   ) : null}
 
