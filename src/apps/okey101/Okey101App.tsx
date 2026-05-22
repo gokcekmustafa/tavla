@@ -12045,44 +12045,43 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
   }
 
-  function attachOkeyPrototypeTileToMeld() {
+  function attachOkeyPrototypeTileToTargetMeld(
+    targetMeld: OkeyPrototypeMeldEntry,
+    tileId: string,
+    sourceLabel = "Pere ekleme",
+  ) {
     if (okeyPrototypeHandCompleted) {
       appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
-      return;
+      return false;
     }
-    if (!ensureOkeyPrototypeGameStarted("Pere ekleme")) return;
-    if (!okeyPrototypeCanAdvanceTurn) return;
+    if (!ensureOkeyPrototypeGameStarted(sourceLabel)) return false;
+    if (!okeyPrototypeCanAdvanceTurn) return false;
     if (okeyPrototypeTurnPhase !== "discard") {
       appendOkeyPrototypeAction("Gecersiz hamle: Per eklemek icin once tas cekmelisin.");
-      return;
+      return false;
     }
     if (!okeyPrototypeCurrentSeatOpened) {
       appendOkeyPrototypeAction("Gecersiz hamle: Per eklemek icin once elini acmalisin.");
-      return;
-    }
-    const targetMeld = okeyPrototypeAttachTargetMeld;
-    if (!targetMeld) {
-      appendOkeyPrototypeAction("Gecersiz hamle: Per eklemek icin acik bir per sec.");
-      return;
-    }
-    const tile = okeyPrototypeDiscardDraftTile;
-    if (!tile) {
-      appendOkeyPrototypeAction("Gecersiz hamle: Per eklemek icin raftan bir tas sec.");
-      return;
+      return false;
     }
     const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     const currentRack = okeyPrototypeTurnRackTiles;
+    const tile = currentRack.find((entry) => entry.id === tileId) ?? null;
+    if (!tile) {
+      appendOkeyPrototypeAction("Gecersiz hamle: Suruklenen tas rafta bulunamadi.");
+      return false;
+    }
     const selectedIndex = currentRack.findIndex((entry) => entry.id === tile.id);
     if (selectedIndex < 0) {
       appendOkeyPrototypeAction("Gecersiz hamle: Secilen tas rafta bulunamadi.");
-      return;
+      return false;
     }
     const replacementPlan = getOkeyPrototypeJokerReplacementPlan(tile, targetMeld);
     if (replacementPlan.valid) {
       const jokerTile = targetMeld.tiles.find((entry) => entry.id === replacementPlan.jokerTileId) ?? null;
       if (!jokerTile) {
         appendOkeyPrototypeAction("Gecersiz hamle: Masadaki okey bulunamadi.");
-        return;
+        return false;
       }
       const replacementTile = currentRack[selectedIndex];
       setOkeyPrototypeRackState((current) => ({
@@ -12110,16 +12109,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         `Masadan okey degistirildi: ${formatOkeyPrototypeTile(replacementTile)} verildi, `
         + `${formatOkeyPrototypeTile(jokerTile)} alindi.`,
       );
-      return;
+      setOkeyPrototypeAttachTargetMeldId(targetMeld.id);
+      return true;
     }
     const validation = canAttachOkeyPrototypeTileToMeld(tile, targetMeld, okeyPrototypeOkeyTile);
     if (!validation.valid) {
       appendOkeyPrototypeAction(`Gecersiz hamle: ${replacementPlan.reason || validation.reason}`);
-      return;
+      return false;
     }
     if (currentRack.length - 1 < 1) {
       appendOkeyPrototypeAction("Gecersiz hamle: Turu bitirmek icin en az 1 tas elde kalmali.");
-      return;
+      return false;
     }
     const attachedTile = currentRack[selectedIndex];
     setOkeyPrototypeRackState((current) => ({
@@ -12138,6 +12138,45 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     setOkeyPrototypeDiscardDraftTileId("");
     appendOkeyPrototypeAction(`Per genisletildi: K${targetMeld.seatNo} / El ${targetMeld.round} -> ${formatOkeyPrototypeTile(attachedTile)} eklendi.`);
+    setOkeyPrototypeAttachTargetMeldId(targetMeld.id);
+    return true;
+  }
+
+  function handleOkeyPrototypeMeldDrop(meldId: string, draggedTileIdFromData = "") {
+    const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
+    if (!sourceTileId) {
+      handleOkeyPrototypeRackDragEnd();
+      return;
+    }
+    if (sourceTileId === "okey-proto-draw-deck" || sourceTileId.startsWith("okey-proto-take-discard:")) {
+      handleOkeyPrototypeRackDragEnd();
+      return;
+    }
+    const targetMeld = okeyPrototypeOpenedMelds.find((meld) => meld.id === meldId) ?? null;
+    if (!targetMeld) {
+      handleOkeyPrototypeRackDragEnd();
+      return;
+    }
+    attachOkeyPrototypeTileToTargetMeld(targetMeld, sourceTileId, "Surukle-birak pere ekleme");
+    handleOkeyPrototypeRackDragEnd();
+    okeyPrototypeSuppressRackClickRef.current = true;
+    window.setTimeout(() => {
+      okeyPrototypeSuppressRackClickRef.current = false;
+    }, 120);
+  }
+
+  function attachOkeyPrototypeTileToMeld() {
+    const targetMeld = okeyPrototypeAttachTargetMeld;
+    if (!targetMeld) {
+      appendOkeyPrototypeAction("Gecersiz hamle: Per eklemek icin acik bir per sec.");
+      return;
+    }
+    const tile = okeyPrototypeDiscardDraftTile;
+    if (!tile) {
+      appendOkeyPrototypeAction("Gecersiz hamle: Per eklemek icin raftan bir tas sec.");
+      return;
+    }
+    attachOkeyPrototypeTileToTargetMeld(targetMeld, tile.id, "Pere ekleme");
   }
 
   function triggerOkeyPrototypeDeckDrawAnimation(tile: OkeyPrototypeTile, seatNo: OkeyPrototypeSeatNo) {
@@ -17920,6 +17959,28 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                       type="button"
                                       className={`my-game-coming-prototype-board-center-meld-btn ${okeyPrototypeAttachTargetMeldId === meld.id ? "active" : ""}`}
                                       onClick={() => selectOkeyPrototypeAttachTarget(meld.id)}
+                                      onDragOver={(event) => {
+                                        if (!okeyPrototypeCanAdvanceTurn || okeyPrototypeTurnPhase !== "discard" || !okeyPrototypeCurrentSeatOpened) {
+                                          return;
+                                        }
+                                        const draggedTileId = okeyPrototypeRackDragTileId
+                                          || event.dataTransfer?.getData("text/plain")
+                                          || "";
+                                        if (
+                                          !draggedTileId
+                                          || draggedTileId === "okey-proto-draw-deck"
+                                          || draggedTileId.startsWith("okey-proto-take-discard:")
+                                        ) {
+                                          return;
+                                        }
+                                        event.preventDefault();
+                                        if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+                                      }}
+                                      onDrop={(event) => {
+                                        event.preventDefault();
+                                        const draggedTileId = event.dataTransfer?.getData("text/plain") ?? "";
+                                        handleOkeyPrototypeMeldDrop(meld.id, draggedTileId);
+                                      }}
                                       aria-describedby="okey-prototype-turn-status"
                                     >
                                       <span>K{meld.seatNo} / El {meld.round}</span>
@@ -19350,7 +19411,32 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                       <span className="my-okey-center-seat-empty">Acik yok</span>
                                     ) : (
                                       seatSerialMelds.map((meld) => (
-                                        <div key={meld.id} className="my-okey-center-seat-meld kind-seri">
+                                        <div
+                                          key={meld.id}
+                                          className="my-okey-center-seat-meld kind-seri"
+                                          onDragOver={(event) => {
+                                            if (!okeyPrototypeCanAdvanceTurn || okeyPrototypeTurnPhase !== "discard" || !okeyPrototypeCurrentSeatOpened) {
+                                              return;
+                                            }
+                                            const draggedTileId = okeyPrototypeRackDragTileId
+                                              || event.dataTransfer?.getData("text/plain")
+                                              || "";
+                                            if (
+                                              !draggedTileId
+                                              || draggedTileId === "okey-proto-draw-deck"
+                                              || draggedTileId.startsWith("okey-proto-take-discard:")
+                                            ) {
+                                              return;
+                                            }
+                                            event.preventDefault();
+                                            if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+                                          }}
+                                          onDrop={(event) => {
+                                            event.preventDefault();
+                                            const draggedTileId = event.dataTransfer?.getData("text/plain") ?? "";
+                                            handleOkeyPrototypeMeldDrop(meld.id, draggedTileId);
+                                          }}
+                                        >
                                           {meld.tiles.map((tile) => {
                                             const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
                                             return (
