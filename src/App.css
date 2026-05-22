@@ -7866,6 +7866,19 @@
     overflow: visible;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.active header {
+    border-color: rgba(247, 224, 114, 0.98);
+    background: linear-gradient(180deg, rgba(38, 131, 68, 0.86), rgba(21, 97, 49, 0.9));
+    box-shadow:
+      0 0 0 1px rgba(255, 235, 132, 0.32) inset,
+      0 0 10px rgba(255, 220, 95, 0.32);
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.active .my-okey-seat-name-label {
+    color: #fff9d8;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  }
+
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 header,
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 header {
     width: 44px;
