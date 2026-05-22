@@ -397,6 +397,9 @@ type OkeyPrototypeLiveAction = {
   publicAutoNextOutcomeKey?: string;
   publicPenaltyNoticeText?: string;
   publicPenaltyNoticeSeatNo?: OkeyPrototypeSeatNo;
+  publicGameOptions?: OkeyPrototypeGameOptions;
+  publicLastOpeningSeatNo?: OkeyPrototypeSeatNo | null;
+  publicLastOpeningPoints?: number;
   handStartedAt?: number;
   at: number;
   sourceSessionId: string;
@@ -413,6 +416,11 @@ type OkeyPrototypeMeldEntry = {
 type OkeyPrototypeSeatOpenedState = Record<OkeyPrototypeSeatNo, boolean>;
 type OkeyPrototypeSeatOpenMode = "none" | "seri" | "pair";
 type OkeyPrototypeSeatOpenModes = Record<OkeyPrototypeSeatNo, OkeyPrototypeSeatOpenMode>;
+type OkeyPrototypeGameOptions = {
+  teamedPlay: boolean;
+  increasingPlay: boolean;
+  penaltyPlay: boolean;
+};
 type OkeyPrototypeScenarioKind = "opening" | "attach" | "finish" | "draw-end";
 type OkeyPrototypeRackSortMode = "color" | "value";
 type OkeyPrototypeAutoSortMode = "off" | OkeyPrototypeRackSortMode;
@@ -454,6 +462,9 @@ type OkeyPrototypeLobbyTableState = {
   startedAt: number | null;
   updatedAt: number;
   liveAction?: OkeyPrototypeLiveAction | null;
+  gameOptions?: OkeyPrototypeGameOptions;
+  lastOpeningSeatNo?: OkeyPrototypeSeatNo | null;
+  lastOpeningPoints?: number | null;
 };
 
 type OkeyPrototypeTableSketchRow = {
@@ -469,6 +480,9 @@ type OkeyPrototypeTableSketchRow = {
   dealStarterSeatNo?: OkeyPrototypeSeatNo | null;
   seats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>>;
   liveAction?: OkeyPrototypeLiveAction | null;
+  gameOptions?: OkeyPrototypeGameOptions;
+  lastOpeningSeatNo?: OkeyPrototypeSeatNo | null;
+  lastOpeningPoints?: number | null;
 };
 
 const GUEST_STORAGE_KEY = "tavla.guestName";
@@ -603,6 +617,24 @@ function hashOkeyPrototypeText(input: string) {
 
 function createEmptyOkeyPrototypeRackSlots() {
   return Array.from({ length: OKEY_PROTOTYPE_RACK_SLOT_COUNT }, () => null as string | null);
+}
+
+function createDefaultOkeyPrototypeGameOptions(): OkeyPrototypeGameOptions {
+  return {
+    teamedPlay: false,
+    increasingPlay: false,
+    penaltyPlay: false,
+  };
+}
+
+function normalizeOkeyPrototypeGameOptions(raw: unknown): OkeyPrototypeGameOptions {
+  if (!raw || typeof raw !== "object") return createDefaultOkeyPrototypeGameOptions();
+  const candidate = raw as Partial<OkeyPrototypeGameOptions>;
+  return {
+    teamedPlay: Boolean(candidate.teamedPlay),
+    increasingPlay: Boolean(candidate.increasingPlay),
+    penaltyPlay: Boolean(candidate.penaltyPlay),
+  };
 }
 
 function createEmptyOkeyPrototypeRackSlotsBySeat(): Record<OkeyPrototypeSeatNo, Array<string | null>> {
@@ -2970,6 +3002,23 @@ function normalizeOkeyPrototypeLiveAction(raw: unknown): OkeyPrototypeLiveAction
   const publicPenaltyNoticeSeatNo = hasPublicPenaltyNoticeText
     ? (normalizeOkeyPrototypeSeatNo(candidate.publicPenaltyNoticeSeatNo) ?? actorSeatNo ?? undefined)
     : undefined;
+  const hasPublicGameOptions = Object.prototype.hasOwnProperty.call(candidate, "publicGameOptions");
+  const publicGameOptions = hasPublicGameOptions
+    ? normalizeOkeyPrototypeGameOptions(candidate.publicGameOptions)
+    : undefined;
+  const hasPublicLastOpeningSeatNo = Object.prototype.hasOwnProperty.call(candidate, "publicLastOpeningSeatNo");
+  const publicLastOpeningSeatNoRaw = hasPublicLastOpeningSeatNo ? candidate.publicLastOpeningSeatNo : undefined;
+  const publicLastOpeningSeatNo = hasPublicLastOpeningSeatNo
+    ? (
+      publicLastOpeningSeatNoRaw === null
+        ? null
+        : (normalizeOkeyPrototypeSeatNo(publicLastOpeningSeatNoRaw) ?? null)
+    )
+    : undefined;
+  const hasPublicLastOpeningPoints = Object.prototype.hasOwnProperty.call(candidate, "publicLastOpeningPoints");
+  const publicLastOpeningPoints = hasPublicLastOpeningPoints
+    ? Math.max(0, normalizeNonNegativeInt(candidate.publicLastOpeningPoints, 0))
+    : undefined;
   const hasHandStartedAt = Object.prototype.hasOwnProperty.call(candidate, "handStartedAt");
   const handStartedAt = hasHandStartedAt
     ? Math.max(0, normalizeNonNegativeInt(candidate.handStartedAt, 0))
@@ -3002,6 +3051,9 @@ function normalizeOkeyPrototypeLiveAction(raw: unknown): OkeyPrototypeLiveAction
     publicAutoNextOutcomeKey: hasPublicAutoNextOutcomeKey ? publicAutoNextOutcomeKey : undefined,
     publicPenaltyNoticeText: hasPublicPenaltyNoticeText ? publicPenaltyNoticeText : undefined,
     publicPenaltyNoticeSeatNo,
+    publicGameOptions,
+    publicLastOpeningSeatNo,
+    publicLastOpeningPoints,
     handStartedAt: handStartedAt && handStartedAt > 0 ? handStartedAt : undefined,
     at,
     sourceSessionId,
@@ -3090,6 +3142,16 @@ function normalizeOkeyPrototypeLobbyTable(raw: unknown, roomIdFallback: string, 
     && normalizedLiveAction.handStartedAt !== startedAt
       ? null
       : normalizedLiveAction;
+  const gameOptions = normalizeOkeyPrototypeGameOptions(candidate.gameOptions);
+  const hasLastOpeningSeatNo = Object.prototype.hasOwnProperty.call(candidate, "lastOpeningSeatNo");
+  const lastOpeningSeatNoRaw = hasLastOpeningSeatNo ? candidate.lastOpeningSeatNo : undefined;
+  const lastOpeningSeatNo = hasLastOpeningSeatNo
+    ? (lastOpeningSeatNoRaw === null ? null : (normalizeOkeyPrototypeSeatNo(lastOpeningSeatNoRaw) ?? null))
+    : null;
+  const hasLastOpeningPoints = Object.prototype.hasOwnProperty.call(candidate, "lastOpeningPoints");
+  const lastOpeningPoints = hasLastOpeningPoints
+    ? Math.max(0, normalizeNonNegativeInt(candidate.lastOpeningPoints, 0))
+    : null;
   const lastJoinedAt = OKEY_PROTOTYPE_SEATS.reduce((max, seatNo) => {
     const joinedAt = Number(seats[seatNo]?.joinedAt ?? 0);
     return Number.isFinite(joinedAt) ? Math.max(max, joinedAt) : max;
@@ -3109,6 +3171,9 @@ function normalizeOkeyPrototypeLobbyTable(raw: unknown, roomIdFallback: string, 
     startedAt,
     updatedAt,
     liveAction,
+    gameOptions,
+    lastOpeningSeatNo,
+    lastOpeningPoints,
   };
 }
 
@@ -4676,6 +4741,9 @@ function Okey101App() {
   const [okeyPrototypeTurnOpeningPoints, setOkeyPrototypeTurnOpeningPoints] = useState(0);
   const [okeyPrototypeSeatOpenedState, setOkeyPrototypeSeatOpenedState] = useState<OkeyPrototypeSeatOpenedState>(() => createDefaultOkeyPrototypeSeatOpenedState());
   const [okeyPrototypeSeatOpenModes, setOkeyPrototypeSeatOpenModes] = useState<OkeyPrototypeSeatOpenModes>(() => createDefaultOkeyPrototypeSeatOpenModes());
+  const [okeyPrototypeGameOptions, setOkeyPrototypeGameOptions] = useState<OkeyPrototypeGameOptions>(() => createDefaultOkeyPrototypeGameOptions());
+  const [okeyPrototypeLastOpeningSeatNo, setOkeyPrototypeLastOpeningSeatNo] = useState<OkeyPrototypeSeatNo | null>(null);
+  const [okeyPrototypeLastOpeningPoints, setOkeyPrototypeLastOpeningPoints] = useState<number>(0);
   const [okeyPrototypeInitialDeal] = useState<OkeyPrototypeDealState>(() => createOkeyPrototypeDealState(Date.now(), 1));
   const [okeyPrototypeRackState, setOkeyPrototypeRackState] = useState<OkeyPrototypeRackState>(() => okeyPrototypeInitialDeal.rackState);
   const [okeyPrototypeRackSlotsBySeat, setOkeyPrototypeRackSlotsBySeat] = useState<Record<OkeyPrototypeSeatNo, Array<string | null>>>(() => {
@@ -4901,6 +4969,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         dealStarterSeatNo: table.dealStarterSeatNo ?? null,
         seats: table.seats,
         liveAction: table.liveAction ?? null,
+        gameOptions: normalizeOkeyPrototypeGameOptions(table.gameOptions),
+        lastOpeningSeatNo: table.lastOpeningSeatNo ?? null,
+        lastOpeningPoints: table.lastOpeningPoints ?? null,
       };
     });
   }, [okeyPrototypeSelectedRoom, okeyPrototypeTablesByRoom]);
@@ -5039,6 +5110,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       dealStarterSeatNo: okeyPrototypeLocalBotTable.dealStarterSeatNo ?? null,
       seats: okeyPrototypeLocalBotTable.seats,
       liveAction: null,
+      gameOptions: normalizeOkeyPrototypeGameOptions(okeyPrototypeLocalBotTable.gameOptions),
+      lastOpeningSeatNo: okeyPrototypeLocalBotTable.lastOpeningSeatNo ?? null,
+      lastOpeningPoints: okeyPrototypeLocalBotTable.lastOpeningPoints ?? null,
     };
   }, [okeyPrototypeLocalBotTable]);
   const okeyPrototypeJoinedTable = useMemo(() => {
@@ -5069,6 +5143,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       dealStarterSeatNo: fallbackTable.dealStarterSeatNo ?? null,
       seats: fallbackTable.seats,
       liveAction: fallbackTable.liveAction ?? null,
+      gameOptions: normalizeOkeyPrototypeGameOptions(fallbackTable.gameOptions),
+      lastOpeningSeatNo: fallbackTable.lastOpeningSeatNo ?? null,
+      lastOpeningPoints: fallbackTable.lastOpeningPoints ?? null,
     } as OkeyPrototypeTableSketchRow;
   }, [
     okeyPrototypeLocalBotTableSketchRow,
@@ -5076,6 +5153,34 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     okeyPrototypeTableSketchRows,
     okeyPrototypeTablesByRoom,
   ]);
+  const okeyPrototypeIsTableOwner = useMemo(() => {
+    if (!okeyPrototypeJoinedTable || !okeyPrototypeSeatReservation) return false;
+    const safeOwnerUserId = sanitizeGuestId(okeyPrototypeJoinedTable.ownerUserId ?? "");
+    const safeCurrentUserId = sanitizeGuestId(
+      okeyPrototypeJoinedTable.seats[okeyPrototypeSeatReservation.seatNo]?.userId ?? "",
+    );
+    return Boolean(safeOwnerUserId && safeCurrentUserId && safeOwnerUserId === safeCurrentUserId);
+  }, [okeyPrototypeJoinedTable, okeyPrototypeSeatReservation]);
+  useEffect(() => {
+    if (!okeyPrototypeJoinedTable) {
+      setOkeyPrototypeGameOptions(createDefaultOkeyPrototypeGameOptions());
+      setOkeyPrototypeLastOpeningSeatNo(null);
+      setOkeyPrototypeLastOpeningPoints(0);
+      return;
+    }
+    const nextOptions = normalizeOkeyPrototypeGameOptions(okeyPrototypeJoinedTable.gameOptions);
+    setOkeyPrototypeGameOptions((current) => (
+      current.teamedPlay === nextOptions.teamedPlay
+      && current.increasingPlay === nextOptions.increasingPlay
+      && current.penaltyPlay === nextOptions.penaltyPlay
+    )
+      ? current
+      : nextOptions);
+    const nextLastSeatNo = okeyPrototypeJoinedTable.lastOpeningSeatNo ?? null;
+    const nextLastPoints = Math.max(0, normalizeNonNegativeInt(okeyPrototypeJoinedTable.lastOpeningPoints, 0));
+    setOkeyPrototypeLastOpeningSeatNo((current) => (current === nextLastSeatNo ? current : nextLastSeatNo));
+    setOkeyPrototypeLastOpeningPoints((current) => (current === nextLastPoints ? current : nextLastPoints));
+  }, [okeyPrototypeJoinedTable]);
   const okeyPrototypeActiveTurnSeats = useMemo(() => {
     if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) {
       return [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
@@ -6256,6 +6361,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       3: liveAction.publicSeatOpenModes[3] ?? "none",
       4: liveAction.publicSeatOpenModes[4] ?? "none",
     });
+    if (liveAction.publicGameOptions) {
+      setOkeyPrototypeGameOptions(normalizeOkeyPrototypeGameOptions(liveAction.publicGameOptions));
+    }
+    if (Object.prototype.hasOwnProperty.call(liveAction, "publicLastOpeningSeatNo")) {
+      setOkeyPrototypeLastOpeningSeatNo(liveAction.publicLastOpeningSeatNo ?? null);
+    }
+    if (Object.prototype.hasOwnProperty.call(liveAction, "publicLastOpeningPoints")) {
+      setOkeyPrototypeLastOpeningPoints(Math.max(0, normalizeNonNegativeInt(liveAction.publicLastOpeningPoints, 0)));
+    }
     if (liveAction.publicSeatPenaltyTotals) {
       setOkeyPrototypeSeatPenaltyTotals({
         1: liveAction.publicSeatPenaltyTotals[1] ?? 0,
@@ -7585,6 +7699,54 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     return normalizeOkeyPrototypeTablesByRoom(current.okeyPrototypeTablesByRoom);
   }
 
+  function updateOkeyPrototypeJoinedTableConfig(
+    patch: Partial<Pick<OkeyPrototypeLobbyTableState, "gameOptions" | "lastOpeningSeatNo" | "lastOpeningPoints">>,
+  ) {
+    if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) return;
+    const tableId = sanitizeOkeyPrototypeTableId(okeyPrototypeJoinedTable.id);
+    if (!tableId) return;
+    if (isOkeyPrototypeLocalBotTableId(tableId)) {
+      setOkeyPrototypeLocalBotTable((current) => {
+        if (!current || current.id !== tableId) return current;
+        return {
+          ...current,
+          ...patch,
+          updatedAt: Date.now(),
+        };
+      });
+      return;
+    }
+    updateOkeyPrototypeTablesByRoom((current) => {
+      const roomId = sanitizeLobbyId(okeyPrototypeJoinedTable.roomId);
+      if (!roomId) return current;
+      const roomTables = current[roomId] ?? [];
+      const tableIndex = roomTables.findIndex((table) => table.id === tableId);
+      if (tableIndex < 0) return current;
+      const targetTable = roomTables[tableIndex];
+      const nextTable: OkeyPrototypeLobbyTableState = {
+        ...targetTable,
+        ...patch,
+        updatedAt: Date.now(),
+      };
+      const nextRoomTables = roomTables.slice();
+      nextRoomTables[tableIndex] = nextTable;
+      return {
+        ...current,
+        [roomId]: nextRoomTables,
+      };
+    });
+  }
+
+  function updateOkeyPrototypeLastOpeningMarker(seatNo: OkeyPrototypeSeatNo, openingPoints: number) {
+    const safePoints = Math.max(0, Math.trunc(openingPoints));
+    setOkeyPrototypeLastOpeningSeatNo(seatNo);
+    setOkeyPrototypeLastOpeningPoints(safePoints);
+    updateOkeyPrototypeJoinedTableConfig({
+      lastOpeningSeatNo: seatNo,
+      lastOpeningPoints: safePoints,
+    });
+  }
+
   function createOutgoingChatMessage(text: string): ChatMessage | null {
     const clean = sanitizeChatText(text);
     if (!clean) return null;
@@ -8261,6 +8423,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         createdAt: now,
         startedAt: null,
         updatedAt: now,
+        gameOptions: createDefaultOkeyPrototypeGameOptions(),
+        lastOpeningSeatNo: null,
+        lastOpeningPoints: null,
       };
       updateOkeyPrototypeTablesByRoom((current) => {
         const roomTables = (current[roomId] ?? []).slice();
@@ -8409,6 +8574,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       createdAt: now,
       startedAt: now,
       updatedAt: now,
+      gameOptions: createDefaultOkeyPrototypeGameOptions(),
+      lastOpeningSeatNo: null,
+      lastOpeningPoints: null,
     };
     const activeSeats = getOkeyPrototypeOccupiedSeatNos(localTable);
     setOkeyPrototypeLocalBotTable(localTable);
@@ -10215,6 +10383,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeFinalWallDrawSeat(null);
     setOkeyPrototypeSeatOpenedState(createDefaultOkeyPrototypeSeatOpenedState());
     setOkeyPrototypeSeatOpenModes(createDefaultOkeyPrototypeSeatOpenModes());
+    setOkeyPrototypeLastOpeningSeatNo(null);
+    setOkeyPrototypeLastOpeningPoints(0);
     setOkeyPrototypeWinnerSeat(null);
     setOkeyPrototypeHandDrawn(false);
   }
@@ -10285,6 +10455,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         3: seatOpenModes[3] ?? "none",
         4: seatOpenModes[4] ?? "none",
       } as OkeyPrototypeSeatOpenModes,
+      publicGameOptions: {
+        ...okeyPrototypeGameOptions,
+      },
+      publicLastOpeningSeatNo: okeyPrototypeLastOpeningSeatNo ?? null,
+      publicLastOpeningPoints: Math.max(0, Math.trunc(okeyPrototypeLastOpeningPoints)),
       publicRackState: rackStateSnapshot ? {
         1: (rackStateSnapshot[1] ?? []).slice(),
         2: (rackStateSnapshot[2] ?? []).slice(),
@@ -11346,6 +11521,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       appendOkeyPrototypeAction("Gecersiz hamle: Acilis hesaplanamadi.");
       return false;
     }
+    const seatAlreadyOpened = Boolean(okeyPrototypeSeatOpenedState[seatNo]);
     const consumedPendingDiscardTile = okeyPrototypePendingDiscardTileId
       ? selectedIds.has(okeyPrototypePendingDiscardTileId)
       : false;
@@ -11373,6 +11549,26 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       groupsForEntries = stillValidGroups;
       openingPointsGain = stillValidGroups.reduce((sum, group) => sum + group.points, 0);
     }
+    const nextOpeningPoints = okeyPrototypeTurnOpeningPoints + openingPointsGain;
+    const willOpenSeatNow = !seatAlreadyOpened && nextOpeningPoints >= OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
+    if (willOpenSeatNow && okeyPrototypeGameOptions.increasingPlay) {
+      const anyOtherSeatOpened = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
+        candidateSeatNo !== seatNo && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+      ));
+      if (anyOtherSeatOpened) {
+        const baseline = okeyPrototypeLastOpeningPoints > 0
+          ? okeyPrototypeLastOpeningPoints
+          : OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
+        const requiredPoints = baseline + 1;
+        if (nextOpeningPoints < requiredPoints) {
+          appendOkeyPrototypeAction(
+            `${sourceLabel}: Artirmali oyunda acilis en az ${requiredPoints} olmali `
+            + `(senin acilisin ${nextOpeningPoints}).`,
+          );
+          return false;
+        }
+      }
+    }
     const meldEntries: OkeyPrototypeMeldEntry[] = groupsForEntries.map((group, index) => ({
       id: `okey-proto-meld-${seatNo}-${timestamp}-${index}-${Math.random().toString(36).slice(2, 7)}`,
       seatNo,
@@ -11392,8 +11588,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setOkeyPrototypePendingDiscardTileId("");
     }
     setOkeyPrototypeTurnLockedAfterMeld(true);
-    if (!okeyPrototypeSeatOpenedState[seatNo]) {
-      const nextOpeningPoints = okeyPrototypeTurnOpeningPoints + openingPointsGain;
+    if (!seatAlreadyOpened) {
       setOkeyPrototypeTurnOpeningPoints(nextOpeningPoints);
       if (nextOpeningPoints >= OKEY_PROTOTYPE_OPENING_TARGET_POINTS) {
         setOkeyPrototypeSeatOpenedState((current) => ({
@@ -11404,6 +11599,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
           ...current,
           [seatNo]: "seri",
         }));
+        updateOkeyPrototypeLastOpeningMarker(seatNo, nextOpeningPoints);
         appendOkeyPrototypeAction(`El acildi: Koltuk ${seatNo} (${nextOpeningPoints}/${OKEY_PROTOTYPE_OPENING_TARGET_POINTS})`);
       } else {
         appendOkeyPrototypeAction(`Acilis puani: ${nextOpeningPoints}/${OKEY_PROTOTYPE_OPENING_TARGET_POINTS}`);
@@ -11491,6 +11687,25 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       appendOkeyPrototypeAction("Gecersiz hamle: Cift acma hesaplanamadi.");
       return;
     }
+    if (okeyPrototypeGameOptions.increasingPlay) {
+      const anyOtherSeatOpened = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
+        candidateSeatNo !== seatNo && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+      ));
+      if (anyOtherSeatOpened) {
+        const baseline = okeyPrototypeLastOpeningPoints > 0
+          ? okeyPrototypeLastOpeningPoints
+          : OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
+        const requiredPoints = baseline + 1;
+        const pairOpeningPoints = OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
+        if (pairOpeningPoints < requiredPoints) {
+          appendOkeyPrototypeAction(
+            `Cift acma: Artirmali oyunda acilis en az ${requiredPoints} olmali. `
+            + `Cift acma bu turde ${pairOpeningPoints} sayildigi icin gecersiz.`,
+          );
+          return;
+        }
+      }
+    }
     let finalDiscardTile: OkeyPrototypeTile | null = null;
     let pairsForEntries = openablePairs;
     if (nextTileCountAfterOpen === 0) {
@@ -11535,6 +11750,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       [seatNo]: "pair",
     }));
     setOkeyPrototypeTurnOpeningPoints(OKEY_PROTOTYPE_OPENING_TARGET_POINTS);
+    updateOkeyPrototypeLastOpeningMarker(seatNo, OKEY_PROTOTYPE_OPENING_TARGET_POINTS);
     setOkeyPrototypePendingDiscardTileId("");
     setOkeyPrototypeTurnLockedAfterMeld(true);
     appendOkeyPrototypeAction(
@@ -12587,6 +12803,34 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeLastDrawnTileId("");
     setOkeyPrototypeFinalWallDrawSeat(null);
     setOkeyPrototypeLastHandSummary("");
+    setOkeyPrototypeLastOpeningSeatNo(null);
+    setOkeyPrototypeLastOpeningPoints(0);
+  }
+
+  function updateOkeyPrototypeGameOption(option: keyof OkeyPrototypeGameOptions, enabled: boolean) {
+    if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) {
+      setLobbyNotice("Oyun ayari icin once masaya oturmalisin.");
+      return;
+    }
+    if (!okeyPrototypeIsTableOwner) {
+      setLobbyNotice("Oyun ayarlarini sadece masa sahibi degistirebilir.");
+      return;
+    }
+    const nextOptions: OkeyPrototypeGameOptions = {
+      ...okeyPrototypeGameOptions,
+      [option]: enabled,
+    };
+    setOkeyPrototypeGameOptions(nextOptions);
+    updateOkeyPrototypeJoinedTableConfig({
+      gameOptions: nextOptions,
+    });
+    appendOkeyPrototypeAction(
+      `Oyun ayari guncellendi: ${option === "teamedPlay"
+        ? "Esli oyun"
+        : option === "increasingPlay"
+          ? "Artirmali oyun"
+          : "Cezali oyun"} ${enabled ? "acik" : "kapali"}.`,
+    );
   }
 
   function onSelectGame(gameId: GameId) {
@@ -19218,6 +19462,39 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                     <aside className="my-okey-quick-side">
                       <section className="my-okey-quick-card">
                         <h4>Özellikler</h4>
+                        <div className="my-okey-game-settings" aria-label="Oyun ayarlari">
+                          <p className="my-okey-game-settings-title">Oyun Ayarlari</p>
+                          <label className="my-okey-game-settings-item">
+                            <input
+                              type="checkbox"
+                              checked={okeyPrototypeGameOptions.teamedPlay}
+                              onChange={(event) => updateOkeyPrototypeGameOption("teamedPlay", event.target.checked)}
+                              disabled={!okeyPrototypeIsTableOwner}
+                            />
+                            <span>Esli oyun</span>
+                          </label>
+                          <label className="my-okey-game-settings-item">
+                            <input
+                              type="checkbox"
+                              checked={okeyPrototypeGameOptions.increasingPlay}
+                              onChange={(event) => updateOkeyPrototypeGameOption("increasingPlay", event.target.checked)}
+                              disabled={!okeyPrototypeIsTableOwner}
+                            />
+                            <span>Artirmali oyun</span>
+                          </label>
+                          <label className="my-okey-game-settings-item">
+                            <input
+                              type="checkbox"
+                              checked={okeyPrototypeGameOptions.penaltyPlay}
+                              onChange={(event) => updateOkeyPrototypeGameOption("penaltyPlay", event.target.checked)}
+                              disabled={!okeyPrototypeIsTableOwner}
+                            />
+                            <span>Cezali oyun</span>
+                          </label>
+                          {!okeyPrototypeIsTableOwner ? (
+                            <p className="my-okey-game-settings-note">Ayarlari sadece masa sahibi degistirebilir.</p>
+                          ) : null}
+                        </div>
                         <button className="my-action-btn soft" type="button" onClick={dealOkeyPrototypeWithSeed}>
                           Yeni Oyun
                         </button>

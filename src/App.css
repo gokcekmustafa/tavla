@@ -5622,6 +5622,41 @@
   font-size: 0.88rem;
 }
 
+.my-okey-game-settings {
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(189, 232, 255, 0.18);
+  background: rgba(5, 54, 74, 0.33);
+}
+
+.my-okey-game-settings-title {
+  margin: 0 0 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #dff8ff;
+}
+
+.my-okey-game-settings-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  color: #e2f7ff;
+}
+
+.my-okey-game-settings-item input {
+  accent-color: #45d387;
+}
+
+.my-okey-game-settings-note {
+  margin: 2px 0 0;
+  font-size: 0.66rem;
+  color: #c5e7f7;
+  line-height: 1.25;
+}
+
 .my-okey-quick-score-list {
   display: grid;
   gap: 6px;
