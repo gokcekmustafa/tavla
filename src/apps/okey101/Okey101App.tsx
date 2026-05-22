@@ -10916,7 +10916,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function handleOkeyPrototypeRackDragStart(event: DragEvent<HTMLButtonElement>, tileId: string) {
-    if (!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2) return;
+    if (
+      !okeyPrototypeSeatReservation
+      || (okeyPrototypeSeatRackTiles.length < 2 && !okeyPrototypeCanFinishByDeckDrop)
+    ) return;
     captureOkeyPrototypeDragPreviewTileSize(event.currentTarget);
     setOkeyPrototypeRackDragTileId(tileId);
     startOkeyPrototypeDragPreview(tileId, event.clientX, event.clientY);
@@ -11071,6 +11074,18 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function handleOkeyPrototypeDrawPocketClick() {
     if (okeyPrototypeCanFinishByDeckDrop) {
+      const seatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+      const currentRack = okeyPrototypeRackState[seatNo] ?? [];
+      const selectedTileId = (
+        okeyPrototypeDiscardDraftTileId
+        && currentRack.some((tile) => tile.id === okeyPrototypeDiscardDraftTileId)
+      )
+        ? okeyPrototypeDiscardDraftTileId
+        : (currentRack[0]?.id ?? "");
+      if (selectedTileId) {
+        discardOkeyPrototypeTileWithForced(selectedTileId, { finishViaDeck: true });
+        return;
+      }
       appendOkeyPrototypeAction("Eli bitirmek icin son tasi raftan Kapali Deste ustune surukle.");
       return;
     }
@@ -18120,7 +18135,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               type="button"
                               className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${okeyPrototypeLastDrawnTileId === tile.id ? "drawn-last" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""} ${okeyPrototypeProcessableTileIds.has(tile.id) ? "processable" : ""}`}
                               onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
-                              draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
+                              draggable={Boolean(
+                                okeyPrototypeSeatReservation
+                                && (okeyPrototypeSeatRackTiles.length > 1 || okeyPrototypeCanFinishByDeckDrop)
+                              )}
                               onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
                               onDrag={handleOkeyPrototypeRackDrag}
                               onDragOver={(event) => {
@@ -19686,7 +19704,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                       className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${okeyPrototypeLastDrawnTileId === tile.id ? "drawn-last" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""} ${okeyPrototypeFlippedJokerTileIds.includes(tile.id) ? "okey-flipped" : ""} ${okeyPrototypeProcessableTileIds.has(tile.id) ? "processable" : ""}`}
                                       onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
                                       onContextMenu={(event) => handleOkeyPrototypeRackTileContextMenu(event, tile)}
-                                      draggable={Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatRackTiles.length > 1)}
+                                      draggable={Boolean(
+                                        okeyPrototypeSeatReservation
+                                        && (okeyPrototypeSeatRackTiles.length > 1 || okeyPrototypeCanFinishByDeckDrop)
+                                      )}
                                       onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
                                       onDrag={handleOkeyPrototypeRackDrag}
                                       onDragOver={(event) => {
