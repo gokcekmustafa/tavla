@@ -5593,8 +5593,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (okeyPrototypeOpenedMelds.length === 0 || okeyPrototypeTurnRackTiles.length === 0) {
       return next;
     }
-    const turnSeatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
-    const turnSeatOpenMode = okeyPrototypeSeatOpenModes[turnSeatNo] ?? "none";
     okeyPrototypeTurnRackTiles.forEach((tile) => {
       const canAttachSet = okeyPrototypeOpenedMelds.some((meld) => (
         meld.kind === "set"
@@ -5605,17 +5603,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         && getOkeyPrototypeJokerReplacementPlan(tile, meld).valid
       ));
       if (canAttachSet || canReplaceSetJoker) next.set += 1;
-      if (turnSeatOpenMode !== "pair") {
-        const canAttachSeri = okeyPrototypeOpenedMelds.some((meld) => (
-          canProcessOkeyPrototypeMeldByKind("seri", meld, okeyPrototypeSeatOpenModes)
-          && canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile).valid
-        ));
-        const canReplaceSeriJoker = okeyPrototypeOpenedMelds.some((meld) => (
-          canProcessOkeyPrototypeMeldByKind("seri", meld, okeyPrototypeSeatOpenModes)
-          && getOkeyPrototypeJokerReplacementPlan(tile, meld).valid
-        ));
-        if (canAttachSeri || canReplaceSeriJoker) next.seri += 1;
-      }
+      const canAttachSeri = okeyPrototypeOpenedMelds.some((meld) => (
+        canProcessOkeyPrototypeMeldByKind("seri", meld, okeyPrototypeSeatOpenModes)
+        && canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile).valid
+      ));
+      const canReplaceSeriJoker = okeyPrototypeOpenedMelds.some((meld) => (
+        canProcessOkeyPrototypeMeldByKind("seri", meld, okeyPrototypeSeatOpenModes)
+        && getOkeyPrototypeJokerReplacementPlan(tile, meld).valid
+      ));
+      if (canAttachSeri || canReplaceSeriJoker) next.seri += 1;
     });
     return next;
   }, [
@@ -5654,8 +5650,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeCanOpenSerialGroupFromRack = useMemo(() => {
     if (!okeyPrototypeCanAdvanceTurn || okeyPrototypeTurnPhase !== "discard" || !okeyPrototypeCurrentSeatOpened) return false;
     if (okeyPrototypeTurnSeatNo !== okeyPrototypeSeatNoForRack) return false;
-    const seatOpenMode = okeyPrototypeSeatOpenModes[okeyPrototypeTurnSeatNo] ?? "none";
-    if (seatOpenMode === "pair") return false;
     return okeyPrototypeRackValidMeldGroups.some(
       (group) => (group.kind === "seri" || group.kind === "set") && group.tiles.length >= 3,
     );
@@ -5665,7 +5659,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     okeyPrototypeCurrentSeatOpened,
     okeyPrototypeTurnSeatNo,
     okeyPrototypeSeatNoForRack,
-    okeyPrototypeSeatOpenModes,
     okeyPrototypeRackValidMeldGroups,
   ]);
   const okeyPrototypePendingCanProcessByKind = useMemo(() => {
@@ -5714,7 +5707,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
           ? (group.kind === "seri" || group.kind === "set")
           : group.kind === "set";
         if (!matchesKind) return false;
-        if (group.kind === "seri" && seatOpenMode === "pair") return false;
         if (group.tiles.length < 3) return false;
         if (okeyPrototypeTurnRackTiles.length - group.tiles.length < 1) return false;
         if (!group.tiles.every((tile) => rackIds.has(tile.id))) return false;
@@ -5722,9 +5714,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       });
     };
     const setProcessable = canAttachDirectly("set") || canOpenFromRackWithPending("set");
-    const seriProcessable = seatOpenMode === "pair"
-      ? false
-      : (canAttachDirectly("seri") || canOpenFromRackWithPending("seri"));
+    const seriProcessable = canAttachDirectly("seri") || canOpenFromRackWithPending("seri");
     return {
       set: setProcessable,
       seri: seriProcessable,
@@ -5766,9 +5756,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     );
     okeyPrototypeTurnRackTiles.forEach((tile) => {
       const canSetProcess = canProcessKindDirectly(tile, "set");
-      const canSeriProcess = seatOpenMode === "pair"
-        ? false
-        : canProcessKindDirectly(tile, "seri");
+      const canSeriProcess = canProcessKindDirectly(tile, "seri");
       if (canSetProcess || canSeriProcess) {
         next.add(tile.id);
       }
@@ -5791,7 +5779,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       if (okeyPrototypeTurnRackTiles.length - group.tiles.length < 1) return;
       if (!group.tiles.every((tile) => rackTileIds.has(tile.id))) return;
       const canSetGroup = group.kind === "set";
-      const canSeriGroup = seatOpenMode !== "pair" && (group.kind === "seri" || group.kind === "set");
+      const canSeriGroup = group.kind === "seri" || group.kind === "set";
       if (!canSetGroup && !canSeriGroup) return;
       group.tiles.forEach((tile) => next.add(tile.id));
     });
@@ -12190,10 +12178,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
           && (okeyPrototypeSeatOpenModes[candidateSeatNo] ?? "none") === "pair"
         )) ?? seatNo
       );
-    if (seatOpenMode === "pair" && kind === "seri") {
-      appendOkeyPrototypeAction("Cift acan oyuncu bu elde sadece cift isleyebilir.");
-      return;
-    }
     const requiredPendingTileId = okeyPrototypePendingDiscardTileId;
     const requiredPendingTile = requiredPendingTileId
       ? (okeyPrototypeTurnRackTiles.find((tile) => tile.id === requiredPendingTileId) ?? null)
@@ -12211,7 +12195,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const collectProtectedSerialTileIds = () => {
       if (kind !== "seri") return new Set<string>();
       if (seatNo !== okeyPrototypeSeatNoForRack) return new Set<string>();
-      if (seatOpenMode === "pair") return new Set<string>();
       if (!okeyPrototypeSeatRackSlots || okeyPrototypeSeatRackSlots.length === 0) return new Set<string>();
       const workingRackIds = new Set(workingRack.map((tile) => tile.id));
       const protectedIds = new Set<string>();
@@ -12305,7 +12288,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             ? (group.kind === "seri" || group.kind === "set")
             : group.kind === kind;
           if (!matchesKind) return false;
-          if (group.kind === "seri" && seatOpenMode === "pair") return false;
           if (group.tiles.length < 3) return false;
           return group.tiles.every((tile) => workingRack.some((entry) => entry.id === tile.id));
         });
