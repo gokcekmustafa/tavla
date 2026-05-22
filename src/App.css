@@ -8370,8 +8370,8 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
     bottom: 6px;
-    transform: translateY(1cm);
-    z-index: 6;
+    transform: translateY(0.55cm);
+    z-index: 4;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
@@ -8428,6 +8428,8 @@
     overflow: visible;
     align-self: end;
     margin-top: auto;
+    position: relative;
+    z-index: 7;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
@@ -8498,7 +8500,7 @@
     max-width: calc(100% - 6cm);
     gap: 0 20px;
     margin-top: 0;
-    z-index: 5;
+    z-index: 8;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip > .my-okey-rack-top-actions {
@@ -8510,7 +8512,7 @@
     max-width: calc(100% - 6cm);
     margin: 0 auto 6px;
     gap: 0 20px;
-    z-index: 5;
+    z-index: 8;
     pointer-events: auto;
   }
 
@@ -8535,10 +8537,10 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
-    min-height: 31px;
-    min-width: 106px;
-    padding: 0 9px;
-    font-size: 0.82rem;
+    min-height: 29px;
+    min-width: 92px;
+    padding: 0 6px;
+    font-size: 0.78rem;
     white-space: nowrap;
   }
 

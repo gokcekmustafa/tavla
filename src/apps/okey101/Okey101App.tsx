@@ -11889,8 +11889,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       appendOkeyPrototypeAction("Cift Ac sadece ilk el acilisinda kullanilir. El acikken Cift Isle kullan.");
       return;
     }
+    const hasPendingDiscardConstraint = Boolean(
+      okeyPrototypePendingDiscardPickup
+      && okeyPrototypePendingDiscardPickup.seatNo === seatNo
+      && okeyPrototypePendingDiscardPickup.pickedTileId === okeyPrototypePendingDiscardTileId
+      && okeyPrototypePendingDiscardTileId,
+    );
     const pendingDiscardTileId = (
-      okeyPrototypePendingDiscardTileId
+      hasPendingDiscardConstraint
       && okeyPrototypeTurnRackTiles.some((tile) => tile.id === okeyPrototypePendingDiscardTileId)
     )
       ? okeyPrototypePendingDiscardTileId
