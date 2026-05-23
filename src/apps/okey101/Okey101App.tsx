@@ -5555,15 +5555,27 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     });
     return avatars;
   }, [okeyPrototypeJoinedTable]);
-  const okeyPrototypeDisplaySeatPositionBySeat = useMemo(() => ({
-    // Oda krokisi ve oyun masasi ayni koltuk geometri düzenini kullanir:
-    // K1=ust, K2=sag, K3=alt, K4=sol.
-    // Boylece oyuncu krokide nereye oturursa masada da ayni konumda gorunur.
-    1: 1,
-    2: 2,
-    3: 3,
-    4: 4,
-  } as Record<OkeyPrototypeSeatNo, OkeyPrototypeSeatNo>), []);
+  const okeyPrototypeDisplaySeatPositionBySeat = useMemo(() => {
+    // Oyun masasinda aktif oyuncu her zaman alt sirada kalir.
+    // Bu, tas atma kutulari ve sira akisinin koltuk seciminden bagimsiz tutarli
+    // calismasi icin gereklidir.
+    const localSeatIndex = OKEY_PROTOTYPE_SEATS.findIndex((seatNo) => seatNo === okeyPrototypeLocalSeatNo);
+    const safeLocalSeatIndex = localSeatIndex >= 0 ? localSeatIndex : 0;
+    const bottomSeatIndex = OKEY_PROTOTYPE_SEATS.findIndex((seatNo) => seatNo === 3);
+    const safeBottomSeatIndex = bottomSeatIndex >= 0 ? bottomSeatIndex : 2;
+    const offset = safeBottomSeatIndex - safeLocalSeatIndex;
+    const positions: Record<OkeyPrototypeSeatNo, OkeyPrototypeSeatNo> = {
+      1: 1,
+      2: 2,
+      3: 3,
+      4: 4,
+    };
+    OKEY_PROTOTYPE_SEATS.forEach((seatNo, index) => {
+      const shiftedIndex = (index + offset + OKEY_PROTOTYPE_SEATS.length) % OKEY_PROTOTYPE_SEATS.length;
+      positions[seatNo] = OKEY_PROTOTYPE_SEATS[shiftedIndex] ?? seatNo;
+    });
+    return positions;
+  }, [okeyPrototypeLocalSeatNo]);
   const okeyPrototypeSeatNameByDisplayPosition = useMemo(() => {
     const byPosition: Record<OkeyPrototypeSeatNo, string> = {
       1: "Bos",
