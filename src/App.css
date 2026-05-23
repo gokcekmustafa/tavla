@@ -8044,15 +8044,15 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header {
-    width: 142px;
-    min-height: 44px;
-    padding: 2px 8px;
-    border-radius: 8px;
+    width: 118px;
+    min-height: 38px;
+    padding: 2px 6px;
+    border-radius: 7px;
     border: 1px solid rgba(171, 224, 199, 0.56);
     background: linear-gradient(180deg, rgba(6, 97, 71, 0.52), rgba(4, 74, 55, 0.62));
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 5px;
     flex-wrap: nowrap;
     position: relative;
     overflow: visible;
@@ -8073,13 +8073,13 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 header,
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 header {
-    width: 44px;
-    min-height: 142px;
-    padding: 4px 3px;
-    flex-direction: column;
-    justify-content: flex-start;
+    width: 118px;
+    min-height: 38px;
+    padding: 2px 6px;
+    flex-direction: row;
+    justify-content: center;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2,
@@ -8116,9 +8116,9 @@
     min-width: 0;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     color: #ecfff6;
-    font-size: 0.84rem;
+    font-size: 0.72rem;
     font-weight: 800;
     line-height: 1;
     white-space: nowrap;
@@ -8168,13 +8168,23 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 .my-game-coming-prototype-board-seat-title,
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 .my-game-coming-prototype-board-seat-title {
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: flex-start;
-    gap: 6px;
+    justify-content: center;
+    gap: 4px;
   }
 
-  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 .my-okey-seat-name-label,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 .my-okey-seat-name-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    line-height: 1;
+    letter-spacing: 0.3px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    transform: none;
+  }
+
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 .my-okey-seat-name-label {
     writing-mode: vertical-rl;
     text-orientation: mixed;
@@ -8183,6 +8193,7 @@
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
+    transform: rotate(180deg);
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-seat-status {
