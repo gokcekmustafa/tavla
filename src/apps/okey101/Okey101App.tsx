@@ -490,12 +490,14 @@ const GUEST_STORAGE_KEY = "tavla.guestName";
 const GUEST_ID_STORAGE_KEY = "tavla.guest.id.v1";
 const GUEST_PROFILE_SESSION_KEY = "tavla.guest.profile.session.v1";
 const MEMBER_SESSION_KEY = "tavla.member.session.v1";
+const APP_SESSION_ID_SESSION_KEY = "okey101.app.session.id.v1";
 const ACTIVE_LOBBY_ID_KEY = "okey101.active.lobby.id.v1";
 const ROOM_PICKER_SESSION_KEY = "tavla.room.picker.session.v1";
 const GAME_SELECTION_SESSION_KEY = "tavla.game.selection.session.okey101.v1";
 const ROOT_GAME_CHOICE_KEY = "tavla.root.selected.game.v1";
 const OKEY_PROTOTYPE_TILE_SCALE_SESSION_KEY = "tavla.okey.prototype.tile.scale.pct.v1";
 const OKEY_PROTOTYPE_AUTO_SORT_SESSION_KEY = "tavla.okey.prototype.auto.sort.mode.v1";
+const OKEY_PROTOTYPE_SEAT_RESERVATION_SESSION_KEY = "okey101.prototype.seat.reservation.v1";
 const LEAVE_NOTICE_REJECT_PREFIX = "LEAVE_REJECT|";
 const LOBBY_STATE_KEY_PREFIX = "okey101.lobby.state.v3";
 const LOBBY_SYNC_CHANNEL_PREFIX = "okey101.lobby.sync.v3";
@@ -2890,6 +2892,15 @@ function createSessionId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function loadOrCreateAppSessionId() {
+  if (typeof window === "undefined") return createSessionId();
+  const existing = sanitizeGuestId(safeStorageGetItem(window.sessionStorage, APP_SESSION_ID_SESSION_KEY) ?? "");
+  if (existing) return existing;
+  const next = sanitizeGuestId(createSessionId()) || `s${Date.now().toString(36)}`;
+  safeStorageSetItem(window.sessionStorage, APP_SESSION_ID_SESSION_KEY, next);
+  return next;
+}
+
 function createRoomCode() {
   let out = "";
   for (let i = 0; i < 6; i += 1) {
@@ -4345,6 +4356,37 @@ function loadOkeyPrototypeAutoSortModeFromSession(): OkeyPrototypeAutoSortMode {
   return normalizeOkeyPrototypeAutoSortMode(raw);
 }
 
+function loadOkeyPrototypeSeatReservationFromSession(): { tableId: string; seatNo: OkeyPrototypeSeatNo } | null {
+  if (typeof window === "undefined") return null;
+  const raw = safeStorageGetItem(window.sessionStorage, OKEY_PROTOTYPE_SEAT_RESERVATION_SESSION_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { tableId?: unknown; seatNo?: unknown } | null;
+    const tableId = sanitizeOkeyPrototypeTableId(parsed?.tableId);
+    const seatNo = normalizeOkeyPrototypeSeatNo(parsed?.seatNo);
+    if (!tableId || !seatNo) return null;
+    if (isOkeyPrototypeLocalBotTableId(tableId)) return null;
+    return { tableId, seatNo };
+  } catch {
+    return null;
+  }
+}
+
+function persistOkeyPrototypeSeatReservationToSession(
+  reservation: { tableId: string; seatNo: OkeyPrototypeSeatNo } | null,
+) {
+  if (typeof window === "undefined") return;
+  if (!reservation || !reservation.tableId || !reservation.seatNo || isOkeyPrototypeLocalBotTableId(reservation.tableId)) {
+    safeStorageRemoveItem(window.sessionStorage, OKEY_PROTOTYPE_SEAT_RESERVATION_SESSION_KEY);
+    return;
+  }
+  const payload = JSON.stringify({
+    tableId: sanitizeOkeyPrototypeTableId(reservation.tableId),
+    seatNo: normalizeOkeyPrototypeSeatNo(reservation.seatNo),
+  });
+  safeStorageSetItem(window.sessionStorage, OKEY_PROTOTYPE_SEAT_RESERVATION_SESSION_KEY, payload);
+}
+
 function readEntryScreenFromUrl(): EntryScreen | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
@@ -5106,7 +5148,9 @@ function Okey101App() {
   const [okeyPrototypeTableSort, setOkeyPrototypeTableSort] = useState<"tableNo" | "occupancy" | "status">("tableNo");
   const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState("");
   const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState<OkeyPrototypeSeatNo>(1);
-  const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: OkeyPrototypeSeatNo } | null>(null);
+  const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: OkeyPrototypeSeatNo } | null>(
+    () => loadOkeyPrototypeSeatReservationFromSession(),
+  );
   const [okeyPrototypeLocalBotTable, setOkeyPrototypeLocalBotTable] = useState<OkeyPrototypeLobbyTableState | null>(null);
   const [okeyPrototypeTurnSeat, setOkeyPrototypeTurnSeat] = useState<1 | 2 | 3 | 4>(1);
   const [okeyPrototypeHandFirstSeat, setOkeyPrototypeHandFirstSeat] = useState<OkeyPrototypeSeatNo>(1);
@@ -5238,6 +5282,18 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     okeyPrototypeSeatReservation,
     okeyPrototypeSessionHandNo,
   ]);
+  useEffect(() => {
+    persistOkeyPrototypeSeatReservationToSession(okeyPrototypeSeatReservation);
+  }, [okeyPrototypeSeatReservation]);
+  useEffect(() => {
+    if (okeyPrototypeSeatRestoreAppliedRef.current) return;
+    okeyPrototypeSeatRestoreAppliedRef.current = true;
+    if (!okeyPrototypeSeatReservation) return;
+    setMode("local");
+    setViewMode("table");
+    setRoomPickerOpen(false);
+    setGamePickerOpen(false);
+  }, [okeyPrototypeSeatReservation]);
   useEffect(() => {
     if (okeyPrototypeSeatReservation) return;
     setOkeyPrototypeScorePanelOpen(false);
@@ -6723,7 +6779,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const roomPickerRefreshInFlightRef = useRef(false);
   const roomPickerRemoteNextAllowedAtRef = useRef(0);
   const roomPickerRemoteFailCountRef = useRef(0);
-  const appSessionId = useMemo(() => createSessionId(), []);
+  const appSessionId = useMemo(() => loadOrCreateAppSessionId(), []);
   const guestId = useMemo(() => getOrCreateGuestId(), []);
   const realtimeSenderIdRef = useRef(`${appSessionId}-${Math.random().toString(36).slice(2, 8)}`);
   const [realtimeStatus, setRealtimeStatus] = useState<"offline" | "connecting" | "online">("offline");
@@ -6755,6 +6811,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeAutoNextDrawHandKeyRef = useRef("");
   const okeyPrototypeAutoNextHandTimerRef = useRef<number | null>(null);
   const okeyPrototypeSetSummaryHandKeyRef = useRef("");
+  const okeyPrototypeSeatRestoreAppliedRef = useRef(false);
   const okeyPrototypeTurnPhaseSelfHealKeyRef = useRef("");
   const flowEventSeqRef = useRef(0);
   const flowEventLastSeenRef = useRef<Map<string, number>>(new Map());
