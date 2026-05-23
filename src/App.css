@@ -9065,8 +9065,8 @@
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
-    grid-template-columns: minmax(0, 1fr) 86px !important;
-    grid-template-areas: "grid side" !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas: "grid" !important;
     gap: 4px;
     padding: 4px;
     min-height: calc(100dvh - 160px);
@@ -9165,9 +9165,7 @@
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
-    padding: 3px;
-    gap: 3px;
-    border-radius: 8px;
+    display: none !important;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pile-card,
