@@ -19937,7 +19937,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
           </aside>
         </section>
       )) : (
-        <section className={`my-room-view my-room-view-topless ${roomSession ? "in-room" : "local-mode"}`}>
+        <section className={`my-room-view my-room-view-topless ${roomSession ? "in-room" : "local-mode"} ${!isTavlaSelectedGame ? "my-okey-room-view" : ""}`}>
           <header className="my-room-header-strip">
             {roomSession ? (
               <>
@@ -19960,7 +19960,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
           {!isTavlaSelectedGame ? (
             <section
-              className="my-game-coming-room-shell"
+              className="my-game-coming-room-shell my-okey-room-shell"
               data-table-active={okeyPrototypeSeatReservation ? "true" : "false"}
               style={{ "--okey-proto-tile-scale": String(okeyPrototypeTileScale) } as CSSProperties}
             >
