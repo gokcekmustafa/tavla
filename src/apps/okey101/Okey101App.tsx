@@ -599,6 +599,10 @@ const OKEY_PROTOTYPE_AUTO_NEXT_SET_DELAY_MS = 5_600;
 const OKEY_PROTOTYPE_PENALTY_BUBBLE_DURATION_MS = 1_900;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = OKEY_ENGINE_RULES.seats as readonly OkeyPrototypeSeatNo[];
 const OKEY_PROTOTYPE_COUNTERCLOCKWISE_SEAT_ORDER: readonly OkeyPrototypeSeatNo[] = [1, 4, 3, 2];
+const OKEY_PROTOTYPE_TEAM_SEAT_GROUPS = [
+  { id: "team-13", label: "K1-K3", seats: [1, 3] as const },
+  { id: "team-24", label: "K2-K4", seats: [2, 4] as const },
+] as const;
 const OKEY_PROTOTYPE_RACK_SLOT_COLUMNS = 16;
 const OKEY_PROTOTYPE_RACK_SLOT_ROWS = 2;
 const OKEY_PROTOTYPE_RACK_SLOT_COUNT = OKEY_PROTOTYPE_RACK_SLOT_COLUMNS * OKEY_PROTOTYPE_RACK_SLOT_ROWS;
@@ -6104,6 +6108,37 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeSeatPenaltySummaryText = OKEY_PROTOTYPE_SEATS
     .map((seatNo) => `K${seatNo}: ${okeyPrototypeSeatPenaltyTotals[seatNo] ?? 0}`)
     .join(" | ");
+  const okeyPrototypeTeamRows = useMemo(() => (
+    OKEY_PROTOTYPE_TEAM_SEAT_GROUPS.map((group) => {
+      const leftSeat = group.seats[0];
+      const rightSeat = group.seats[1];
+      const leftName = okeyPrototypeSeatDisplayNames[leftSeat] || `K${leftSeat}`;
+      const rightName = okeyPrototypeSeatDisplayNames[rightSeat] || `K${rightSeat}`;
+      return {
+        id: group.id,
+        label: group.label,
+        membersText: `${leftName} + ${rightName}`,
+        handWins: (okeyPrototypeSeatHandWins[leftSeat] ?? 0) + (okeyPrototypeSeatHandWins[rightSeat] ?? 0),
+        penalty: (okeyPrototypeSeatPenaltyTotals[leftSeat] ?? 0) + (okeyPrototypeSeatPenaltyTotals[rightSeat] ?? 0),
+      };
+    })
+  ), [
+    okeyPrototypeSeatDisplayNames,
+    okeyPrototypeSeatHandWins,
+    okeyPrototypeSeatPenaltyTotals,
+  ]);
+  const okeyPrototypeTeamScoreSummaryText = okeyPrototypeTeamRows
+    .map((team) => `${team.label}: ${team.handWins}`)
+    .join(" | ");
+  const okeyPrototypeTeamPenaltySummaryText = okeyPrototypeTeamRows
+    .map((team) => `${team.label}: ${team.penalty}`)
+    .join(" | ");
+  const okeyPrototypeScoreSummaryText = okeyPrototypeGameOptions.teamedPlay
+    ? okeyPrototypeTeamScoreSummaryText
+    : okeyPrototypeSeatScoreSummaryText;
+  const okeyPrototypePenaltySummaryText = okeyPrototypeGameOptions.teamedPlay
+    ? okeyPrototypeTeamPenaltySummaryText
+    : okeyPrototypeSeatPenaltySummaryText;
   const okeyPrototypeTileScale = Math.max(85, Math.min(130, okeyPrototypeTileScalePct)) / 100;
   const okeyPrototypeNextTurnSeat = useMemo(() => {
     const seats = okeyPrototypeActiveTurnSeats;
@@ -7252,12 +7287,44 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (!okeyPrototypeHandCompleted) return;
     if (!okeyPrototypeGameStarted) return;
     if (okeyPrototypeSessionHandNo !== OKEY_PROTOTYPE_SET_HAND_TARGET) return;
-    const totalKey = OKEY_PROTOTYPE_SEATS
-      .map((seatNo) => String(okeyPrototypeSeatPenaltyTotals[seatNo] ?? 0))
-      .join("-");
-    const handKey = `${okeyPrototypeSessionHandNo}-${totalKey}`;
+    const teamedMode = okeyPrototypeGameOptions.teamedPlay;
+    const totalKey = teamedMode
+      ? okeyPrototypeTeamRows.map((team) => String(team.penalty)).join("-")
+      : OKEY_PROTOTYPE_SEATS
+        .map((seatNo) => String(okeyPrototypeSeatPenaltyTotals[seatNo] ?? 0))
+        .join("-");
+    const handKey = `${okeyPrototypeSessionHandNo}-${teamedMode ? "team" : "solo"}-${totalKey}`;
     if (okeyPrototypeSetSummaryHandKeyRef.current === handKey) return;
     okeyPrototypeSetSummaryHandKeyRef.current = handKey;
+    if (teamedMode) {
+      const teamStandings = okeyPrototypeTeamRows
+        .map((team) => ({
+          id: team.id,
+          label: team.label,
+          membersText: team.membersText,
+          penalty: team.penalty,
+        }))
+        .sort((left, right) => (left.penalty - right.penalty) || left.label.localeCompare(right.label));
+      const bestPenalty = teamStandings[0]?.penalty ?? 0;
+      const winnerRows = teamStandings.filter((entry) => entry.penalty === bestPenalty);
+      const loserRows = teamStandings.filter((entry) => entry.penalty > bestPenalty);
+      const winnerText = winnerRows.map((entry) => `${entry.label} (${entry.membersText})`).join(", ");
+      const loserText = loserRows.length > 0
+        ? loserRows.map((entry) => `${entry.label} (${entry.membersText})`).join(", ")
+        : "Yok";
+      const rankingText = teamStandings
+        .map((entry) => `${entry.label}: ${entry.penalty}`)
+        .join(" | ");
+      appendOkeyPrototypeAction(
+        `${OKEY_PROTOTYPE_SET_HAND_TARGET} ellik set tamamlandi (Esli). En dusuk takim cezasi ${bestPenalty}. Kazanan: ${winnerText}.`,
+      );
+      appendOkeyPrototypeAction(`Takim siralamasi: ${rankingText}`);
+      appendOkeyPrototypeAction(`Kaybeden takim(lar): ${loserText}. Yeni set otomatik olarak baslayacak.`);
+      setOkeyPrototypeLastHandSummary(
+        `Set tamamlandi (${OKEY_PROTOTYPE_SET_HAND_TARGET} el / Esli). Kazanan: ${winnerText}. En dusuk takim cezasi: ${bestPenalty}.`,
+      );
+      return;
+    }
     const standings = OKEY_PROTOTYPE_SEATS
       .map((seatNo) => ({
         seatNo,
@@ -7284,9 +7351,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       `Set tamamlandi (${OKEY_PROTOTYPE_SET_HAND_TARGET} el). Kazanan: ${winnerText}. En dusuk ceza: ${bestPenalty}.`,
     );
   }, [
+    okeyPrototypeGameOptions.teamedPlay,
     okeyPrototypeGameStarted,
     okeyPrototypeHandCompleted,
     okeyPrototypeSeatDisplayNames,
+    okeyPrototypeTeamRows,
     okeyPrototypeSeatPenaltyTotals,
     okeyPrototypeSessionHandNo,
   ]);
@@ -18307,7 +18376,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           ))}
                         </div>
                         <p className="my-game-coming-prototype-turn-scoreboard" role="status" aria-live="polite" aria-atomic="true">
-                          El Kazanci: {okeyPrototypeSeatScoreSummaryText} | Ceza Toplami: {okeyPrototypeSeatPenaltySummaryText} | Berabere: {okeyPrototypeDrawHandCount}
+                          El Kazanci: {okeyPrototypeScoreSummaryText} | Ceza Toplami: {okeyPrototypePenaltySummaryText} | Berabere: {okeyPrototypeDrawHandCount}
                         </p>
                         {okeyPrototypeLastHandSummary ? (
                           <p className="my-game-coming-prototype-turn-last-summary" role="status" aria-live="polite" aria-atomic="true">
@@ -20524,6 +20593,16 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             </p>
                           ))}
                         </div>
+                        {okeyPrototypeGameOptions.teamedPlay ? (
+                          <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
+                            {okeyPrototypeTeamRows.map((team) => (
+                              <p key={`quick-team-penalty-${team.id}`}>
+                                <span>{team.label} ceza</span>
+                                <strong>{team.penalty}</strong>
+                              </p>
+                            ))}
+                          </div>
+                        ) : null}
                         {okeyPrototypeLastHandSummary ? (
                           <p className="my-okey-quick-last-summary">{okeyPrototypeLastHandSummary}</p>
                         ) : null}
@@ -20597,6 +20676,16 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             </p>
                           ))}
                         </div>
+                        {okeyPrototypeGameOptions.teamedPlay ? (
+                          <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
+                            {okeyPrototypeTeamRows.map((team) => (
+                              <p key={`popup-team-penalty-${team.id}`}>
+                                <span>{team.label} ceza</span>
+                                <strong>{team.penalty}</strong>
+                              </p>
+                            ))}
+                          </div>
+                        ) : null}
                         {okeyPrototypeLastHandSummary ? (
                           <p className="my-okey-quick-last-summary">{okeyPrototypeLastHandSummary}</p>
                         ) : null}
