@@ -7862,7 +7862,7 @@
 }
 
 /* 101 desktop final pass: keep rack visible at 100% zoom, use width, trim height */
-@media (min-width: 761px) {
+@media (min-width: 0px) {
   .my-room-view.in-room {
     height: 100dvh;
     max-height: 100dvh;
@@ -8661,7 +8661,7 @@
 }
 
 /* 101 mobile final pass: match reference look with board-first compact layout */
-@media (max-width: 760px) {
+@media (max-width: 0px) {
   .my-room-view.in-room {
     padding: 0 0 6px;
     gap: 4px;
@@ -8996,7 +8996,7 @@
 }
 
 /* 101 mobile landscape pass: board + rack fit into one screen */
-@media (orientation: landscape) and (max-width: 1366px) {
+@media (orientation: landscape) and (max-width: 0px) {
   .my-room-view.my-okey-room-view .my-room-header-strip {
     display: none;
   }
@@ -9289,7 +9289,7 @@
 }
 
 /* 101 mobile fallback: hide the old right brown side column on all mobile/tablet widths */
-@media (max-width: 1366px) {
+@media (max-width: 0px) {
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
     grid-template-columns: minmax(0, 1fr) !important;
     grid-template-areas: "grid" !important;
