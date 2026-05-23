@@ -9108,8 +9108,13 @@
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-main-layout {
-    grid-template-columns: minmax(0, 1fr) 70px;
+    grid-template-columns: minmax(0, 1fr);
     gap: 4px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-side-lanes,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls {
+    display: none !important;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface {
