@@ -1759,6 +1759,15 @@ function canProcessOkeyPrototypeMeldByKind(
   return (seatOpenModes[meld.seatNo] ?? "none") !== "pair";
 }
 
+function isOkeyPrototypePairMeldExpansionBlocked(
+  meld: OkeyPrototypeMeldEntry,
+  seatOpenModes: OkeyPrototypeSeatOpenModes,
+) {
+  return meld.kind === "set"
+    && meld.tiles.length === 2
+    && (seatOpenModes[meld.seatNo] ?? "none") === "pair";
+}
+
 function createDefaultOkeyPrototypeSeatOpenedState(): OkeyPrototypeSeatOpenedState {
   return {
     1: false,
@@ -6075,6 +6084,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const canAttachSet = okeyPrototypeOpenedMelds.some((meld) => (
         meld.kind === "set"
         && okeyPrototypePairProcessTargetSeatNoSet.has(meld.seatNo)
+        && !isOkeyPrototypePairMeldExpansionBlocked(meld, okeyPrototypeSeatOpenModes)
         && canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile).valid
       ));
       const canReplaceSetJoker = okeyPrototypeOpenedMelds.some((meld) => (
@@ -6181,6 +6191,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const canAttachDirectly = (kind: OkeyPrototypeMeldKind) => okeyPrototypeOpenedMelds.some((meld) => {
       if (!canProcessOkeyPrototypeMeldByKind(kind, meld, okeyPrototypeSeatOpenModes)) return false;
       if (kind === "set" && !okeyPrototypePairProcessTargetSeatNoSet.has(meld.seatNo)) return false;
+      if (kind === "set" && isOkeyPrototypePairMeldExpansionBlocked(meld, okeyPrototypeSeatOpenModes)) return false;
       return canAttachOkeyPrototypeTileToMeld(pendingTile, meld, okeyPrototypeOkeyTile).valid
         || getOkeyPrototypeJokerReplacementPlan(pendingTile, meld).valid;
     });
@@ -6218,6 +6229,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       okeyPrototypeOpenedMelds.some((meld) => {
         if (!canProcessOkeyPrototypeMeldByKind(kind, meld, okeyPrototypeSeatOpenModes)) return false;
         if (kind === "set" && !okeyPrototypePairProcessTargetSeatNoSet.has(meld.seatNo)) return false;
+        if (kind === "set" && isOkeyPrototypePairMeldExpansionBlocked(meld, okeyPrototypeSeatOpenModes)) return false;
         return canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile).valid
           || getOkeyPrototypeJokerReplacementPlan(tile, meld).valid;
       })
@@ -6281,7 +6293,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       okeyPrototypeAttachTargetMeld,
       okeyPrototypeOkeyTile,
     );
-    if (attachValidation.valid) return attachValidation;
+    if (
+      attachValidation.valid
+      && !isOkeyPrototypePairMeldExpansionBlocked(okeyPrototypeAttachTargetMeld, okeyPrototypeSeatOpenModes)
+    ) {
+      return attachValidation;
+    }
     const replacementPlan = getOkeyPrototypeJokerReplacementPlan(
       okeyPrototypeDiscardDraftTile,
       okeyPrototypeAttachTargetMeld,
@@ -12283,6 +12300,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       appendOkeyPrototypeAction(`Gecersiz hamle: ${replacementPlan.reason || validation.reason}`);
       return false;
     }
+    if (isOkeyPrototypePairMeldExpansionBlocked(targetMeld, okeyPrototypeSeatOpenModes)) {
+      appendOkeyPrototypeAction("Gecersiz hamle: Cift acilan 2'li gruba dogrudan tas eklenemez.");
+      return false;
+    }
     if (currentRack.length - 1 < 1) {
       appendOkeyPrototypeAction("Gecersiz hamle: Turu bitirmek icin en az 1 tas elde kalmali.");
       return false;
@@ -12957,6 +12978,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         const targetMeld = workingMelds.find((meld) => {
           if (kind === "set" && !okeyPrototypePairProcessTargetSeatNoSet.has(meld.seatNo)) return false;
           if (!canProcessOkeyPrototypeMeldByKind(kind, meld, okeyPrototypeSeatOpenModes)) return false;
+          if (kind === "set" && isOkeyPrototypePairMeldExpansionBlocked(meld, okeyPrototypeSeatOpenModes)) return false;
           const validation = canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile);
           return validation.valid;
         });
