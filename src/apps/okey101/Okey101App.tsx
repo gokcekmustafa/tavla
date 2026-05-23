@@ -508,6 +508,7 @@ const SEAT_STALE_MS = 180_000;
 const PRESENCE_STALE_MS = 120_000;
 const OKEY_TABLE_OPEN_GRACE_MS = 10_000;
 const HEARTBEAT_MS = 8_000;
+const OKEY_PRESENCE_ACTIVE_WINDOW_MS = 20_000;
 const OKEY_RECONNECT_NOTICE_GRACE_MS = 30_000;
 // Cihaz saatleri arasındaki fark (özellikle mobil/masaüstü) seat-null merge sırasında
 // koltuğun yanlışlıkla düşmesine neden olabiliyor. Daha geniş tolerans kullanıyoruz.
@@ -3449,31 +3450,26 @@ function cleanupOkeyPrototypeTablesByRoom(
 ) {
   const normalizedTablesByRoom = normalizeOkeyPrototypeTablesByRoom(tablesByRoom);
   const normalizedClosedTableIds = normalizeOkeyPrototypeClosedTableIds(closedTableIds, now);
-  if (presenceRows.length === 0) {
-    let changed = false;
-    const nextTablesByRoom: Record<string, OkeyPrototypeLobbyTableState[]> = {};
-    Object.entries(normalizedTablesByRoom).forEach(([roomId, tables]) => {
-      const filtered = tables.filter((table) => !isOkeyPrototypeTableSuppressedByCloseTombstone(table, normalizedClosedTableIds));
-      if (filtered.length > 0) {
-        nextTablesByRoom[roomId] = filtered;
-      }
-      if (filtered.length !== tables.length) changed = true;
-    });
-    return { tablesByRoom: normalizeOkeyPrototypeTablesByRoom(nextTablesByRoom), changed };
-  }
   const activeSessionIds = new Set<string>();
   const activeUserIds = new Set<string>();
+  const latestPresenceBySessionId = new Map<string, number>();
+  const latestPresenceByUserId = new Map<string, number>();
   presenceRows.forEach((row) => {
     const touchedAt = normalizeActivityTimestamp(row.touchedAt, now, HEARTBEAT_MS * 2, row.sessionId);
-    if (now - touchedAt > PRESENCE_STALE_MS) return;
     const sessionId = sanitizeGuestId(row.sessionId);
-    if (sessionId) activeSessionIds.add(sessionId);
     const userId = sanitizeGuestId(row.userId);
+    if (sessionId) {
+      const latest = latestPresenceBySessionId.get(sessionId) ?? 0;
+      if (touchedAt > latest) latestPresenceBySessionId.set(sessionId, touchedAt);
+    }
+    if (userId) {
+      const latest = latestPresenceByUserId.get(userId) ?? 0;
+      if (touchedAt > latest) latestPresenceByUserId.set(userId, touchedAt);
+    }
+    if (now - touchedAt > OKEY_PRESENCE_ACTIVE_WINDOW_MS) return;
+    if (sessionId) activeSessionIds.add(sessionId);
     if (userId) activeUserIds.add(userId);
   });
-  if (activeSessionIds.size === 0) {
-    return { tablesByRoom: normalizedTablesByRoom, changed: false };
-  }
 
   const nextTablesByRoom: Record<string, OkeyPrototypeLobbyTableState[]> = {};
   let changed = false;
@@ -3488,11 +3484,6 @@ function cleanupOkeyPrototypeTablesByRoom(
       let tableChanged = false;
       const nextHumanSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = {};
       const nextBotSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = {};
-      const hadHumanSeat = OKEY_PROTOTYPE_SEATS.some((seatNo) => {
-        const seat = table.seats[seatNo];
-        if (!seat) return false;
-        return !isOkeyPrototypeBotUserIdValue(seat.userId);
-      });
       OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
         const seat = table.seats[seatNo];
         if (!seat) return;
@@ -3503,12 +3494,20 @@ function cleanupOkeyPrototypeTablesByRoom(
         }
         const seatSessionId = sanitizeGuestId(seat.sessionId);
         const seatUserId = sanitizeGuestId(seat.userId);
+        const latestPresenceTouchedAt = Math.max(
+          seatSessionId ? (latestPresenceBySessionId.get(seatSessionId) ?? 0) : 0,
+          seatUserId ? (latestPresenceByUserId.get(seatUserId) ?? 0) : 0,
+        );
         const seatActive = Boolean(
           (seatSessionId && activeSessionIds.has(seatSessionId))
           || (seatUserId && activeUserIds.has(seatUserId)),
         );
         const seatJoinedAt = getOkeyPrototypeSeatJoinedAt(seat);
-        const seatLastSeenAt = seatJoinedAt > 0 ? seatJoinedAt : getOkeyPrototypeTableUpdatedAt(table);
+        const seatLastSeenAt = Math.max(
+          seatJoinedAt > 0 ? seatJoinedAt : 0,
+          latestPresenceTouchedAt > 0 ? latestPresenceTouchedAt : 0,
+          getOkeyPrototypeTableUpdatedAt(table),
+        );
         const inactiveSeatPruneMs = table.startedAt
           ? OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS
           : OKEY_TABLE_OPEN_GRACE_MS;
@@ -3544,12 +3543,6 @@ function cleanupOkeyPrototypeTablesByRoom(
       });
       const activeHumanSeatNos = getOkeyPrototypeOccupiedSeatNosFromSeats(dedupedHumanSeats);
       if (activeHumanSeatNos.length === 0) {
-        const tableUpdatedAt = getOkeyPrototypeTableUpdatedAt(table);
-        const recentlyUpdated = now - tableUpdatedAt <= OKEY_TABLE_OPEN_GRACE_MS;
-        if (hadHumanSeat && recentlyUpdated) {
-          nextTables.push(table);
-          return;
-        }
         changed = true;
         return;
       }
@@ -10674,18 +10667,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function adminCloseOkeyPrototypeTable(tableRow: OkeyPrototypeTableSketchRow) {
-    const hasSuperAdminOverride = isSuperAdminRole(member?.role);
-    const safeCurrentUserId = sanitizeGuestId(currentProfile.userId);
-    const safeOwnerUserId = sanitizeGuestId(tableRow.ownerUserId);
-    const ownerStillSeated = OKEY_PROTOTYPE_SEATS.some(
-      (seatNo) => sanitizeGuestId(tableRow.seats[seatNo]?.userId ?? "") === safeOwnerUserId,
-    );
-    const currentUserSeated = OKEY_PROTOTYPE_SEATS.some(
-      (seatNo) => sanitizeGuestId(tableRow.seats[seatNo]?.userId ?? "") === safeCurrentUserId,
-    );
-    const canCloseAsFallback = currentUserSeated && (!safeOwnerUserId || !ownerStillSeated);
-    if (!hasSuperAdminOverride && (!safeCurrentUserId || (safeOwnerUserId !== safeCurrentUserId && !canCloseAsFallback))) {
-      setLobbyNotice("Masayi sadece masa sahibi kapatabilir.");
+    if (!isSuperAdminRole(member?.role)) {
+      setLobbyNotice("Masayi sadece superadmin kapatabilir.");
       return;
     }
     let removed = false;
@@ -14509,9 +14492,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function adminCloseTable(tableId: number) {
-    const canCloseAnyTable = Boolean(member && (member.role === "admin" || isSuperAdminRole(member.role)));
+    const canCloseAnyTable = Boolean(member && isSuperAdminRole(member.role));
     if (!canCloseAnyTable) {
-      setLobbyNotice("Masayı kapatmak için admin veya superadmin olmalısın.");
+      setLobbyNotice("Masayı kapatmak için superadmin olmalısın.");
       return;
     }
 
@@ -16332,7 +16315,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const prunedTables = cleanupStaleAndPrune(cleared.tables).tables;
       const nextOkeyTablesByRoom: Record<string, OkeyPrototypeLobbyTableState[]> = {};
       let okeyTablesChanged = false;
-      const preserveOkeySeatsOnUnload = true;
+      const preserveOkeySeatsOnUnload = false;
       Object.entries(latestOkeyTablesByRoom).forEach(([roomId, tables]) => {
         if (preserveOkeySeatsOnUnload) {
           nextOkeyTablesByRoom[roomId] = tables.slice().sort((left, right) => left.tableNo - right.tableNo);
@@ -18918,7 +18901,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             : null;
                       const canWatchTable = !table.isPrivate && !mySeatHere && !myCurrentSeat && Boolean(table.white || table.black);
                       const showWatchEye = !table.isPrivate;
-                      const canAdminClose = isAdmin;
+                      const canAdminClose = isSuperAdminRole(member?.role);
 
                       return (
                         <article key={table.id} className={`my-table-card ${status} ${isTavlaSelectedGame ? "" : "my-table-card-okey"}`}>
@@ -19008,8 +18991,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       const mySeatNo = okeyPrototypeSeatReservation?.tableId === row.id
                         ? Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo))
                         : null;
-                      const isOkeyTableOwner = sanitizeGuestId(row.ownerUserId) === sanitizeGuestId(currentProfile.userId);
-                      const canCloseOkeyTable = isOkeyTableOwner || isSuperAdminRole(member?.role);
+                      const canCloseOkeyTable = isSuperAdminRole(member?.role);
                       const seatLockedByOtherTable = Boolean(okeyPrototypeSeatReservation && okeyPrototypeSeatReservation.tableId !== row.id);
                       return (
                         <article key={`okey-lobby-table-${row.id}`} className={`my-okey-lobby-card ${row.active ? "active" : "waiting"} ${mySeatNo ? "mine" : ""}`}>
