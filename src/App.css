@@ -9288,3 +9288,15 @@
   }
 }
 
+/* 101 mobile fallback: hide the old right brown side column on all mobile/tablet widths */
+@media (max-width: 1366px) {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas: "grid" !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
+    display: none !important;
+  }
+}
+
