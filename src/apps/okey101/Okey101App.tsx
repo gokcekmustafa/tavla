@@ -1886,6 +1886,15 @@ function createDefaultOkeyPrototypeSeatOpenModes(): OkeyPrototypeSeatOpenModes {
   };
 }
 
+function createDefaultOkeyPrototypeSeatOpeningPoints(): Record<OkeyPrototypeSeatNo, number> {
+  return {
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+  };
+}
+
 function createDefaultOkeyPrototypeSeatWinState(): Record<OkeyPrototypeSeatNo, number> {
   return {
     1: 0,
@@ -5112,6 +5121,9 @@ function Okey101App() {
   const [okeyPrototypeGameOptions, setOkeyPrototypeGameOptions] = useState<OkeyPrototypeGameOptions>(() => createDefaultOkeyPrototypeGameOptions());
   const [okeyPrototypeLastOpeningSeatNo, setOkeyPrototypeLastOpeningSeatNo] = useState<OkeyPrototypeSeatNo | null>(null);
   const [okeyPrototypeLastOpeningPoints, setOkeyPrototypeLastOpeningPoints] = useState<number>(0);
+  const [okeyPrototypeSeatOpeningPoints, setOkeyPrototypeSeatOpeningPoints] = useState<Record<OkeyPrototypeSeatNo, number>>(
+    () => createDefaultOkeyPrototypeSeatOpeningPoints(),
+  );
   const [okeyPrototypeInitialDeal] = useState<OkeyPrototypeDealState>(() => createOkeyPrototypeDealState(Date.now(), 1));
   const [okeyPrototypeRackState, setOkeyPrototypeRackState] = useState<OkeyPrototypeRackState>(() => okeyPrototypeInitialDeal.rackState);
   const [okeyPrototypeRackSlotsBySeat, setOkeyPrototypeRackSlotsBySeat] = useState<Record<OkeyPrototypeSeatNo, Array<string | null>>>(() => {
@@ -5549,6 +5561,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setOkeyPrototypeGameOptions(createDefaultOkeyPrototypeGameOptions());
       setOkeyPrototypeLastOpeningSeatNo(null);
       setOkeyPrototypeLastOpeningPoints(0);
+      setOkeyPrototypeSeatOpeningPoints(createDefaultOkeyPrototypeSeatOpeningPoints());
       return;
     }
     const nextOptions = normalizeOkeyPrototypeGameOptions(okeyPrototypeJoinedTable.gameOptions);
@@ -5961,9 +5974,28 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) {
       okeyPrototypeSeatOpenNoticesReadyRef.current = false;
       okeyPrototypePrevSeatOpenedStateRef.current = createDefaultOkeyPrototypeSeatOpenedState();
+      setOkeyPrototypeSeatOpeningPoints(createDefaultOkeyPrototypeSeatOpeningPoints());
       return;
     }
     if (!okeyPrototypeSeatOpenNoticesReadyRef.current) {
+      const seededOpeningPoints = createDefaultOkeyPrototypeSeatOpeningPoints();
+      OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
+        if (!okeyPrototypeSeatOpenedState[seatNo]) return;
+        const seatOpenMode = okeyPrototypeSeatOpenModes[seatNo] ?? "none";
+        if (seatOpenMode === "pair") {
+          seededOpeningPoints[seatNo] = OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
+          return;
+        }
+        const seatMelds = okeyPrototypeOpenedMeldsBySeat[seatNo] ?? [];
+        const openingPoints = seatMelds.reduce((sum, meld) => {
+          if (!canProcessOkeyPrototypeMeldByKind("seri", meld, okeyPrototypeSeatOpenModes)) return sum;
+          return sum + getOkeyPrototypeMeldPointsWithJokers(meld.tiles, okeyPrototypeOkeyTile);
+        }, 0);
+        const fallbackPoints = okeyPrototypeLastOpeningSeatNo === seatNo ? okeyPrototypeLastOpeningPoints : 0;
+        const resolvedPoints = openingPoints > 0 ? openingPoints : fallbackPoints;
+        seededOpeningPoints[seatNo] = Math.max(0, Math.trunc(resolvedPoints));
+      });
+      setOkeyPrototypeSeatOpeningPoints(seededOpeningPoints);
       okeyPrototypePrevSeatOpenedStateRef.current = {
         1: Boolean(okeyPrototypeSeatOpenedState[1]),
         2: Boolean(okeyPrototypeSeatOpenedState[2]),
@@ -5986,24 +6018,41 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             [seatNo]: null,
           };
         });
+        setOkeyPrototypeSeatOpeningPoints((current) => {
+          if ((current[seatNo] ?? 0) === 0) return current;
+          return {
+            ...current,
+            [seatNo]: 0,
+          };
+        });
         return;
       }
       const seatOpenMode = okeyPrototypeSeatOpenModes[seatNo] ?? "none";
       const seatMelds = okeyPrototypeOpenedMeldsBySeat[seatNo] ?? [];
       let noticeText = "";
+      let resolvedOpeningPoints = 0;
       if (seatOpenMode === "pair") {
         const pairCount = seatMelds.filter((meld) => meld.kind === "set" && meld.tiles.length === 2).length;
         noticeText = pairCount > 0 ? `${pairCount} cift ile acti` : "Cift ile acti";
+        resolvedOpeningPoints = OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
       } else {
         const openingPoints = seatMelds.reduce((sum, meld) => {
           if (!canProcessOkeyPrototypeMeldByKind("seri", meld, okeyPrototypeSeatOpenModes)) return sum;
           return sum + getOkeyPrototypeMeldPointsWithJokers(meld.tiles, okeyPrototypeOkeyTile);
         }, 0);
         const fallbackPoints = okeyPrototypeLastOpeningSeatNo === seatNo ? okeyPrototypeLastOpeningPoints : 0;
-        const resolvedPoints = openingPoints > 0 ? openingPoints : fallbackPoints;
-        noticeText = `${Math.max(0, resolvedPoints)}`;
+        resolvedOpeningPoints = openingPoints > 0 ? openingPoints : fallbackPoints;
+        noticeText = `${Math.max(0, resolvedOpeningPoints)}`;
       }
       showOkeyPrototypeSeatOpenNotice(seatNo, noticeText);
+      setOkeyPrototypeSeatOpeningPoints((current) => {
+        const safePoints = Math.max(0, Math.trunc(resolvedOpeningPoints));
+        if ((current[seatNo] ?? 0) === safePoints) return current;
+        return {
+          ...current,
+          [seatNo]: safePoints,
+        };
+      });
     });
     okeyPrototypePrevSeatOpenedStateRef.current = {
       1: Boolean(okeyPrototypeSeatOpenedState[1]),
@@ -6112,12 +6161,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     OKEY_PROTOTYPE_TEAM_SEAT_GROUPS.map((group) => {
       const leftSeat = group.seats[0];
       const rightSeat = group.seats[1];
-      const leftName = okeyPrototypeSeatDisplayNames[leftSeat] || `K${leftSeat}`;
-      const rightName = okeyPrototypeSeatDisplayNames[rightSeat] || `K${rightSeat}`;
+      const leftName = okeyPrototypeSeatDisplayNames[leftSeat] || "Bos";
+      const rightName = okeyPrototypeSeatDisplayNames[rightSeat] || "Bos";
+      const displayLabel = `${leftName} + ${rightName}`;
       return {
         id: group.id,
         label: group.label,
-        membersText: `${leftName} + ${rightName}`,
+        displayLabel,
+        membersText: displayLabel,
         handWins: (okeyPrototypeSeatHandWins[leftSeat] ?? 0) + (okeyPrototypeSeatHandWins[rightSeat] ?? 0),
         penalty: (okeyPrototypeSeatPenaltyTotals[leftSeat] ?? 0) + (okeyPrototypeSeatPenaltyTotals[rightSeat] ?? 0),
       };
@@ -6128,10 +6179,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     okeyPrototypeSeatPenaltyTotals,
   ]);
   const okeyPrototypeTeamScoreSummaryText = okeyPrototypeTeamRows
-    .map((team) => `${team.label}: ${team.handWins}`)
+    .map((team) => `${team.displayLabel}: ${team.handWins}`)
     .join(" | ");
   const okeyPrototypeTeamPenaltySummaryText = okeyPrototypeTeamRows
-    .map((team) => `${team.label}: ${team.penalty}`)
+    .map((team) => `${team.displayLabel}: ${team.penalty}`)
     .join(" | ");
   const okeyPrototypeScoreSummaryText = okeyPrototypeGameOptions.teamedPlay
     ? okeyPrototypeTeamScoreSummaryText
@@ -7300,17 +7351,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const teamStandings = okeyPrototypeTeamRows
         .map((team) => ({
           id: team.id,
-          label: team.label,
+          label: team.displayLabel,
           membersText: team.membersText,
           penalty: team.penalty,
         }))
-        .sort((left, right) => (left.penalty - right.penalty) || left.label.localeCompare(right.label));
+        .sort((left, right) => (left.penalty - right.penalty) || left.id.localeCompare(right.id));
       const bestPenalty = teamStandings[0]?.penalty ?? 0;
       const winnerRows = teamStandings.filter((entry) => entry.penalty === bestPenalty);
       const loserRows = teamStandings.filter((entry) => entry.penalty > bestPenalty);
-      const winnerText = winnerRows.map((entry) => `${entry.label} (${entry.membersText})`).join(", ");
+      const winnerText = winnerRows.map((entry) => entry.label).join(", ");
       const loserText = loserRows.length > 0
-        ? loserRows.map((entry) => `${entry.label} (${entry.membersText})`).join(", ")
+        ? loserRows.map((entry) => entry.label).join(", ")
         : "Yok";
       const rankingText = teamStandings
         .map((entry) => `${entry.label}: ${entry.penalty}`)
@@ -8377,6 +8428,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const safePoints = Math.max(0, Math.trunc(openingPoints));
     setOkeyPrototypeLastOpeningSeatNo(seatNo);
     setOkeyPrototypeLastOpeningPoints(safePoints);
+    setOkeyPrototypeSeatOpeningPoints((current) => {
+      if ((current[seatNo] ?? 0) === safePoints) return current;
+      return {
+        ...current,
+        [seatNo]: safePoints,
+      };
+    });
     updateOkeyPrototypeJoinedTableConfig({
       lastOpeningSeatNo: seatNo,
       lastOpeningPoints: safePoints,
@@ -11031,6 +11089,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeSeatOpenModes(createDefaultOkeyPrototypeSeatOpenModes());
     setOkeyPrototypeLastOpeningSeatNo(null);
     setOkeyPrototypeLastOpeningPoints(0);
+    setOkeyPrototypeSeatOpeningPoints(createDefaultOkeyPrototypeSeatOpeningPoints());
     setOkeyPrototypeWinnerSeat(null);
     setOkeyPrototypeHandDrawn(false);
     okeyPrototypeSingleTurnOpenFinishRef.current = null;
@@ -12335,16 +12394,42 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         candidateSeatNo !== seatNo && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
       ));
       if (anyOtherSeatOpened) {
-        const baseline = okeyPrototypeLastOpeningPoints > 0
-          ? okeyPrototypeLastOpeningPoints
-          : OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
-        const requiredPoints = baseline + 1;
-        if (nextOpeningPoints < requiredPoints) {
-          appendOkeyPrototypeAction(
-            `${sourceLabel}: Artirmali oyunda acilis en az ${requiredPoints} olmali `
-            + `(senin acilisin ${nextOpeningPoints}).`,
+        let baselineForIncrease: number | null = null;
+        if (okeyPrototypeGameOptions.teamedPlay) {
+          const currentTeam = OKEY_PROTOTYPE_TEAM_SEAT_GROUPS.find(
+            (group) => (group.seats as readonly OkeyPrototypeSeatNo[]).includes(seatNo),
           );
-          return false;
+          const teammateSeats: readonly OkeyPrototypeSeatNo[] = currentTeam ? currentTeam.seats : [seatNo];
+          const openedOpponentSeatNos = OKEY_PROTOTYPE_SEATS.filter((candidateSeatNo) => (
+            candidateSeatNo !== seatNo
+            && !teammateSeats.includes(candidateSeatNo)
+            && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+          ));
+          if (openedOpponentSeatNos.length > 0) {
+            const opponentOpeningPoints = openedOpponentSeatNos.map((candidateSeatNo) => {
+              const trackedPoints = Math.max(0, Math.trunc(okeyPrototypeSeatOpeningPoints[candidateSeatNo] ?? 0));
+              if (trackedPoints > 0) return trackedPoints;
+              if (okeyPrototypeLastOpeningSeatNo === candidateSeatNo && okeyPrototypeLastOpeningPoints > 0) {
+                return Math.max(0, Math.trunc(okeyPrototypeLastOpeningPoints));
+              }
+              return OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
+            });
+            baselineForIncrease = Math.max(...opponentOpeningPoints);
+          }
+        } else {
+          baselineForIncrease = okeyPrototypeLastOpeningPoints > 0
+            ? okeyPrototypeLastOpeningPoints
+            : OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
+        }
+        if (baselineForIncrease !== null) {
+          const requiredPoints = Math.max(OKEY_PROTOTYPE_OPENING_TARGET_POINTS, baselineForIncrease) + 1;
+          if (nextOpeningPoints < requiredPoints) {
+            appendOkeyPrototypeAction(
+              `${sourceLabel}: Artirmali oyunda acilis en az ${requiredPoints} olmali `
+              + `(senin acilisin ${nextOpeningPoints}).`,
+            );
+            return false;
+          }
         }
       }
     }
@@ -13745,6 +13830,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeLastHandSummary("");
     setOkeyPrototypeLastOpeningSeatNo(null);
     setOkeyPrototypeLastOpeningPoints(0);
+    setOkeyPrototypeSeatOpeningPoints(createDefaultOkeyPrototypeSeatOpeningPoints());
   }
 
   function updateOkeyPrototypeGameOption(option: keyof OkeyPrototypeGameOptions, enabled: boolean) {
@@ -20580,7 +20666,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         <div className="my-okey-quick-score-list">
                           {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
                             <p key={`quick-score-${seatNo}`}>
-                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || `K${seatNo}`}</span>
+                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || "Bos"}</span>
                               <strong>{okeyPrototypeSeatHandWins[seatNo] ?? 0}</strong>
                             </p>
                           ))}
@@ -20588,7 +20674,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
                           {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
                             <p key={`quick-penalty-${seatNo}`}>
-                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || `K${seatNo}`} ceza</span>
+                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || "Bos"} ceza</span>
                               <strong>{okeyPrototypeSeatPenaltyTotals[seatNo] ?? 0}</strong>
                             </p>
                           ))}
@@ -20597,7 +20683,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
                             {okeyPrototypeTeamRows.map((team) => (
                               <p key={`quick-team-penalty-${team.id}`}>
-                                <span>{team.label} ceza</span>
+                                <span>{team.displayLabel} ceza</span>
                                 <strong>{team.penalty}</strong>
                               </p>
                             ))}
@@ -20663,7 +20749,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         <div className="my-okey-quick-score-list">
                           {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
                             <p key={`popup-score-${seatNo}`}>
-                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || `K${seatNo}`}</span>
+                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || "Bos"}</span>
                               <strong>{okeyPrototypeSeatHandWins[seatNo] ?? 0}</strong>
                             </p>
                           ))}
@@ -20671,7 +20757,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
                           {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
                             <p key={`popup-penalty-${seatNo}`}>
-                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || `K${seatNo}`} ceza</span>
+                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || "Bos"} ceza</span>
                               <strong>{okeyPrototypeSeatPenaltyTotals[seatNo] ?? 0}</strong>
                             </p>
                           ))}
@@ -20680,7 +20766,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
                             {okeyPrototypeTeamRows.map((team) => (
                               <p key={`popup-team-penalty-${team.id}`}>
-                                <span>{team.label} ceza</span>
+                                <span>{team.displayLabel} ceza</span>
                                 <strong>{team.penalty}</strong>
                               </p>
                             ))}
