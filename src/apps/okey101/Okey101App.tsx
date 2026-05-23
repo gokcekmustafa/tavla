@@ -1219,13 +1219,6 @@ function buildOkeyPrototypeBestOpeningArrangement(
     .filter((candidate): candidate is MeldCandidate => Boolean(candidate));
   if (selectedCandidates.length === 0) return null;
 
-  const colorIndexOf = (tile: OkeyPrototypeTile) => {
-    const ruleFace = getOkeyPrototypeTileRuleFace(tile, okeyTile);
-    if (!ruleFace) return Number.POSITIVE_INFINITY;
-    const colorIndex = OKEY_PROTOTYPE_TILE_COLORS.findIndex((color) => color === ruleFace.color);
-    return colorIndex >= 0 ? colorIndex : Number.POSITIVE_INFINITY;
-  };
-
   const sortedGroups = selectedCandidates
     .slice()
     .sort((left, right) => {
@@ -1234,14 +1227,7 @@ function buildOkeyPrototypeBestOpeningArrangement(
       if (left.kind !== right.kind) return left.kind === "seri" ? -1 : 1;
       return left.tiles[0]?.id.localeCompare(right.tiles[0]?.id ?? "") ?? 0;
     })
-    .map((candidate) => candidate.tiles.slice().sort((left, right) => {
-      const leftValue = getOkeyPrototypeTileRuleFace(left, okeyTile)?.value ?? left.value;
-      const rightValue = getOkeyPrototypeTileRuleFace(right, okeyTile)?.value ?? right.value;
-      if (leftValue !== rightValue) return leftValue - rightValue;
-      const colorDiff = colorIndexOf(left) - colorIndexOf(right);
-      if (colorDiff !== 0) return colorDiff;
-      return left.id.localeCompare(right.id);
-    }));
+    .map((candidate) => sortOkeyPrototypeMeldTilesForTable(candidate.tiles, okeyTile, candidate.kind));
 
   const usedTileIds = new Set<string>(selectedCandidates.flatMap((candidate) => candidate.tiles.map((tile) => tile.id)));
   const remainingTiles = sortOkeyPrototypeRackTiles(
@@ -1374,10 +1360,103 @@ function getOkeyPrototypeTileRuleFace(
   return null;
 }
 
-function sortOkeyPrototypeMeldTilesForTable(
+function orderOkeyPrototypeSeriesTilesForDisplay(
   tiles: OkeyPrototypeTile[],
   okeyTile: OkeyPrototypeTile | null = null,
 ) {
+  if (tiles.length < 3) return null;
+  const tileIsJokerById = new Map<string, boolean>();
+  tiles.forEach((tile) => {
+    tileIsJokerById.set(tile.id, isOkeyPrototypeJokerTile(tile, okeyTile));
+  });
+  const normalTiles = tiles.filter((tile) => !tileIsJokerById.get(tile.id));
+  const jokerTiles = tiles.filter((tile) => tileIsJokerById.get(tile.id));
+  if (normalTiles.length === 0) return null;
+  const normalRuleFaces = normalTiles.map((tile) => ({
+    tile,
+    ruleFace: getOkeyPrototypeTileRuleFace(tile, okeyTile),
+  }));
+  if (normalRuleFaces.some((entry) => !entry.ruleFace)) return null;
+  const normalizedRuleFaces = normalRuleFaces as Array<{
+    tile: OkeyPrototypeTile;
+    ruleFace: { color: OkeyPrototypeNormalColor; value: number };
+  }>;
+  const seriesColor = normalizedRuleFaces[0]?.ruleFace.color;
+  if (!seriesColor) return null;
+  if (normalizedRuleFaces.some((entry) => entry.ruleFace.color !== seriesColor)) return null;
+  const normalValues = normalizedRuleFaces.map((entry) => entry.ruleFace.value);
+  if (new Set(normalValues).size !== normalValues.length) return null;
+
+  const originalIndexById = new Map<string, number>();
+  tiles.forEach((tile, index) => {
+    originalIndexById.set(tile.id, index);
+  });
+  const n = tiles.length;
+  let best: { ordered: OkeyPrototypeTile[]; distanceScore: number; frontJokerCount: number } | null = null;
+
+  for (let startValue = 1; startValue <= 14 - n; startValue += 1) {
+    const expectedValues = Array.from({ length: n }, (_entry, index) => startValue + index);
+    if (normalValues.some((value) => !expectedValues.includes(value))) continue;
+    const missingCount = expectedValues.filter((value) => !normalValues.includes(value)).length;
+    if (missingCount !== jokerTiles.length) continue;
+
+    const normalByValue = new Map<number, OkeyPrototypeTile>();
+    normalizedRuleFaces.forEach(({ tile, ruleFace }) => {
+      normalByValue.set(ruleFace.value, tile);
+    });
+    const availableJokers = jokerTiles
+      .slice()
+      .sort((left, right) => (originalIndexById.get(left.id) ?? 0) - (originalIndexById.get(right.id) ?? 0));
+    const ordered: OkeyPrototypeTile[] = [];
+    let valid = true;
+    expectedValues.forEach((value) => {
+      const normal = normalByValue.get(value);
+      if (normal) {
+        ordered.push(normal);
+        return;
+      }
+      const joker = availableJokers.shift();
+      if (!joker) {
+        valid = false;
+        return;
+      }
+      ordered.push(joker);
+    });
+    if (!valid || ordered.length !== n) continue;
+
+    const distanceScore = ordered.reduce((sum, tile, orderedIndex) => {
+      const originalIndex = originalIndexById.get(tile.id) ?? orderedIndex;
+      return sum + Math.abs(originalIndex - orderedIndex);
+    }, 0);
+    const frontJokerCount = ordered.findIndex((tile) => !tileIsJokerById.get(tile.id));
+    const normalizedFrontJokerCount = frontJokerCount < 0 ? ordered.length : frontJokerCount;
+
+    if (
+      !best
+      || distanceScore < best.distanceScore
+      || (distanceScore === best.distanceScore && normalizedFrontJokerCount < best.frontJokerCount)
+    ) {
+      best = {
+        ordered,
+        distanceScore,
+        frontJokerCount: normalizedFrontJokerCount,
+      };
+    }
+  }
+
+  return best?.ordered ?? null;
+}
+
+function sortOkeyPrototypeMeldTilesForTable(
+  tiles: OkeyPrototypeTile[],
+  okeyTile: OkeyPrototypeTile | null = null,
+  kind: OkeyPrototypeMeldKind | null = null,
+) {
+  const resolvedKind = kind ?? evaluateOkeyPrototypeMeldDraft(tiles, okeyTile).kind;
+  if (resolvedKind === "seri") {
+    const orderedSeries = orderOkeyPrototypeSeriesTilesForDisplay(tiles, okeyTile);
+    if (orderedSeries) return orderedSeries;
+  }
   const colorIndexOf = (tile: OkeyPrototypeTile) => {
     const ruleFace = getOkeyPrototypeTileRuleFace(tile, okeyTile);
     if (!ruleFace) return Number.POSITIVE_INFINITY;
@@ -12168,7 +12247,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       id: `okey-proto-pair-${seatNo}-${now}-${index}-${Math.random().toString(36).slice(2, 7)}`,
       seatNo,
       round: okeyPrototypeTurnRound,
-      tiles: sortOkeyPrototypeMeldTilesForTable(pairTiles, okeyPrototypeOkeyTile),
+      tiles: sortOkeyPrototypeMeldTilesForTable(pairTiles, okeyPrototypeOkeyTile, "set"),
       kind: "set",
       at: now + index,
     }));
@@ -12300,7 +12379,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       if (meld.id !== targetMeld.id) return meld;
       return {
         ...meld,
-        tiles: sortOkeyPrototypeMeldTilesForTable([...meld.tiles, attachedTile], okeyPrototypeOkeyTile),
+        tiles: sortOkeyPrototypeMeldTilesForTable([...meld.tiles, attachedTile], okeyPrototypeOkeyTile, meld.kind),
       };
     }));
     if (okeyPrototypePendingDiscardTileId && attachedTile.id === okeyPrototypePendingDiscardTileId) {
@@ -12967,7 +13046,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         });
         if (!targetMeld) continue;
         workingRack.splice(tileIndex, 1);
-        targetMeld.tiles = sortOkeyPrototypeMeldTilesForTable([...targetMeld.tiles, tile], okeyPrototypeOkeyTile);
+        targetMeld.tiles = sortOkeyPrototypeMeldTilesForTable([...targetMeld.tiles, tile], okeyPrototypeOkeyTile, targetMeld.kind);
         updatedMeldById.set(targetMeld.id, targetMeld);
         attachedTileIds.add(tile.id);
         attachedCount += 1;
@@ -13011,7 +13090,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             id: `okey-proto-pair-process-${pairProcessEntrySeatNo}-${now}-${index}-${Math.random().toString(36).slice(2, 7)}`,
             seatNo: pairProcessEntrySeatNo,
             round: okeyPrototypeTurnRound,
-            tiles: sortOkeyPrototypeMeldTilesForTable(group, okeyPrototypeOkeyTile),
+            tiles: sortOkeyPrototypeMeldTilesForTable(group, okeyPrototypeOkeyTile, "set"),
             kind: "set",
             at: now + index,
           });
