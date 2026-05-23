@@ -4489,11 +4489,14 @@ function mergeOkeyPrototypeSeatState(
   preferBase: boolean,
 ) {
   if (baseSeat && !incomingSeat) {
-    if (incomingTableUpdatedAt - baseTableUpdatedAt > OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS) return null;
+    // Daha yeni snapshot'ta koltuk bos ise, koltuk aninda dusmeli.
+    if (incomingTableUpdatedAt >= baseTableUpdatedAt) return null;
+    // Base daha yeniyse ve koltuk doluysa base'i koru.
     return baseSeat;
   }
   if (!baseSeat && incomingSeat) {
-    if (baseTableUpdatedAt - incomingTableUpdatedAt > OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS) return null;
+    // Daha yeni snapshot'ta koltuk bos ise, bos bilgi onceliklidir.
+    if (baseTableUpdatedAt >= incomingTableUpdatedAt) return null;
     return incomingSeat;
   }
   if (!baseSeat && !incomingSeat) return null;
@@ -8083,10 +8086,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const normalizedNext = normalizeOkeyPrototypeTablesByRoom(mutated);
       const currentIds = collectOkeyPrototypeTableIds(currentOkeyTables);
       const nextIds = collectOkeyPrototypeTableIds(normalizedNext);
+      const currentUpdatedAtById = new Map<string, number>();
+      Object.values(currentOkeyTables).forEach((tables) => {
+        tables.forEach((table) => {
+          currentUpdatedAtById.set(table.id, getOkeyPrototypeTableUpdatedAt(table));
+        });
+      });
       const mergedClosedIds: Record<string, number> = { ...currentClosedTableIds };
       currentIds.forEach((tableId) => {
         if (nextIds.has(tableId)) return;
-        mergedClosedIds[tableId] = now;
+        // Saat kaymasinda kapanan masanin tekrar canlanmasini onlemek icin
+        // tombstone zamanini son bilinen table.updatedAt ustune tasir.
+        const currentUpdatedAt = currentUpdatedAtById.get(tableId) ?? 0;
+        mergedClosedIds[tableId] = Math.max(now, currentUpdatedAt + 1);
       });
       const tableUpdatedAtById = new Map<string, number>();
       Object.values(normalizedNext).forEach((tables) => {
@@ -10713,6 +10725,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         setViewMode("lobby");
         setRoomPickerOpen(false);
         setGamePickerOpen(false);
+        void clearSessionPresenceFromLobby(activeLobbyId, appSessionId, "leave-seat");
         if (fallbackClosed) {
           setLobbyNotice(`Masa ${fallbackTableNo || "?"} kapandi.`);
         } else {
@@ -10738,6 +10751,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setViewMode("lobby");
     setRoomPickerOpen(false);
     setGamePickerOpen(false);
+    void clearSessionPresenceFromLobby(activeLobbyId, appSessionId, "leave-seat");
     if (tableClosed) {
       setLobbyNotice(`Masa ${leftTableNo} kapandi.`);
     } else {
@@ -10752,16 +10766,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     let removed = false;
     updateOkeyPrototypeTablesByRoom((current) => {
-      const roomTables = (current[tableRow.roomId] ?? []).slice();
-      const nextRoomTables = roomTables.filter((table) => table.id !== tableRow.id);
-      if (nextRoomTables.length === roomTables.length) {
-        return current;
-      }
-      removed = true;
-      return {
-        ...current,
-        [tableRow.roomId]: nextRoomTables,
-      };
+      let changed = false;
+      const nextState: Record<string, OkeyPrototypeLobbyTableState[]> = {};
+      Object.entries(current).forEach(([roomId, tables]) => {
+        const nextTables = tables.filter((table) => table.id !== tableRow.id);
+        if (nextTables.length !== tables.length) {
+          changed = true;
+          removed = true;
+        }
+        if (nextTables.length > 0) {
+          nextState[roomId] = nextTables;
+        }
+      });
+      return changed ? nextState : current;
     });
     if (!removed) {
       setLobbyNotice("Masa kapatilamadi.");
