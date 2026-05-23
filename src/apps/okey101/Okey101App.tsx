@@ -6369,13 +6369,24 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     if (okeyPrototypeTurnSeatNo !== okeyPrototypeSeatNoForRack) return next;
     if (okeyPrototypeTurnRackTiles.length === 0) return next;
+    const canMeldTriggerDiscardPenalty = (meld: OkeyPrototypeMeldEntry) => {
+      const canProcessAsSeri = canProcessOkeyPrototypeMeldByKind("seri", meld, okeyPrototypeSeatOpenModes);
+      if (canProcessAsSeri) return true;
+      if (!canProcessOkeyPrototypeMeldByKind("set", meld, okeyPrototypeSeatOpenModes)) return false;
+      if ((okeyPrototypeSeatOpenModes[meld.seatNo] ?? "none") !== "pair") return false;
+      if (isOkeyPrototypePairMeldExpansionBlocked(meld, okeyPrototypeSeatOpenModes)) return false;
+      return true;
+    };
     const anyOpenedSeat = OKEY_PROTOTYPE_SEATS.some((seatNo) => okeyPrototypeSeatOpenedState[seatNo] ?? false);
     const canTriggerAttachableDiscardPenalty = (tile: OkeyPrototypeTile) => (
       anyOpenedSeat
       && okeyPrototypeOpenedMelds.length > 0
       && okeyPrototypeOpenedMelds.some((meld) => (
-        canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile).valid
-        || getOkeyPrototypeJokerReplacementPlan(tile, meld).valid
+        canMeldTriggerDiscardPenalty(meld)
+        && (
+          canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile).valid
+          || getOkeyPrototypeJokerReplacementPlan(tile, meld).valid
+        )
       ))
     );
     const canProcessKindDirectly = (tile: OkeyPrototypeTile, kind: OkeyPrototypeMeldKind) => (
@@ -11639,11 +11650,22 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     sourceLabel: string,
     options?: { applyToState?: boolean },
   ) {
+    const canMeldTriggerDiscardPenalty = (meld: OkeyPrototypeMeldEntry) => {
+      const canProcessAsSeri = canProcessOkeyPrototypeMeldByKind("seri", meld, okeyPrototypeSeatOpenModes);
+      if (canProcessAsSeri) return true;
+      if (!canProcessOkeyPrototypeMeldByKind("set", meld, okeyPrototypeSeatOpenModes)) return false;
+      if ((okeyPrototypeSeatOpenModes[meld.seatNo] ?? "none") !== "pair") return false;
+      if (isOkeyPrototypePairMeldExpansionBlocked(meld, okeyPrototypeSeatOpenModes)) return false;
+      return true;
+    };
     const anyOpenedSeat = OKEY_PROTOTYPE_SEATS.some((seat) => okeyPrototypeSeatOpenedState[seat] ?? false);
     if (!anyOpenedSeat || okeyPrototypeOpenedMelds.length === 0) return 0;
     const attachableTarget = okeyPrototypeOpenedMelds.find((meld) => (
-      canAttachOkeyPrototypeTileToMeld(droppedTile, meld, okeyPrototypeOkeyTile).valid
-      || getOkeyPrototypeJokerReplacementPlan(droppedTile, meld).valid
+      canMeldTriggerDiscardPenalty(meld)
+      && (
+        canAttachOkeyPrototypeTileToMeld(droppedTile, meld, okeyPrototypeOkeyTile).valid
+        || getOkeyPrototypeJokerReplacementPlan(droppedTile, meld).valid
+      )
     )) ?? null;
     if (!attachableTarget) return 0;
     const shouldApplyToState = options?.applyToState !== false;
