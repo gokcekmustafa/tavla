@@ -420,6 +420,7 @@ type OkeyPrototypeGameOptions = {
   teamedPlay: boolean;
   increasingPlay: boolean;
   penaltyPlay: boolean;
+  highlightProcessableTiles: boolean;
 };
 type OkeyPrototypeScenarioKind = "opening" | "attach" | "finish" | "draw-end";
 type OkeyPrototypeRackSortMode = "color" | "value";
@@ -626,6 +627,7 @@ function createDefaultOkeyPrototypeGameOptions(): OkeyPrototypeGameOptions {
     teamedPlay: false,
     increasingPlay: false,
     penaltyPlay: false,
+    highlightProcessableTiles: true,
   };
 }
 
@@ -636,6 +638,7 @@ function normalizeOkeyPrototypeGameOptions(raw: unknown): OkeyPrototypeGameOptio
     teamedPlay: Boolean(candidate.teamedPlay),
     increasingPlay: Boolean(candidate.increasingPlay),
     penaltyPlay: Boolean(candidate.penaltyPlay),
+    highlightProcessableTiles: candidate.highlightProcessableTiles !== false,
   };
 }
 
@@ -2481,6 +2484,53 @@ function normalizeTurkishDisplayText(value: string) {
       next = next.split(broken).join(fixed);
     }
   }
+  const ASCII_WORD_REPLACEMENTS: Array<[RegExp, string]> = [
+    [/\bAcilis\b/g, "Açılış"],
+    [/\bacilis\b/g, "açılış"],
+    [/\bAyni\b/g, "Aynı"],
+    [/\bayni\b/g, "aynı"],
+    [/\bBaglanti\b/g, "Bağlantı"],
+    [/\bbaglanti\b/g, "bağlantı"],
+    [/\bBaslangic\b/g, "Başlangıç"],
+    [/\bbaslangic\b/g, "başlangıç"],
+    [/\bBasl/g, "Başl"],
+    [/\bbasl/g, "başl"],
+    [/\bCek\b/g, "Çek"],
+    [/\bcek\b/g, "çek"],
+    [/\bCift\b/g, "Çift"],
+    [/\bcift\b/g, "çift"],
+    [/\bDegis/g, "Değiş"],
+    [/\bdegis/g, "değiş"],
+    [/\bDon\b/g, "Dön"],
+    [/\bdon\b/g, "dön"],
+    [/\bGecersiz\b/g, "Geçersiz"],
+    [/\bgecersiz\b/g, "geçersiz"],
+    [/\bGoster/g, "Göster"],
+    [/\bgoster/g, "göster"],
+    [/\bHenuz\b/g, "Henüz"],
+    [/\bhenuz\b/g, "henüz"],
+    [/\bIcin\b/g, "İçin"],
+    [/\bicin\b/g, "için"],
+    [/\bIki\b/g, "İki"],
+    [/\biki\b/g, "iki"],
+    [/\bKapali\b/g, "Kapalı"],
+    [/\bkapali\b/g, "kapalı"],
+    [/\bKarsi\b/g, "Karşı"],
+    [/\bkarsi\b/g, "karşı"],
+    [/\bLutfen\b/g, "Lütfen"],
+    [/\blutfen\b/g, "lütfen"],
+    [/\bOzel\b/g, "Özel"],
+    [/\bozel\b/g, "özel"],
+    [/\bSec\b/g, "Seç"],
+    [/\bsec\b/g, "seç"],
+    [/\bTas\b/g, "Taş"],
+    [/\btas\b/g, "taş"],
+    [/\bUzeri\b/g, "Üzeri"],
+    [/\buzeri\b/g, "üzeri"],
+  ];
+  for (const [pattern, fixed] of ASCII_WORD_REPLACEMENTS) {
+    next = next.replace(pattern, fixed);
+  }
   return next;
 }
 
@@ -3201,7 +3251,7 @@ function sanitizeOkeyPrototypeOutcomeKey(raw: unknown) {
 
 function sanitizeOkeyPrototypePenaltyNoticeText(raw: unknown) {
   if (typeof raw !== "string") return "";
-  return raw.trim().replace(/\s+/g, " ").slice(0, 36);
+  return normalizeTurkishDisplayText(raw.trim().replace(/\s+/g, " ")).slice(0, 36);
 }
 
 function normalizeOkeyPrototypeRackState(raw: unknown): OkeyPrototypeRackState | null {
@@ -5476,6 +5526,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       current.teamedPlay === nextOptions.teamedPlay
       && current.increasingPlay === nextOptions.increasingPlay
       && current.penaltyPlay === nextOptions.penaltyPlay
+      && current.highlightProcessableTiles === nextOptions.highlightProcessableTiles
     )
       ? current
       : nextOptions);
@@ -6310,6 +6361,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     && okeyPrototypePendingCanProcessByKind.seri;
   const okeyPrototypeProcessableTileIds = useMemo(() => {
     const next = new Set<string>();
+    if (!okeyPrototypeGameOptions.highlightProcessableTiles) {
+      return next;
+    }
     if (!okeyPrototypeCanAdvanceTurn || okeyPrototypeTurnPhase !== "discard") {
       return next;
     }
@@ -6351,6 +6405,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }, [
     okeyPrototypeCanAdvanceTurn,
     okeyPrototypeCurrentSeatOpened,
+    okeyPrototypeGameOptions.highlightProcessableTiles,
     okeyPrototypeOkeyTile,
     okeyPrototypeSeatOpenedState,
     okeyPrototypePairProcessTargetSeatNoSet,
@@ -6378,7 +6433,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   // && !okeyPrototypeDiscardBlockedByOpening;
   const okeyPrototypeAttachValidation = useMemo(() => {
     if (okeyPrototypeHandCompleted) {
-      return { valid: false, reason: "El tamamlandi. Yeni el baslatmalisin." };
+      return { valid: false, reason: "El tamamlandı. Yeni el başlatmalısın." };
     }
     if (!okeyPrototypeCanAdvanceTurn) {
       return { valid: false, reason: "Per eklemek icin once bir masaya oturmalisin." };
@@ -6411,7 +6466,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       okeyPrototypeAttachTargetMeld,
     );
     if (replacementPlan.valid) {
-      return { valid: true, reason: "Masadaki okey degistirme uygun." };
+      return { valid: true, reason: "Masadaki okey değiştirme uygun." };
     }
     return { valid: false, reason: replacementPlan.reason || attachValidation.reason };
   }, [
@@ -6433,7 +6488,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       if (waitingSeats > 0) {
         return `Oyun henuz baslamadi. ${waitingSeats} koltuk daha dolmali.`;
       }
-      return "Masa hazir. Oyun otomatik olarak baslatiliyor.";
+      return "Masa hazır. Oyun otomatik olarak başlatılıyor.";
     }
     if (okeyPrototypeHandCompleted) {
       return okeyPrototypeHandDrawn
@@ -6445,7 +6500,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         return "Ortadan tas almak icin bu tasla ayni turde el acabilmelisin (101 veya 5 cift).";
       }
       if (okeyPrototypeCanDrawTile) {
-        return "Bu turde Kapali Deste'den tas cekerek devam et.";
+        return "Bu turde Kapalı Deste'den taş çekerek devam et.";
       }
       if (okeyPrototypeCanDrawFromDiscard) {
         return "Bu turde sadece Ortadan Al secenegi uygun.";
@@ -9075,8 +9130,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeLastHandSummary("");
     setOkeyPrototypeBotModeEnabled(true);
     applyOkeyPrototypeDeal(localSeatNo, now, activeSeats);
-    setLobbyNotice("Bilgisayara karsi oyun baslatildi.");
-    appendOkeyPrototypeAction("Bilgisayarla oyna baslatildi.");
+    setLobbyNotice("Bilgisayara karşı oyun başlatıldı.");
+    appendOkeyPrototypeAction("Bilgisayarla oyna başlatıldı.");
   }
 
   function startOkeyPrototypeBotsFromRoomPicker() {
@@ -9086,7 +9141,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     if (!canAccessOkeyPrototype) return;
     if (okeyPrototypeSeatReservation && !isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) {
-      setLobbyNotice("Online masadayken Bilgisayarla Oyna baslatmak icin once Masadan Kalk.");
+      setLobbyNotice("Online masadayken Bilgisayarla Oyna başlatmak için önce Masadan Kalk.");
       return;
     }
     okeyPrototypeStartWithBotsPendingRef.current = false;
@@ -9393,7 +9448,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function onSelectMode(nextMode: GameMode) {
     if (roomSession) {
-      setLobbyNotice("Online masada oyun modu degistirilemez.");
+      setLobbyNotice("Online masada oyun modu değiştirilemez.");
       return;
     }
     if (nextMode === "bot") {
@@ -10022,7 +10077,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function appendOkeyPrototypeAction(rawText: string) {
-    const text = rawText.replace(/\s+/g, " ").trim().slice(0, 160);
+    const text = normalizeTurkishDisplayText(rawText.replace(/\s+/g, " ").trim()).slice(0, 160);
     if (!text) return;
     const now = Date.now();
     const id = `okey-proto-${now}-${Math.random().toString(36).slice(2, 8)}`;
@@ -10052,7 +10107,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     seatNo: OkeyPrototypeSeatNo,
     text: string,
   ) {
-    const normalizedText = text.replace(/\s+/g, " ").trim().slice(0, 64);
+    const normalizedText = normalizeTurkishDisplayText(text.replace(/\s+/g, " ").trim()).slice(0, 64);
     if (!normalizedText) return;
     setOkeyPrototypeSeatOpenNotices((current) => {
       if (current[seatNo] === normalizedText) return current;
@@ -10525,7 +10580,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   function startOkeyPrototypeGameWithTable(fillMissingWithBots: boolean) {
     const reservation = okeyPrototypeSeatReservation;
     if (!reservation) {
-      setLobbyNotice("Oyunu baslatmak icin once bir masaya oturmalisin.");
+      setLobbyNotice("Oyunu başlatmak için önce bir masaya oturmalısın.");
       return;
     }
     const now = Date.now();
@@ -10598,7 +10653,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeBotModeEnabled(botModeNeeded);
     applyOkeyPrototypeDeal(starterSeat, now, activeSeats);
     setLobbyNotice(`Masa ${tableNo} basladi. Okey belirlendi ve taslar dagitildi.`);
-    appendOkeyPrototypeAction(`Oyun baslatildi: Masa ${tableNo}, baslayan koltuk K${starterSeat}.`);
+    appendOkeyPrototypeAction(`Oyun başlatıldı: Masa ${tableNo}, başlayan koltuk K${starterSeat}.`);
   }
 
   function leaveOkeyPrototypeSeat(sourceLabel: string) {
@@ -11399,7 +11454,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         discardOkeyPrototypeTileWithForced(selectedTileId, { finishViaDeck: true });
         return;
       }
-      appendOkeyPrototypeAction("Eli bitirmek icin son tasi raftan Kapali Deste ustune surukle.");
+      appendOkeyPrototypeAction("Eli bitirmek için son taşı raftan Kapalı Deste üstüne sürükle.");
       return;
     }
     if (!okeyPrototypeCanDrawTile) return;
@@ -11452,7 +11507,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     appendOkeyPrototypeAction(
       waitingSeats > 0
         ? `${actionLabel}: Oyun baslamadi. ${waitingSeats} koltuk daha dolmali.`
-        : `${actionLabel}: Oyun baslamadi. Once masayi baslatmalisin.`,
+        : `${actionLabel}: Oyun başlamadı. Önce masayı başlatmalısın.`,
     );
     return false;
   }
@@ -11530,7 +11585,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (jokerIndexes.length === 0) {
       return {
         valid: false,
-        reason: "Secili perde degistirilecek okey yok.",
+        reason: "Seçili perde değiştirilecek okey yok.",
         jokerTileId: "",
         replacedTiles: meld.tiles.slice(),
       };
@@ -11754,7 +11809,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         (seatNo) => sanitizeGuestId(okeyPrototypeJoinedTable.seats[seatNo]?.userId ?? "") === sanitizeGuestId(okeyPrototypeJoinedTable.ownerUserId ?? ""),
       ) ?? onlineSeats[0] ?? null;
       if (ownerSeat && ownerSeat !== (okeyPrototypeSeatReservation.seatNo as OkeyPrototypeSeatNo)) {
-        appendOkeyPrototypeAction("El tamamlandi: yeni el masa sahibi tarafindan baslatilacak.");
+        appendOkeyPrototypeAction("El tamamlandı: yeni el masa sahibi tarafından başlatılacak.");
         return;
       }
     }
@@ -11783,8 +11838,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       startNewOkeyPrototypeHand();
       appendOkeyPrototypeAction(
         setCompleted
-          ? "Set tamamlandi, yeni set otomatik baslatildi."
-          : "El tamamlandi, yeni el otomatik baslatildi.",
+          ? "Set tamamlandı, yeni set otomatik başlatıldı."
+          : "El tamamlandı, yeni el otomatik başlatıldı.",
       );
     }, delayMs);
   }
@@ -12177,7 +12232,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function openOkeyPrototypeMeld() {
     if (okeyPrototypeHandCompleted) {
-      appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
+      appendOkeyPrototypeAction("Geçersiz hamle: El tamamlandı. Yeni el başlat.");
       return;
     }
     if (!ensureOkeyPrototypeGameStarted("Per acma")) return;
@@ -12203,7 +12258,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function openOkeyPrototypePairs() {
     if (okeyPrototypeHandCompleted) {
-      appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
+      appendOkeyPrototypeAction("Geçersiz hamle: El tamamlandı. Yeni el başlat.");
       return;
     }
     if (!ensureOkeyPrototypeGameStarted("Cift acma")) return;
@@ -12345,7 +12400,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     sourceLabel = "Pere ekleme",
   ) {
     if (okeyPrototypeHandCompleted) {
-      appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
+      appendOkeyPrototypeAction("Geçersiz hamle: El tamamlandı. Yeni el başlat.");
       return false;
     }
     if (!ensureOkeyPrototypeGameStarted(sourceLabel)) return false;
@@ -12500,7 +12555,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       ? placementOrEvent as OkeyPrototypeDrawPlacement
       : null;
     if (okeyPrototypeHandCompleted) {
-      appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
+      appendOkeyPrototypeAction("Geçersiz hamle: El tamamlandı. Yeni el başlat.");
       return;
     }
     if (!ensureOkeyPrototypeGameStarted("Tas cekme")) return;
@@ -12555,7 +12610,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     placement?: OkeyPrototypeDrawPlacement | null,
   ) {
     if (okeyPrototypeHandCompleted) {
-      appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
+      appendOkeyPrototypeAction("Geçersiz hamle: El tamamlandı. Yeni el başlat.");
       return;
     }
     if (!ensureOkeyPrototypeGameStarted("Ortadan alma")) return;
@@ -12634,7 +12689,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function returnOkeyPrototypeTakenDiscardTile() {
     if (okeyPrototypeHandCompleted) {
-      appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
+      appendOkeyPrototypeAction("Geçersiz hamle: El tamamlandı. Yeni el başlat.");
       return;
     }
     if (!ensureOkeyPrototypeGameStarted("Soldan tasi geri birakma")) return;
@@ -12680,7 +12735,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     options?: { finishViaDeck?: boolean },
   ) {
     if (okeyPrototypeHandCompleted) {
-      appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
+      appendOkeyPrototypeAction("Geçersiz hamle: El tamamlandı. Yeni el başlat.");
       return;
     }
 	    if (!ensureOkeyPrototypeGameStarted("Tas atma")) return;
@@ -12714,7 +12769,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       }
     }
     if (nextRack.length === 0 && !options?.finishViaDeck) {
-      appendOkeyPrototypeAction("Eli bitirmek icin son tasi Kapali Deste ustune birakmalisin.");
+      appendOkeyPrototypeAction("Eli bitirmek için son taşı Kapalı Deste üstüne bırakmalısın.");
       return;
     }
     if (nextRack.length === 0) {
@@ -12858,7 +12913,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         (seatNo) => sanitizeGuestId(joinedTable?.seats[seatNo]?.userId ?? "") === sanitizeGuestId(joinedTable?.ownerUserId ?? ""),
       ) ?? dealSeats[0] ?? null;
       if (ownerSeat && ownerSeat !== baseSeat) {
-        appendOkeyPrototypeAction("Yeni el bekleniyor: masa sahibi baslatacak.");
+        appendOkeyPrototypeAction("Yeni el bekleniyor: masa sahibi başlatacak.");
         return;
       }
     }
@@ -12906,17 +12961,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setOkeyPrototypeDrawHandCount(0);
       setOkeyPrototypeLastHandSummary("");
       applyOkeyPrototypeDeal(nextFirstSeat, nextDealSeed, activeSeats);
-      appendOkeyPrototypeAction(`Yeni set baslatildi (${OKEY_PROTOTYPE_SET_HAND_TARGET} el): Koltuk ${nextFirstSeat} basliyor.`);
+      appendOkeyPrototypeAction(`Yeni set başlatıldı (${OKEY_PROTOTYPE_SET_HAND_TARGET} el): Koltuk ${nextFirstSeat} başlıyor.`);
       return;
     }
     setOkeyPrototypeSessionHandNo((current) => current + 1);
     applyOkeyPrototypeDeal(nextFirstSeat, nextDealSeed, activeSeats);
-    appendOkeyPrototypeAction(`Yeni el baslatildi: Koltuk ${nextFirstSeat} basliyor.`);
+    appendOkeyPrototypeAction(`Yeni el başlatıldı: Koltuk ${nextFirstSeat} başlıyor.`);
   }
 
   function refreshOkeyPrototypeRackState() {
     if (!okeyPrototypeGameStarted) {
-      appendOkeyPrototypeAction("Tas yenilemek icin once masayi baslatmalisin.");
+      appendOkeyPrototypeAction("Taş yenilemek için önce masayı başlatmalısın.");
       return;
     }
     const baseSeat = okeyPrototypeSeatReservation
@@ -12940,7 +12995,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     if (!okeyPrototypeGameStarted) {
-      appendOkeyPrototypeAction("Seed ile dagitmak icin once masayi baslatmalisin.");
+      appendOkeyPrototypeAction("Seed ile dağıtmak için önce masayı başlatmalısın.");
       return;
     }
     const baseSeat = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
@@ -12992,7 +13047,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function processOkeyPrototypeAttachments(kind: OkeyPrototypeMeldKind, sourceLabel: string) {
     if (okeyPrototypeHandCompleted) {
-      appendOkeyPrototypeAction("Gecersiz hamle: El tamamlandi. Yeni el baslat.");
+      appendOkeyPrototypeAction("Geçersiz hamle: El tamamlandı. Yeni el başlat.");
       return;
     }
     if (!ensureOkeyPrototypeGameStarted(sourceLabel)) return;
@@ -13463,11 +13518,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     if (!okeyPrototypeIsTableOwner) {
-      setLobbyNotice("Oyun ayarlarini sadece masa sahibi degistirebilir.");
+      setLobbyNotice("Oyun ayarlarını sadece masa sahibi değiştirebilir.");
       return;
     }
     if (okeyPrototypeGameStarted) {
-      setLobbyNotice("Oyun basladiktan sonra ayarlar kilitlenir.");
+      setLobbyNotice("Oyun başladıktan sonra ayarlar kilitlenir.");
       return;
     }
     const nextOptions: OkeyPrototypeGameOptions = {
@@ -13479,11 +13534,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       gameOptions: nextOptions,
     });
     appendOkeyPrototypeAction(
-      `Oyun ayari guncellendi: ${option === "teamedPlay"
-        ? "Esli oyun"
+      `Oyun ayarı güncellendi: ${option === "teamedPlay"
+        ? "Eşli oyun"
         : option === "increasingPlay"
-          ? "Artirmali oyun"
-          : "Cezali oyun"} ${enabled ? "acik" : "kapali"}.`,
+          ? "Artırmalı oyun"
+          : option === "penaltyPlay"
+            ? "Cezalı oyun"
+            : "İşler taşlar işaretlensin"} ${enabled ? "açık" : "kapalı"}.`,
     );
   }
 
@@ -13563,7 +13620,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       if (isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) {
         if (!okeyPrototypeLocalBotTable || okeyPrototypeLocalBotTable.id !== okeyPrototypeSeatReservation.tableId) {
           resetOkeyPrototypeSeatSessionState();
-          setLobbyNotice("Aktif bilgisayar masasi bulunamadi. Lutfen yeniden baslat.");
+          setLobbyNotice("Aktif bilgisayar masası bulunamadı. Lütfen yeniden başlat.");
           return;
         }
         setSelectedLobbyId(okeyPrototypeLocalBotTable.roomId);
@@ -13616,7 +13673,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const safeId = sanitizeLobbyId(lobbyId);
     if (!safeId) return;
     if (roomSession) {
-      setLobbyNotice("Oda degistirmek icin once masadan kalkmalisin.");
+      setLobbyNotice("Oda değiştirmek için önce masadan kalkmalısın.");
       return;
     }
     setSelectedLobbyId(safeId);
@@ -15194,7 +15251,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     if (autoStarted) {
-      appendFlowEvent("table.autostart", "Kalp atisinda iki koltuk dolu goruldu, oyun otomatik baslatildi.", {
+      appendFlowEvent("table.autostart", "Kalp atışında iki koltuk dolu görüldü, oyun otomatik başlatıldı.", {
         tableId: roomSession.tableNo,
         roomCode: resolvedRoomCode || roomSession.code,
         seat: roomSession.seat,
@@ -16917,7 +16974,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                   />
                 </label>
                 <label className="my-field">
-                  <span>Masa Menusu Lobiye Don</span>
+                  <span>Masa Menüsü Lobiye Dön</span>
                   <input
                     className="my-input"
                     value={designDraft.texts.roomBackLobby ?? ""}
@@ -17070,7 +17127,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       </button>
                     ))}
                     <button className="my-action-btn soft" type="button">
-                      {designPreviewTarget.texts.roomBackLobby || "Lobiye Don"}
+                      {designPreviewTarget.texts.roomBackLobby || "Lobiye Dön"}
                     </button>
                     <button className="my-action-btn danger" type="button">
                       {designPreviewTarget.texts.roomLeaveTable || "Masadan Kalk"}
@@ -17507,7 +17564,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                   <span className="my-game-picker-thumb" aria-hidden="true" />
                   <span className="my-game-picker-badge">Prototip</span>
                   <strong>101 Okey</strong>
-                  <p>Izole gelistirme alaniyla 101 Okey altyapisini guvenli sekilde baslat.</p>
+                  <p>İzole geliştirme alanıyla 101 Okey altyapısını güvenli şekilde başlat.</p>
                 </button>
               ) : null}
               <article className="my-game-picker-card game-batak disabled">
@@ -18053,10 +18110,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           ) : null}
                         </div>
                         <p className="my-game-coming-prototype-turn-pile-status" role="status" aria-live="polite" aria-atomic="true">
-                          Kapali Deste: {okeyPrototypeDrawPileRemaining} tas
+                          Kapalı Deste: {okeyPrototypeDrawPileRemaining} taş
                         </p>
                         <p className="my-game-coming-prototype-turn-indicator-status" role="status" aria-live="polite" aria-atomic="true">
-                          Gosterge:
+                          Gösterge:
                           {" "}
                           {okeyPrototypeIndicatorTile ? formatOkeyPrototypeTile(okeyPrototypeIndicatorTile) : "-"}
                           {" | "}
@@ -18304,7 +18361,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 disabled={!okeyPrototypeCanDrawTile}
                                 aria-describedby="okey-prototype-turn-status"
                               >
-                                <span>Kapali Deste</span>
+                                <span>Kapalı Deste</span>
                                 <strong>{okeyPrototypeDrawPileRemaining}</strong>
                               </button>
                               <button
@@ -18333,7 +18390,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               <strong>{okeyPrototypeOpenedMelds.length}</strong>
                             </p>
                             <p>
-                              Gosterge:
+                              Gösterge:
                               {" "}
                               {okeyPrototypeIndicatorTile ? formatOkeyPrototypeTile(okeyPrototypeIndicatorTile) : "-"}
                             </p>
@@ -19625,7 +19682,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       <button
                         className="my-action-btn danger"
                         type="button"
-                        onClick={() => leaveOkeyPrototypeSeat("Masadan kalkildi")}
+                        onClick={() => leaveOkeyPrototypeSeat("Masadan kalkıldı")}
                       >
                         Kalk
                       </button>
@@ -19635,15 +19692,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
               </div>
               {okeyPrototypeReconnectNoticeText ? (
                 <div className="my-okey-reconnect-banner" role="status" aria-live="polite" aria-atomic="true">
-                  <strong>Baglanti Bekleniyor:</strong>
+                  <strong>Bağlantı Bekleniyor:</strong>
                   <span>{okeyPrototypeReconnectNoticeText}</span>
                 </div>
               ) : null}
 
               <div className="my-okey-table-main-layout">
                 {okeyPrototypeSeatReservation ? (
-                  <aside className="my-okey-left-settings-panel" aria-label="Masa oyun ayarlari">
-                    <p className="my-okey-left-settings-title">Oyun Ayarlari</p>
+                  <aside className="my-okey-left-settings-panel" aria-label="Masa oyun ayarları">
+                    <p className="my-okey-left-settings-title">Oyun Ayarları</p>
                     <div className="my-okey-game-settings">
                       <label className="my-okey-game-settings-item">
                         <input
@@ -19652,7 +19709,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           onChange={(event) => updateOkeyPrototypeGameOption("teamedPlay", event.target.checked)}
                           disabled={!okeyPrototypeCanEditGameOptions}
                         />
-                        <span>Esli oyun</span>
+                        <span>Eşli oyun</span>
                       </label>
                       <label className="my-okey-game-settings-item">
                         <input
@@ -19661,7 +19718,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           onChange={(event) => updateOkeyPrototypeGameOption("increasingPlay", event.target.checked)}
                           disabled={!okeyPrototypeCanEditGameOptions}
                         />
-                        <span>Artirmali oyun</span>
+                        <span>Artırmalı oyun</span>
                       </label>
                       <label className="my-okey-game-settings-item">
                         <input
@@ -19670,11 +19727,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           onChange={(event) => updateOkeyPrototypeGameOption("penaltyPlay", event.target.checked)}
                           disabled={!okeyPrototypeCanEditGameOptions}
                         />
-                        <span>Cezali oyun</span>
+                        <span>Cezalı oyun</span>
                       </label>
-                      {okeyPrototypeGameStarted ? (
-                        <p className="my-okey-game-settings-note">Oyun basladiktan sonra ayarlar degismez.</p>
-                      ) : null}
+                      <label className="my-okey-game-settings-item">
+                        <input
+                          type="checkbox"
+                          checked={okeyPrototypeGameOptions.highlightProcessableTiles}
+                          onChange={(event) => updateOkeyPrototypeGameOption("highlightProcessableTiles", event.target.checked)}
+                          disabled={!okeyPrototypeCanEditGameOptions}
+                        />
+                        <span>İşler taşlar işaretlensin</span>
+                      </label>
                     </div>
                   </aside>
                 ) : null}
@@ -19683,22 +19746,22 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                   <div className="my-empty-state my-empty-state-lobby">
                     <p className="my-empty-state-title">Masaya oturman gerekiyor.</p>
                     <p className="my-empty-state-sub">
-                      Lobiye donup bir masada <span className="my-empty-state-action">OTUR</span> secenegini kullan.
+                      Lobiye dönüp bir masada <span className="my-empty-state-action">OTUR</span> seçeneğini kullan.
                     </p>
                   </div>
                 ) : (
                   <>
                     <div className="my-game-coming-prototype-board-status" role="status" aria-live="polite" aria-atomic="true">
                       <div className="my-okey-discard-pile-card">
-                        <span>Son Atis</span>
+                        <span>Son Atış</span>
                         <strong>{okeyPrototypeLastDiscard ? formatOkeyPrototypeTile(okeyPrototypeLastDiscard.tile) : "-"}</strong>
                       </div>
 	                      <div className="my-okey-draw-pile-card">
-	                        <span>Kapali Deste</span>
+	                        <span>Kapalı Deste</span>
 	                        <strong>{okeyPrototypeDrawPileRemaining}</strong>
 	                      </div>
 	                      <div className="my-okey-indicator-card">
-	                        <span>Gosterge</span>
+	                        <span>Gösterge</span>
 	                        <div className="my-okey-indicator-card-tile-wrap">
 	                          {okeyPrototypeIndicatorTile ? (
 	                            <span
@@ -19856,7 +19919,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           <aside className="my-okey-center-side-lanes" aria-label="Kapali deste ve cift acma sutunlari">
                             <div className="my-okey-center-middle-controls" aria-label="Orta kontrol alani">
                               <div className="my-okey-indicator-card">
-                                <span>Gosterge</span>
+                                <span>Gösterge</span>
                                 <div className="my-okey-indicator-card-tile-wrap">
                                   {okeyPrototypeIndicatorTile ? (
                                     <span
@@ -19896,7 +19959,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 disabled={!okeyPrototypeCanDrawTile && !okeyPrototypeCanFinishByDeckDrop}
                                 aria-label="Kapali deste"
                               >
-                                <span>Kapali Deste</span>
+                                <span>Kapalı Deste</span>
                                 <div className="my-okey-draw-pocket-stack" aria-hidden="true">
                                   <i />
                                   <i />
@@ -20224,8 +20287,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                     <aside className="my-okey-quick-side">
                       <section className="my-okey-quick-card">
                         <h4>Özellikler</h4>
-                        <div className="my-okey-game-settings" aria-label="Oyun ayarlari">
-                          <p className="my-okey-game-settings-title">Oyun Ayarlari</p>
+                        <div className="my-okey-game-settings" aria-label="Oyun ayarları">
+                          <p className="my-okey-game-settings-title">Oyun Ayarları</p>
                           <label className="my-okey-game-settings-item">
                             <input
                               type="checkbox"
@@ -20233,7 +20296,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               onChange={(event) => updateOkeyPrototypeGameOption("teamedPlay", event.target.checked)}
                               disabled={!okeyPrototypeCanEditGameOptions}
                             />
-                            <span>Esli oyun</span>
+                            <span>Eşli oyun</span>
                           </label>
                           <label className="my-okey-game-settings-item">
                             <input
@@ -20242,7 +20305,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               onChange={(event) => updateOkeyPrototypeGameOption("increasingPlay", event.target.checked)}
                               disabled={!okeyPrototypeCanEditGameOptions}
                             />
-                            <span>Artirmali oyun</span>
+                            <span>Artırmalı oyun</span>
                           </label>
                           <label className="my-okey-game-settings-item">
                             <input
@@ -20251,22 +20314,28 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               onChange={(event) => updateOkeyPrototypeGameOption("penaltyPlay", event.target.checked)}
                               disabled={!okeyPrototypeCanEditGameOptions}
                             />
-                            <span>Cezali oyun</span>
+                            <span>Cezalı oyun</span>
                           </label>
-                          {okeyPrototypeGameStarted ? (
-                            <p className="my-okey-game-settings-note">Oyun basladiktan sonra ayarlar degismez.</p>
-                          ) : null}
+                          <label className="my-okey-game-settings-item">
+                            <input
+                              type="checkbox"
+                              checked={okeyPrototypeGameOptions.highlightProcessableTiles}
+                              onChange={(event) => updateOkeyPrototypeGameOption("highlightProcessableTiles", event.target.checked)}
+                              disabled={!okeyPrototypeCanEditGameOptions}
+                            />
+                            <span>İşler taşlar işaretlensin</span>
+                          </label>
                         </div>
                         <button className="my-action-btn soft" type="button" onClick={dealOkeyPrototypeWithSeed}>
                           Yeni Oyun
                         </button>
                         <button className="my-action-btn soft" type="button" onClick={goToLobbyFromTableView}>
-                          Lobiye Don
+                          Lobiye Dön
                         </button>
                         <button
                           className="my-action-btn danger"
                           type="button"
-                          onClick={() => leaveOkeyPrototypeSeat("Masadan kalkildi")}
+                          onClick={() => leaveOkeyPrototypeSeat("Masadan kalkıldı")}
                         >
                           Masadan Kalk
                         </button>
@@ -20543,7 +20612,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                   </div>
                 ) : null}
                 <button className="my-action-btn soft" onClick={goToLobbyFromTableView}>
-                  {activeDesign.texts.roomBackLobby || "Lobiye Don"}
+                  {activeDesign.texts.roomBackLobby || "Lobiye Dön"}
                 </button>
                 {normalizedLobbyNotice ? <p className="my-notice my-notice-soft">{normalizedLobbyNotice}</p> : null}
               </section>
