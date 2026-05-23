@@ -6295,11 +6295,20 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     && okeyPrototypePendingCanProcessByKind.seri;
   const okeyPrototypeProcessableTileIds = useMemo(() => {
     const next = new Set<string>();
-    if (!okeyPrototypeCanAdvanceTurn || okeyPrototypeTurnPhase !== "discard" || !okeyPrototypeCurrentSeatOpened) {
+    if (!okeyPrototypeCanAdvanceTurn || okeyPrototypeTurnPhase !== "discard") {
       return next;
     }
     if (okeyPrototypeTurnSeatNo !== okeyPrototypeSeatNoForRack) return next;
-    if (okeyPrototypeOpenedMelds.length === 0 || okeyPrototypeTurnRackTiles.length === 0) return next;
+    if (okeyPrototypeTurnRackTiles.length === 0) return next;
+    const anyOpenedSeat = OKEY_PROTOTYPE_SEATS.some((seatNo) => okeyPrototypeSeatOpenedState[seatNo] ?? false);
+    const canTriggerAttachableDiscardPenalty = (tile: OkeyPrototypeTile) => (
+      anyOpenedSeat
+      && okeyPrototypeOpenedMelds.length > 0
+      && okeyPrototypeOpenedMelds.some((meld) => (
+        canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile).valid
+        || getOkeyPrototypeJokerReplacementPlan(tile, meld).valid
+      ))
+    );
     const canProcessKindDirectly = (tile: OkeyPrototypeTile, kind: OkeyPrototypeMeldKind) => (
       okeyPrototypeOpenedMelds.some((meld) => {
         if (!canProcessOkeyPrototypeMeldByKind(kind, meld, okeyPrototypeSeatOpenModes)) return false;
@@ -6310,9 +6319,16 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       })
     );
     okeyPrototypeTurnRackTiles.forEach((tile) => {
-      const canSetProcess = canProcessKindDirectly(tile, "set") || okeyPrototypePairProcessTileIds.has(tile.id);
-      const canSeriProcess = canProcessKindDirectly(tile, "seri");
-      if (canSetProcess || canSeriProcess) {
+      const canTriggerPenaltyByDiscard = canTriggerAttachableDiscardPenalty(tile);
+      const canSetProcess = okeyPrototypeCurrentSeatOpened
+        ? (canProcessKindDirectly(tile, "set") || okeyPrototypePairProcessTileIds.has(tile.id))
+        : canTriggerPenaltyByDiscard;
+      const canSeriProcess = okeyPrototypeCurrentSeatOpened
+        ? canProcessKindDirectly(tile, "seri")
+        : canTriggerPenaltyByDiscard;
+      const hasDiscardPenaltyRisk = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile)
+        || canTriggerPenaltyByDiscard;
+      if (canSetProcess || canSeriProcess || hasDiscardPenaltyRisk) {
         next.add(tile.id);
       }
     });
@@ -6321,6 +6337,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     okeyPrototypeCanAdvanceTurn,
     okeyPrototypeCurrentSeatOpened,
     okeyPrototypeOkeyTile,
+    okeyPrototypeSeatOpenedState,
     okeyPrototypePairProcessTargetSeatNoSet,
     okeyPrototypePairProcessTileIds,
     okeyPrototypeOpenedMelds,
