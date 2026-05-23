@@ -4488,21 +4488,36 @@ function mergeOkeyPrototypeSeatState(
   incomingTableUpdatedAt: number,
   preferBase: boolean,
 ) {
+  const baseSeatJoinedAt = getOkeyPrototypeSeatJoinedAt(baseSeat);
+  const incomingSeatJoinedAt = getOkeyPrototypeSeatJoinedAt(incomingSeat);
+  const baseSeatSeenAt = Math.max(baseSeatJoinedAt, baseTableUpdatedAt);
+  const incomingSeatSeenAt = Math.max(incomingSeatJoinedAt, incomingTableUpdatedAt);
+
   if (baseSeat && !incomingSeat) {
-    // Daha yeni snapshot'ta koltuk bos ise, koltuk aninda dusmeli.
-    if (incomingTableUpdatedAt >= baseTableUpdatedAt) return null;
-    // Base daha yeniyse ve koltuk doluysa base'i koru.
-    return baseSeat;
+    // Koltuk bosaltilmis snapshot, koltugun son gorunme zamanindan
+    // anlamli sekilde daha eskiyse stale kabul edilir.
+    if (incomingTableUpdatedAt + OKEY_TABLE_OPEN_GRACE_MS < baseSeatSeenAt) {
+      return baseSeat;
+    }
+    return null;
   }
   if (!baseSeat && incomingSeat) {
-    // Daha yeni snapshot'ta koltuk bos ise, bos bilgi onceliklidir.
-    if (baseTableUpdatedAt >= incomingTableUpdatedAt) return null;
+    // Yeni gelen dolu koltuk bilgisi, base'in son guncel anindan belirgin
+    // sekilde yeniyse dogrudan kabul edilir.
+    if (baseTableUpdatedAt + OKEY_TABLE_OPEN_GRACE_MS < incomingSeatSeenAt) {
+      return incomingSeat;
+    }
+    // Base bos bilgisi cok daha yeni ise bosluk korunur.
+    if (baseTableUpdatedAt > incomingSeatSeenAt + SEAT_NULL_MERGE_GRACE_MS) {
+      return null;
+    }
+    // Belirsiz / saat kaymali durumda koltuk bilgisini tercih et.
     return incomingSeat;
   }
   if (!baseSeat && !incomingSeat) return null;
   if (!baseSeat || !incomingSeat) return null;
-  const baseJoinedAt = getOkeyPrototypeSeatJoinedAt(baseSeat);
-  const incomingJoinedAt = getOkeyPrototypeSeatJoinedAt(incomingSeat);
+  const baseJoinedAt = baseSeatJoinedAt;
+  const incomingJoinedAt = incomingSeatJoinedAt;
   if (incomingJoinedAt === baseJoinedAt) {
     const baseIdentity = `${sanitizeGuestId(baseSeat.userId)}:${sanitizeGuestId(baseSeat.sessionId)}`;
     const incomingIdentity = `${sanitizeGuestId(incomingSeat.userId)}:${sanitizeGuestId(incomingSeat.sessionId)}`;
