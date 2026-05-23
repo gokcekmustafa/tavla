@@ -508,6 +508,7 @@ const SEAT_STALE_MS = 180_000;
 const PRESENCE_STALE_MS = 120_000;
 const OKEY_TABLE_OPEN_GRACE_MS = 10_000;
 const HEARTBEAT_MS = 8_000;
+const OKEY_RECONNECT_NOTICE_GRACE_MS = 30_000;
 // Cihaz saatleri arasındaki fark (özellikle mobil/masaüstü) seat-null merge sırasında
 // koltuğun yanlışlıkla düşmesine neden olabiliyor. Daha geniş tolerans kullanıyoruz.
 const SEAT_NULL_MERGE_GRACE_MS = 15 * 60 * 1000;
@@ -5605,15 +5606,26 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeReconnectWaitingSeats = useMemo(() => {
     if (!okeyPrototypeJoinedTable) return [] as Array<{ seatNo: OkeyPrototypeSeatNo; name: string; remainingMs: number }>;
     if (isOkeyPrototypeLocalBotTableId(okeyPrototypeJoinedTable.id)) return [] as Array<{ seatNo: OkeyPrototypeSeatNo; name: string; remainingMs: number }>;
+    if (!okeyPrototypeJoinedTable.startedAt) return [] as Array<{ seatNo: OkeyPrototypeSeatNo; name: string; remainingMs: number }>;
     const now = syncHealthNow;
     const activeSessionIds = new Set<string>();
     const activeUserIds = new Set<string>();
+    const latestPresenceBySessionId = new Map<string, number>();
+    const latestPresenceByUserId = new Map<string, number>();
     lobbyState.presence.forEach((row) => {
       const touchedAt = normalizeActivityTimestamp(row.touchedAt, now, HEARTBEAT_MS * 2, row.sessionId);
-      if (now - touchedAt > HEARTBEAT_MS * 2) return;
       const sessionId = sanitizeGuestId(row.sessionId);
-      if (sessionId) activeSessionIds.add(sessionId);
       const userId = sanitizeGuestId(row.userId);
+      if (sessionId) {
+        const latest = latestPresenceBySessionId.get(sessionId) ?? 0;
+        if (touchedAt > latest) latestPresenceBySessionId.set(sessionId, touchedAt);
+      }
+      if (userId) {
+        const latest = latestPresenceByUserId.get(userId) ?? 0;
+        if (touchedAt > latest) latestPresenceByUserId.set(userId, touchedAt);
+      }
+      if (now - touchedAt > HEARTBEAT_MS * 2) return;
+      if (sessionId) activeSessionIds.add(sessionId);
       if (userId) activeUserIds.add(userId);
     });
     const waiting: Array<{ seatNo: OkeyPrototypeSeatNo; name: string; remainingMs: number }> = [];
@@ -5629,8 +5641,15 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         || (seatUserId && activeUserIds.has(seatUserId)),
       );
       if (active) return;
-      const lastSeenAt = getOkeyPrototypeSeatJoinedAt(seat) || now;
-      const remainingMs = lastSeenAt + OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS - now;
+      const latestPresenceTouchedAt = Math.max(
+        seatSessionId ? (latestPresenceBySessionId.get(seatSessionId) ?? 0) : 0,
+        seatUserId ? (latestPresenceByUserId.get(seatUserId) ?? 0) : 0,
+      );
+      const lastSeenAt = Math.max(getOkeyPrototypeSeatJoinedAt(seat) || 0, latestPresenceTouchedAt || 0);
+      if (!lastSeenAt) return;
+      const inactiveForMs = now - lastSeenAt;
+      if (inactiveForMs < OKEY_RECONNECT_NOTICE_GRACE_MS) return;
+      const remainingMs = OKEY_PROTOTYPE_INACTIVE_SEAT_PRUNE_MS - inactiveForMs;
       if (remainingMs <= 0) return;
       waiting.push({
         seatNo,
