@@ -8996,7 +8996,7 @@
 }
 
 /* 101 mobile landscape pass: board + rack fit into one screen */
-@media (orientation: landscape) and (hover: none) and (pointer: coarse) and (max-height: 560px) {
+@media (orientation: landscape) and (max-height: 760px) and (max-width: 1366px) {
   .my-room-view.my-okey-room-view .my-room-header-strip {
     display: none;
   }
