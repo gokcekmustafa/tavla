@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent as ReactPointerEvent } from "react";
 import "../../App.css";
 import {
   OKEY_RULES as OKEY_ENGINE_RULES,
@@ -5319,6 +5319,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       });
     };
     const handleWindowDragStop = () => {
+      okeyPrototypeTouchDragPointerIdRef.current = null;
+      okeyPrototypeTouchDragSourceIdRef.current = "";
+      okeyPrototypeTouchDragStartPointRef.current = null;
+      okeyPrototypeTouchDragMovedRef.current = false;
       setOkeyPrototypeDragPreview({
         sourceId: "",
         clientX: 0,
@@ -6789,6 +6793,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const leaveConfirmResolverRef = useRef<((approved: boolean) => void) | null>(null);
   const roomMissingSinceRef = useRef<number | null>(null);
   const okeyPrototypeSuppressRackClickRef = useRef(false);
+  const okeyPrototypeTouchDragPointerIdRef = useRef<number | null>(null);
+  const okeyPrototypeTouchDragSourceIdRef = useRef("");
+  const okeyPrototypeTouchDragStartPointRef = useRef<{ x: number; y: number } | null>(null);
+  const okeyPrototypeTouchDragMovedRef = useRef(false);
   const okeyPrototypeDiscardArrivalLastIdRef = useRef("");
   const okeyPrototypePublishedLiveActionIdRef = useRef("");
   const okeyPrototypeAppliedLiveActionIdRef = useRef("");
@@ -11372,6 +11380,145 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     });
   }
 
+  function isOkeyPrototypeTouchPointer(event: ReactPointerEvent<HTMLElement>) {
+    return event.pointerType === "touch" || event.pointerType === "pen";
+  }
+
+  function getOkeyPrototypeDropSideByClientX(targetElement: HTMLElement, clientX: number): "before" | "after" {
+    const rect = targetElement.getBoundingClientRect();
+    if (!Number.isFinite(rect.width) || rect.width <= 0) return "before";
+    const pointerOffsetX = clientX - rect.left;
+    return pointerOffsetX >= rect.width / 2 ? "after" : "before";
+  }
+
+  function startOkeyPrototypeTouchDrag(
+    event: ReactPointerEvent<HTMLElement>,
+    sourceId: string,
+    previewSourceElement: HTMLElement | null = null,
+  ) {
+    if (!isOkeyPrototypeTouchPointer(event) || !event.isPrimary || !sourceId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (previewSourceElement) {
+      captureOkeyPrototypeDragPreviewTileSize(previewSourceElement);
+    } else {
+      captureOkeyPrototypeDragPreviewTileSize(null);
+    }
+    okeyPrototypeTouchDragPointerIdRef.current = event.pointerId;
+    okeyPrototypeTouchDragSourceIdRef.current = sourceId;
+    okeyPrototypeTouchDragStartPointRef.current = { x: event.clientX, y: event.clientY };
+    okeyPrototypeTouchDragMovedRef.current = false;
+    setOkeyPrototypeRackDragTileId(sourceId);
+    startOkeyPrototypeDragPreview(sourceId, event.clientX, event.clientY);
+    const target = event.currentTarget;
+    if (target && typeof target.setPointerCapture === "function") {
+      try {
+        target.setPointerCapture(event.pointerId);
+      } catch {
+        // Bazı mobil tarayıcılar capture çağrısını reddedebilir.
+      }
+    }
+  }
+
+  function updateOkeyPrototypeTouchDrag(event: ReactPointerEvent<HTMLElement>) {
+    const activePointerId = okeyPrototypeTouchDragPointerIdRef.current;
+    if (activePointerId === null || event.pointerId !== activePointerId) return;
+    if (!isOkeyPrototypeTouchPointer(event)) return;
+    event.preventDefault();
+    const startPoint = okeyPrototypeTouchDragStartPointRef.current;
+    if (startPoint) {
+      const deltaX = Math.abs(event.clientX - startPoint.x);
+      const deltaY = Math.abs(event.clientY - startPoint.y);
+      if (deltaX >= 2 || deltaY >= 2) {
+        okeyPrototypeTouchDragMovedRef.current = true;
+      }
+    }
+    updateOkeyPrototypeDragPreview(event.clientX, event.clientY);
+  }
+
+  function finishOkeyPrototypeTouchDrag(event: ReactPointerEvent<HTMLElement>) {
+    const activePointerId = okeyPrototypeTouchDragPointerIdRef.current;
+    if (activePointerId === null || event.pointerId !== activePointerId) return;
+    if (!isOkeyPrototypeTouchPointer(event)) return;
+    event.preventDefault();
+    const sourceTileId = okeyPrototypeTouchDragSourceIdRef.current || okeyPrototypeRackDragTileId;
+    const moved = okeyPrototypeTouchDragMovedRef.current;
+    okeyPrototypeTouchDragPointerIdRef.current = null;
+    okeyPrototypeTouchDragSourceIdRef.current = "";
+    okeyPrototypeTouchDragStartPointRef.current = null;
+    okeyPrototypeTouchDragMovedRef.current = false;
+    if (!sourceTileId || typeof document === "undefined") {
+      handleOkeyPrototypeRackDragEnd();
+      return;
+    }
+    if (!moved) {
+      if (sourceTileId === "okey-proto-draw-deck") {
+        handleOkeyPrototypeDrawPocketClick();
+        handleOkeyPrototypeRackDragEnd();
+        return;
+      }
+      if (!sourceTileId.startsWith("okey-proto-take-discard:")) {
+        handleOkeyPrototypeRackTileClick(sourceTileId);
+        handleOkeyPrototypeRackDragEnd();
+        return;
+      }
+    }
+    const rawTarget = document.elementFromPoint(event.clientX, event.clientY);
+    const targetElement = rawTarget instanceof HTMLElement ? rawTarget : null;
+    if (!targetElement) {
+      handleOkeyPrototypeRackDragEnd();
+      return;
+    }
+    const meldTarget = targetElement.closest("[data-okey-meld-id]") as HTMLElement | null;
+    if (meldTarget) {
+      const meldId = meldTarget.dataset.okeyMeldId ?? "";
+      if (meldId) {
+        handleOkeyPrototypeMeldDrop(meldId, sourceTileId);
+        return;
+      }
+    }
+    const rackTileTarget = targetElement.closest("[data-okey-rack-tile-id]") as HTMLElement | null;
+    if (rackTileTarget) {
+      const targetTileId = rackTileTarget.dataset.okeyRackTileId ?? "";
+      if (targetTileId) {
+        const insertSide = getOkeyPrototypeDropSideByClientX(rackTileTarget, event.clientX);
+        handleOkeyPrototypeRackDrop(targetTileId, sourceTileId, insertSide);
+        return;
+      }
+    }
+    const slotTarget = targetElement.closest("[data-okey-rack-slot-index]") as HTMLElement | null;
+    if (slotTarget) {
+      const slotIndex = Number.parseInt(slotTarget.dataset.okeyRackSlotIndex ?? "", 10);
+      if (Number.isFinite(slotIndex)) {
+        handleOkeyPrototypeRackDropToSlot(slotIndex, sourceTileId);
+        return;
+      }
+    }
+    const discardPocketTarget = targetElement.closest("[data-okey-discard-pocket='true']") as HTMLElement | null;
+    if (discardPocketTarget) {
+      handleOkeyPrototypeDiscardDrop(sourceTileId);
+      return;
+    }
+    const drawPocketTarget = targetElement.closest("[data-okey-draw-pocket='true']") as HTMLElement | null;
+    if (drawPocketTarget) {
+      handleOkeyPrototypeDrawPocketDrop(sourceTileId);
+      return;
+    }
+    handleOkeyPrototypeRackDragEnd();
+  }
+
+  function cancelOkeyPrototypeTouchDrag(event: ReactPointerEvent<HTMLElement>) {
+    const activePointerId = okeyPrototypeTouchDragPointerIdRef.current;
+    if (activePointerId === null || event.pointerId !== activePointerId) return;
+    if (!isOkeyPrototypeTouchPointer(event)) return;
+    event.preventDefault();
+    okeyPrototypeTouchDragPointerIdRef.current = null;
+    okeyPrototypeTouchDragSourceIdRef.current = "";
+    okeyPrototypeTouchDragStartPointRef.current = null;
+    okeyPrototypeTouchDragMovedRef.current = false;
+    handleOkeyPrototypeRackDragEnd();
+  }
+
   function getOkeyPrototypeDropSideByPointer(event: DragEvent<HTMLElement>): "before" | "after" {
     const rect = event.currentTarget.getBoundingClientRect();
     if (!Number.isFinite(rect.width) || rect.width <= 0) return "before";
@@ -11510,6 +11657,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function handleOkeyPrototypeRackDragEnd() {
+    okeyPrototypeTouchDragPointerIdRef.current = null;
+    okeyPrototypeTouchDragSourceIdRef.current = "";
+    okeyPrototypeTouchDragStartPointRef.current = null;
+    okeyPrototypeTouchDragMovedRef.current = false;
     setOkeyPrototypeRackDragTileId("");
     stopOkeyPrototypeDragPreview();
   }
@@ -19045,6 +19196,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             <button
                               key={tile.id}
                               type="button"
+                              data-okey-rack-tile-id={tile.id}
                               className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${okeyPrototypeLastDrawnTileId === tile.id ? "drawn-last" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""} ${okeyPrototypeProcessableTileIds.has(tile.id) ? "processable" : ""}`}
                               onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
                               draggable={Boolean(
@@ -19053,6 +19205,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               )}
                               onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
                               onDrag={handleOkeyPrototypeRackDrag}
+                              onPointerDown={(event) => startOkeyPrototypeTouchDrag(event, tile.id, event.currentTarget)}
+                              onPointerMove={updateOkeyPrototypeTouchDrag}
+                              onPointerUp={finishOkeyPrototypeTouchDrag}
+                              onPointerCancel={cancelOkeyPrototypeTouchDrag}
                               onDragOver={(event) => {
                                 if (!okeyPrototypeRackDragTileId || okeyPrototypeRackDragTileId === tile.id) return;
                                 event.preventDefault();
@@ -20276,6 +20432,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                         <div
                                           key={meld.id}
                                           className="my-okey-center-seat-meld kind-seri"
+                                          data-okey-meld-id={meld.id}
                                           onDragOver={(event) => {
                                             if (!okeyPrototypeCanAdvanceTurn || okeyPrototypeTurnPhase !== "discard" || !okeyPrototypeCurrentSeatOpened) {
                                               return;
@@ -20340,6 +20497,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               <button
                                 type="button"
                                 className={`my-okey-draw-pocket ${okeyPrototypeCanDrawTile || okeyPrototypeCanFinishByDeckDrop ? "suggested" : ""} ${okeyPrototypeCanFinishByDeckDrop ? "final-drop-target" : ""} ${okeyPrototypeDeckDrawTile && okeyPrototypeDeckDrawPulse ? "draw-pulse" : ""}`}
+                                data-okey-draw-pocket="true"
                                 onClick={handleOkeyPrototypeDrawPocketClick}
                                 onDragOver={(event) => {
                                   if (!okeyPrototypeCanFinishByDeckDrop) return;
@@ -20360,6 +20518,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 onDragStart={handleOkeyPrototypeDrawPocketDragStart}
                                 onDrag={handleOkeyPrototypeRackDrag}
                                 onDragEnd={handleOkeyPrototypeRackDragEnd}
+                                onPointerDown={(event) => {
+                                  if (!okeyPrototypeCanDrawTile) return;
+                                  startOkeyPrototypeTouchDrag(event, "okey-proto-draw-deck", null);
+                                }}
+                                onPointerMove={updateOkeyPrototypeTouchDrag}
+                                onPointerUp={finishOkeyPrototypeTouchDrag}
+                                onPointerCancel={cancelOkeyPrototypeTouchDrag}
                                 disabled={!okeyPrototypeCanDrawTile && !okeyPrototypeCanFinishByDeckDrop}
                                 aria-label="Kapali deste"
                               >
@@ -20514,6 +20679,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             key={`okey-discard-pocket-${displayPosition}-${seatNo}`}
                             type="button"
                             className={`my-okey-discard-pocket pos-${displayPosition} ${isTakeableFromPocket || isLocalDiscardPocket ? "suggested" : ""}`}
+                            data-okey-discard-pocket={isLocalDiscardPocket ? "true" : undefined}
                             onClick={() => handleOkeyPrototypeDiscardPocketClick(seatNo)}
                             onDragOver={(event) => {
                               if (!isLocalDiscardPocket || !okeyPrototypeCanDiscardTile || !okeyPrototypeRackDragTileId) return;
@@ -20544,6 +20710,13 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 }}
                                 onDrag={handleOkeyPrototypeRackDrag}
                                 onDragEnd={handleOkeyPrototypeRackDragEnd}
+                                onPointerDown={(event) => {
+                                  if (!isTakeableFromPocket) return;
+                                  startOkeyPrototypeTouchDrag(event, `okey-proto-take-discard:${seatNo}`, event.currentTarget);
+                                }}
+                                onPointerMove={updateOkeyPrototypeTouchDrag}
+                                onPointerUp={finishOkeyPrototypeTouchDrag}
+                                onPointerCancel={cancelOkeyPrototypeTouchDrag}
                               >
                                 {renderOkeyPrototypeTileFace(seatDiscardTile)}
                               </span>
@@ -20635,6 +20808,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               return (
                                 <div
                                   key={`okey-slot-${rowIndex}-${columnIndex}`}
+                                  data-okey-rack-slot-index={slotIndex}
                                   className={`my-game-coming-prototype-rack-slot ${okeyPrototypeRackDragTileId ? "drag-ready" : ""} ${tile ? "filled" : "empty"}`}
                                   onDragOver={(event) => {
                                     event.preventDefault();
@@ -20649,6 +20823,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                   {tile ? (
                                     <button
                                       type="button"
+                                      data-okey-rack-tile-id={tile.id}
                                       className={`my-game-coming-prototype-rack-tile tile-${tile.color} ${okeyPrototypeDiscardDraftTileId === tile.id ? "discard-selected" : ""} ${okeyPrototypeMeldDraftTileIds.includes(tile.id) ? "meld-selected" : ""} ${okeyPrototypeLastDrawnTileId === tile.id ? "drawn-last" : ""} ${tileIsJoker ? "joker-tile" : ""} ${okeyPrototypeRackDragTileId === tile.id ? "dragging" : ""} ${okeyPrototypeFlippedJokerTileIds.includes(tile.id) ? "okey-flipped" : ""} ${okeyPrototypeProcessableTileIds.has(tile.id) ? "processable" : ""}`}
                                       onClick={() => handleOkeyPrototypeRackTileClick(tile.id)}
                                       onContextMenu={(event) => handleOkeyPrototypeRackTileContextMenu(event, tile)}
@@ -20658,6 +20833,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                       )}
                                       onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
                                       onDrag={handleOkeyPrototypeRackDrag}
+                                      onPointerDown={(event) => startOkeyPrototypeTouchDrag(event, tile.id, event.currentTarget)}
+                                      onPointerMove={updateOkeyPrototypeTouchDrag}
+                                      onPointerUp={finishOkeyPrototypeTouchDrag}
+                                      onPointerCancel={cancelOkeyPrototypeTouchDrag}
                                       onDragOver={(event) => {
                                         if (!okeyPrototypeRackDragTileId || okeyPrototypeRackDragTileId === tile.id) return;
                                         event.preventDefault();

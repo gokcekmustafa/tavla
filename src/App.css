@@ -6291,6 +6291,15 @@
   font-size: calc(1.45rem * var(--okey-proto-tile-scale, 1));
 }
 
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile,
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket,
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile,
+.my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile,
+.my-okey-room-shell[data-table-active="true"] .my-okey-draw-pocket,
+.my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile {
+  touch-action: none;
+}
+
 .my-game-coming-prototype-rack-tile {
   cursor: grab;
   transition: transform 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
