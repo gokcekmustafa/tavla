@@ -9746,5 +9746,10 @@
     height: 32px;
     border-radius: 5px;
   }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons {
+    margin-left: -2mm;
+    gap: 1mm;
+  }
 }
 
