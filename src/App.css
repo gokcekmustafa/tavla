@@ -8784,6 +8784,13 @@
     overflow: hidden;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-center {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat {
     border: 0;
     background: transparent;
@@ -9265,6 +9272,13 @@
     padding: 2px 2px 72px;
     gap: 4px;
     overflow: hidden;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-center {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat {
