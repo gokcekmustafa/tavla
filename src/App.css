@@ -9705,3 +9705,46 @@
   white-space: nowrap;
 }
 
+/* Mobile position correction: move rack/actions/name down and align indicator + draw pocket to name-top line */
+@media (max-width: 1366px) {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    transform: translateY(0cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions {
+    transform: translateY(0cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
+    transform: translateY(3cm) !important;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls {
+    bottom: 100%;
+    gap: 5px;
+    align-items: flex-start;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-indicator-card,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket {
+    width: 56px;
+    min-width: 56px;
+    padding: 2px 3px;
+    gap: 1px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket-stack {
+    width: 24px;
+    height: 34px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket-stack > i {
+    width: 22px;
+    height: 32px;
+    border-radius: 5px;
+  }
+}
+
