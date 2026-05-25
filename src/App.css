@@ -8840,12 +8840,12 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 {
     justify-content: flex-end;
-    padding-right: 4mm;
+    padding-right: 0;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 {
     justify-content: flex-start;
-    padding-left: 4mm;
+    padding-left: 0;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
@@ -9323,12 +9323,12 @@
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 {
     justify-content: flex-end;
-    padding-right: 4mm;
+    padding-right: 0;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 {
     justify-content: flex-start;
-    padding-left: 4mm;
+    padding-left: 0;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
