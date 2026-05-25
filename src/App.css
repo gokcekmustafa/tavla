@@ -6199,6 +6199,9 @@
 
 .my-okey-indicator-card {
   min-width: 108px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .my-okey-indicator-card-tile-wrap {
