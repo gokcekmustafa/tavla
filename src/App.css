@@ -8836,7 +8836,7 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
-    transform: translateY(2cm);
+    transform: translateY(1cm);
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat-title {
@@ -8977,11 +8977,13 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3 {
     right: 0;
     bottom: 14px;
+    transform: translateY(-1cm);
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
     left: 0;
     bottom: 14px;
+    transform: translateY(-1cm);
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
@@ -9302,7 +9304,7 @@
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
-    transform: translateY(2cm);
+    transform: translateY(1cm);
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat-title {
@@ -9416,6 +9418,11 @@
     border-radius: 7px;
     padding: 2px;
     gap: 2px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
+    transform: translateY(-1cm);
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile {
