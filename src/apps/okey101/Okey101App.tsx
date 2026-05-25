@@ -20705,6 +20705,100 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             key={`okey-live-seat-${seatNo}`}
                             className={`my-game-coming-prototype-board-seat seat-${displaySeatPosition} ${isTurnSeat ? "active" : ""} ${isLocalSeat ? "self" : ""}`}
                           >
+                            {isLocalSeat ? (
+                              <div className="my-okey-self-seat-inline-controls" aria-label="Gosterge ve tas cekme kontrol alani">
+                                <div className="my-okey-indicator-card">
+                                  <span>Gosterge</span>
+                                  <div className="my-okey-indicator-card-tile-wrap">
+                                    {okeyPrototypeIndicatorTile ? (
+                                      <span
+                                        className={`my-game-coming-prototype-rack-tile tile-${okeyPrototypeIndicatorTile.color}`}
+                                        title={formatOkeyPrototypeTile(okeyPrototypeIndicatorTile)}
+                                      >
+                                        {renderOkeyPrototypeTileFace(okeyPrototypeIndicatorTile)}
+                                      </span>
+                                    ) : (
+                                      <strong>-</strong>
+                                    )}
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  className={`my-okey-draw-pocket ${okeyPrototypeCanDrawTile || okeyPrototypeCanFinishByDeckDrop ? "suggested" : ""} ${okeyPrototypeCanFinishByDeckDrop ? "final-drop-target" : ""} ${okeyPrototypeDeckDrawTile && okeyPrototypeDeckDrawPulse ? "draw-pulse" : ""}`}
+                                  data-okey-draw-pocket="true"
+                                  onClick={handleOkeyPrototypeDrawPocketClick}
+                                  onDragOver={(event) => {
+                                    if (!okeyPrototypeCanFinishByDeckDrop) return;
+                                    const sourceTileId = okeyPrototypeRackDragTileId || event.dataTransfer?.getData("text/plain") || "";
+                                    if (!sourceTileId || sourceTileId === "okey-proto-draw-deck" || sourceTileId.startsWith("okey-proto-take-discard:")) {
+                                      return;
+                                    }
+                                    event.preventDefault();
+                                    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+                                  }}
+                                  onDrop={(event) => {
+                                    if (!okeyPrototypeCanFinishByDeckDrop) return;
+                                    event.preventDefault();
+                                    const draggedTileId = event.dataTransfer?.getData("text/plain") ?? "";
+                                    handleOkeyPrototypeDrawPocketDrop(draggedTileId);
+                                  }}
+                                  draggable={okeyPrototypeCanDrawTile}
+                                  onDragStart={handleOkeyPrototypeDrawPocketDragStart}
+                                  onDrag={handleOkeyPrototypeRackDrag}
+                                  onDragEnd={handleOkeyPrototypeRackDragEnd}
+                                  onPointerDown={(event) => {
+                                    if (!okeyPrototypeCanDrawTile) return;
+                                    startOkeyPrototypeTouchDrag(event, "okey-proto-draw-deck", null);
+                                  }}
+                                  onPointerMove={updateOkeyPrototypeTouchDrag}
+                                  onPointerUp={finishOkeyPrototypeTouchDrag}
+                                  onPointerCancel={cancelOkeyPrototypeTouchDrag}
+                                  disabled={!okeyPrototypeCanDrawTile && !okeyPrototypeCanFinishByDeckDrop}
+                                  aria-label="Kapali deste"
+                                >
+                                  <span>Kapali Deste</span>
+                                  <div className="my-okey-draw-pocket-stack" aria-hidden="true">
+                                    <i />
+                                    <i />
+                                    <i />
+                                  </div>
+                                  <strong>{okeyPrototypeDrawPileRemaining}</strong>
+                                  {okeyPrototypeDeckDrawTile ? (
+                                    <span
+                                      className="my-game-coming-prototype-rack-tile my-okey-draw-pocket-ghost okey-flipped"
+                                      title="Rakip tas cekti"
+                                      aria-hidden="true"
+                                    />
+                                  ) : null}
+                                </button>
+                                <div className="my-okey-self-seat-inline-buttons">
+                                  <button
+                                    type="button"
+                                    className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
+                                    onClick={clearOkeyPrototypeTileSelections}
+                                    disabled={!okeyPrototypeDiscardDraftTileId && okeyPrototypeMeldDraftTileIds.length === 0}
+                                  >
+                                    Geri Topla
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
+                                    onClick={sortOkeyPrototypeAsSeries}
+                                    disabled={!okeyPrototypeCanProcessSeries}
+                                  >
+                                    Seri Isle
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
+                                    onClick={sortOkeyPrototypeAsPairs}
+                                    disabled={!okeyPrototypeCanProcessPairs}
+                                  >
+                                    Cift Isle
+                                  </button>
+                                </div>
+                              </div>
+                            ) : null}
                             <header>
                               <strong className="my-game-coming-prototype-board-seat-title">
                                 <AvatarBadge
