@@ -8691,7 +8691,7 @@
     border: 0;
     border-radius: 0;
     padding: 4px 4px 8px;
-    gap: 4px;
+    gap: 0;
     background:
       radial-gradient(circle at 50% 18%, rgba(36, 144, 105, 0.28), rgba(8, 67, 47, 0.3)),
       linear-gradient(180deg, #055c43, #044a35);
@@ -8759,7 +8759,7 @@
     grid-template-columns: minmax(0, 1fr) 86px !important;
     grid-template-areas: "grid side" !important;
     gap: 4px;
-    padding: 4px 4px 3px;
+    padding: 0 4px 3px;
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -8777,7 +8777,7 @@
       ". seat-1 ."
       "seat-4 center seat-2"
       ". seat-3 ." !important;
-    padding: 20px 2px 108px;
+    padding: 4px 2px 108px;
     gap: 5px;
     min-height: 452px;
     align-items: stretch;
@@ -9191,7 +9191,7 @@
     border: 0;
     border-radius: 0;
     padding: 4px;
-    gap: 4px;
+    gap: 0;
     box-shadow: none;
     overflow: hidden;
   }
@@ -9244,7 +9244,7 @@
     grid-template-columns: minmax(0, 1fr) !important;
     grid-template-areas: "grid" !important;
     gap: 4px;
-    padding: 4px;
+    padding: 0 4px 4px;
     min-height: calc(100dvh - 160px);
     max-height: calc(100dvh - 160px);
     border-radius: 10px;
@@ -9262,7 +9262,7 @@
       "seat-4 center seat-2"
       ". seat-3 ." !important;
     min-height: 0;
-    padding: 8px 2px 72px;
+    padding: 2px 2px 72px;
     gap: 4px;
     overflow: hidden;
   }
