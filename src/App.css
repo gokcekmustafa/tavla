@@ -8941,11 +8941,12 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket {
     position: absolute !important;
-    width: 36px;
-    min-height: 74px;
+    width: 30px;
+    min-height: 42px;
+    max-height: 42px;
     border-radius: 8px;
-    padding: 3px 2px;
-    gap: 2px;
+    padding: 1px;
+    gap: 0;
     text-align: center;
     justify-items: center;
   }
@@ -9414,11 +9415,12 @@
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket {
-    width: 32px;
-    min-height: 62px;
+    width: 26px;
+    min-height: 35px;
+    max-height: 35px;
     border-radius: 7px;
-    padding: 2px;
-    gap: 2px;
+    padding: 1px;
+    gap: 0;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
