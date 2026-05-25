@@ -598,6 +598,7 @@ const OKEY_PROTOTYPE_SET_HAND_TARGET = 7;
 const OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS = 5_600;
 const OKEY_PROTOTYPE_AUTO_NEXT_SET_DELAY_MS = 5_600;
 const OKEY_PROTOTYPE_PENALTY_BUBBLE_DURATION_MS = 1_900;
+const OKEY_PROTOTYPE_JOKER_LONG_PRESS_MS = 420;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = OKEY_ENGINE_RULES.seats as readonly OkeyPrototypeSeatNo[];
 const OKEY_PROTOTYPE_COUNTERCLOCKWISE_SEAT_ORDER: readonly OkeyPrototypeSeatNo[] = [1, 4, 3, 2];
 const OKEY_PROTOTYPE_TEAM_SEAT_GROUPS = [
@@ -5319,6 +5320,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       });
     };
     const handleWindowDragStop = () => {
+      clearOkeyPrototypeJokerLongPressState();
       okeyPrototypeTouchDragPointerIdRef.current = null;
       okeyPrototypeTouchDragSourceIdRef.current = "";
       okeyPrototypeTouchDragStartPointRef.current = null;
@@ -6797,6 +6799,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeTouchDragSourceIdRef = useRef("");
   const okeyPrototypeTouchDragStartPointRef = useRef<{ x: number; y: number } | null>(null);
   const okeyPrototypeTouchDragMovedRef = useRef(false);
+  const okeyPrototypeJokerLongPressTimerRef = useRef<number | null>(null);
+  const okeyPrototypeJokerLongPressPointerIdRef = useRef<number | null>(null);
+  const okeyPrototypeJokerLongPressTileIdRef = useRef("");
+  const okeyPrototypeJokerLongPressTriggeredRef = useRef(false);
   const okeyPrototypeDiscardArrivalLastIdRef = useRef("");
   const okeyPrototypePublishedLiveActionIdRef = useRef("");
   const okeyPrototypeAppliedLiveActionIdRef = useRef("");
@@ -11391,6 +11397,50 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     return pointerOffsetX >= rect.width / 2 ? "after" : "before";
   }
 
+  function clearOkeyPrototypeJokerLongPressState() {
+    if (okeyPrototypeJokerLongPressTimerRef.current !== null) {
+      window.clearTimeout(okeyPrototypeJokerLongPressTimerRef.current);
+      okeyPrototypeJokerLongPressTimerRef.current = null;
+    }
+    okeyPrototypeJokerLongPressPointerIdRef.current = null;
+    okeyPrototypeJokerLongPressTileIdRef.current = "";
+    okeyPrototypeJokerLongPressTriggeredRef.current = false;
+  }
+
+  function toggleOkeyPrototypeJokerFlipById(tileId: string) {
+    const tile = okeyPrototypeSeatRackTileMap.get(tileId);
+    if (!tile || !isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile)) return false;
+    setOkeyPrototypeFlippedJokerTileIds((current) => (
+      current.includes(tile.id)
+        ? current.filter((id) => id !== tile.id)
+        : [...current, tile.id]
+    ));
+    return true;
+  }
+
+  function startOkeyPrototypeJokerLongPress(event: ReactPointerEvent<HTMLElement>, tileId: string) {
+    if (!isOkeyPrototypeTouchPointer(event) || !event.isPrimary) return;
+    const tile = okeyPrototypeSeatRackTileMap.get(tileId);
+    if (!tile || !isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile)) return;
+    clearOkeyPrototypeJokerLongPressState();
+    okeyPrototypeJokerLongPressPointerIdRef.current = event.pointerId;
+    okeyPrototypeJokerLongPressTileIdRef.current = tileId;
+    okeyPrototypeJokerLongPressTriggeredRef.current = false;
+    const pointerId = event.pointerId;
+    okeyPrototypeJokerLongPressTimerRef.current = window.setTimeout(() => {
+      if (okeyPrototypeJokerLongPressPointerIdRef.current !== pointerId) return;
+      if (okeyPrototypeJokerLongPressTileIdRef.current !== tileId) return;
+      const flipped = toggleOkeyPrototypeJokerFlipById(tileId);
+      if (!flipped) return;
+      okeyPrototypeJokerLongPressTriggeredRef.current = true;
+      okeyPrototypeSuppressRackClickRef.current = true;
+      window.setTimeout(() => {
+        okeyPrototypeSuppressRackClickRef.current = false;
+      }, 220);
+      handleOkeyPrototypeRackDragEnd();
+    }, OKEY_PROTOTYPE_JOKER_LONG_PRESS_MS);
+  }
+
   function startOkeyPrototypeTouchDrag(
     event: ReactPointerEvent<HTMLElement>,
     sourceId: string,
@@ -11429,6 +11479,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (startPoint) {
       const deltaX = Math.abs(event.clientX - startPoint.x);
       const deltaY = Math.abs(event.clientY - startPoint.y);
+      if (
+        okeyPrototypeJokerLongPressPointerIdRef.current === event.pointerId
+        && (deltaX >= 8 || deltaY >= 8)
+      ) {
+        if (okeyPrototypeJokerLongPressTimerRef.current !== null) {
+          window.clearTimeout(okeyPrototypeJokerLongPressTimerRef.current);
+          okeyPrototypeJokerLongPressTimerRef.current = null;
+        }
+        okeyPrototypeJokerLongPressPointerIdRef.current = null;
+        okeyPrototypeJokerLongPressTileIdRef.current = "";
+      }
       if (deltaX >= 2 || deltaY >= 2) {
         okeyPrototypeTouchDragMovedRef.current = true;
       }
@@ -11441,12 +11502,18 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (activePointerId === null || event.pointerId !== activePointerId) return;
     if (!isOkeyPrototypeTouchPointer(event)) return;
     event.preventDefault();
+    const jokerLongPressTriggered = okeyPrototypeJokerLongPressTriggeredRef.current;
+    clearOkeyPrototypeJokerLongPressState();
     const sourceTileId = okeyPrototypeTouchDragSourceIdRef.current || okeyPrototypeRackDragTileId;
     const moved = okeyPrototypeTouchDragMovedRef.current;
     okeyPrototypeTouchDragPointerIdRef.current = null;
     okeyPrototypeTouchDragSourceIdRef.current = "";
     okeyPrototypeTouchDragStartPointRef.current = null;
     okeyPrototypeTouchDragMovedRef.current = false;
+    if (jokerLongPressTriggered) {
+      handleOkeyPrototypeRackDragEnd();
+      return;
+    }
     if (!sourceTileId || typeof document === "undefined") {
       handleOkeyPrototypeRackDragEnd();
       return;
@@ -11512,6 +11579,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (activePointerId === null || event.pointerId !== activePointerId) return;
     if (!isOkeyPrototypeTouchPointer(event)) return;
     event.preventDefault();
+    clearOkeyPrototypeJokerLongPressState();
     okeyPrototypeTouchDragPointerIdRef.current = null;
     okeyPrototypeTouchDragSourceIdRef.current = "";
     okeyPrototypeTouchDragStartPointRef.current = null;
@@ -11657,6 +11725,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function handleOkeyPrototypeRackDragEnd() {
+    clearOkeyPrototypeJokerLongPressState();
     okeyPrototypeTouchDragPointerIdRef.current = null;
     okeyPrototypeTouchDragSourceIdRef.current = "";
     okeyPrototypeTouchDragStartPointRef.current = null;
@@ -11891,14 +11960,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function handleOkeyPrototypeRackTileContextMenu(event: React.MouseEvent<HTMLButtonElement>, tile: OkeyPrototypeTile) {
-    const tileIsJoker = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile);
-    if (!tileIsJoker) return;
     event.preventDefault();
-    setOkeyPrototypeFlippedJokerTileIds((current) => (
-      current.includes(tile.id)
-        ? current.filter((id) => id !== tile.id)
-        : [...current, tile.id]
-    ));
+    toggleOkeyPrototypeJokerFlipById(tile.id);
   }
 
   function ensureOkeyPrototypeGameStarted(actionLabel: string) {
@@ -19205,7 +19268,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               )}
                               onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
                               onDrag={handleOkeyPrototypeRackDrag}
-                              onPointerDown={(event) => startOkeyPrototypeTouchDrag(event, tile.id, event.currentTarget)}
+                              onPointerDown={(event) => {
+                                startOkeyPrototypeJokerLongPress(event, tile.id);
+                                startOkeyPrototypeTouchDrag(event, tile.id, event.currentTarget);
+                              }}
                               onPointerMove={updateOkeyPrototypeTouchDrag}
                               onPointerUp={finishOkeyPrototypeTouchDrag}
                               onPointerCancel={cancelOkeyPrototypeTouchDrag}
@@ -20833,7 +20899,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                       )}
                                       onDragStart={(event) => handleOkeyPrototypeRackDragStart(event, tile.id)}
                                       onDrag={handleOkeyPrototypeRackDrag}
-                                      onPointerDown={(event) => startOkeyPrototypeTouchDrag(event, tile.id, event.currentTarget)}
+                                      onPointerDown={(event) => {
+                                        startOkeyPrototypeJokerLongPress(event, tile.id);
+                                        startOkeyPrototypeTouchDrag(event, tile.id, event.currentTarget);
+                                      }}
                                       onPointerMove={updateOkeyPrototypeTouchDrag}
                                       onPointerUp={finishOkeyPrototypeTouchDrag}
                                       onPointerCancel={cancelOkeyPrototypeTouchDrag}
