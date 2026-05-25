@@ -8490,6 +8490,7 @@
     align-self: end;
     overflow: visible;
     gap: 0;
+    transform: translateY(-3cm);
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
@@ -9063,6 +9064,7 @@
     width: 100%;
     margin-inline: 0;
     padding: 3px 2px 5px;
+    transform: translateY(-3cm);
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
@@ -9515,6 +9517,7 @@
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
     width: 100%;
     padding: 3px 2px 4px;
+    transform: translateY(-3cm);
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
