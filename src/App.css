@@ -8098,7 +8098,7 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
-    transform: translateY(1mm);
+    transform: translateY(2cm);
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self .my-okey-draw-pocket {
@@ -8836,7 +8836,7 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
-    transform: translateY(1mm);
+    transform: translateY(2cm);
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat-title {
@@ -9302,7 +9302,7 @@
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
-    transform: translateY(1mm);
+    transform: translateY(2cm);
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat-title {
