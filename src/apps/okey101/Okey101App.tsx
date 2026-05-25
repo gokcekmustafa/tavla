@@ -496,6 +496,7 @@ const GAME_SELECTION_SESSION_KEY = "tavla.game.selection.session.okey101.v1";
 const ROOT_GAME_CHOICE_KEY = "tavla.root.selected.game.v1";
 const OKEY_PROTOTYPE_TILE_SCALE_SESSION_KEY = "tavla.okey.prototype.tile.scale.pct.v1";
 const OKEY_PROTOTYPE_AUTO_SORT_SESSION_KEY = "tavla.okey.prototype.auto.sort.mode.v1";
+const OKEY_PROTOTYPE_SEAT_RESERVATION_SESSION_KEY = "tavla.okey.prototype.seat.reservation.v1";
 const LEAVE_NOTICE_REJECT_PREFIX = "LEAVE_REJECT|";
 const LOBBY_STATE_KEY_PREFIX = "okey101.lobby.state.v3";
 const LOBBY_SYNC_CHANNEL_PREFIX = "okey101.lobby.sync.v3";
@@ -4345,6 +4346,44 @@ function loadOkeyPrototypeAutoSortModeFromSession(): OkeyPrototypeAutoSortMode {
   return normalizeOkeyPrototypeAutoSortMode(raw);
 }
 
+function loadOkeyPrototypeSeatReservationFromSession(): { tableId: string; seatNo: OkeyPrototypeSeatNo } | null {
+  if (typeof window === "undefined") return null;
+  const raw = safeStorageGetItem(window.sessionStorage, OKEY_PROTOTYPE_SEAT_RESERVATION_SESSION_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<{ tableId: string; seatNo: number }>;
+    const tableId = sanitizeOkeyPrototypeTableId(parsed.tableId);
+    const seatNo = normalizeOkeyPrototypeSeatNo(parsed.seatNo);
+    if (!tableId || !seatNo) return null;
+    return { tableId, seatNo };
+  } catch {
+    return null;
+  }
+}
+
+function saveOkeyPrototypeSeatReservationToSession(reservation: { tableId: string; seatNo: OkeyPrototypeSeatNo } | null) {
+  if (typeof window === "undefined") return;
+  if (!reservation) {
+    safeStorageRemoveItem(window.sessionStorage, OKEY_PROTOTYPE_SEAT_RESERVATION_SESSION_KEY);
+    return;
+  }
+  const tableId = sanitizeOkeyPrototypeTableId(reservation.tableId);
+  const seatNo = normalizeOkeyPrototypeSeatNo(reservation.seatNo);
+  if (!tableId || !seatNo) {
+    safeStorageRemoveItem(window.sessionStorage, OKEY_PROTOTYPE_SEAT_RESERVATION_SESSION_KEY);
+    return;
+  }
+  safeStorageSetItem(
+    window.sessionStorage,
+    OKEY_PROTOTYPE_SEAT_RESERVATION_SESSION_KEY,
+    JSON.stringify({
+      tableId,
+      seatNo,
+      savedAt: Date.now(),
+    }),
+  );
+}
+
 function readEntryScreenFromUrl(): EntryScreen | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
@@ -5106,7 +5145,9 @@ function Okey101App() {
   const [okeyPrototypeTableSort, setOkeyPrototypeTableSort] = useState<"tableNo" | "occupancy" | "status">("tableNo");
   const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState("");
   const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState<OkeyPrototypeSeatNo>(1);
-  const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: OkeyPrototypeSeatNo } | null>(null);
+  const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: OkeyPrototypeSeatNo } | null>(
+    () => loadOkeyPrototypeSeatReservationFromSession(),
+  );
   const [okeyPrototypeLocalBotTable, setOkeyPrototypeLocalBotTable] = useState<OkeyPrototypeLobbyTableState | null>(null);
   const [okeyPrototypeTurnSeat, setOkeyPrototypeTurnSeat] = useState<1 | 2 | 3 | 4>(1);
   const [okeyPrototypeHandFirstSeat, setOkeyPrototypeHandFirstSeat] = useState<OkeyPrototypeSeatNo>(1);
@@ -6753,6 +6794,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeAppliedLiveActionIdRef = useRef("");
   const okeyPrototypeAppliedLiveActionRef = useRef<OkeyPrototypeLiveAction | null>(null);
   const okeyPrototypeAutoNextDrawHandKeyRef = useRef("");
+  const okeyPrototypeSeatReservationHydratedRef = useRef(false);
+  const okeyPrototypeMissingSeatReservationSinceRef = useRef<number | null>(null);
+  const okeyPrototypeMissingSeatReservationLastPullAtRef = useRef(0);
   const okeyPrototypeAutoNextHandTimerRef = useRef<number | null>(null);
   const okeyPrototypeSetSummaryHandKeyRef = useRef("");
   const okeyPrototypeTurnPhaseSelfHealKeyRef = useRef("");
@@ -6847,20 +6891,59 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }, [lobbyState.okeyPrototypeTablesByRoom]);
 
   useEffect(() => {
+    saveOkeyPrototypeSeatReservationToSession(okeyPrototypeSeatReservation);
+  }, [okeyPrototypeSeatReservation]);
+
+  useEffect(() => {
+    if (okeyPrototypeSeatReservationHydratedRef.current) return;
+    okeyPrototypeSeatReservationHydratedRef.current = true;
     if (!okeyPrototypeSeatReservation) return;
+    if (isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) {
+      resetOkeyPrototypeSeatSessionState();
+      return;
+    }
+    setViewMode("table");
+    setRoomPickerOpen(false);
+    setGamePickerOpen(false);
+  }, [okeyPrototypeSeatReservation]);
+
+  useEffect(() => {
+    if (!okeyPrototypeSeatReservation) {
+      okeyPrototypeMissingSeatReservationSinceRef.current = null;
+      okeyPrototypeMissingSeatReservationLastPullAtRef.current = 0;
+      return;
+    }
     if (isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) {
       const localActive = Boolean(
         okeyPrototypeLocalBotTable
         && okeyPrototypeLocalBotTable.id === okeyPrototypeSeatReservation.tableId,
       );
-      if (localActive) return;
+      if (localActive) {
+        okeyPrototypeMissingSeatReservationSinceRef.current = null;
+        okeyPrototypeMissingSeatReservationLastPullAtRef.current = 0;
+        return;
+      }
       resetOkeyPrototypeSeatSessionState();
       return;
     }
     const exists = Object.values(okeyPrototypeTablesByRoom).some((tables) => (
       tables.some((table) => table.id === okeyPrototypeSeatReservation.tableId)
     ));
-    if (exists) return;
+    if (exists) {
+      okeyPrototypeMissingSeatReservationSinceRef.current = null;
+      okeyPrototypeMissingSeatReservationLastPullAtRef.current = 0;
+      return;
+    }
+    const now = Date.now();
+    const missingSince = okeyPrototypeMissingSeatReservationSinceRef.current ?? now;
+    if (!okeyPrototypeMissingSeatReservationSinceRef.current) {
+      okeyPrototypeMissingSeatReservationSinceRef.current = now;
+    }
+    if (now - okeyPrototypeMissingSeatReservationLastPullAtRef.current >= 1500) {
+      okeyPrototypeMissingSeatReservationLastPullAtRef.current = now;
+      void pullRealtimeViaHttp("okey-seat-reservation-restore");
+    }
+    if (now - missingSince < OKEY_RECONNECT_NOTICE_GRACE_MS) return;
     resetOkeyPrototypeSeatSessionState();
   }, [okeyPrototypeLocalBotTable, okeyPrototypeSeatReservation, okeyPrototypeTablesByRoom]);
 
@@ -16821,7 +16904,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const prunedTables = cleanupStaleAndPrune(cleared.tables).tables;
       const nextOkeyTablesByRoom: Record<string, OkeyPrototypeLobbyTableState[]> = {};
       let okeyTablesChanged = false;
-      const preserveOkeySeatsOnUnload = false;
+      const preserveOkeySeatsOnUnload = true;
       Object.entries(latestOkeyTablesByRoom).forEach(([roomId, tables]) => {
         if (preserveOkeySeatsOnUnload) {
           nextOkeyTablesByRoom[roomId] = tables.slice().sort((left, right) => left.tableNo - right.tableNo);
