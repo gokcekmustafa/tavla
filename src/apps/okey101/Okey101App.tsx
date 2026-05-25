@@ -11563,7 +11563,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     const discardPocketTarget = targetElement.closest("[data-okey-discard-pocket='true']") as HTMLElement | null;
     if (discardPocketTarget) {
-      handleOkeyPrototypeDiscardDrop(sourceTileId);
+      const targetSeatNoRaw = Number.parseInt(discardPocketTarget.dataset.okeyDiscardSeatNo ?? "", 10);
+      const targetSeatNo = [1, 2, 3, 4].includes(targetSeatNoRaw)
+        ? (targetSeatNoRaw as OkeyPrototypeSeatNo)
+        : okeyPrototypeLocalSeatNo;
+      handleOkeyPrototypeDiscardPocketDrop(targetSeatNo, sourceTileId);
       return;
     }
     const drawPocketTarget = targetElement.closest("[data-okey-draw-pocket='true']") as HTMLElement | null;
@@ -11873,7 +11877,16 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }, 120);
   }
 
-  function handleOkeyPrototypeDiscardDrop(draggedTileIdFromData = "") {
+  function canOkeyPrototypeReturnTakenDiscardToSeat(targetSeatNo: OkeyPrototypeSeatNo, sourceTileId: string) {
+    const pickup = okeyPrototypePendingDiscardPickup;
+    if (!pickup) return false;
+    if (!okeyPrototypeCanReturnTakenDiscard) return false;
+    if (pickup.pickedTileId !== sourceTileId) return false;
+    if (pickup.sourceEntry.seatNo !== targetSeatNo) return false;
+    return true;
+  }
+
+  function handleOkeyPrototypeDiscardPocketDrop(targetSeatNo: OkeyPrototypeSeatNo, draggedTileIdFromData = "") {
     const sourceTileId = okeyPrototypeRackDragTileId || draggedTileIdFromData;
     if (!sourceTileId) {
       handleOkeyPrototypeRackDragEnd();
@@ -11883,7 +11896,16 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       handleOkeyPrototypeRackDragEnd();
       return;
     }
-    if (!okeyPrototypeCanDiscardTile) {
+    if (canOkeyPrototypeReturnTakenDiscardToSeat(targetSeatNo, sourceTileId)) {
+      returnOkeyPrototypeTakenDiscardTile();
+      handleOkeyPrototypeRackDragEnd();
+      okeyPrototypeSuppressRackClickRef.current = true;
+      window.setTimeout(() => {
+        okeyPrototypeSuppressRackClickRef.current = false;
+      }, 120);
+      return;
+    }
+    if (targetSeatNo !== okeyPrototypeLocalSeatNo || !okeyPrototypeCanDiscardTile) {
       handleOkeyPrototypeRackDragEnd();
       return;
     }
@@ -20437,14 +20459,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       <button
                         type="button"
                         className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
-                        onClick={returnOkeyPrototypeTakenDiscardTile}
-                        disabled={!okeyPrototypeCanReturnTakenDiscard}
-                      >
-                        Geri Birak
-                      </button>
-                      <button
-                        type="button"
-                        className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
                         onClick={sortOkeyPrototypeAsPairs}
                         disabled={!okeyPrototypeCanProcessPairs}
                       >
@@ -20620,14 +20634,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                               <button
                                 type="button"
                                 className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
-                                onClick={returnOkeyPrototypeTakenDiscardTile}
-                                disabled={!okeyPrototypeCanReturnTakenDiscard}
-                              >
-                                Geri Birak
-                              </button>
-                              <button
-                                type="button"
-                                className="my-action-btn soft my-game-coming-prototype-board-clear-btn"
                                 onClick={sortOkeyPrototypeAsSeries}
                                 disabled={!okeyPrototypeCanProcessSeries}
                               >
@@ -20745,18 +20751,22 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             key={`okey-discard-pocket-${displayPosition}-${seatNo}`}
                             type="button"
                             className={`my-okey-discard-pocket pos-${displayPosition} ${isTakeableFromPocket || isLocalDiscardPocket ? "suggested" : ""}`}
-                            data-okey-discard-pocket={isLocalDiscardPocket ? "true" : undefined}
+                            data-okey-discard-pocket="true"
+                            data-okey-discard-seat-no={seatNo}
                             onClick={() => handleOkeyPrototypeDiscardPocketClick(seatNo)}
                             onDragOver={(event) => {
-                              if (!isLocalDiscardPocket || !okeyPrototypeCanDiscardTile || !okeyPrototypeRackDragTileId) return;
+                              const draggedTileId = okeyPrototypeRackDragTileId || event.dataTransfer?.getData("text/plain") || "";
+                              if (!draggedTileId) return;
+                              const canReturnByDrag = canOkeyPrototypeReturnTakenDiscardToSeat(seatNo, draggedTileId);
+                              const canDiscardToLocal = isLocalDiscardPocket && okeyPrototypeCanDiscardTile;
+                              if (!canReturnByDrag && !canDiscardToLocal) return;
                               event.preventDefault();
                               if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
                             }}
                             onDrop={(event) => {
-                              if (!isLocalDiscardPocket || !okeyPrototypeCanDiscardTile) return;
                               event.preventDefault();
                               const draggedTileId = event.dataTransfer?.getData("text/plain") ?? "";
-                              handleOkeyPrototypeDiscardDrop(draggedTileId);
+                              handleOkeyPrototypeDiscardPocketDrop(seatNo, draggedTileId);
                             }}
                             aria-label={`${seatName} saga atilan tas`}
                           >
