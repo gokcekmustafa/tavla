@@ -9897,3 +9897,22 @@
   }
 }
 
+/* Mobile/tablet player name boxes: reduce short edge by 2mm and keep all seats same size set */
+@media (max-width: 1366px) {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header {
+    width: 142px !important;
+    min-height: calc(44px - 2mm) !important;
+    height: calc(44px - 2mm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 header,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 header {
+    width: calc(44px - 2mm) !important;
+    min-height: 142px !important;
+    height: 142px !important;
+  }
+}
+
