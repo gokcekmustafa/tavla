@@ -10093,7 +10093,7 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
     margin-left: auto !important;
     margin-right: auto !important;
-    transform: translateY(-0.5cm) !important;
+    transform: translate(1.5cm, -0.5cm) !important;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions,
