@@ -10116,7 +10116,7 @@
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child {
-    transform: translateX(1.5cm) !important;
+    transform: translateX(calc(71px + 1.5cm)) !important;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
