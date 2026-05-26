@@ -9919,9 +9919,9 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface,
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-columns,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
-    width: calc(100% + 10mm);
-    margin-left: -5mm;
-    margin-right: -5mm;
+    width: calc(100% + 16mm);
+    margin-left: -8mm;
+    margin-right: -8mm;
   }
 }
 
