@@ -10033,6 +10033,22 @@
   }
 }
 
+/* Mobile landscape: pair-column names vertical, bottom-to-top */
+@media (orientation: landscape) and (max-width: 1366px) {
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-title,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-title {
+    writing-mode: vertical-rl !important;
+    text-orientation: mixed !important;
+    transform: rotate(180deg) !important;
+    justify-self: center !important;
+    align-self: end !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+}
+
 @media (orientation: landscape) and (max-width: 1366px) {
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
