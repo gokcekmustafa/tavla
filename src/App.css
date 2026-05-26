@@ -10086,7 +10086,7 @@
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
-    transform: translateY(0cm) !important;
+    transform: translateY(-0.5cm) !important;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions,
@@ -10098,7 +10098,7 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
-    transform: translateY(0.5cm) !important;
+    transform: translateY(1cm) !important;
   }
 }
 
