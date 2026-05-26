@@ -10555,27 +10555,34 @@
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
     pointer-events: auto;
+    position: relative;
     width: 100%;
     margin: 0;
-    padding: 3px 4px 4px;
+    padding: 1px 4px 4px;
     border-radius: 8px;
     transform: none !important;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head,
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
-    margin-bottom: 1px;
-    min-height: 13px;
+    margin: 0;
+    min-height: 0;
+    height: 0;
+    padding: 0;
+    overflow: visible;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head {
-    position: fixed;
-    left: 50%;
-    bottom: 126px;
-    transform: translateX(-50%);
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    left: auto;
+    bottom: auto;
+    transform: none;
     margin: 0;
-    z-index: 48;
+    z-index: 4;
+    pointer-events: none;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-score-strip span,
@@ -10585,9 +10592,19 @@
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-score-strip strong,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-score-strip strong {
-    min-width: 40px;
-    height: 22px;
-    font-size: 0.86rem;
+    min-width: auto;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.84rem;
+    line-height: 1;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-rows,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-rows {
+    margin-top: 0 !important;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row,
