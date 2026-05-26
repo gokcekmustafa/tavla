@@ -9944,6 +9944,11 @@
     display: none !important;
   }
 
+  .my-okey-room-shell[data-table-active="true"] .my-okey-lower-strip,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip {
+    justify-items: center !important;
+  }
+
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-main-layout,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-main-layout {
     grid-template-columns: minmax(0, 1fr) 198px !important;
@@ -10086,12 +10091,29 @@
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    margin-left: auto !important;
+    margin-right: auto !important;
     transform: translateY(-0.5cm) !important;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions {
-    transform: translateY(0cm) !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    grid-template-columns: max-content max-content !important;
+    justify-content: center !important;
+    justify-items: center !important;
+    gap: 0 20px !important;
+    transform: translateY(-0.5cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child {
+    transform: none !important;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
