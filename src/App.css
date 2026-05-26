@@ -10127,3 +10127,32 @@
   }
 }
 
+/* Mobile-only: make serial open area fit at least 6 meld groups by shrinking meld tiles */
+@media (max-width: 1366px) and (hover: none) and (pointer: coarse) {
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-melds,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-melds {
+    min-height: 42px;
+    max-height: 42px;
+    gap: 1px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-meld,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-meld {
+    gap: 0;
+    padding: 0 1px;
+    border-radius: 4px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-meld .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-meld .my-game-coming-prototype-rack-tile {
+    min-width: 10px;
+    width: 10px;
+    height: 14px;
+    padding: 0;
+    font-size: 0.48rem;
+    line-height: 1;
+  }
+}
+
