@@ -9769,3 +9769,120 @@
   }
 }
 
+/* Mobile/tablet layout: place pair-open area under serial-open area and keep serial melds left-to-right */
+@media (max-width: 1366px) {
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-main-layout,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-main-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) auto !important;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface {
+    grid-row: 1;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-side-lanes,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-side-lanes {
+    grid-row: 2;
+    display: block !important;
+    width: 100%;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-columns,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+    width: 100%;
+    min-height: 76px;
+    height: auto;
+    max-height: none;
+    margin: 0;
+    padding: 2px;
+    gap: 2px;
+    overflow: visible;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column {
+    min-height: 66px;
+    height: auto;
+    padding: 2px 1px;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 1px;
+    border-left: 1px solid rgba(232, 249, 241, 0.85);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column:first-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column:first-child {
+    border-left: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-title,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-title {
+    grid-row: 1;
+    writing-mode: horizontal-tb !important;
+    text-orientation: mixed !important;
+    transform: none !important;
+    font-size: 0.44rem;
+    text-align: center;
+    justify-self: center;
+    align-self: start;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-body,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-body {
+    grid-row: 2;
+    display: grid;
+    align-content: start;
+    justify-items: start;
+    row-gap: 1px;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-group,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1px;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-melds,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-melds {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-content: flex-start;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-meld,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-meld {
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: center;
+  }
+}
+
