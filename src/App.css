@@ -9752,5 +9752,10 @@
     transform: translateX(-2mm);
     gap: 1mm !important;
   }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:first-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:first-child {
+    transform: translate(-4mm, 0.5cm);
+  }
 }
 
