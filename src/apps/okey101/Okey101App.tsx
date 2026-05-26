@@ -5255,10 +5255,83 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const useTavlaLikeOkeyLayout = false;
   const effectiveSelectedGameId: GameId = selectedGameId;
   const isTavlaSelectedGame = effectiveSelectedGameId === "tavla";
+  const okeyLandscapeFullscreenArmedRef = useRef(false);
+  const okeyLandscapeFullscreenLastAttemptRef = useRef(0);
   useEffect(() => {
     if (selectedGameId === "okey101") return;
     setSelectedGameId("okey101");
   }, [selectedGameId]);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    const rootElement = document.documentElement as HTMLElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void;
+    };
+    const docWithWebkit = document as Document & {
+      webkitFullscreenElement?: Element | null;
+    };
+
+    const isLandscapeMobile = () => window.matchMedia("(orientation: landscape) and (max-width: 1366px) and (hover: none)").matches;
+    const shouldApply = () => (
+      !isTavlaSelectedGame
+      && viewMode === "table"
+      && Boolean(okeyPrototypeSeatReservation)
+      && isLandscapeMobile()
+    );
+
+    const nudgeBrowserBars = () => {
+      if (!shouldApply()) return;
+      window.setTimeout(() => {
+        window.scrollTo(0, 1);
+      }, 60);
+    };
+
+    const tryRequestFullscreen = () => {
+      if (!shouldApply()) return;
+      if (document.fullscreenElement || docWithWebkit.webkitFullscreenElement) return;
+      const now = Date.now();
+      if (now - okeyLandscapeFullscreenLastAttemptRef.current < 240) return;
+      okeyLandscapeFullscreenLastAttemptRef.current = now;
+      const requestFullscreen =
+        rootElement.requestFullscreen
+        || rootElement.webkitRequestFullscreen;
+      if (typeof requestFullscreen !== "function") return;
+      try {
+        const result = requestFullscreen.call(rootElement);
+        if (result && typeof (result as Promise<void>).catch === "function") {
+          void (result as Promise<void>).catch(() => {});
+        }
+      } catch {
+        // Fullscreen istegi kullanici jesti olmadan engellenebilir.
+      }
+    };
+
+    const onUserGesture = () => {
+      if (!shouldApply()) return;
+      okeyLandscapeFullscreenArmedRef.current = true;
+      tryRequestFullscreen();
+      nudgeBrowserBars();
+    };
+
+    const onViewportChange = () => {
+      if (!shouldApply()) return;
+      if (okeyLandscapeFullscreenArmedRef.current) {
+        tryRequestFullscreen();
+      }
+      nudgeBrowserBars();
+    };
+
+    window.addEventListener("pointerup", onUserGesture, { passive: true });
+    window.addEventListener("touchend", onUserGesture, { passive: true });
+    window.addEventListener("resize", onViewportChange, { passive: true });
+    window.addEventListener("orientationchange", onViewportChange);
+    onViewportChange();
+    return () => {
+      window.removeEventListener("pointerup", onUserGesture);
+      window.removeEventListener("touchend", onUserGesture);
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("orientationchange", onViewportChange);
+    };
+  }, [isTavlaSelectedGame, okeyPrototypeSeatReservation, viewMode]);
   useEffect(() => {
     if (!okeyPrototypeLastHandSummary || !okeyPrototypeSeatReservation) {
       setOkeyPrototypeScorePopupVisible(false);
