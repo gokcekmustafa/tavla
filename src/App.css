@@ -9750,7 +9750,7 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons {
     transform: translateX(-2mm);
-    gap: 1mm !important;
+    gap: 0.5mm !important;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:first-child,
@@ -9760,6 +9760,11 @@
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(2),
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(2) {
+    transform: translate(-2mm, 0.5cm);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(3),
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(3) {
     transform: translate(-2mm, 0.5cm);
   }
 }
