@@ -10016,6 +10016,15 @@
   }
 }
 
+/* Mobile landscape: narrow rack by 3cm from left and 3cm from right */
+@media (orientation: landscape) and (max-width: 1366px) and (hover: none) {
+  .my-okey-room-shell[data-table-active="true"] .my-okey-lower-strip,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip {
+    left: calc(4px + 3cm) !important;
+    right: calc(4px + 3cm) !important;
+  }
+}
+
 /* Mobile rack cleanup: remove top brown strip above first tile row */
 @media (max-width: 1366px) and (hover: none) and (pointer: coarse) {
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
