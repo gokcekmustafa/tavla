@@ -9914,5 +9914,14 @@
     min-height: 142px !important;
     height: 142px !important;
   }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-columns,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
+    width: calc(100% + 10mm);
+    margin-left: -5mm;
+    margin-right: -5mm;
+  }
 }
 
