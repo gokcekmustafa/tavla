@@ -9803,58 +9803,68 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-columns,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(4, minmax(0, 1fr));
     align-items: stretch;
     width: 100%;
-    min-height: 76px;
+    min-height: 84px;
     height: auto;
     max-height: none;
     margin: 0;
-    padding: 2px;
-    gap: 2px;
-    overflow: visible;
+    padding: 2px 2px 2px 3px;
+    row-gap: 2px;
+    column-gap: 0;
+    overflow: hidden;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column {
-    min-height: 66px;
+    min-height: 18px;
     height: auto;
-    padding: 2px 1px;
+    padding: 0 1px 0 0;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 1px;
-    border-left: 1px solid rgba(232, 249, 241, 0.85);
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: center;
+    gap: 2px;
+    border-left: 0;
+    border-top: 1px solid rgba(232, 249, 241, 0.25);
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column:first-child,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column:first-child {
-    border-left: 0;
+    border-top: 0;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-title,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-title {
+    grid-column: 2;
     grid-row: 1;
     writing-mode: horizontal-tb !important;
     text-orientation: mixed !important;
     transform: none !important;
     font-size: 0.44rem;
-    text-align: center;
-    justify-self: center;
-    align-self: start;
+    text-align: right;
+    justify-self: end;
+    align-self: center;
+    padding-left: 2px;
     line-height: 1;
     white-space: nowrap;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-body,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-body {
-    grid-row: 2;
-    display: grid;
-    align-content: start;
-    justify-items: start;
-    row-gap: 1px;
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1px;
     min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow-y: hidden;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-right: 1px;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-group,
@@ -9863,8 +9873,9 @@
     align-items: center;
     justify-content: flex-start;
     gap: 1px;
-    width: fit-content;
-    max-width: 100%;
+    flex: 0 0 auto;
+    width: auto;
+    max-width: none;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-melds,
