@@ -9755,7 +9755,12 @@
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:first-child,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:first-child {
-    transform: translate(-4mm, 0.5cm);
+    transform: translate(-2mm, 0.5cm);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(2),
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(2) {
+    transform: translate(-4mm, 0.5mm);
   }
 }
 
