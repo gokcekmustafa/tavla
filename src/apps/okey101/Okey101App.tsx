@@ -599,6 +599,7 @@ const OKEY_PROTOTYPE_AUTO_NEXT_DRAW_HAND_DELAY_MS = 5_600;
 const OKEY_PROTOTYPE_AUTO_NEXT_SET_DELAY_MS = 5_600;
 const OKEY_PROTOTYPE_PENALTY_BUBBLE_DURATION_MS = 1_900;
 const OKEY_PROTOTYPE_JOKER_LONG_PRESS_MS = 420;
+const OKEY_PROTOTYPE_DISCARD_DROP_PROXIMITY_PX = 52;
 const OKEY_PROTOTYPE_SEATS: readonly OkeyPrototypeSeatNo[] = OKEY_ENGINE_RULES.seats as readonly OkeyPrototypeSeatNo[];
 const OKEY_PROTOTYPE_COUNTERCLOCKWISE_SEAT_ORDER: readonly OkeyPrototypeSeatNo[] = [1, 4, 3, 2];
 const OKEY_PROTOTYPE_TEAM_SEAT_GROUPS = [
@@ -11533,6 +11534,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const rawTarget = document.elementFromPoint(event.clientX, event.clientY);
     const targetElement = rawTarget instanceof HTMLElement ? rawTarget : null;
     if (!targetElement) {
+      if (tryOkeyPrototypeDropToNearbyDiscardPocket(sourceTileId, event.clientX, event.clientY)) {
+        return;
+      }
       handleOkeyPrototypeRackDragEnd();
       return;
     }
@@ -11575,6 +11579,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       handleOkeyPrototypeDrawPocketDrop(sourceTileId);
       return;
     }
+    if (tryOkeyPrototypeDropToNearbyDiscardPocket(sourceTileId, event.clientX, event.clientY)) {
+      return;
+    }
     handleOkeyPrototypeRackDragEnd();
   }
 
@@ -11589,6 +11596,40 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     okeyPrototypeTouchDragStartPointRef.current = null;
     okeyPrototypeTouchDragMovedRef.current = false;
     handleOkeyPrototypeRackDragEnd();
+  }
+
+  function findNearestOkeyPrototypeDiscardPocketSeatNo(clientX: number, clientY: number): OkeyPrototypeSeatNo | null {
+    if (typeof document === "undefined") return null;
+    const pocketNodes = document.querySelectorAll("[data-okey-discard-pocket='true']");
+    let nearestSeatNo: OkeyPrototypeSeatNo | null = null;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    pocketNodes.forEach((node) => {
+      if (!(node instanceof HTMLElement)) return;
+      const targetSeatNoRaw = Number.parseInt(node.dataset.okeyDiscardSeatNo ?? "", 10);
+      const targetSeatNo = [1, 2, 3, 4].includes(targetSeatNoRaw)
+        ? (targetSeatNoRaw as OkeyPrototypeSeatNo)
+        : null;
+      if (!targetSeatNo) return;
+      const rect = node.getBoundingClientRect();
+      const deltaX = clientX < rect.left ? rect.left - clientX : clientX > rect.right ? clientX - rect.right : 0;
+      const deltaY = clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
+      const distance = Math.hypot(deltaX, deltaY);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestSeatNo = targetSeatNo;
+      }
+    });
+    if (!nearestSeatNo || nearestDistance > OKEY_PROTOTYPE_DISCARD_DROP_PROXIMITY_PX) return null;
+    return nearestSeatNo;
+  }
+
+  function tryOkeyPrototypeDropToNearbyDiscardPocket(sourceTileId: string, clientX: number, clientY: number): boolean {
+    if (!sourceTileId) return false;
+    if (sourceTileId === "okey-proto-draw-deck" || sourceTileId.startsWith("okey-proto-take-discard:")) return false;
+    const nearestSeatNo = findNearestOkeyPrototypeDiscardPocketSeatNo(clientX, clientY);
+    if (!nearestSeatNo) return false;
+    handleOkeyPrototypeDiscardPocketDrop(nearestSeatNo, sourceTileId);
+    return true;
   }
 
   function getOkeyPrototypeDropSideByPointer(event: DragEvent<HTMLElement>): "before" | "after" {
