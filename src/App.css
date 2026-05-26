@@ -9823,7 +9823,7 @@
     height: auto;
     padding: 0 1px 0 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) 30px;
     grid-template-rows: minmax(0, 1fr);
     align-items: center;
     gap: 2px;
@@ -9850,6 +9850,8 @@
     padding-left: 2px;
     line-height: 1;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-body,
@@ -9859,7 +9861,7 @@
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 1px;
+    gap: 0.5px;
     min-height: 0;
     overflow-y: hidden;
     overflow-x: auto;
@@ -9872,10 +9874,21 @@
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 1px;
+    gap: 0.5px;
     flex: 0 0 auto;
     width: auto;
     max-width: none;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-group .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-group .my-game-coming-prototype-rack-tile {
+    min-width: 9px;
+    width: 9px;
+    height: 13px;
+    padding: 0;
+    font-size: 0.42rem;
+    line-height: 1;
+    border-radius: 2px;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-melds,
