@@ -10023,6 +10023,24 @@
     left: calc(4px + 3cm) !important;
     right: calc(4px + 3cm) !important;
   }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    width: calc(100% - 6cm) !important;
+    max-width: calc(100% - 6cm) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}
+
+@media (orientation: landscape) and (max-width: 1366px) {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    width: calc(100% - 6cm) !important;
+    max-width: calc(100% - 6cm) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
 }
 
 /* Mobile rack cleanup: remove top brown strip above first tile row */
