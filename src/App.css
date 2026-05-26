@@ -10157,7 +10157,7 @@
 }
 
 /* Mobile landscape stabilizer: keep board + rack readable in one screen without touching desktop */
-@media (orientation: landscape) and (max-width: 1180px) and (hover: none) and (pointer: coarse) {
+@media (orientation: landscape) and (max-width: 1366px) {
   .my-room-view.in-room.my-okey-room-view {
     min-height: 100dvh;
     max-height: 100dvh;
@@ -10294,7 +10294,7 @@
 }
 
 /* Mobile landscape master layout (reference-like): board first, right control lane, rack fixed bottom */
-@media (orientation: landscape) and (max-width: 1180px) and (hover: none) and (pointer: coarse) {
+@media (orientation: landscape) and (max-width: 1366px) {
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-room-head,
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-room-head {
     display: none !important;
