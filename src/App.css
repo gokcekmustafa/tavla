@@ -9760,7 +9760,7 @@
 
   .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(2),
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(2) {
-    transform: translate(-4mm, 0.5mm);
+    transform: translate(-2mm, 0.5cm);
   }
 }
 
