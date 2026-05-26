@@ -9938,6 +9938,36 @@
   }
 }
 
+/* Mobile rack cleanup: remove top brown strip above first tile row */
+@media (max-width: 1366px) and (hover: none) and (pointer: coarse) {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    padding-top: 0 !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head {
+    position: absolute !important;
+    top: 2px !important;
+    right: 6px !important;
+    margin: 0 !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-rows,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-rows {
+    margin-top: 0 !important;
+  }
+}
+
 /* Desktop-only safety layer: restore desktop layout without touching mobile */
 @media (min-width: 761px) and (hover: hover) and (pointer: fine) {
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls {
