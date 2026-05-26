@@ -10558,14 +10558,24 @@
     position: relative;
     width: 100%;
     margin: 0;
-    padding: 1px 4px 4px;
+    padding: 0 4px 4px !important;
     border-radius: 8px;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
     transform: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack::before,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack::after,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack::before,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack::after {
+    display: none !important;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head,
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
-    margin: 0;
+    margin: 0 !important;
     min-height: 0;
     height: 0;
     padding: 0;
@@ -10575,12 +10585,12 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head {
     position: absolute;
-    top: 2px;
-    right: 6px;
+    top: 1px;
+    right: 4px;
     left: auto;
     bottom: auto;
     transform: none;
-    margin: 0;
+    margin: 0 !important;
     z-index: 4;
     pointer-events: none;
   }
@@ -10594,7 +10604,7 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-score-strip strong {
     min-width: auto;
     height: auto;
-    padding: 0;
+    padding: 0 !important;
     border: 0;
     background: transparent;
     box-shadow: none;
@@ -10605,6 +10615,12 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-rows,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-rows {
     margin-top: 0 !important;
+    gap: 2px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
+    margin: 0 !important;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row,
