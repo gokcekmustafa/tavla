@@ -11212,186 +11212,192 @@
   }
 }
 
-/* --- GENEL DEĞİŞKENLER --- */
+/* ============================================================
+   OKEY 101 PREMIUM TEMA (Sadece Okey'i etkiler, Tavla'ya dokunmaz)
+   ============================================================ */
 :root {
-    /* Masaüstü / Dikey Renkler */
-    --desktop-bg: #0d4d2a; 
-    --desktop-rack: linear-gradient(to bottom, #a67c52, #5d3a1a);
-    --desktop-border: #2d6a4f;
-    
-    /* Mobil Yatay Renkler */
-    --landscape-bg: radial-gradient(circle, #1a3a5f 0%, #0a1a2f 100%);
-    --landscape-rack: linear-gradient(to bottom, #f7d560 0%, #b8860b 100%);
-    
-    --tile-white: #ffffff;
-    --gold-accent: #ffd700;
+    --okey-desktop-bg: #0d4d2a; 
+    --okey-desktop-rack: linear-gradient(to bottom, #a67c52, #5d3a1a);
+    --okey-landscape-bg: radial-gradient(circle, #1a3a5f 0%, #0a1a2f 100%);
+    --okey-landscape-rack: linear-gradient(to bottom, #f7d560 0%, #b8860b 100%);
+    --okey-gold: #ffd700;
+    --okey-tile-white: #ffffff;
 }
 
-.okey-app-wrapper {
+.okey-premium-container {
     width: 100vw;
     height: 100vh;
     position: relative;
     overflow: hidden;
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    transition: all 0.3s ease;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    transition: background 0.5s ease;
 }
 
-/* --- MASAÜSTÜ / DİKEY MOD (DEFAULT) --- */
-.okey-app-wrapper {
-    background-color: var(--desktop-bg);
+/* Masaüstü / Dikey Tema */
+.okey-premium-container {
+    background-color: var(--okey-desktop-bg);
     color: white;
 }
 
-/* Üst Bar */
+/* Üst Menü */
 .okey-header {
     height: 60px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 20px;
-    background: rgba(0,0,0,0.2);
+    padding: 0 30px;
+    background: rgba(0,0,0,0.3);
 }
 
-/* Oyun Masası (Merkez) */
-.okey-game-board {
+/* Oyun Masası */
+.okey-main-board {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -60%);
-    width: 80%;
-    height: 60%;
-    border: 4px solid var(--desktop-border);
+    width: 70%;
+    height: 50%;
+    border: 4px solid #2d6a4f;
     background-image: 
-        linear-gradient(var(--desktop-border) 1px, transparent 1px),
-        linear-gradient(90deg, var(--desktop-border) 1px, transparent 1px);
+        linear-gradient(#2d6a4f 1px, transparent 1px),
+        linear-gradient(90deg, #2d6a4f 1px, transparent 1px);
     background-size: 50px 50px;
-    position: relative;
+    border-radius: 10px;
 }
 
-/* Oyuncu Avatarları */
-.player-avatar {
+/* Avatarlar */
+.okey-avatar {
     position: absolute;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
+    z-index: 10;
 }
-.avatar-top { top: -60px; left: 50%; transform: translateX(-50%); }
-.avatar-bottom { bottom: -60px; left: 50%; transform: translateX(-50%); }
-.avatar-left { left: -100px; top: 50%; transform: translateY(-50%); }
-.avatar-right { right: -100px; top: 50%; transform: translateY(-50%); }
+.av-top { top: -70px; left: 50%; transform: translateX(-50%); }
+.av-bottom { bottom: -70px; left: 50%; transform: translateX(-50%); }
+.av-left { left: -120px; top: 50%; transform: translateY(-50%); }
+.av-right { right: -120px; top: 50%; transform: translateY(-50%); }
 
-.avatar-circle {
-    width: 60px;
-    height: 60px;
+.okey-avatar-img {
+    width: 65px;
+    height: 65px;
     border-radius: 50%;
-    border: 3px solid var(--gold-accent);
-    background: #eee;
+    border: 3px solid var(--okey-gold);
+    background: #ddd;
     overflow: hidden;
 }
 
-/* Istaka (Rack) - Masaüstü 2 Katlı */
+/* Istaka */
 .okey-rack {
     position: absolute;
     bottom: 80px;
     left: 50%;
     transform: translateX(-50%);
-    width: 90%;
-    height: 160px;
-    background: var(--desktop-rack);
-    border-radius: 10px;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    width: 85%;
+    min-height: 140px;
+    background: var(--okey-desktop-rack);
+    border-radius: 12px;
+    box-shadow: 0 15px 30px rgba(0,0,0,0.6);
+    padding: 15px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     gap: 10px;
-    padding: 10px 20px;
-    border-bottom: 10px solid #3d2512;
+    border-bottom: 8px solid #3d2512;
 }
 
-.rack-row {
+.okey-rack-row {
     display: flex;
     justify-content: center;
-    gap: 5px;
+    gap: 6px;
     height: 60px;
 }
 
 /* Taşlar */
-.okey-tile {
-    width: 40px;
-    height: 60px;
-    background: var(--tile-white);
-    border-radius: 5px;
+.okey-tile-premium {
+    width: 42px;
+    height: 62px;
+    background: var(--okey-tile-white);
+    border-radius: 6px;
     color: #333;
     display: flex;
     justify-content: center;
     align-items: center;
     font-weight: bold;
-    font-size: 20px;
-    box-shadow: 0 3px 5px rgba(0,0,0,0.3);
+    font-size: 22px;
+    box-shadow: 0 4px 0 #ccc;
     cursor: pointer;
-    border-bottom: 4px solid #ddd;
+    transition: transform 0.1s;
+}
+.okey-tile-premium:active { transform: translateY(2px); box-shadow: 0 2px 0 #ccc; }
+
+/* Kontrol Paneli */
+.okey-controls-panel {
+    position: absolute;
+    right: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
-/* Butonlar */
-.action-btn {
+.okey-btn {
     background: white;
     color: #333;
     border: none;
-    padding: 8px 15px;
-    border-radius: 5px;
+    padding: 12px 20px;
+    border-radius: 8px;
     font-weight: bold;
     cursor: pointer;
-    box-shadow: 0 4px 0 #ccc;
+    box-shadow: 0 4px 0 #bbb;
+    transition: all 0.2s;
+    min-width: 120px;
 }
-.action-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #ccc; }
+.okey-btn:hover { background: #f0f0f0; }
+.okey-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #bbb; }
 
-.bottom-bar {
+.okey-footer {
     position: absolute;
     bottom: 0;
     width: 100%;
-    height: 50px;
+    height: 60px;
     background: #b30000;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 20px;
+    padding: 0 30px;
 }
 
-/* --- MOBİL YATAY MOD (LANDSCAPE) --- */
+/* ============================================================
+   MOBİL YATAY MOD (LANDSCAPE)
+   ============================================================ */
 @media screen and (max-width: 1024px) and (orientation: landscape) {
-    .okey-app-wrapper {
-        background: var(--landscape-bg) !important;
+    .okey-premium-container {
+        background: var(--okey-landscape-bg) !important;
     }
-
-    .okey-header, .bottom-bar { display: none; } /* Gereksizleri kaldır */
-
-    .okey-game-board {
+    .okey-header, .okey-footer { display: none; }
+    
+    .okey-main-board {
         top: 40%;
         width: 50%;
         height: 40%;
         border: none;
         background-image: none;
     }
+    .okey-avatar { display: none; }
 
     .okey-rack {
-        bottom: 10px !important;
+        bottom: 15px !important;
         height: 80px !important;
-        background: var(--landscape-rack) !important;
-        border-bottom: 5px solid #8b6508 !important;
+        background: var(--okey-landscape-rack) !important;
+        border-bottom: 6px solid #8b6508 !important;
     }
+    .okey-rack-row:nth-child(2) { display: none; } /* Sadece tek sıra */
 
-    .rack-row:nth-child(2) { display: none; } /* Tek sıraya düşür */
-
-    .player-avatar { display: none; } /* Sadece ana oyuncuya odaklan */
-
-    .okey-right-panel {
-        position: absolute;
-        right: 20px;
-        top: 50%;
-        transform: translateY(-50%);
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
+    .okey-controls-panel {
+        right: 20px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
     }
 }
