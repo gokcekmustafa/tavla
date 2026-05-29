@@ -10983,3 +10983,125 @@
   }
 }
 
+/* ==========================================================================
+   MOBİL YATAY GÖRÜNÜM (LANDSCAPE) İYİLEŞTİRME YAMASI
+   Bu bölüm yukarıdaki tüm hatalı cm hesaplamalarını ezer ve ekranı sabitler.
+   ========================================================================== */
+
+@media (orientation: landscape) and (max-width: 1366px) {
+    /* Genel Sayfa Sabitleme */
+    .my-room-view.in-room.my-okey-room-view,
+    .my-okey-room-shell[data-table-active="true"],
+    .my-game-coming-room-shell[data-table-active="true"] {
+        min-height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* Üst Panel (Header) Küçültme */
+    .my-game-coming-room-head {
+        flex: 0 0 auto !important;
+        min-height: 30px !important;
+        padding: 2px 8px !important;
+    }
+
+    /* Oyun Alanı (Board) Boyutlandırma */
+    .my-game-coming-prototype-board {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        max-height: calc(100dvh - 180px) !important; /* Istaka alanı için yer bırak */
+        margin-bottom: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+    }
+
+    .my-game-coming-prototype-board-grid {
+        padding: 0 !important;
+        gap: 2px !important;
+        min-height: 0 !important;
+        height: 100% !important;
+    }
+
+    /* Istaka Alanı (Rack) - En Kritik Kısım */
+    .my-okey-lower-strip,
+    .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        height: 140px !important; /* Sabit yükseklik */
+        background: rgba(0,0,0,0.2);
+        z-index: 100 !important;
+        margin: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-end !important;
+        pointer-events: none !important;
+    }
+
+    /* Istaka Paneli */
+    .my-game-coming-prototype-rack {
+        pointer-events: auto !important;
+        width: 95% !important;
+        max-width: 1100px !important;
+        margin: 0 auto !important;
+        transform: none !important; /* cm bazlı kaydırmaları iptal et */
+        padding: 5px !important;
+        background: linear-gradient(180deg, #9f6a2a, #7b4d1a) !important;
+        border-radius: 8px 8px 0 0 !important;
+    }
+
+    /* Taş Boyutları Yatayda Optimize */
+    .my-game-coming-prototype-rack-slots-row {
+        display: grid !important;
+        grid-template-columns: repeat(16, minmax(0, 1fr)) !important;
+        gap: 2px !important;
+        width: 100% !important;
+    }
+
+    .my-game-coming-prototype-rack-slot,
+    .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
+        width: auto !important;
+        min-width: 0 !important;
+        height: 45px !important; /* Yatayda daha ince taşlar */
+        font-size: 1.1rem !important;
+    }
+
+    /* Istaka Üstü Butonlar (Açma/Kapatma) */
+    .my-okey-rack-top-actions,
+    .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions {
+        position: absolute !important;
+        top: -40px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: auto !important;
+        display: flex !important;
+        gap: 10px !important;
+        pointer-events: auto !important;
+    }
+
+    .my-okey-rack-top-actions .my-action-btn {
+        min-height: 30px !important;
+        font-size: 0.7rem !important;
+        padding: 0 10px !important;
+    }
+
+    /* Orta Alan (Center Surface) Sıkıştırma */
+    .my-okey-center-surface {
+        min-height: 120px !important;
+        max-height: 120px !important;
+    }
+
+    /* Gereksizleri Gizle */
+    .my-okey-quick-side, 
+    .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
+        display: none !important;
+    }
+}
