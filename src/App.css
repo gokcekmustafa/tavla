@@ -10982,3 +10982,155 @@
     padding: 1px 0 !important;
   }
 }
+/* ==========================================================================
+   101 OKEY - PROFESYONEL MOBİL YATAY GÖRÜNÜM (FOTOĞRAF TABANLI TASARIM)
+   ========================================================================== */
+
+@media (orientation: landscape) and (max-width: 1366px) {
+    /* 1. GENEL EKRAN SABİTLEME */
+    body, html {
+        overflow: hidden !important;
+        height: 100dvh !important;
+        background-color: #0a2a40 !important; /* Koyu mavi arka plan */
+    }
+
+    .my-room-view.in-room, 
+    .my-okey-room-shell[data-table-active="true"], 
+    .my-game-coming-room-shell[data-table-active="true"] {
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* 2. ALTIN ISTAKA (RACK) TASARIMI */
+    .my-okey-lower-strip, 
+    .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 120px !important;
+        background: transparent !important;
+        z-index: 1000 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        pointer-events: none !important;
+    }
+
+    .my-game-coming-prototype-rack {
+        pointer-events: auto !important;
+        width: 92% !important; 
+        height: 80px !important;
+        background: linear-gradient(180deg, #fbc44d 0%, #d49a14 100%) !important; /* Fotoğraftaki altın sarısı */
+        border: 3px solid #8b620f !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5), inset 0 2px 5px rgba(255,255,255,0.4) !important;
+        transform: none !important;
+        display: flex !important;
+        align-items: center !important;
+        padding: 0 10px !important;
+    }
+
+    /* Istaka içindeki taşların dizilimi */
+    .my-game-coming-prototype-rack-tiles,
+    .my-game-coming-prototype-rack-slots-row {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        width: 100% !important;
+        gap: 4px !important;
+        background: transparent !important;
+        border: none !important;
+    }
+
+    /* Taşların Görünümü (Beyaz, yuvarlak, gölgeli) */
+    .my-game-coming-prototype-rack-tile, 
+    .my-game-coming-prototype-rack-slot {
+        width: 38px !important;
+        height: 55px !important;
+        background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%) !important;
+        border: 1px solid #ccc !important;
+        border-radius: 6px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+        color: #333 !important;
+        font-size: 1.2rem !important;
+        font-weight: 900 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* 3. YAN YARDIMCI BUTONLAR (Çift Diz / Seri Diz) */
+    .my-okey-rack-top-actions {
+        position: absolute !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        display: flex !important;
+        gap: 10px !important;
+        pointer-events: auto !important;
+        z-index: 1001 !important;
+    }
+
+    /* Butonları sağa ve sola dağıtmak için (Sanal konumlandırma) */
+    .my-okey-rack-top-actions .my-action-btn {
+        background: white !important;
+        color: #0a4d8e !important;
+        border: 2px solid #0a4d8e !important;
+        border-radius: 8px !important;
+        font-weight: 900 !important;
+        text-transform: uppercase !important;
+        box-shadow: 0 4px 0 #06315a !important;
+        min-height: 60px !important;
+        min-width: 80px !important;
+        font-size: 0.8rem !important;
+    }
+
+    /* 4. SAĞ PANEL (İşlem Butonları: Seri Aç, Çift Aç vb.) */
+    .my-game-coming-prototype-board-status {
+        position: fixed !important;
+        right: 20px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        z-index: 1000 !important;
+    }
+
+    .my-game-coming-prototype-board-status .my-action-btn {
+        background: white !important;
+        color: #333 !important;
+        border: 1px solid #bbb !important;
+        border-radius: 4px !important;
+        min-height: 35px !important;
+        font-weight: 800 !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+        text-align: center !important;
+    }
+
+    /* 5. OYUN MASASI VE MERKEZ ALAN */
+    .my-game-coming-prototype-board {
+        height: calc(100dvh - 160px) !important;
+        border: none !important;
+        background: transparent !important;
+    }
+
+    .my-game-coming-prototype-board-grid {
+        padding: 0 !important;
+        margin-top: 20px !important;
+    }
+
+    /* Gereksiz panelleri gizle */
+    .my-okey-quick-side, 
+    .my-okey-left-settings-panel,
+    .my-game-coming-room-head {
+        display: none !important;
+    }
+}
