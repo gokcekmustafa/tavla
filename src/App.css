@@ -11076,4 +11076,66 @@
     visibility: hidden !important;
     pointer-events: none !important;
   }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-room-head,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-room-head {
+    display: flex !important;
+    align-items: center !important;
+    min-height: 24px !important;
+    height: 24px !important;
+    max-height: 24px !important;
+    padding: 0 6px !important;
+    gap: 4px !important;
+    border-radius: 6px !important;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-room-head h3,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-room-head h3 {
+    min-width: 0;
+    font-size: 0.62rem !important;
+    line-height: 1 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-room-head-right,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-room-head-right {
+    height: 24px;
+    min-width: 0;
+    align-items: center !important;
+    gap: 3px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-room-head-right > span,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-room-head-right > span {
+    display: inline-flex;
+    align-items: center;
+    height: 18px;
+    padding: 0 5px !important;
+    font-size: 0.48rem !important;
+    line-height: 1 !important;
+    white-space: nowrap;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-room-head-actions,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-room-head-actions {
+    height: 24px;
+    align-items: center !important;
+    gap: 3px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-room-head-actions .my-action-btn,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-room-head-actions .my-action-btn {
+    min-height: 24px !important;
+    height: 24px !important;
+    max-height: 24px !important;
+    padding: 0 5px !important;
+    border-radius: 6px !important;
+    font-size: 0.56rem !important;
+    line-height: 1 !important;
+    white-space: nowrap;
+  }
 }
