@@ -21039,7 +21039,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           </button>
                           <button
                             type="button"
-                            className="my-action-btn soft"
+                            className="my-action-btn soft my-okey-btn-pair-diz"
                             onClick={arrangeOkeyPrototypeAsPairs}
                             disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
                           >
@@ -21065,7 +21065,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           </button>
                           <button
                             type="button"
-                            className="my-action-btn soft"
+                            className="my-action-btn soft my-okey-btn-seri-diz"
                             onClick={arrangeOkeyPrototypeAsSeries}
                             disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
                           >
@@ -21073,7 +21073,16 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           </button>
                         </div>
                       </div>
-                      <div className="my-game-coming-prototype-rack">
+                      <div className="my-okey-mobile-rack-dock">
+                        <button
+                          type="button"
+                          className="my-action-btn soft my-okey-mobile-rack-dock-btn my-okey-mobile-rack-dock-pair"
+                          onClick={arrangeOkeyPrototypeAsPairs}
+                          disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                        >
+                          {"\u00C7ift Diz"}
+                        </button>
+                        <div className="my-game-coming-prototype-rack">
                       <div className="my-game-coming-prototype-rack-head">
                         <div className="my-okey-rack-score-strip my-okey-rack-score-strip-head" role="status" aria-live="polite" aria-atomic="true">
                           <span>{okeyPrototypeRackScoreLabel}</span>
@@ -21150,9 +21159,18 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             })}
                           </div>
                         ))}
-                      </div>
+                        </div>
 
-                    </div>
+                      </div>
+                        <button
+                          type="button"
+                          className="my-action-btn soft my-okey-mobile-rack-dock-btn my-okey-mobile-rack-dock-series"
+                          onClick={arrangeOkeyPrototypeAsSeries}
+                          disabled={!okeyPrototypeSeatReservation || okeyPrototypeSeatRackTiles.length < 2}
+                        >
+                          Seri Diz
+                        </button>
+                      </div>
 
                     <aside className="my-okey-quick-side">
                       <section className="my-okey-quick-card">
