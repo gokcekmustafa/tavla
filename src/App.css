@@ -11162,4 +11162,42 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
     transform: translateY(0) !important;
   }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
+    grid-template-rows: 20px 142px 36px !important;
+    align-content: start !important;
+    align-items: stretch !important;
+    padding-bottom: 0 !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1 {
+    align-self: start !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    max-height: 24px !important;
+    z-index: 6;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1 header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1 header {
+    height: 24px !important;
+    min-height: 24px !important;
+    max-height: 24px !important;
+    padding: 0 6px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1 .my-game-coming-prototype-board-seat-title,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1 .my-game-coming-prototype-board-seat-title {
+    font-size: 0.62rem !important;
+    line-height: 1 !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
+    transform: translateY(-20px) !important;
+  }
 }
