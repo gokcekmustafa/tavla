@@ -11183,10 +11183,17 @@
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1 header,
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1 header {
+    position: fixed !important;
+    top: calc(env(safe-area-inset-top) + 34px) !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
     height: 24px !important;
     min-height: 24px !important;
     max-height: 24px !important;
+    width: 142px !important;
     padding: 0 6px !important;
+    z-index: 96;
   }
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1 .my-game-coming-prototype-board-seat-title,
