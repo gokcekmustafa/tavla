@@ -9178,129 +9178,1843 @@
   pointer-events: none;
 }
 
-/* =========================================================
-   101 OKEY — MOBILE LANDSCAPE MASTER (referans görsel)
-   Sadece: yatay + dar ekran + dokunmatik
-   Düzen: [skor-sol] [seri-sol] [orta] [durum+deste] [aksiyon-sağ+skor-sağ]
-         alt: ahşap rack, yanlarda ÇİFT DİZ / SERİ DİZ
-   ========================================================= */
-@media (orientation: landscape) and (max-width: 1366px) and (hover: none) {
+/* 101 mobile landscape pass: board + rack fit into one screen */
+@media (orientation: landscape) and (max-width: 1366px) {
+  .my-room-view.my-okey-room-view .my-room-header-strip {
+    display: none;
+  }
 
-  /* 1) Üst başlık çubuğunu gizle, tam ekran kullan */
-  .my-okey-room-view .my-room-header-strip,
+  .my-room-view.in-room.my-okey-room-view {
+    min-height: 100dvh;
+    max-height: 100dvh;
+    padding: 0;
+    gap: 3px;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] {
+    min-height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+    padding: 4px;
+    gap: 0;
+    box-shadow: none;
+    overflow: hidden;
+  }
+
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-room-head {
+    padding: 4px 8px;
+    min-height: 32px;
+    border-radius: 8px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-room-head h3 {
+    font-size: 0.76rem;
+    line-height: 1.08;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-room-head span {
+    font-size: 0.58rem;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-room-head-actions {
+    gap: 4px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-room-head-actions .my-action-btn {
+    min-height: 24px;
+    padding: 0 6px;
+    font-size: 0.58rem;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-reconnect-banner {
+    padding: 3px 7px;
+    border-radius: 7px;
+    font-size: 0.56rem;
+    gap: 4px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-left-settings-panel,
+  .my-okey-room-shell[data-table-active="true"] > .my-chat-card.my-room-chat-card,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-quick-side {
     display: none !important;
   }
-  .my-room-view.in-room.my-okey-room-view,
-  .my-okey-room-shell[data-table-active="true"] {
-    min-height: 100dvh !important;
-    max-height: 100dvh !important;
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-table-main-layout {
+    display: block;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas: "grid" !important;
+    gap: 4px;
+    padding: 0 4px 4px;
+    min-height: calc(100dvh - 160px);
+    max-height: calc(100dvh - 160px);
+    border-radius: 10px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-hint {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
+    position: relative;
+    grid-template-columns: 64px minmax(0, 1fr) 64px !important;
+    grid-template-areas:
+      ". seat-1 ."
+      "seat-4 center seat-2"
+      ". seat-3 ." !important;
+    min-height: 0;
+    padding: 2px 2px 72px;
+    gap: 4px;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-center {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header {
+    width: 142px;
+    min-height: 44px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(171, 224, 199, 0.56);
+    background: linear-gradient(180deg, rgba(6, 97, 71, 0.52), rgba(4, 74, 55, 0.62));
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: nowrap;
+    position: relative;
+    overflow: visible;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.active header {
+    border-color: rgba(247, 224, 114, 0.98);
+    background: linear-gradient(180deg, rgba(38, 131, 68, 0.86), rgba(21, 97, 49, 0.9));
+    box-shadow:
+      0 0 0 1px rgba(255, 235, 132, 0.32) inset,
+      0 0 10px rgba(255, 220, 95, 0.32);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.active .my-okey-seat-name-label {
+    color: #fff9d8;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 header,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 header {
+    width: 44px;
+    min-height: 142px;
+    padding: 4px 3px;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 {
+    transform: translateY(1cm);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 {
+    justify-content: flex-end;
+    padding-right: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 {
+    justify-content: flex-start;
+    padding-left: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
+    transform: translateY(0cm);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #ecfff6;
+    font-size: 0.84rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat-avatar {
+    flex: 0 0 auto;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-seat-name-label {
+    display: inline-block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 .my-game-coming-prototype-board-seat-title,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 .my-game-coming-prototype-board-seat-title {
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 .my-okey-seat-name-label,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 .my-okey-seat-name-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    line-height: 1;
+    letter-spacing: 0.3px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-seat-status {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: 0.56rem;
+    line-height: 1;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-seat-counter {
+    display: none;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-main-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-side-lanes,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface {
+    min-height: 130px;
+    max-height: 130px;
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-area {
+    min-height: 54px;
+    gap: 1px;
+    padding: 2px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-name {
+    font-size: 0.45rem;
+    padding: 1px 3px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-melds {
+    min-height: 24px;
+    max-height: 30px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
+    min-height: 76px;
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column {
+    min-height: 66px;
+    padding: 1px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-title {
+    font-size: 0.42rem;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket {
+    width: 26px;
+    min-height: 35px;
+    max-height: 35px;
+    border-radius: 7px;
+    padding: 1px;
+    gap: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
+    transform: translateY(-2cm);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile {
+    min-width: 24px;
+    height: 33px;
+    font-size: 0.86rem;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pile-card,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-draw-pile-card {
+    display: none;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-draw-pocket {
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
     padding: 0 !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-draw-pocket > span:first-child,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-draw-pile-card > span:first-child {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-indicator-card {
+    min-width: 0;
+    padding: 2px 3px;
+    gap: 1px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-indicator-card > span {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-indicator-card small {
+    display: none;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile {
+    min-width: 22px;
+    height: 30px;
+    font-size: 0.82rem;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status .my-action-btn {
+    min-height: 22px;
+    padding: 0 4px;
+    font-size: 0.5rem;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-lower-strip {
+    margin-top: 3px;
+    grid-template-columns: 1fr;
+    gap: 3px;
+    align-items: start;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    width: 100%;
+    padding: 3px 2px 4px;
+    transform: translateY(-3cm);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
+    margin-bottom: 1px;
+    min-height: 16px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head {
+    top: -24px;
+    right: 4px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-score-strip strong {
+    min-width: 34px;
+    height: 22px;
+    font-size: 0.74rem;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions {
+    width: calc(100% - 8px);
+    max-width: calc(100% - 8px);
+    gap: 0 16px;
+    margin: 0 auto 4px;
+    transform: translateY(-3cm);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child {
+    transform: translateX(14px);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child {
+    transform: translateX(-14px);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
+    min-height: 23px;
+    min-width: 74px;
+    padding: 0 5px;
+    font-size: 0.56rem;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-rows {
+    gap: 2px;
+    margin-top: 2px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
+    padding: 1px;
+    gap: 1px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row {
+    grid-template-columns: repeat(16, 20px) !important;
+    justify-content: center;
+    gap: 1px;
+    overflow-x: hidden !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot {
+    width: 20px;
+    min-width: 20px;
+    max-width: 20px;
+    height: 30px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
+    width: 19px;
+    min-width: 19px;
+    height: 29px;
+    font-size: 0.84rem;
+    line-height: 1;
+    padding: 0;
+  }
+}
+
+/* 101 mobile fallback: hide the old right brown side column on all mobile/tablet widths */
+@media (max-width: 1366px) {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas: "grid" !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status {
+    display: none !important;
+  }
+}
+
+/* 101 seat-local controls: indicator + draw pocket + process buttons above self name area */
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls {
+  display: none !important;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
+  position: relative;
+  overflow: visible;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls {
+  position: absolute;
+  left: max(4px, calc(50% - 168px));
+  bottom: calc(100% + 2px);
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 6px;
+  z-index: 9;
+  pointer-events: auto;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-indicator-card {
+  min-width: 56px;
+  padding: 2px 3px;
+  gap: 1px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-indicator-card > span {
+  display: none;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-indicator-card-tile-wrap {
+  min-height: 30px;
+  justify-content: center;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile {
+  min-width: 24px;
+  height: 34px;
+  font-size: 0.9rem;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket {
+  width: auto;
+  min-width: 46px;
+  min-height: 0;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  display: inline-grid;
+  justify-items: center;
+  gap: 1px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket > span:first-child {
+  display: none !important;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket-stack {
+  width: 30px;
+  height: 40px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket-stack > i {
+  width: 28px;
+  height: 38px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding-bottom: 1px;
+}
+
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn {
+  min-height: 25px;
+  padding: 0 7px;
+  font-size: 0.58rem;
+  white-space: nowrap;
+}
+
+/* Mobile position correction: move rack/actions/name down and align indicator + draw pocket to name-top line */
+@media (max-width: 1366px) {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    transform: translateY(0cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions {
+    transform: translateY(0cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
+    transform: translateY(3cm) !important;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls {
+    bottom: 100%;
+    gap: 5px;
+    align-items: flex-start;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-indicator-card,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket {
+    width: 56px;
+    min-width: 56px;
+    padding: 2px 3px;
+    gap: 1px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket-stack {
+    width: 24px;
+    height: 34px;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket-stack > i {
+    width: 22px;
+    height: 32px;
+    border-radius: 5px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons {
+    transform: translateX(-2mm);
+    gap: 0.5mm !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:first-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:first-child {
+    transform: translate(-2mm, 0.5cm);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(2),
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(2) {
+    transform: translate(-2mm, 0.5cm);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(3),
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(3) {
+    transform: translate(-2mm, 0.5cm);
+  }
+}
+
+/* Mobile/tablet layout: place pair-open area under serial-open area and keep serial melds left-to-right */
+@media (max-width: 1366px) {
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-main-layout,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-main-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) auto !important;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface {
+    grid-row: 1;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-side-lanes,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-side-lanes {
+    grid-row: 2;
+    display: block !important;
+    width: 100%;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-columns,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+    width: 100%;
+    min-height: 84px;
+    height: auto;
+    max-height: none;
+    margin: 0;
+    padding: 2px 2px 2px 3px;
+    row-gap: 2px;
+    column-gap: 0;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column {
+    min-height: 18px;
+    height: auto;
+    padding: 0 1px 0 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 30px;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: center;
+    gap: 2px;
+    border-left: 0;
+    border-top: 1px solid rgba(232, 249, 241, 0.25);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column:first-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column:first-child {
+    border-top: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-title,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-title {
+    grid-column: 2;
+    grid-row: 1;
+    writing-mode: horizontal-tb !important;
+    text-orientation: mixed !important;
+    transform: none !important;
+    font-size: 0.44rem;
+    text-align: right;
+    justify-self: end;
+    align-self: center;
+    padding-left: 2px;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-body,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-body {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5px;
+    min-height: 0;
+    overflow-y: hidden;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-right: 1px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-group,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5px;
+    flex: 0 0 auto;
+    width: auto;
+    max-width: none;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-group .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-group .my-game-coming-prototype-rack-tile {
+    min-width: 9px;
+    width: 9px;
+    height: 13px;
+    padding: 0;
+    font-size: 0.42rem;
+    line-height: 1;
+    border-radius: 2px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-melds,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-melds {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-content: flex-start;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-meld,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-meld {
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: center;
+  }
+}
+
+/* Mobile/tablet player name boxes: reduce short edge by 2mm and keep all seats same size set */
+@media (max-width: 1366px) {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header {
+    width: 142px !important;
+    min-height: calc(44px - 2mm) !important;
+    height: calc(44px - 2mm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 header,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 header {
+    width: calc(44px - 2mm) !important;
+    min-height: 142px !important;
+    height: 142px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-columns,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
+    width: calc(100% + 16mm);
+    margin-left: -8mm;
+    margin-right: -8mm;
+  }
+}
+
+/* Mobile landscape lane order lock:
+   left = seri alanı, middle = gosterge+deste, right = cift alanı */
+@media (orientation: landscape) and (max-width: 1366px) and (max-height: 560px) {
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-main-layout,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-main-layout {
+    grid-template-columns: minmax(0, 1fr) 58px 102px !important;
+    gap: 4px !important;
+    align-items: stretch !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface {
+    grid-column: 1 !important;
+    min-width: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-side-lanes,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-side-lanes {
+    display: contents !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls {
+    grid-column: 2 !important;
+    display: grid !important;
+    align-content: start;
+    justify-items: stretch;
+    gap: 3px !important;
+    min-width: 58px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card {
+    padding: 1px !important;
+    gap: 1px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile {
+    min-width: 22px !important;
+    height: 31px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack {
+    width: 22px !important;
+    height: 31px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack > i,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack > i {
+    width: 20px !important;
+    height: 29px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-columns,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
+    grid-column: 3 !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-rows: none !important;
+    width: 100% !important;
+    min-width: 0;
+    padding: 2px 1px !important;
+    margin: 0 !important;
     gap: 0 !important;
     overflow: hidden !important;
   }
 
-  /* 2) Tablo ana alanı — alta rack için 116px yer bırak */
-  .my-okey-room-shell[data-table-active="true"] .my-okey-table-main-layout {
-    display: block !important;
-    height: calc(100dvh - 116px) !important;
-    padding: 0 !important;
-  }
-
-  /* 3) Yan oyuncu avatarları (seat-2, seat-4) GİZLE — referansta yok,
-        yerine sadece köşe skor rozetleri var (zaten DOM'da var) */
-  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2,
-  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 {
-    display: none !important;
-  }
-
-  /* 4) Board grid — sadece üst (seat-1) ve orta (center) kalsın */
-  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
-    grid-template-columns: 1fr !important;
-    grid-template-areas: "grid" !important;
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column {
+    min-height: 0 !important;
     height: 100% !important;
+    padding: 1px 0 !important;
+  }
+}
+
+/* Mobile landscape: narrow rack by 3cm from left and 3cm from right */
+@media (orientation: landscape) and (max-width: 1366px) and (hover: none) {
+  .my-okey-room-shell[data-table-active="true"] .my-okey-lower-strip,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip {
+    left: calc(4px + 5cm) !important;
+    right: calc(4px + 5cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    width: calc(100% - 10cm) !important;
+    max-width: calc(100% - 10cm) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}
+
+/* Mobile landscape: pair-column names vertical, bottom-to-top */
+@media (orientation: landscape) and (max-width: 1366px) {
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-title,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-title {
+    writing-mode: vertical-rl !important;
+    text-orientation: mixed !important;
+    transform: rotate(180deg) !important;
+    justify-self: center !important;
+    align-self: end !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+}
+
+@media (orientation: landscape) and (max-width: 1366px) {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    width: calc(100% - 10cm) !important;
+    max-width: calc(100% - 10cm) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}
+
+/* Mobile rack cleanup: remove top brown strip above first tile row */
+@media (max-width: 1366px) and (hover: none) and (pointer: coarse) {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    padding-top: 0 !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
+    margin: 0 !important;
     padding: 0 !important;
+    min-height: 0 !important;
+    height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head {
+    position: absolute !important;
+    top: 2px !important;
+    right: 6px !important;
+    margin: 0 !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-rows,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-rows {
+    margin-top: 0 !important;
+  }
+}
+
+/* Fallback for mobile browsers with unexpected pointer/hover reporting */
+@media (max-width: 980px) {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    padding-top: 0 !important;
     border: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
   }
-  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
-    grid-template-columns: 1fr !important;
-    grid-template-areas:
-      "seat-1"
-      "center" !important;
-    grid-template-rows: 38px 1fr !important;
-    gap: 2px !important;
-    padding: 2px !important;
-    height: 100% !important;
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack::before,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack::after,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack::before,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack::after {
+    display: none !important;
   }
 
-  /* 5) Orta alan — 5 kolon: [skor-sol] [seri-sol] [orta-melds] [durum+deste] [aksiyon+skor-sağ] */
-  .my-okey-room-shell[data-table-active="true"] .my-okey-center-main-layout {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head {
+    position: absolute !important;
+    top: 2px !important;
+    right: 6px !important;
+    margin: 0 !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-rows,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-rows {
+    margin-top: 0 !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
+    padding-top: 0 !important;
+  }
+}
+
+/* Desktop-only safety layer: restore desktop layout without touching mobile */
+@media (min-width: 761px) and (hover: hover) and (pointer: fine) {
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-lower-strip,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip {
+    justify-items: center !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-main-layout,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-main-layout {
+    grid-template-columns: minmax(0, 1fr) 198px !important;
+    grid-template-rows: none !important;
+    gap: 4px;
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+    align-items: stretch;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-side-lanes,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-side-lanes {
     display: grid !important;
-    grid-template-columns: 42px minmax(0, 1fr) minmax(0, 1fr) 60px 96px !important;
-    gap: 3px !important;
+    grid-template-columns: 94px minmax(0, 1fr) !important;
+    grid-template-rows: none !important;
+    gap: 4px;
+    min-height: 0;
+    height: 100%;
+    max-height: 100%;
+    overflow: visible;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls {
+    display: grid !important;
+    align-content: start;
+    justify-items: stretch;
+    gap: 4px;
+    min-height: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface {
+    grid-row: auto;
+    width: auto !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    min-height: 0;
+    max-height: none;
+    height: calc(100% + var(--okey-open-meld-extend));
+    margin-bottom: calc(-1 * var(--okey-open-meld-extend));
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-columns,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-rows: none !important;
+    width: auto !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    min-height: 0;
+    height: calc(100% + var(--okey-open-meld-extend));
+    max-height: none;
+    margin-bottom: calc(-1 * var(--okey-open-meld-extend));
+    overflow-y: auto;
+    overflow-x: hidden;
+    align-content: stretch;
+    padding: 3px 2px 4px;
+    gap: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column {
+    min-height: 0;
+    height: 100%;
+    padding: 2px 1px 2px;
+    display: grid;
+    grid-template-columns: none !important;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 2px;
+    border-top: 0;
+    border-left: 1px solid rgba(232, 249, 241, 0.85);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column:first-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column:first-child {
+    border-left: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-title,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-title {
+    grid-column: auto;
+    grid-row: 2;
+    align-self: end;
+    justify-self: center;
+    writing-mode: vertical-rl !important;
+    text-orientation: mixed !important;
+    transform: rotate(180deg) !important;
+    text-align: center;
+    font-size: 0.38rem;
+    line-height: 1;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-body,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-body {
+    grid-column: auto;
+    grid-row: 1;
+    display: grid;
+    align-content: start;
+    justify-items: start;
+    row-gap: 1px;
+    min-height: 0;
+    width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    white-space: normal;
+    padding-right: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-group,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1px;
+    flex: 0 0 auto;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-group .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-group .my-game-coming-prototype-rack-tile {
+    min-width: 10px;
+    width: 10px;
+    height: 16px;
+    padding: 0;
+    font-size: 0.5rem;
+    line-height: 1;
+    border-radius: 2px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
+    transform: translateY(2cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    margin-left: auto !important;
+    margin-right: auto !important;
+    transform: translate(1.5cm, -0.5cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions {
+    width: fit-content !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    grid-template-columns: max-content max-content !important;
+    justify-content: center !important;
+    justify-items: center !important;
+    gap: 0 20px !important;
+    transform: translateY(-0.5cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child {
+    transform: translateX(-1.5cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child {
+    transform: translateX(calc(71px + 2.5cm)) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
+    transform: translateY(1cm) !important;
+  }
+}
+
+/* Mobile-only: make serial open area fit at least 6 meld groups by shrinking meld tiles */
+@media (max-width: 1366px) and (hover: none) and (pointer: coarse) {
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-melds,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-melds {
+    min-height: 42px;
+    max-height: 42px;
+    gap: 1px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-meld,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-meld {
+    gap: 0;
+    padding: 0 1px;
+    border-radius: 4px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-meld .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-meld .my-game-coming-prototype-rack-tile {
+    min-width: 10px;
+    width: 10px;
+    height: 14px;
+    padding: 0;
+    font-size: 0.48rem;
+    line-height: 1;
+  }
+}
+
+/* Mobile landscape stabilizer: keep board + rack readable in one screen without touching desktop */
+@media (orientation: landscape) and (max-width: 1366px) and (hover: none) {
+  .my-room-view.in-room.my-okey-room-view {
+    min-height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell[data-table-active="true"],
+  .my-game-coming-room-shell[data-table-active="true"] {
+    min-height: 100dvh;
+    max-height: 100dvh;
+    padding: 2px 4px 4px;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
+    min-height: calc(100dvh - 176px);
+    max-height: calc(100dvh - 176px);
+    padding: 0 2px 3px;
+    gap: 3px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
+    padding: 2px 2px 64px;
+    gap: 3px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
+    transform: translateY(1.2cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 {
+    transform: translateY(0.5cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface {
+    min-height: 142px;
+    max-height: 142px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-area,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-area {
+    min-height: 58px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
+    transform: translateY(-1.2cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-lower-strip,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip {
+    margin-top: 1px;
+    gap: 2px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    transform: translateY(0) !important;
+    padding: 2px 1px 3px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions {
+    transform: translateY(0) !important;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto 2px;
+    gap: 2px 12px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
+    min-height: 22px;
+    min-width: 72px;
+    font-size: 0.54rem;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row {
+    grid-template-columns: repeat(16, 18px) !important;
+    gap: 1px;
+    justify-content: center;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot {
+    width: 18px;
+    min-width: 18px;
+    max-width: 18px;
+    height: 28px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
+    width: 17px;
+    min-width: 17px;
+    height: 27px;
+    font-size: 0.78rem;
+    padding: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls {
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(100% + 1px);
+    gap: 4px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons {
+    transform: none;
+    gap: 0.5mm !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:first-child,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(2),
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(3),
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:first-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(2),
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-self-seat-inline-buttons .my-action-btn:nth-child(3) {
+    transform: none;
+  }
+}
+
+/* Mobile landscape master layout (reference-like): board first, right control lane, rack fixed bottom */
+@media (orientation: landscape) and (max-width: 1366px) and (hover: none) {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-room-head,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-room-head {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-reconnect-banner,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-reconnect-banner {
+    margin: 2px 4px;
+    padding: 2px 6px;
+    font-size: 0.52rem;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-table-main-layout,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-table-main-layout {
+    display: block !important;
+    min-height: 100%;
+    padding-bottom: 146px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas: "grid" !important;
+    min-height: calc(100dvh - 156px) !important;
+    max-height: calc(100dvh - 156px) !important;
+    padding: 0 2px 2px;
+    gap: 2px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-hint,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-hint {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
+    grid-template-columns: 54px minmax(0, 1fr) 54px !important;
+    grid-template-areas:
+      ". seat-1 ."
+      "seat-4 center seat-2"
+      ". seat-3 ." !important;
+    padding: 2px 0 4px;
+    gap: 3px;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header {
+    width: 126px !important;
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 1px 6px !important;
+    border-radius: 7px;
+    gap: 5px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 header,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 header {
+    width: 34px !important;
+    min-height: 126px !important;
+    height: 126px !important;
+    padding: 3px 2px !important;
+    gap: 4px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 {
+    transform: translateY(0.35cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.self {
+    transform: translateY(0.85cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat-title,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat-title {
+    font-size: 0.72rem !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-seat-status,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-seat-status {
+    font-size: 0.48rem !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-main-layout,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-main-layout {
+    grid-template-columns: minmax(0, 1fr) 168px !important;
+    gap: 4px !important;
+    min-height: 0;
+    height: 100%;
+    align-items: stretch;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface {
+    min-height: 100% !important;
+    max-height: none !important;
     height: 100% !important;
+    padding: 2px !important;
+    gap: 2px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-area,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-area {
+    min-height: 56px !important;
+    padding: 2px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-name,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-name {
+    font-size: 0.46rem !important;
+    padding: 1px 3px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-side-lanes,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-side-lanes {
+    display: grid !important;
+    grid-template-columns: 66px minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 3px !important;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls {
+    display: grid !important;
+    align-content: start;
+    justify-items: stretch;
+    gap: 3px;
+    min-height: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card {
+    min-width: 0;
+    padding: 2px;
+    gap: 1px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card > span,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card > span,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card small,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card small {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile {
+    min-width: 24px;
+    height: 33px;
+    font-size: 0.86rem;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    min-height: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket > span:first-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket > span:first-child {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack {
+    width: 24px;
+    height: 34px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack > i,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack > i {
+    width: 22px;
+    height: 32px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-action-btn,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-action-btn {
+    min-height: 22px;
+    padding: 0 4px;
+    font-size: 0.5rem;
+    line-height: 1;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-columns,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-rows: none !important;
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+    overflow: hidden;
+    padding: 2px 1px 2px 0;
+    margin: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column {
+    grid-template-columns: none !important;
+    grid-template-rows: minmax(0, 1fr) auto;
+    padding: 1px 0;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-title,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-title {
+    font-size: 0.36rem !important;
+    writing-mode: vertical-rl !important;
+    text-orientation: mixed !important;
+    transform: rotate(180deg) !important;
+    justify-self: center;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
+    transform: translateY(-0.95cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-lower-strip,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-lower-strip {
+    position: fixed !important;
+    left: 4px;
+    right: 4px;
+    bottom: 3px;
+    z-index: 45;
+    margin-top: 0 !important;
+    gap: 0 !important;
+    grid-template-columns: 1fr !important;
+    pointer-events: none;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    pointer-events: auto;
+    position: relative;
+    width: 100%;
+    margin: 0;
+    padding: 0 4px 4px !important;
+    border-radius: 8px;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack::before,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack::after,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack::before,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack::after {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
+    margin: 0 !important;
+    min-height: 0;
+    height: 0;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-score-strip-head {
+    position: absolute;
+    top: 1px;
+    right: 4px;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    margin: 0 !important;
+    z-index: 4;
+    pointer-events: none;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-score-strip span,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-score-strip span {
+    display: none;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-score-strip strong,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-score-strip strong {
+    min-width: auto;
+    height: auto;
+    padding: 0 !important;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.84rem;
+    line-height: 1;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-rows,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-rows {
+    margin-top: 0 !important;
+    gap: 2px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
+    margin: 0 !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row {
+    grid-template-columns: repeat(16, 18px) !important;
+    gap: 1px;
+    justify-content: center;
+    overflow: hidden !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot {
+    width: 18px;
+    min-width: 18px;
+    max-width: 18px;
+    height: 27px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
+    width: 17px;
+    min-width: 17px;
+    height: 26px;
+    font-size: 0.76rem;
+    padding: 0;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions {
+    position: fixed !important;
+    inset: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    transform: none !important;
+    z-index: 58;
+    pointer-events: none;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col {
+    display: contents !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
+    position: fixed !important;
+    pointer-events: auto !important;
+    min-height: 36px !important;
+    min-width: 90px !important;
+    padding: 0 8px !important;
+    font-size: 0.7rem !important;
+    border-radius: 12px !important;
+    white-space: nowrap;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child .my-action-btn:nth-child(2),
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child .my-action-btn:nth-child(2),
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child .my-action-btn:nth-child(2),
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child .my-action-btn:nth-child(2) {
+    display: none !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child .my-action-btn:first-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child .my-action-btn:first-child {
+    right: 8px;
+    top: 25vh;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child .my-action-btn:first-child,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child .my-action-btn:first-child {
+    right: 8px;
+    top: calc(25vh + 44px);
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child .my-action-btn:nth-child(3),
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child .my-action-btn:nth-child(3) {
+    left: 8px;
+    bottom: 58px;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child .my-action-btn:nth-child(3),
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:last-child .my-action-btn:nth-child(3) {
+    right: 8px;
+    bottom: 58px;
+  }
+}
+
+/* FINAL override (mobile landscape only):
+   left = seri alanı, middle = gosterge+deste, right = cift alanı */
+@media (orientation: landscape) and (max-width: 1366px) and (max-height: 560px) {
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-main-layout,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-main-layout {
+    grid-template-columns: minmax(0, 1fr) 58px 102px !important;
+    gap: 4px !important;
     align-items: stretch !important;
   }
 
-  /* 6) Sol skor rozeti şeridi (101) — eğer ayrı container'ın varsa adını
-        burada eşleştir; yoksa şimdilik seat-4 score yerleşimi otomatik dolar */
-  .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface {
-    grid-column: 2 / 4 !important;   /* seri-sol + orta birleşik tahta */
-    min-width: 0 !important;
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface {
+    grid-column: 1 !important;
+    min-width: 0;
   }
 
-  /* 7) Durum pilleri + deste/atılan kolonu (Tek/Yardımlı/Katlamalı/1 El + 10 + 19 + 68) */
-  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls {
-    grid-column: 4 !important;
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-side-lanes,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-side-lanes {
+    display: contents !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls {
+    grid-column: 2 !important;
     display: grid !important;
-    align-content: start !important;
+    align-content: start;
+    justify-items: stretch;
     gap: 3px !important;
-    min-width: 60px !important;
+    min-width: 58px;
   }
 
-  /* 8) Sağ aksiyon kolonu (SERİ AÇ / ÇİFT AÇ / GERİ TOPLA / TAŞLARI İŞLE) */
-  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
-    grid-column: 5 !important;
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card {
+    padding: 1px !important;
+    gap: 1px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile {
+    min-width: 22px !important;
+    height: 31px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack {
+    width: 22px !important;
+    height: 31px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack > i,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket-stack > i {
+    width: 20px !important;
+    height: 29px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-columns,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
+    grid-column: 3 !important;
     display: grid !important;
-    grid-template-columns: 1fr !important;
-    grid-auto-rows: min-content !important;
-    gap: 4px !important;
-    padding: 2px !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-rows: none !important;
+    width: 100% !important;
+    min-width: 0;
+    padding: 2px 1px !important;
     margin: 0 !important;
+    gap: 0 !important;
     overflow: hidden !important;
   }
-  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column {
-    min-height: 0 !important;
-    height: auto !important;
-    padding: 2px !important;
-  }
-  /* Aksiyon butonlarını dikey yaz (referanstaki gibi) */
-  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-title {
-    writing-mode: horizontal-tb !important;
-    transform: none !important;
-    font-size: 0.6rem !important;
-    text-align: center !important;
-  }
 
-  /* 9) ALT RACK — sabit, tam genişlik, yanlarda ÇİFT DİZ / SERİ DİZ butonu */
-  .my-okey-room-shell[data-table-active="true"] .my-okey-lower-strip {
-    position: fixed !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    height: 112px !important;
-    padding: 0 84px !important;  /* 84px = yan butonların oturduğu boşluk */
-    z-index: 50;
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column {
+    min-height: 0 !important;
+    height: 100% !important;
+    padding: 1px 0 !important;
   }
-  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding-top: 0 !important;
-  }
-  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-head {
-    display: none !important;  /* üstteki kahverengi şerit gizle */
-  }
+}
+/* ==========================================================================
+   BUTON KONUMLANDIRMA - ISTAKA YANLARI
+   ========================================================================== */
+
+@media (orientation: landscape) and (max-width: 1366px) {
+    /* Butonların içinde bulunduğu kapsayıcıyı ıstaka ile aynı merkeze getir */
+    .my-okey-rack-top-actions {
+        position: absolute !important;
+        left: 50% !important;
+        top: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        width: 92% !important; /* Istaka genişliğiyle aynı (approx) */
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        pointer-events: none !important; /* Altındaki ıstakaya tıklanabilsin diye */
+        z-index: 1001 !important;
+    }
+
+    /* Butonların genel ayarları */
+    .my-okey-rack-top-actions .my-action-btn {
+        position: absolute !important;
+        pointer-events: auto !important; /* Butonlar tıklanabilir olsun */
+        margin: 0 !important;
+    }
+
+    /* ÇİFT DİZ BUTONU: Istakanın soluna it */
+    .my-okey-rack-top-actions .my-action-btn:nth-child(1) {
+        left: -95px !important; /* Buton genişliği kadar sola itiyoruz */
+    }
+
+    /* SERİ DİZ BUTONU: Istakanın sağına it */
+    .my-okey-rack-top-actions .my-action-btn:nth-child(2) {
+        right: -95px !important; /* Buton genişliği kadar sağa itiyoruz */
+    }
 }
