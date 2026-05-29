@@ -11165,9 +11165,10 @@
 
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid,
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
-    grid-template-rows: 20px 142px 36px !important;
+    grid-template-rows: 0 142px 36px !important;
     align-content: start !important;
     align-items: stretch !important;
+    gap: 0 !important;
     padding-bottom: 0 !important;
   }
 
@@ -11198,6 +11199,8 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
-    transform: translateY(-20px) !important;
+    top: 126px !important;
+    bottom: auto !important;
+    transform: translateY(0) !important;
   }
 }
