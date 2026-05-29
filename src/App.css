@@ -10982,39 +10982,3 @@
     padding: 1px 0 !important;
   }
 }
-/* ==========================================================================
-   BUTON KONUMLANDIRMA - ISTAKA YANLARI
-   ========================================================================== */
-
-@media (orientation: landscape) and (max-width: 1366px) {
-    /* Butonların içinde bulunduğu kapsayıcıyı ıstaka ile aynı merkeze getir */
-    .my-okey-rack-top-actions {
-        position: absolute !important;
-        left: 50% !important;
-        top: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        width: 92% !important; /* Istaka genişliğiyle aynı (approx) */
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-        pointer-events: none !important; /* Altındaki ıstakaya tıklanabilsin diye */
-        z-index: 1001 !important;
-    }
-
-    /* Butonların genel ayarları */
-    .my-okey-rack-top-actions .my-action-btn {
-        position: absolute !important;
-        pointer-events: auto !important; /* Butonlar tıklanabilir olsun */
-        margin: 0 !important;
-    }
-
-    /* ÇİFT DİZ BUTONU: Istakanın soluna it */
-    .my-okey-rack-top-actions .my-action-btn:nth-child(1) {
-        left: -95px !important; /* Buton genişliği kadar sola itiyoruz */
-    }
-
-    /* SERİ DİZ BUTONU: Istakanın sağına it */
-    .my-okey-rack-top-actions .my-action-btn:nth-child(2) {
-        right: -95px !important; /* Buton genişliği kadar sağa itiyoruz */
-    }
-}
