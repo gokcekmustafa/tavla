@@ -11509,4 +11509,75 @@
     border: 1px solid rgba(146, 186, 208, 0.35) !important;
     background: linear-gradient(180deg, #0c4060, #082c43) !important;
   }
+
+  /* Player seat chips: navy rounded chips with light frame; gold when it's their turn. */
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat header {
+    border: 1px solid rgba(176, 211, 230, 0.5) !important;
+    border-radius: 999px !important;
+    background: linear-gradient(180deg, rgba(16, 66, 94, 0.92), rgba(9, 40, 60, 0.94)) !important;
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 header,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 header {
+    border-radius: 22px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.active header,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-seat.active header {
+    border-color: rgba(247, 224, 114, 0.98) !important;
+    background: linear-gradient(180deg, rgba(36, 110, 150, 0.95), rgba(18, 74, 104, 0.96)) !important;
+    box-shadow:
+      0 0 0 1px rgba(255, 235, 132, 0.35) inset,
+      0 0 12px rgba(255, 220, 95, 0.35) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-seat-name-label,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-seat-name-label {
+    color: #eaf6ff !important;
+  }
+
+  /* Small card-stack icons on the open/process action buttons. */
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col > button,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col > button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col > button::before,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col > button::before {
+    content: "" !important;
+    flex: 0 0 auto !important;
+    width: 10px !important;
+    height: 13px !important;
+    margin-right: 3px !important;
+    border-radius: 2px !important;
+    border: 1px solid rgba(18, 44, 60, 0.6) !important;
+    background:
+      radial-gradient(circle at 50% 72%, #d23b3b 0 1.4px, transparent 1.9px),
+      #f6fbff !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:nth-child(1) > button::before,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:nth-child(1) > button::before {
+    box-shadow:
+      3px -3px 0 -1px #f6fbff,
+      3px -3px 0 0 rgba(18, 44, 60, 0.6) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:nth-child(2) > button::before,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:nth-child(2) > button::before {
+    box-shadow:
+      3px -3px 0 -1px #f6fbff,
+      3px -3px 0 0 rgba(18, 44, 60, 0.6),
+      6px -6px 0 -1px #f6fbff,
+      6px -6px 0 0 rgba(18, 44, 60, 0.6) !important;
+  }
 }
