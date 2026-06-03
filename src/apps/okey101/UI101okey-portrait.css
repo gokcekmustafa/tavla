@@ -425,7 +425,7 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-btn-geri-topla,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-btn-geri-topla {
     position: relative !important;
-    top: calc(-4mm * var(--okey-proto-tile-scale, 1)) !important;
+    top: calc(-4mm * var(--okey-proto-tile-scale, 1) - 2cm) !important;
     left: calc(-7mm * var(--okey-proto-tile-scale, 1)) !important;
     display: inline-flex !important;
     align-items: center !important;
