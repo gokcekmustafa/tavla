@@ -44,15 +44,15 @@
     overflow: visible !important;
   }
 
-  /* El açma alanı — tek kolon: tüm gruplar alt alta, oyuncu isminin altından başlar */
+  /* El açma alanı — column wrap: üsten alta doldur, sonra yan kolona geç */
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-melds {
     display: flex !important;
-    flex-direction: column !important;
+    flex-flow: column wrap !important;
     align-items: flex-start !important;
-    gap: 2px !important;
-    min-height: calc(150px * var(--okey-proto-tile-scale, 1)) !important;
+    align-content: flex-start !important;
+    gap: 2px 6px !important;
     max-height: calc(180px * var(--okey-proto-tile-scale, 1)) !important;
-    overflow-y: auto !important;
+    overflow: visible !important;
   }
 
   /* Çift açma alanını kaldır — her şey el açma alanında görünsün */
