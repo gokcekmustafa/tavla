@@ -14034,6 +14034,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       });
       return protectedIds;
     };
+    const isOkeyJokerInValidRackMeldGroup = (tileId: string) => {
+      if (seatNo !== okeyPrototypeSeatNoForRack) return false;
+      if (!okeyPrototypeSeatRackSlots || okeyPrototypeSeatRackSlots.length === 0) return false;
+      const workingRackIds = new Set(workingRack.map((t) => t.id));
+      return okeyPrototypeRackValidMeldGroups.some((group) => {
+        if (group.tiles.length < 3) return false;
+        if (!group.tiles.some((t) => t.id === tileId)) return false;
+        if (!group.tiles.every((t) => workingRackIds.has(t.id))) return false;
+        return areOkeyPrototypeTilesAdjacentInSlotOrder(group.tiles, okeyPrototypeSeatRackSlots);
+      });
+    };
     let guard = 0;
     while (guard < 80) {
       guard += 1;
@@ -14076,6 +14087,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
           if (kind === "set" && !okeyPrototypePairProcessTargetSeatNoSet.has(meld.seatNo)) return false;
           if (!canProcessOkeyPrototypeMeldByKind(kind, meld, okeyPrototypeSeatOpenModes)) return false;
           if (kind === "set" && isOkeyPrototypePairMeldExpansionBlocked(meld, okeyPrototypeSeatOpenModes)) return false;
+          if (kind === "seri" && okeyPrototypePairProcessTargetSeatNos.length > 0 && isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile) && meld.kind === "seri" && !isOkeyJokerInValidRackMeldGroup(tile.id)) return false;
           const validation = canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile);
           return validation.valid;
         });
