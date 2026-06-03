@@ -20614,12 +20614,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         ⚙️
                       </button>
                       <button
-                        className="my-action-btn soft my-okey-mobile-panel-btn"
+                        className="my-action-btn"
                         type="button"
                         onClick={() => setOkeyPrototypeActiveMobilePanel((current) => current === "chat" ? null : "chat")}
-                        aria-label="Sohbet"
+                        style={{background:"linear-gradient(180deg,#e8870e,#c06d0a)",border:"1px solid rgba(255,200,100,0.4)",color:"#fff"}}
                       >
-                        💬
+                        Sohbet
                       </button>
                     </div>
                   ) : null}
