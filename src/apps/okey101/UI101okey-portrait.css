@@ -132,6 +132,15 @@
     display: none !important;
   }
 
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-surface {
+    min-height: auto !important;
+    max-height: none !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-area {
+    min-height: auto !important;
+  }
+
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-board {
     overflow: visible !important;
   }
