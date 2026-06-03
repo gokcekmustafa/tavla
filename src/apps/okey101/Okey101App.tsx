@@ -21181,14 +21181,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 />
                               ) : null}
                             </header>
-                            {isLocalSeat ? (
-                              <div className="my-okey-rack-score-strip my-okey-rack-score-strip-head" role="status" aria-live="polite" aria-atomic="true">
-                                <span>{okeyPrototypeRackScoreLabel}</span>
-                                <strong title={okeyPrototypeRackScoreTitle}>
-                                  {okeyPrototypeRackScoreValue}
-                                </strong>
-                              </div>
-                            ) : null}
                           </article>
                         );
                       })}
@@ -21325,6 +21317,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         </button>
                       </div>
                       <div className="my-okey-mobile-rack-dock">
+                        <div className="my-okey-rack-score-strip-wrap">
+                        <div className="my-okey-rack-score-strip my-okey-rack-score-strip-head" role="status" aria-live="polite" aria-atomic="true">
+                          <span>{okeyPrototypeRackScoreLabel}</span>
+                          <strong title={okeyPrototypeRackScoreTitle}>
+                            {okeyPrototypeRackScoreValue}
+                          </strong>
+                        </div>
+                        </div>
                         <button
                           type="button"
                           className="my-action-btn soft my-okey-mobile-rack-dock-btn my-okey-mobile-rack-dock-pair"

@@ -1,23 +1,15 @@
 /* 101 Okey — Dikey (Portrait) görsel override'ları
    Hem my-okey-room-shell hem my-game-coming-room-shell için (:is ile) */
 
-/* Score strip in self-seat: normal flow in landscape/desktop */
-:is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-board-seat.self .my-okey-rack-score-strip-head {
-  position: static !important;
+/* Score strip in rack dock */
+:is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-mobile-rack-dock .my-okey-rack-score-strip-head {
   display: flex !important;
   align-items: center !important;
   gap: 3px !important;
   line-height: 1 !important;
   width: auto !important;
-  justify-content: center !important;
-  z-index: auto !important;
+  z-index: 999 !important;
   pointer-events: auto !important;
-  margin: 2mm 0 0 !important;
-  top: auto !important;
-  left: auto !important;
-  right: auto !important;
-  bottom: auto !important;
-  transform: none !important;
 }
 
 @media (orientation: portrait) {
@@ -120,7 +112,7 @@
 
   /* Oyuncu isim kutusu — ıstakanın üstünde 1cm yukarı */
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-board-seat.self header {
-    margin-top: calc(-1cm * var(--okey-proto-tile-scale, 1) - 14mm * var(--okey-proto-tile-scale, 1)) !important;
+    margin-top: calc((-1cm - 10mm) * var(--okey-proto-tile-scale, 1)) !important;
   }
 
 
@@ -142,18 +134,29 @@
     pointer-events: none !important;
   }
 
-  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-board-seat.self .my-okey-rack-score-strip-head {
-    position: absolute !important;
-    left: 50% !important;
-    top: calc(-1cm * var(--okey-proto-tile-scale, 1) - 14mm * var(--okey-proto-tile-scale, 1) + 44px * var(--okey-proto-tile-scale, 1) + 2mm * var(--okey-proto-tile-scale, 1)) !important;
-    transform: translateX(-50%) !important;
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-mobile-rack-dock {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 4px !important;
+    width: 100% !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-mobile-rack-dock .my-okey-rack-score-strip-wrap {
     display: flex !important;
     align-items: center !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-mobile-rack-dock .my-okey-rack-score-strip-head {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
     gap: 3px !important;
     line-height: 1 !important;
     width: auto !important;
     z-index: 999 !important;
     pointer-events: auto !important;
+    padding: 0 4px 2px !important;
   }
 
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-score-strip-head span {
@@ -425,8 +428,8 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-btn-geri-topla,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-btn-geri-topla {
     position: relative !important;
-    top: calc(-4mm * var(--okey-proto-tile-scale, 1) - 2cm) !important;
-    left: calc(-7mm * var(--okey-proto-tile-scale, 1)) !important;
+    top: calc(-4mm * var(--okey-proto-tile-scale, 1) - 2cm + 5mm + 2mm - 1mm) !important;
+    left: calc(-7mm * var(--okey-proto-tile-scale, 1) + 3mm + 1mm) !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -448,7 +451,14 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket {
     position: relative !important;
-    left: calc(-13mm * var(--okey-proto-tile-scale, 1)) !important;
+    left: calc(-13mm * var(--okey-proto-tile-scale, 1) + 3mm + 4mm) !important;
+    top: calc(-1.5cm) !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-indicator-card,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-indicator-card {
+    position: relative !important;
+    top: calc(-1.5cm) !important;
   }
 
   /* 3'lü buton grubu (Geri Topla / Seri İşle / Çift İşle) — göstergeden bağımsız,
