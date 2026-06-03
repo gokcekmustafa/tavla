@@ -5244,7 +5244,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const [okeyPrototypeSeatPenaltyTotals, setOkeyPrototypeSeatPenaltyTotals] = useState<Record<OkeyPrototypeSeatNo, number>>(() => createDefaultOkeyPrototypeSeatWinState());
   const [okeyPrototypeDrawHandCount, setOkeyPrototypeDrawHandCount] = useState(0);
   const [okeyPrototypeLastHandSummary, setOkeyPrototypeLastHandSummary] = useState("");
-  const [okeyPrototypeScorePopupVisible, setOkeyPrototypeScorePopupVisible] = useState(false);
   const [okeyPrototypeScorePanelOpen, setOkeyPrototypeScorePanelOpen] = useState(false);
   const [okeyPrototypeActiveMobilePanel, setOkeyPrototypeActiveMobilePanel] = useState<"options" | "chat" | "score" | null>(null);
   const [okeyPrototypePenaltyBubble, setOkeyPrototypePenaltyBubble] = useState<{
@@ -5254,7 +5253,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const [okeyPrototypeSeatOpenNotices, setOkeyPrototypeSeatOpenNotices] = useState<Record<OkeyPrototypeSeatNo, string | null>>(
     () => createDefaultOkeyPrototypeSeatOpenNotices(),
   );
-  const okeyPrototypeScorePopupTimeoutRef = useRef<number | null>(null);
   const okeyPrototypePenaltyBubbleTimeoutRef = useRef<number | null>(null);
   const okeyPrototypePrevSeatOpenedStateRef = useRef<OkeyPrototypeSeatOpenedState>(createDefaultOkeyPrototypeSeatOpenedState());
   const okeyPrototypeSeatOpenNoticesReadyRef = useRef(false);
@@ -5351,28 +5349,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     };
   }, [isTavlaSelectedGame, okeyPrototypeSeatReservation, viewMode]);
   useEffect(() => {
-    if (!okeyPrototypeLastHandSummary || !okeyPrototypeSeatReservation) {
-      setOkeyPrototypeScorePopupVisible(false);
-      if (okeyPrototypeScorePopupTimeoutRef.current !== null) {
-        window.clearTimeout(okeyPrototypeScorePopupTimeoutRef.current);
-        okeyPrototypeScorePopupTimeoutRef.current = null;
-      }
-      return;
-    }
-    setOkeyPrototypeScorePopupVisible(true);
-    if (okeyPrototypeScorePopupTimeoutRef.current !== null) {
-      window.clearTimeout(okeyPrototypeScorePopupTimeoutRef.current);
-    }
-    okeyPrototypeScorePopupTimeoutRef.current = window.setTimeout(() => {
-      setOkeyPrototypeScorePopupVisible(false);
-      okeyPrototypeScorePopupTimeoutRef.current = null;
-    }, 5600);
-  }, [
-    okeyPrototypeLastHandSummary,
-    okeyPrototypeSeatReservation,
-    okeyPrototypeSessionHandNo,
-  ]);
-  useEffect(() => {
     if (okeyPrototypeSeatReservation) return;
     setOkeyPrototypeScorePanelOpen(false);
     setOkeyPrototypePenaltyBubble(null);
@@ -5386,9 +5362,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }, [okeyPrototypeSeatReservation]);
   useEffect(() => {
     return () => {
-      if (okeyPrototypeScorePopupTimeoutRef.current !== null) {
-        window.clearTimeout(okeyPrototypeScorePopupTimeoutRef.current);
-      }
       if (okeyPrototypePenaltyBubbleTimeoutRef.current !== null) {
         window.clearTimeout(okeyPrototypePenaltyBubbleTimeoutRef.current);
       }
@@ -20619,17 +20592,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         className="my-action-btn soft"
                         type="button"
                         onClick={() => {
-                          setOkeyPrototypeScorePanelOpen((current) => {
-                            const next = !current;
-                            if (!next) {
-                              setOkeyPrototypeScorePopupVisible(false);
-                              if (okeyPrototypeScorePopupTimeoutRef.current !== null) {
-                                window.clearTimeout(okeyPrototypeScorePopupTimeoutRef.current);
-                                okeyPrototypeScorePopupTimeoutRef.current = null;
-                              }
-                            }
-                            return next;
-                          });
+                          setOkeyPrototypeScorePanelOpen((current) => !current);
+                          setOkeyPrototypeActiveMobilePanel((current) => current === "score" ? null : "score");
                         }}
                         aria-pressed={okeyPrototypeScorePanelOpen}
                       >
@@ -20651,14 +20615,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       >
                         💬
                       </button>
-                      <button
-                        className="my-action-btn soft my-okey-mobile-panel-btn"
-                        type="button"
-                        onClick={() => setOkeyPrototypeActiveMobilePanel((current) => current === "score" ? null : "score")}
-                        aria-label="Puan tablosu"
-                      >
-                        📊
-                      </button>
+
                       <button
                         className="my-action-btn danger"
                         type="button"
@@ -21586,43 +21543,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                   {okeyPrototypePenaltyBubble ? (
                     <div className="my-okey-penalty-bubble" role="status" aria-live="polite" aria-atomic="true">
                       <strong>{okeyPrototypePenaltyBubble.text}</strong>
-                    </div>
-                  ) : null}
-
-                  {(okeyPrototypeScorePopupVisible || okeyPrototypeScorePanelOpen) ? (
-                    <div className="my-okey-score-popup" role="status" aria-live="polite" aria-atomic="true">
-                      <section className="my-okey-quick-card">
-                        <h4>Tabela</h4>
-                        <div className="my-okey-quick-score-list">
-                          {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
-                            <p key={`popup-score-${seatNo}`}>
-                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || "Bos"}</span>
-                              <strong>{okeyPrototypeSeatHandWins[seatNo] ?? 0}</strong>
-                            </p>
-                          ))}
-                        </div>
-                        <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
-                          {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
-                            <p key={`popup-penalty-${seatNo}`}>
-                              <span>{okeyPrototypeSeatDisplayNames[seatNo] || "Bos"} ceza</span>
-                              <strong>{okeyPrototypeSeatPenaltyTotals[seatNo] ?? 0}</strong>
-                            </p>
-                          ))}
-                        </div>
-                        {okeyPrototypeGameOptions.teamedPlay ? (
-                          <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
-                            {okeyPrototypeTeamRows.map((team) => (
-                              <p key={`popup-team-penalty-${team.id}`}>
-                                <span>{team.displayLabel} ceza</span>
-                                <strong>{team.penalty}</strong>
-                              </p>
-                            ))}
-                          </div>
-                        ) : null}
-                        {okeyPrototypeLastHandSummary ? (
-                          <p className="my-okey-quick-last-summary">{okeyPrototypeLastHandSummary}</p>
-                        ) : null}
-                      </section>
                     </div>
                   ) : null}
 
