@@ -44,16 +44,18 @@
     overflow: visible !important;
   }
 
-  /* El açma alanı — column wrap: üsten alta doldur, sonra yan kolona geç */
+  /* El açma alanı — tüm taşlar (seri+çift) aynı akışta, oyuncu isminin altından başlar */
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-melds {
     display: flex !important;
-    flex-flow: column wrap !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
     align-items: flex-start !important;
     align-content: flex-start !important;
-    gap: 2px 6px !important;
-    min-height: calc(40px * var(--okey-proto-tile-scale, 1)) !important;
-    max-height: calc(310px * var(--okey-proto-tile-scale, 1)) !important;
-    overflow: visible !important;
+    gap: 2px 4px !important;
+    min-height: calc(180px * var(--okey-proto-tile-scale, 1)) !important;
+    max-height: calc(250px * var(--okey-proto-tile-scale, 1)) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     padding-right: 2px !important;
   }
 
@@ -65,25 +67,12 @@
   /* Tüm meld grup kapları — çerçeve/arkaplan yok */
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-meld {
     display: inline-flex !important;
+    align-items: center !important;
     gap: 1px !important;
     padding: 0 !important;
     background: transparent !important;
     border-radius: 0 !important;
     border: none !important;
-    margin-bottom: calc(2px * var(--okey-proto-tile-scale, 1)) !important;
-  }
-
-  /* Çift gruplar: taşlar alt alta */
-  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-meld.kind-cift {
-    flex-direction: column !important;
-    align-items: center !important;
-  }
-
-  /* Seri gruplar: taşlar yan yana */
-  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-meld:not(.kind-cift) {
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    align-items: center !important;
   }
 
   /* Tüm el açma alanı taşları */
