@@ -20573,17 +20573,27 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
               style={{ "--okey-proto-tile-scale": String(okeyPrototypeTileScale) } as CSSProperties}
             >
               <div className="my-game-coming-room-head">
-                <h3>
-                  {okeyPrototypeJoinedTable
-                    ? `${activeLobbyName} / Masa ${okeyPrototypeJoinedTable.tableNo}`
-                    : "101 Okey Masasi"}
-                </h3>
+                <div className="my-okey-room-head-left">
+                  <h3>
+                    {okeyPrototypeJoinedTable
+                      ? `${activeLobbyName} / Masa ${okeyPrototypeJoinedTable.tableNo}`
+                      : "101 Okey Masasi"}
+                  </h3>
+                  {okeyPrototypeSeatReservation ? (
+                    <div className="my-okey-room-head-left-actions">
+                      <button className="my-action-btn" type="button" onClick={goToLobbyFromTableView}
+                        style={{background:"linear-gradient(180deg,#e8870e,#c06d0a)",border:"1px solid rgba(255,200,100,0.4)",color:"#fff"}}>
+                        Lobi
+                      </button>
+                      <button className="my-action-btn danger" type="button" onClick={() => leaveOkeyPrototypeSeat("Masadan kalkıldı")}>
+                        Kalk
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
                 <div className="my-okey-room-head-right">
                   {okeyPrototypeSeatReservation ? (
                     <div className="my-okey-room-head-actions">
-                      <button className="my-action-btn soft" type="button" onClick={goToLobbyFromTableView}>
-                        Lobi
-                      </button>
                       <button
                         className="my-action-btn soft"
                         type="button"
@@ -20610,14 +20620,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         aria-label="Sohbet"
                       >
                         💬
-                      </button>
-
-                      <button
-                        className="my-action-btn danger"
-                        type="button"
-                        onClick={() => leaveOkeyPrototypeSeat("Masadan kalkıldı")}
-                      >
-                        Kalk
                       </button>
                     </div>
                   ) : null}

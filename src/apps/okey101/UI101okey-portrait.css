@@ -1,6 +1,25 @@
 /* 101 Okey — Dikey (Portrait) görsel override'ları
    Hem my-okey-room-shell hem my-game-coming-room-shell için (:is ile) */
 
+/* Room head left: masa ismi + lobi/kalk butonlari */
+:is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-room-head-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+:is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-room-head-left h3 {
+  margin: 0;
+  min-width: 0;
+}
+:is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-room-head-left-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 /* Score strip in rack — her modda rack'in icinde */
 :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head {
   display: flex !important;
