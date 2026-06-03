@@ -112,7 +112,7 @@
 
   /* Oyuncu isim kutusu — ıstakanın üstünde 1cm yukarı */
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-board-seat.self header {
-    margin-top: calc((-1cm - 10mm) * var(--okey-proto-tile-scale, 1)) !important;
+    margin-top: calc((-1cm - 9mm) * var(--okey-proto-tile-scale, 1)) !important;
   }
 
   /* Score strip — rack'in ust kenarina yapismis, absolute */
@@ -123,8 +123,8 @@
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head {
     position: absolute !important;
     left: 50% !important;
-    transform: translateX(-50%) !important;
-    top: calc(-1 * var(--okey-proto-tile-scale, 1) * 8px) !important;
+    transform: translateX(calc(-50% + 1.5cm + 1mm + 1mm + 1mm)) !important;
+    top: calc(-1 * var(--okey-proto-tile-scale, 1) * 8px - 4mm) !important;
     display: flex !important;
     align-items: center !important;
     gap: 3px !important;
@@ -365,18 +365,20 @@
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-pair-diz {
     position: absolute !important;
     left: calc(10% - 1.5cm * var(--okey-proto-tile-scale, 1)) !important;
-    bottom: calc(-1mm * var(--okey-proto-tile-scale, 1)) !important;
+    bottom: calc(-3mm * var(--okey-proto-tile-scale, 1)) !important;
     font-size: calc(13.5px * var(--okey-proto-tile-scale, 1)) !important;
     z-index: 999 !important;
+    height: calc(28.8px * var(--okey-proto-tile-scale, 1)) !important;
   }
 
   /* Seri Diz — sağ alt, rack-top-actions'a göre absolute (ıstaka üst kenarı) */
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-diz {
     position: absolute !important;
     right: calc(10% - 1.5cm * var(--okey-proto-tile-scale, 1)) !important;
-    bottom: calc(-1mm * var(--okey-proto-tile-scale, 1)) !important;
+    bottom: calc(-3mm * var(--okey-proto-tile-scale, 1)) !important;
     font-size: calc(13.5px * var(--okey-proto-tile-scale, 1)) !important;
     z-index: 999 !important;
+    height: calc(28.8px * var(--okey-proto-tile-scale, 1)) !important;
   }
 
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle {
