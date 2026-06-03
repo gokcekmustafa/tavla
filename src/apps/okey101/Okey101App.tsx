@@ -12286,10 +12286,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         ...current,
         [localSeatNo]: (current[localSeatNo] ?? 0) + OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS,
       }));
-      if (discardPickTile) {
+      if (discardPickTile && pickup) {
+        const pickupSourceEntry = pickup.sourceEntry;
+        const pickedTileId = pickup.pickedTileId;
         setOkeyPrototypeDiscardPile((current) => {
-          if (current.some((entry) => entry.id === pickup.sourceEntry.id)) return current;
-          return [pickup.sourceEntry, ...current].slice(0, 40);
+          if (current.some((entry) => entry.id === pickupSourceEntry.id)) return current;
+          return [pickupSourceEntry, ...current].slice(0, 40);
         });
         setOkeyPrototypeTurnPhase("draw");
         setOkeyPrototypeTurnHasDrawn(false);
@@ -12297,11 +12299,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         setOkeyPrototypeDiscardDraftTileId("");
         setOkeyPrototypeLastDrawnTileId("");
         setOkeyPrototypeFinalWallDrawSeat(null);
-        setOkeyPrototypeMeldDraftTileIds((current) => current.filter((tileId) => tileId !== pickup.pickedTileId));
+        setOkeyPrototypeMeldDraftTileIds((current) => current.filter((tileId) => tileId !== pickedTileId));
         setOkeyPrototypePendingDiscardPickup(null);
         appendOkeyPrototypeAction(
           `Tahtadaki taslar geri toplandi. ${OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS} ceza eklendi. `
-          + `Ortadan alinan tas geri birakildi: ${formatOkeyPrototypeTile(pickup.sourceEntry.tile)}`
+          + `Ortadan alinan tas geri birakildi: ${formatOkeyPrototypeTile(pickupSourceEntry.tile)}`
         );
       } else {
         appendOkeyPrototypeAction(`Tahtadaki taslar geri toplandi. ${OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS} ceza eklendi.`);
