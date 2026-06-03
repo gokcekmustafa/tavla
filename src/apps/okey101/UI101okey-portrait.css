@@ -44,19 +44,17 @@
     overflow: visible !important;
   }
 
-  /* El açma alanı — tüm taşlar (seri+çift) aynı akışta, oyuncu isminin altından başlar */
+  /* El açma alanı — 2 kolon: seriler sol, çiftler sağ */
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-melds {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    align-items: flex-start !important;
-    align-content: flex-start !important;
-    gap: 2px 4px !important;
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    grid-auto-rows: min-content !important;
+    gap: 2px 6px !important;
+    align-items: start !important;
+    align-content: start !important;
     min-height: calc(180px * var(--okey-proto-tile-scale, 1)) !important;
     max-height: calc(250px * var(--okey-proto-tile-scale, 1)) !important;
     overflow-y: auto !important;
-    overflow-x: hidden !important;
-    padding-right: 2px !important;
   }
 
   /* Çift açma alanını kaldır — her şey el açma alanında görünsün */
@@ -64,15 +62,42 @@
     display: none !important;
   }
 
-  /* Tüm meld grup kapları — çerçeve/arkaplan yok */
-  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-meld {
+  /* Çift meld taşları — sağ kolon */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-meld.kind-cift {
+    grid-column: 2 !important;
     display: inline-flex !important;
+    flex-direction: row !important;
     align-items: center !important;
     gap: 1px !important;
     padding: 0 !important;
     background: transparent !important;
     border-radius: 0 !important;
     border: none !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-meld.kind-cift .my-game-coming-prototype-rack-tile {
+    min-width: calc(18px * var(--okey-proto-tile-scale, 1)) !important;
+    width: calc(18px * var(--okey-proto-tile-scale, 1)) !important;
+    height: calc(24px * var(--okey-proto-tile-scale, 1)) !important;
+    font-size: calc(0.55rem * var(--okey-proto-tile-scale, 1)) !important;
+    font-weight: 900 !important;
+    display: inline-flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    background: #ffffff !important;
+    border: 1px solid #bbbbbb !important;
+    border-radius: 0 !important;
+    box-sizing: border-box !important;
+    padding: 2px 2px 0 2px !important;
+  }
+
+  /* Tüm meld grup kapları — çerçeve/arkaplan yok, seriler sol kolon */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-meld {
+    grid-column: 1 !important;
+    border: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
   }
 
   /* Tüm el açma alanı taşları */
