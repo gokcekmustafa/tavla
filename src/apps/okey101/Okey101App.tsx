@@ -5253,7 +5253,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const okeyPrototypeScorePopupTimeoutRef = useRef<number | null>(null);
   const okeyPrototypePenaltyBubbleTimeoutRef = useRef<number | null>(null);
   const okeyPrototypePrevSeatOpenedStateRef = useRef<OkeyPrototypeSeatOpenedState>(createDefaultOkeyPrototypeSeatOpenedState());
-  const okeyPrototypePrevPairCountRef = useRef<Record<number, number>>({});
   const okeyPrototypeSeatOpenNoticesReadyRef = useRef(false);
   const okeyPrototypeSingleTurnOpenFinishRef = useRef<{
     seatNo: OkeyPrototypeSeatNo;
@@ -6112,8 +6111,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   useEffect(() => {
     if (!okeyPrototypeSeatReservation || !okeyPrototypeJoinedTable) {
       okeyPrototypeSeatOpenNoticesReadyRef.current = false;
-    okeyPrototypePrevSeatOpenedStateRef.current = createDefaultOkeyPrototypeSeatOpenedState();
-    okeyPrototypePrevPairCountRef.current = {};
+      okeyPrototypePrevSeatOpenedStateRef.current = createDefaultOkeyPrototypeSeatOpenedState();
       setOkeyPrototypeSeatOpeningPoints(createDefaultOkeyPrototypeSeatOpeningPoints());
       return;
     }
@@ -6146,23 +6144,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return;
     }
     const previousSeatOpenedState = okeyPrototypePrevSeatOpenedStateRef.current;
-    const prevPairCountRef = okeyPrototypePrevPairCountRef.current;
     OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
       const wasOpened = Boolean(previousSeatOpenedState[seatNo]);
       const isOpened = Boolean(okeyPrototypeSeatOpenedState[seatNo]);
-      const seatOpenMode = okeyPrototypeSeatOpenModes[seatNo] ?? "none";
-      const seatMelds = okeyPrototypeOpenedMeldsBySeat[seatNo] ?? [];
-      if (wasOpened === isOpened) {
-        if (isOpened && seatOpenMode === "pair") {
-          const pairCount = seatMelds.filter((meld) => meld.kind === "set" && meld.tiles.length === 2).length;
-          const prevPairCount = prevPairCountRef[seatNo] ?? 0;
-          if (pairCount !== prevPairCount) {
-            prevPairCountRef[seatNo] = pairCount;
-            showOkeyPrototypeSeatOpenNotice(seatNo, pairCount > 0 ? `${pairCount} cift` : "Cift");
-          }
-        }
-        return;
-      }
+      if (wasOpened === isOpened) return;
       if (!isOpened) {
         setOkeyPrototypeSeatOpenNotices((current) => {
           if (!current[seatNo]) return current;
