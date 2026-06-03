@@ -594,9 +594,6 @@
 
 /* Mobile portrait panel */
 @media (max-width: 760px) {
-  .my-okey-mobile-panel-btn {
-    display: inline-flex !important;
-  }
   .my-okey-mobile-panel-overlay {
     position: fixed;
     inset: 0;
