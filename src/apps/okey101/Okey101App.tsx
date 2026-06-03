@@ -20606,12 +20606,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         Puan
                       </button>
                       <button
-                        className="my-action-btn soft my-okey-mobile-panel-btn"
+                        className="my-action-btn"
                         type="button"
                         onClick={() => setOkeyPrototypeActiveMobilePanel((current) => current === "options" ? null : "options")}
-                        aria-label="Oyun ayarlari"
+                        style={{background:"linear-gradient(180deg,#4a4a4a,#2d2d2d)",border:"1px solid rgba(255,255,255,0.15)",color:"#ddd"}}
                       >
-                        ⚙️
+                        Ayar
                       </button>
                       <button
                         className="my-action-btn"
