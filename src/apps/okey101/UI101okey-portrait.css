@@ -1,8 +1,8 @@
 /* 101 Okey — Dikey (Portrait) görsel override'ları
    Hem my-okey-room-shell hem my-game-coming-room-shell için (:is ile) */
 
-/* Score strip in rack dock */
-:is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-mobile-rack-dock .my-okey-rack-score-strip-head {
+/* Score strip in rack — her modda rack'in icinde */
+:is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head {
   display: flex !important;
   align-items: center !important;
   gap: 3px !important;
@@ -115,48 +115,23 @@
     margin-top: calc((-1cm - 10mm) * var(--okey-proto-tile-scale, 1)) !important;
   }
 
+  /* Score strip — rack'in ust kenarina yapismis, absolute */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack {
+    position: relative !important;
+  }
 
-
-  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack-head {
-    display: block !important;
-    height: 0 !important;
-    min-height: 0 !important;
-    overflow: visible !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
-    background: none !important;
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head {
     position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    pointer-events: none !important;
-  }
-
-  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-mobile-rack-dock {
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    gap: 4px !important;
-    width: 100% !important;
-  }
-
-  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-mobile-rack-dock .my-okey-rack-score-strip-wrap {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    top: calc(-1 * var(--okey-proto-tile-scale, 1) * 8px) !important;
     display: flex !important;
     align-items: center !important;
-  }
-
-  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-mobile-rack-dock .my-okey-rack-score-strip-head {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
     gap: 3px !important;
     line-height: 1 !important;
     width: auto !important;
     z-index: 999 !important;
     pointer-events: auto !important;
-    padding: 0 4px 2px !important;
   }
 
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-score-strip-head span {

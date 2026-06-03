@@ -21317,14 +21317,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         </button>
                       </div>
                       <div className="my-okey-mobile-rack-dock">
-                        <div className="my-okey-rack-score-strip-wrap">
-                        <div className="my-okey-rack-score-strip my-okey-rack-score-strip-head" role="status" aria-live="polite" aria-atomic="true">
-                          <span>{okeyPrototypeRackScoreLabel}</span>
-                          <strong title={okeyPrototypeRackScoreTitle}>
-                            {okeyPrototypeRackScoreValue}
-                          </strong>
-                        </div>
-                        </div>
                         <button
                           type="button"
                           className="my-action-btn soft my-okey-mobile-rack-dock-btn my-okey-mobile-rack-dock-pair"
@@ -21334,6 +21326,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           {"\u00C7ift Diz"}
                         </button>
                         <div className="my-game-coming-prototype-rack">
+                        <div className="my-okey-rack-score-strip my-okey-rack-score-strip-head" role="status" aria-live="polite" aria-atomic="true">
+                          <span>{okeyPrototypeRackScoreLabel}</span>
+                          <strong title={okeyPrototypeRackScoreTitle}>
+                            {okeyPrototypeRackScoreValue}
+                          </strong>
+                        </div>
                       <div className="my-okey-rack-rows" aria-label={`Koltuk ${okeyPrototypeSeatNoForRack} tas dizilimi`}>
                         {okeyPrototypeSeatRackSlotRows.map((rackRow, rowIndex) => (
                           <div key={`rack-row-${rowIndex}`} className="my-game-coming-prototype-rack-tiles my-game-coming-prototype-rack-slots-row">
