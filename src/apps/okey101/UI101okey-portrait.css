@@ -132,6 +132,16 @@
     display: none !important;
   }
 
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-surface {
+    min-height: calc(308px * var(--okey-proto-tile-scale, 1)) !important;
+    max-height: calc(308px * var(--okey-proto-tile-scale, 1)) !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-area {
+    min-height: calc(160px * var(--okey-proto-tile-scale, 1)) !important;
+    height: calc(160px * var(--okey-proto-tile-scale, 1)) !important;
+  }
+
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-board {
     overflow: visible !important;
   }
