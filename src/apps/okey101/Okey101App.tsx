@@ -6171,7 +6171,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       let resolvedOpeningPoints = 0;
       if (seatOpenMode === "pair") {
         const pairCount = seatMelds.filter((meld) => meld.kind === "set" && meld.tiles.length === 2).length;
-        noticeText = pairCount > 0 ? `${pairCount} cift ile acti` : "Cift ile acti";
+        noticeText = pairCount > 0 ? `${pairCount} cift` : "Cift";
         resolvedOpeningPoints = OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
       } else {
         const openingPoints = seatMelds.reduce((sum, meld) => {
