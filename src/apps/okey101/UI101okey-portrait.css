@@ -105,13 +105,13 @@
   }
 
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-surface {
-    min-height: calc(408px * var(--okey-proto-tile-scale, 1)) !important;
-    max-height: calc(408px * var(--okey-proto-tile-scale, 1)) !important;
+    min-height: calc(420px * var(--okey-proto-tile-scale, 1)) !important;
+    max-height: calc(420px * var(--okey-proto-tile-scale, 1)) !important;
   }
 
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-area {
-    min-height: calc(212px * var(--okey-proto-tile-scale, 1)) !important;
-    height: calc(212px * var(--okey-proto-tile-scale, 1)) !important;
+    min-height: 0 !important;
+    height: auto !important;
   }
 
   :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-board {
