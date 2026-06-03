@@ -20579,7 +20579,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                     : "101 Okey Masasi"}
                 </h3>
                 <div className="my-okey-room-head-right">
-                  <span>{okeyPrototypeJoinedTable ? "Canli Masa" : "Masa Bekleniyor"}</span>
                   {okeyPrototypeSeatReservation ? (
                     <div className="my-okey-room-head-actions">
                       <button className="my-action-btn soft" type="button" onClick={goToLobbyFromTableView}>
