@@ -19,6 +19,14 @@
   gap: 4px;
   flex-shrink: 0;
 }
+:is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-room-head-left-actions .my-action-btn {
+  min-height: 20px;
+  padding: 0 5px;
+  border-radius: 6px;
+  font-size: 0.5rem;
+  line-height: 1;
+  white-space: nowrap;
+}
 
 /* Score strip in rack — her modda rack'in icinde */
 :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head {
