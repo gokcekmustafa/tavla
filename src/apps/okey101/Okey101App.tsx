@@ -5246,6 +5246,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const [okeyPrototypeLastHandSummary, setOkeyPrototypeLastHandSummary] = useState("");
   const [okeyPrototypeScorePopupVisible, setOkeyPrototypeScorePopupVisible] = useState(false);
   const [okeyPrototypeScorePanelOpen, setOkeyPrototypeScorePanelOpen] = useState(false);
+  const [okeyPrototypeActiveMobilePanel, setOkeyPrototypeActiveMobilePanel] = useState<"options" | "chat" | "score" | null>(null);
   const [okeyPrototypePenaltyBubble, setOkeyPrototypePenaltyBubble] = useState<{
     text: string;
     seatNo: OkeyPrototypeSeatNo | null;
@@ -20635,6 +20636,30 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         {okeyPrototypeScorePanelOpen ? "Puan Kapat" : "Puan"}
                       </button>
                       <button
+                        className="my-action-btn soft my-okey-mobile-panel-btn"
+                        type="button"
+                        onClick={() => setOkeyPrototypeActiveMobilePanel((current) => current === "options" ? null : "options")}
+                        aria-label="Oyun ayarlari"
+                      >
+                        ⚙️
+                      </button>
+                      <button
+                        className="my-action-btn soft my-okey-mobile-panel-btn"
+                        type="button"
+                        onClick={() => setOkeyPrototypeActiveMobilePanel((current) => current === "chat" ? null : "chat")}
+                        aria-label="Sohbet"
+                      >
+                        💬
+                      </button>
+                      <button
+                        className="my-action-btn soft my-okey-mobile-panel-btn"
+                        type="button"
+                        onClick={() => setOkeyPrototypeActiveMobilePanel((current) => current === "score" ? null : "score")}
+                        aria-label="Puan tablosu"
+                      >
+                        📊
+                      </button>
+                      <button
                         className="my-action-btn danger"
                         type="button"
                         onClick={() => leaveOkeyPrototypeSeat("Masadan kalkıldı")}
@@ -21671,6 +21696,154 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       )}
                     </div>
                   </section>
+
+                  {okeyPrototypeActiveMobilePanel ? (
+                    <div className="my-okey-mobile-panel-overlay" onClick={() => setOkeyPrototypeActiveMobilePanel(null)}>
+                      <div className="my-okey-mobile-panel" onClick={(e) => e.stopPropagation()}>
+                        <div className="my-okey-mobile-panel-head">
+                          <strong>{okeyPrototypeActiveMobilePanel === "options" ? "Oyun Ayarları" : okeyPrototypeActiveMobilePanel === "chat" ? "Sohbet" : "Puan Tablosu"}</strong>
+                          <button className="my-okey-mobile-panel-close" onClick={() => setOkeyPrototypeActiveMobilePanel(null)}>✕</button>
+                        </div>
+                        <div className="my-okey-mobile-panel-body">
+                          {okeyPrototypeActiveMobilePanel === "options" ? (
+                            <div className="my-okey-game-settings" aria-label="Oyun ayarları">
+                              <label className="my-okey-game-settings-item">
+                                <input
+                                  type="checkbox"
+                                  checked={okeyPrototypeGameOptions.teamedPlay}
+                                  onChange={(event) => updateOkeyPrototypeGameOption("teamedPlay", event.target.checked)}
+                                  disabled={!okeyPrototypeCanEditGameOptions}
+                                />
+                                <span>Eşli oyun</span>
+                              </label>
+                              <label className="my-okey-game-settings-item">
+                                <input
+                                  type="checkbox"
+                                  checked={okeyPrototypeGameOptions.increasingPlay}
+                                  onChange={(event) => updateOkeyPrototypeGameOption("increasingPlay", event.target.checked)}
+                                  disabled={!okeyPrototypeCanEditGameOptions}
+                                />
+                                <span>Artırmalı oyun</span>
+                              </label>
+                              <label className="my-okey-game-settings-item">
+                                <input
+                                  type="checkbox"
+                                  checked={okeyPrototypeGameOptions.penaltyPlay}
+                                  onChange={(event) => updateOkeyPrototypeGameOption("penaltyPlay", event.target.checked)}
+                                  disabled={!okeyPrototypeCanEditGameOptions}
+                                />
+                                <span>Cezalı oyun</span>
+                              </label>
+                              <label className="my-okey-game-settings-item">
+                                <input
+                                  type="checkbox"
+                                  checked={okeyPrototypeGameOptions.highlightProcessableTiles}
+                                  onChange={(event) => updateOkeyPrototypeGameOption("highlightProcessableTiles", event.target.checked)}
+                                  disabled={!okeyPrototypeCanEditGameOptions}
+                                />
+                                <span>İşler taşlar işaretlensin</span>
+                              </label>
+                            </div>
+                          ) : okeyPrototypeActiveMobilePanel === "chat" ? (
+                            <>
+                              <div className="my-room-chat-tabs">
+                                <button
+                                  className={`my-room-chat-tab ${roomChatTab === "table" ? "active" : ""}`}
+                                  onClick={() => setRoomChatTab("table")}
+                                >
+                                  Masa Chat
+                                </button>
+                                <button
+                                  className={`my-room-chat-tab ${roomChatTab === "lobby" ? "active" : ""}`}
+                                  onClick={() => setRoomChatTab("lobby")}
+                                >
+                                  Lobi Chat
+                                </button>
+                              </div>
+                              <div className="my-chat-compose my-room-chat-compose">
+                                <input
+                                  className="my-input"
+                                  placeholder={
+                                    roomChatTab === "table"
+                                      ? canWriteRoomChat ? "Masa sohbetine mesaj yaz..." : "Masa sohbeti icin uye girisi gerekli"
+                                      : canWriteRoomChat ? "Lobiye mesaj yaz..." : "Lobiye yazmak icin uye girisi yap"
+                                  }
+                                  value={roomChatTab === "table" ? roomTableChatInput : roomLobbyChatInput}
+                                  maxLength={CHAT_TEXT_MAX}
+                                  onChange={(e) => {
+                                    if (roomChatTab === "table") {
+                                      setRoomTableChatInput(e.target.value);
+                                    } else {
+                                      setRoomLobbyChatInput(e.target.value);
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key !== "Enter") return;
+                                    e.preventDefault();
+                                    sendActiveRoomChat();
+                                  }}
+                                  disabled={!canWriteRoomChat}
+                                />
+                                <button className="my-action-btn" onClick={sendActiveRoomChat} disabled={!canWriteRoomChat || !roomChatDraft}>
+                                  {activeDesign.texts.chatSend || "Gonder"}
+                                </button>
+                              </div>
+                              <div ref={roomChatListRef} className="my-chat-list my-room-chat-list" onScroll={onRoomChatScroll} data-unread={roomChatUnread}>
+                                {roomChatRows.length === 0 ? (
+                                  <p className="my-chat-empty">
+                                    {roomChatTab === "table" ? "Bu masada henuz sohbet mesaji yok." : "Lobide henuz mesaj yok."}
+                                  </p>
+                                ) : (
+                                  roomChatRows.map((message) => (
+                                    <article key={message.id} className="my-chat-row">
+                                      <p><strong>{message.displayName}:</strong> {message.text}</p>
+                                    </article>
+                                  ))
+                                )}
+                              </div>
+                              {!canWriteRoomChat ? (
+                                <p className="my-chat-hint">
+                                  {roomChatTab === "table" ? "Masa sohbetine sadece üye oyuncular yazabilir." : "Lobiye sadece üye oyuncular yazabilir."}
+                                </p>
+                              ) : null}
+                            </>
+                          ) : (
+                            <div>
+                              <div className="my-okey-quick-score-list">
+                                {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
+                                  <p key={`mobile-panel-score-${seatNo}`}>
+                                    <span>{okeyPrototypeSeatDisplayNames[seatNo] || "Bos"}</span>
+                                    <strong>{okeyPrototypeSeatHandWins[seatNo] ?? 0}</strong>
+                                  </p>
+                                ))}
+                              </div>
+                              <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
+                                {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
+                                  <p key={`mobile-panel-penalty-${seatNo}`}>
+                                    <span>{okeyPrototypeSeatDisplayNames[seatNo] || "Bos"} ceza</span>
+                                    <strong>{okeyPrototypeSeatPenaltyTotals[seatNo] ?? 0}</strong>
+                                  </p>
+                                ))}
+                              </div>
+                              {okeyPrototypeGameOptions.teamedPlay ? (
+                                <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
+                                  {okeyPrototypeTeamRows.map((team) => (
+                                    <p key={`mobile-panel-team-penalty-${team.id}`}>
+                                      <span>{team.displayLabel} ceza</span>
+                                      <strong>{team.penalty}</strong>
+                                    </p>
+                                  ))}
+                                </div>
+                              ) : null}
+                              {okeyPrototypeLastHandSummary ? (
+                                <p className="my-okey-quick-last-summary">{okeyPrototypeLastHandSummary}</p>
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                 </>
               ) : null}
             </section>
