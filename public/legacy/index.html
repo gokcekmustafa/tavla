@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tavla Legacy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="app-shell ref-shell">
+    <header class="game-top">
+      <div class="game-brand">
+        <h1>Tavla</h1>
+        <p class="subtitle">Canli Oyun Masasi</p>
+      </div>
+    </header>
+
+    <section class="room-bar">
+      <p id="room-title-main" class="room-title-main">Yerel Oyun</p>
+      <p id="room-title-sub" class="room-title-sub">Masa 1</p>
+    </section>
+
+    <section class="arena-layout">
+      <aside class="left-control-panel">
+        <div class="controls-card panel-card">
+          <p class="label">Oyun Modu</p>
+          <label for="game-mode-select" class="control-label">Mod Secimi</label>
+          <select id="game-mode-select" class="mode-select">
+            <option value="local">Iki Oyuncu (Local)</option>
+            <option value="bot">Bilgisayara Karsi</option>
+          </select>
+
+          <div id="bot-difficulty-control">
+            <label for="bot-difficulty-select" class="control-label">Bot Zorlugu</label>
+            <select id="bot-difficulty-select" class="mode-select">
+              <option value="easy">Kolay</option>
+              <option value="medium" selected>Orta</option>
+              <option value="hard">Zor</option>
+            </select>
+          </div>
+
+          <p class="label mini-gap">Pul Rengi</p>
+          <div class="color-choice-row" role="radiogroup" aria-label="Pul rengi secimi">
+            <label class="color-choice color-white" for="player-color-white">
+              <input id="player-color-white" type="radio" name="player-color" value="white" checked>
+              Beyaz
+            </label>
+            <label class="color-choice color-black" for="player-color-black">
+              <input id="player-color-black" type="radio" name="player-color" value="black">
+              Siyah
+            </label>
+          </div>
+
+          <label class="control-inline" for="auto-roll-toggle">
+            <input id="auto-roll-toggle" type="checkbox">
+            Otomatik Zar At
+          </label>
+
+          <div id="room-meta" class="room-meta" hidden>
+            <p id="room-meta-code" class="room-meta-line"></p>
+            <p id="room-meta-seat" class="room-meta-line"></p>
+          </div>
+        </div>
+
+        <div class="panel-info-card">
+          <p class="label">Sira</p>
+          <p id="current-player" class="value">Beyaz</p>
+          <p class="label mini-gap">Durum</p>
+          <p id="status-text" class="status-text">Beyaz basliyor. Zar atarak oyunu baslat.</p>
+          <p class="label mini-gap">Son Zar</p>
+          <div id="dice-container" class="dice-container" aria-live="polite"></div>
+          <p id="room-boot-note" class="room-boot-note"></p>
+        </div>
+      </aside>
+
+      <section class="table-wrap">
+        <aside id="off-black" class="off-area black" data-off="black">
+          <p class="off-title">Siyah Toplanan</p>
+          <p id="off-black-count" class="off-count">0 / 15</p>
+          <div id="off-black-stack" class="off-stack" aria-hidden="true"></div>
+        </aside>
+
+        <div id="board-grid" class="board-grid" aria-label="Tavla tahtasi"></div>
+        <svg id="guide-layer" class="guide-layer" aria-hidden="true"></svg>
+        <div id="center-dice-stage" class="center-dice-stage" aria-live="polite"></div>
+
+        <aside id="off-white" class="off-area white" data-off="white">
+          <p class="off-title">Beyaz Toplanan</p>
+          <p id="off-white-count" class="off-count">0 / 15</p>
+          <div id="off-white-stack" class="off-stack" aria-hidden="true"></div>
+        </aside>
+      </section>
+
+      <aside class="right-action-panel">
+        <button id="new-game-btn" class="action-btn action-newgame">Yeni Oyun</button>
+        <button id="roll-btn" class="action-btn action-roll">Zar At</button>
+        <label class="control-inline side-auto-roll" for="auto-roll-toggle-side">
+          <input id="auto-roll-toggle-side" type="checkbox">
+          Otomatik Zar At
+        </label>
+        <button id="undo-btn" class="action-btn action-soft">Geri Al</button>
+      </aside>
+    </section>
+
+    <section class="activity-wrap">
+      <section class="history-card">
+        <p class="label">Masa Sohbeti</p>
+        <ol id="move-log" class="move-log history-hidden" hidden></ol>
+        <div id="table-chat-log" class="table-chat-log" aria-live="polite"></div>
+        <div class="table-chat-compose">
+          <input id="table-chat-input" class="chat-input" type="text" maxlength="180" placeholder="Masaya mesaj yaz..." autocomplete="off">
+          <button id="table-chat-send-btn" class="chat-send-btn" type="button">Gonder</button>
+        </div>
+        <div id="table-chat-emoji-row" class="table-chat-emoji-row">
+          <button type="button" class="table-chat-emoji-btn" data-chat-emoji=":)">:)</button>
+          <button type="button" class="table-chat-emoji-btn" data-chat-emoji=":D">:D</button>
+          <button type="button" class="table-chat-emoji-btn" data-chat-emoji=";)">;)</button>
+          <button type="button" class="table-chat-emoji-btn" data-chat-emoji="&lt;3">&lt;3</button>
+          <button type="button" class="table-chat-emoji-btn" data-chat-emoji="GG">GG</button>
+        </div>
+        <p id="table-chat-hint" class="table-chat-hint"></p>
+      </section>
+
+      <section class="help">
+        <p>
+          Oynamak icin once kaynak tasi sec, sonra hedef noktaya tikla.
+          Bar'da tasin varsa once bar'dan giris yapman gerekir.
+        </p>
+      </section>
+    </section>
+  </main>
+  <section id="winner-modal" class="winner-modal" hidden>
+    <div class="winner-card" role="dialog" aria-modal="true" aria-label="Kazanan">
+      <p class="winner-title">Oyun Bitti</p>
+      <p id="winner-text" class="winner-text"></p>
+      <button id="winner-close-btn" type="button" class="primary-btn">Tamam</button>
+    </div>
+  </section>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const initialMode = params.get("mode");
+    const defaultDifficulty = initialMode === "bot" ? "hard" : "medium";
+    const initialDifficulty = (params.get("bot_difficulty") || params.get("difficulty") || defaultDifficulty).toLowerCase();
+    window.__BOOT_MODE__ = initialMode === "bot" ? "bot" : "local";
+    window.__BOOT_BOT_DIFFICULTY__ = ["easy", "medium", "hard"].includes(initialDifficulty) ? initialDifficulty : "medium";
+  </script>
+  <script src="./script.js"></script>
+</body>
+</html>

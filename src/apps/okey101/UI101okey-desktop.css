@@ -1,0 +1,29 @@
+/* 101 Okey — Masaüstü (Desktop) görsel override'ları
+   Bu dosyada sadece görsel CSS değişiklikleri yap.
+   Oyun mantığına dokunma.
+   Kurallar App.css'deki base stilleri ezer. */
+
+/* ── center-middle / board-status içindeki çift clear-btn'ları gizle ── */
+.my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-game-coming-prototype-board-clear-btn,
+.my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-game-coming-prototype-board-clear-btn,
+.my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status .my-game-coming-prototype-board-clear-btn,
+.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status .my-game-coming-prototype-board-clear-btn {
+  display: none !important;
+}
+
+@media (min-width: 761px) and (hover: hover) and (pointer: fine) {
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls {
+    display: flex !important;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions {
+    display: flex !important;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
+    display: inline-flex !important;
+  }
+}

@@ -1,0 +1,832 @@
+/**
+ * 101 Okey — mobil yatay (simetrik masa + istaka üstü mini toolbar).
+ *
+ * [sol oyuncu] [seri+çift açma | gösterge/deste] [sağ oyuncu]
+ * [üst oyuncu ortada]
+ * [mini toolbar: Çift İşle | Seri Aç | Çift Aç | Geri Topla | Taşları İşle]
+ * [Çift Diz | istaka | Seri Diz]
+ */
+@media (orientation: landscape) and (max-width: 1366px) and (hover: none),
+       (orientation: landscape) and (max-width: 1366px) and (pointer: coarse),
+       (orientation: landscape) and (max-width: 900px) {
+  .my-room-view.my-okey-room-view.in-room {
+    --okey-landscape-seat-w: 40px;
+    --okey-landscape-deck-w: 46px;
+    --okey-landscape-toolbar-h: 24px;
+    --okey-landscape-rack-h: clamp(112px, 33dvh, 148px);
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .my-room-view.my-okey-room-view .my-room-header-strip {
+    display: none;
+  }
+
+  /* Tek sütun: masa | toolbar | istaka */
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"],
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] {
+    flex: 1 1 auto;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: minmax(0, 1fr) var(--okey-landscape-toolbar-h) auto !important;
+    grid-template-areas:
+      "playfield"
+      "toolbar"
+      "rack" !important;
+    min-height: 0;
+    max-height: 100dvh;
+    margin: 0;
+    padding:
+      max(2px, env(safe-area-inset-top))
+      max(4px, env(safe-area-inset-right))
+      max(2px, env(safe-area-inset-bottom))
+      max(4px, env(safe-area-inset-left));
+    gap: 2px;
+    border: 0;
+    border-radius: 0;
+    overflow: hidden;
+    background: linear-gradient(180deg, #0c3550 0%, #071f30 100%);
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-room-head,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-room-head,
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-left-settings-panel,
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-quick-side,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-left-settings-panel,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-quick-side {
+    display: none !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-reconnect-banner,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-reconnect-banner {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    z-index: 20;
+    margin: 0;
+    padding: 1px 6px;
+    font-size: 0.48rem;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-table-main-layout,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-table-main-layout {
+    grid-area: playfield;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0 !important;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-status,
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-hint,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-status,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-hint {
+    display: none !important;
+  }
+
+  /* Simetrik masa ızgarası — absolute yok */
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-grid,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-grid {
+    position: relative;
+    flex: 1 1 auto;
+    display: grid;
+    min-height: 0;
+    padding: 0 2px !important;
+    gap: 3px !important;
+    grid-template-columns:
+      var(--okey-landscape-seat-w)
+      minmax(0, 1fr)
+      var(--okey-landscape-deck-w)
+      var(--okey-landscape-seat-w) !important;
+    grid-template-rows: minmax(34px, auto) minmax(0, 1fr) !important;
+    grid-template-areas:
+      ". seat-1 seat-1 ."
+      "seat-4 center deck seat-2" !important;
+    overflow: hidden;
+    align-items: stretch;
+    justify-items: stretch;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .okey101-landscape-badge,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .okey101-landscape-badge {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    z-index: 3;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid rgba(160, 210, 240, 0.45);
+    background: rgba(12, 52, 78, 0.92);
+    color: #eaf6ff;
+    font-size: 0.58rem;
+    font-weight: 900;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  /* Merkez oyun alanı */
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-center,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-center {
+    grid-area: center;
+    min-height: 0;
+    height: 100%;
+    padding: 3px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(150, 195, 220, 0.32) !important;
+    background: linear-gradient(180deg, rgba(10, 52, 78, 0.96), rgba(6, 34, 52, 0.98)) !important;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-main-layout,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-main-layout {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) auto !important;
+    gap: 3px !important;
+    min-height: 0;
+    height: 100%;
+    align-items: stretch;
+  }
+
+  /* Seri açma: üst yarı 2×2 */
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-surface,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-surface {
+    grid-column: 1;
+    grid-row: 1;
+    position: relative;
+    min-height: 0 !important;
+    max-height: none !important;
+    height: 100% !important;
+    padding: 3px !important;
+    gap: 2px !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(170, 210, 230, 0.24) !important;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-surface::after,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-surface::after {
+    content: "";
+    position: absolute;
+    top: 8%;
+    bottom: 8%;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: rgba(190, 225, 240, 0.28);
+    pointer-events: none;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-seat-area,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-seat-area {
+    min-height: 0 !important;
+    padding: 2px !important;
+    gap: 1px !important;
+    border: 1px solid rgba(160, 200, 220, 0.2) !important;
+    background: rgba(5, 36, 54, 0.45) !important;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-seat-head,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-seat-head {
+    min-height: 0;
+    flex-shrink: 0;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-seat-name,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-seat-name {
+    font-size: 0.38rem !important;
+    padding: 1px 3px !important;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-seat-open-bubble,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-seat-open-bubble {
+    display: none !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-seat-melds,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-seat-melds {
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: auto;
+    flex-wrap: wrap;
+    align-content: flex-start;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-seat-meld .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-seat-meld .my-game-coming-prototype-rack-tile {
+    min-width: 14px !important;
+    height: 19px !important;
+    font-size: 0.52rem !important;
+  }
+
+  /* Çift açma: alt şerit, ortada */
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-side-lanes,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-side-lanes {
+    grid-column: 1;
+    grid-row: 2;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
+    gap: 0 !important;
+    min-height: 0;
+    height: auto;
+    max-height: 52px;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-middle-controls-desktop,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-middle-controls-desktop {
+    display: none !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane {
+    display: flex;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-middle-controls,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-middle-controls {
+    display: none !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-pair-columns,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-pair-columns {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 2px !important;
+    min-height: 0;
+    max-height: 52px;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-pair-column,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-pair-column {
+    min-height: 0;
+    padding: 1px !important;
+    border-radius: 5px !important;
+    border: 1px solid rgba(160, 200, 220, 0.22) !important;
+    background: rgba(5, 36, 54, 0.4) !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-pair-column-title,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-pair-column-title {
+    font-size: 0.34rem !important;
+    writing-mode: horizontal-tb !important;
+    transform: none !important;
+    text-align: center;
+    padding: 0 1px !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-pair-column-body,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-pair-column-body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1px;
+    align-content: flex-start;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-pair-column-body .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-center-pair-column-body .my-game-coming-prototype-rack-tile {
+    min-width: 11px !important;
+    height: 16px !important;
+    font-size: 0.46rem !important;
+  }
+
+  /* Gösterge + deste — simetrik sağ sütun (deck grid alanı) */
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane {
+    grid-area: deck;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 0;
+    padding: 2px 1px;
+    border-radius: 7px;
+    border: 1px solid rgba(160, 200, 220, 0.28);
+    background: rgba(6, 38, 58, 0.55);
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-indicator-card,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-indicator-card {
+    width: 100%;
+    padding: 1px !important;
+    border: 0 !important;
+    background: transparent !important;
+    display: grid;
+    justify-items: center;
+    gap: 0 !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-indicator-card > span,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-indicator-card > span {
+    display: none !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile {
+    min-width: 26px !important;
+    height: 34px !important;
+    font-size: 0.82rem !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-draw-pocket,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-draw-pocket {
+    width: 100%;
+    padding: 1px !important;
+    border: 0 !important;
+    background: transparent !important;
+    display: grid;
+    justify-items: center;
+    gap: 1px !important;
+    min-height: 0;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-draw-pocket > span:first-child,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-draw-pocket > span:first-child {
+    display: none !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-draw-pocket-stack,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-draw-pocket-stack {
+    width: 26px !important;
+    height: 34px !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-draw-pocket-stack > i,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-draw-pocket-stack > i {
+    width: 24px !important;
+    height: 32px !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-draw-pocket strong,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-landscape-deck-lane .my-okey-draw-pocket strong {
+    font-size: 0.54rem !important;
+    font-weight: 900;
+    color: #eaf6ff;
+    line-height: 1;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .okey101-landscape-open-score,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .okey101-landscape-open-score {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    min-height: 16px;
+    padding: 1px 5px;
+    border-radius: 999px;
+    border: 1px solid rgba(220, 120, 100, 0.65);
+    background: rgba(170, 45, 38, 0.9);
+    color: #fff4ef;
+    font-size: 0.54rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  /* Oyuncu kutuları — simetrik karşılıklı */
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat {
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    transform: none !important;
+    position: static !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    gap: 2px;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.self,
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-3,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.self,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-3 {
+    display: none !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-self-seat-inline-controls,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-self-seat-inline-controls {
+    display: none !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1 {
+    grid-area: seat-1;
+    justify-content: flex-start;
+    align-self: start;
+    z-index: 2;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 {
+    grid-area: seat-4;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 {
+    grid-area: seat-2;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat header,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat header {
+    width: 100% !important;
+    max-width: var(--okey-landscape-seat-w) !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 3px 2px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(170, 210, 235, 0.42) !important;
+    background: rgba(10, 48, 72, 0.9) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    box-shadow: none !important;
+    overflow: hidden;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1 header,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1 header {
+    flex-direction: row !important;
+    max-width: 100% !important;
+    width: auto !important;
+    min-width: 72px !important;
+    min-height: 20px !important;
+    padding: 2px 8px !important;
+    border-radius: 999px !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 header,
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 header,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-4 header,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-2 header {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    min-height: 56px !important;
+    max-height: 100% !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.active header,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.active header {
+    border-color: rgba(247, 224, 114, 0.92) !important;
+    box-shadow: 0 0 6px rgba(255, 220, 95, 0.28) !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat-title,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat-title {
+    font-size: 0.48rem !important;
+    line-height: 1 !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 2px !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1 .my-game-coming-prototype-board-seat-title,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-board-seat.seat-1 .my-game-coming-prototype-board-seat-title {
+    flex-direction: row !important;
+    writing-mode: horizontal-tb !important;
+    transform: none !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-seat-status,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-seat-status {
+    display: none !important;
+  }
+
+  /* Atılan taş — kendi grid hücresinde, üst üste binme yok */
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket {
+    position: static !important;
+    z-index: 1;
+    width: 100% !important;
+    max-width: var(--okey-landscape-seat-w) !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 1px !important;
+    margin: 0 !important;
+    border-radius: 5px !important;
+    justify-items: center !important;
+    align-content: center !important;
+    border: 1px solid rgba(170, 210, 235, 0.32) !important;
+    background: rgba(8, 44, 66, 0.65) !important;
+    transform: none !important;
+    flex-shrink: 0;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket.pos-1,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket.pos-1 {
+    grid-area: seat-1;
+    justify-self: center;
+    align-self: end;
+    max-width: 30px !important;
+    margin: 0 !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket.pos-4,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
+    grid-area: seat-4;
+    align-self: end;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket.pos-2,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket.pos-2 {
+    grid-area: seat-2;
+    align-self: end;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket.pos-3,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket.pos-3 {
+    display: none !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile {
+    min-width: 24px !important;
+    height: 32px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket > strong,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-discard-pocket > strong {
+    display: none !important;
+  }
+
+  /* lower-strip parçala: toolbar + istaka */
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-lower-strip,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-lower-strip {
+    display: contents !important;
+  }
+
+  /* Mini toolbar — istakanın hemen üstü, yatay */
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions {
+    grid-area: toolbar;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 3px !important;
+    width: 100% !important;
+    min-height: var(--okey-landscape-toolbar-h) !important;
+    max-height: var(--okey-landscape-toolbar-h) !important;
+    padding: 0 4px !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    position: static !important;
+    transform: none !important;
+    background: rgba(4, 28, 42, 0.72);
+    border-radius: 6px;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col {
+    display: contents !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    width: auto !important;
+    min-height: 20px !important;
+    height: 20px !important;
+    padding: 0 2px !important;
+    font-size: 0.44rem !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    border-radius: 5px !important;
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    position: static !important;
+    transform: none !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-cift-isle,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-cift-isle {
+    order: 1;
+    display: inline-flex !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-ac,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-ac {
+    order: 2;
+    display: inline-flex !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-cift-ac,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-cift-ac {
+    order: 3;
+    display: inline-flex !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-geri-topla,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-geri-topla {
+    order: 4;
+    display: inline-flex !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle {
+    order: 5;
+    display: inline-flex !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-pair-diz,
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-diz,
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-isle,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-pair-diz,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-diz,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-isle {
+    display: none !important;
+  }
+
+  /* Istaka */
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-mobile-rack-dock,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-mobile-rack-dock {
+    grid-area: rack;
+    display: grid !important;
+    grid-template-columns: 38px minmax(0, 1fr) 38px !important;
+    align-items: end !important;
+    gap: 4px !important;
+    width: 100% !important;
+    padding: 3px 4px 4px !important;
+    margin: 0 !important;
+    background: linear-gradient(180deg, rgba(6, 40, 30, 0.5), rgba(4, 26, 20, 0.88)) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-mobile-rack-dock-btn,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-mobile-rack-dock-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    align-self: center !important;
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 68px !important;
+    min-height: 68px !important;
+    padding: 3px 2px !important;
+    border-radius: 8px !important;
+    font-size: 0.56rem !important;
+    font-weight: 800 !important;
+    writing-mode: vertical-rl !important;
+    text-orientation: mixed !important;
+    transform: rotate(180deg) !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-mobile-rack-dock > .my-game-coming-prototype-rack,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-mobile-rack-dock > .my-game-coming-prototype-rack {
+    grid-column: 2 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 3px 4px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(140, 95, 45, 0.65) !important;
+    background: linear-gradient(180deg, rgba(228, 200, 155, 0.97), rgba(186, 148, 98, 0.98)) !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-head,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-head {
+    display: none !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-rows,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-rows {
+    gap: 2px !important;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-rows::-webkit-scrollbar,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-rows::-webkit-scrollbar {
+    display: none;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-slots-row,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-slots-row {
+    grid-template-columns: repeat(16, 26px) !important;
+    gap: 2px !important;
+    justify-content: start !important;
+    width: max-content !important;
+    min-width: 100%;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-slot,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-slot {
+    width: 26px !important;
+    min-width: 26px !important;
+    max-width: 26px !important;
+    height: 36px !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
+    width: 25px !important;
+    min-width: 25px !important;
+    height: 35px !important;
+    font-size: 0.88rem !important;
+  }
+}
+
+/* Dikey / masaüstü: landscape-only parçaları gizle */
+.okey101-landscape-badge,
+.okey101-landscape-open-score,
+.my-okey-landscape-deck-lane {
+  display: none;
+}
+
+.my-okey-rack-top-actions .my-okey-btn-geri-topla,
+.my-okey-rack-top-actions .my-okey-btn-taslari-isle {
+  display: none;
+}
+
+@media (orientation: landscape) and (max-height: 420px) {
+  .my-room-view.my-okey-room-view.in-room {
+    --okey-landscape-seat-w: 36px;
+    --okey-landscape-deck-w: 42px;
+    --okey-landscape-toolbar-h: 22px;
+    --okey-landscape-rack-h: clamp(100px, 31dvh, 128px);
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
+    min-height: 18px !important;
+    height: 18px !important;
+    font-size: 0.4rem !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-slots-row,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-slots-row {
+    grid-template-columns: repeat(16, 22px) !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-slot,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-slot {
+    width: 22px !important;
+    min-width: 22px !important;
+    max-width: 22px !important;
+    height: 32px !important;
+  }
+
+  .my-okey-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell.okey101-landscape-v2[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
+    width: 21px !important;
+    min-width: 21px !important;
+    height: 31px !important;
+    font-size: 0.8rem !important;
+  }
+}

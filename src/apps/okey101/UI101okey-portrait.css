@@ -1,0 +1,608 @@
+/* 101 Okey — Dikey (Portrait) görsel override'ları
+   Hem my-okey-room-shell hem my-game-coming-room-shell için (:is ile) */
+
+/* Score strip in self-seat: normal flow in landscape/desktop */
+:is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-board-seat.self .my-okey-rack-score-strip-head {
+  position: static !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  line-height: 1 !important;
+  width: auto !important;
+  justify-content: center !important;
+  z-index: auto !important;
+  pointer-events: auto !important;
+  margin: 2mm 0 0 !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+}
+
+@media (orientation: portrait) {
+
+  /* ── Istaka ── */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack {
+    background: linear-gradient(180deg, #f2ca50 0%, #d6a422 38%, #b07c18 68%, #cfa030 100%) !important;
+    border-left: 4px solid #8a5a0a !important;
+    border-right: 4px solid #8a5a0a !important;
+    border-bottom: 3px solid #6e4606 !important;
+    border-radius: 4px 4px 0 0 !important;
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.5) !important;
+    min-height: calc(67px * var(--okey-proto-tile-scale, 1)) !important;
+    max-height: calc(67px * var(--okey-proto-tile-scale, 1)) !important;
+    height:     calc(67px * var(--okey-proto-tile-scale, 1)) !important;
+    width: auto !important;
+    max-width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    transform: none !important;
+    overflow: visible !important;
+  }
+
+  /* El açma alanı — 2 kolon: seriler sol, çiftler sağ */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-melds {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    grid-auto-rows: min-content !important;
+    gap: 2px 6px !important;
+    align-items: start !important;
+    align-content: start !important;
+    min-height: calc(180px * var(--okey-proto-tile-scale, 1)) !important;
+    max-height: calc(250px * var(--okey-proto-tile-scale, 1)) !important;
+    overflow-y: auto !important;
+  }
+
+  /* Çift açma alanını kaldır — her şey el açma alanında görünsün */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-side-lanes {
+    display: none !important;
+  }
+
+  /* Çift meld taşları — sağ kolon */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-meld.kind-cift {
+    grid-column: 2 !important;
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 1px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-meld.kind-cift .my-game-coming-prototype-rack-tile {
+    min-width: calc(18px * var(--okey-proto-tile-scale, 1)) !important;
+    width: calc(18px * var(--okey-proto-tile-scale, 1)) !important;
+    height: calc(24px * var(--okey-proto-tile-scale, 1)) !important;
+    font-size: calc(0.55rem * var(--okey-proto-tile-scale, 1)) !important;
+    font-weight: 900 !important;
+    display: inline-flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    background: #ffffff !important;
+    border: 1px solid #bbbbbb !important;
+    border-radius: 0 !important;
+    box-sizing: border-box !important;
+    padding: 2px 2px 0 2px !important;
+  }
+
+  /* Tüm meld grup kapları — çerçeve/arkaplan yok, seriler sol kolon */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-meld {
+    grid-column: 1 !important;
+    border: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Tüm el açma alanı taşları */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-meld .my-game-coming-prototype-rack-tile {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.95) !important;
+    letter-spacing: -1px !important;
+    line-height: 1 !important;
+    position: relative !important;
+    overflow: visible !important;
+    transform: scale(0.95) !important;
+    transform-origin: center center !important;
+    border-radius: 0 !important;
+    align-items: flex-start !important;
+    padding-top: 2px !important;
+  }
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-meld .my-game-coming-prototype-rack-tile::after {
+    content: "" !important;
+    position: absolute !important;
+    bottom: 1px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 4px !important;
+    height: 4px !important;
+    border-radius: 50% !important;
+    background: currentColor !important;
+    opacity: 0.5 !important;
+    pointer-events: none !important;
+  }
+
+  /* "Acik yok" yazısını gizle */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-empty {
+    display: none !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-surface {
+    min-height: auto !important;
+    max-height: none !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-seat-area {
+    min-height: auto !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-board {
+    overflow: visible !important;
+  }
+
+  /* Oyuncu isim kutusu — ıstakanın üstünde 1cm yukarı */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-board-seat.self header {
+    margin-top: calc(-1cm * var(--okey-proto-tile-scale, 1) - 14mm * var(--okey-proto-tile-scale, 1)) !important;
+  }
+
+
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack-head {
+    display: block !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: none !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    pointer-events: none !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-board-seat.self .my-okey-rack-score-strip-head {
+    position: absolute !important;
+    left: 50% !important;
+    top: calc(-1cm * var(--okey-proto-tile-scale, 1) - 14mm * var(--okey-proto-tile-scale, 1) + 44px * var(--okey-proto-tile-scale, 1) + 2mm * var(--okey-proto-tile-scale, 1)) !important;
+    transform: translateX(-50%) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    line-height: 1 !important;
+    width: auto !important;
+    z-index: 999 !important;
+    pointer-events: auto !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-score-strip-head span {
+    display: none !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-score-strip-head strong {
+    font-size: calc(16px * var(--okey-proto-tile-scale, 1)) !important;
+    font-weight: 900 !important;
+    color: #fff !important;
+    background: linear-gradient(180deg, #2d9bff, #1a67d4) !important;
+    padding: calc(4px * var(--okey-proto-tile-scale, 1)) calc(12px * var(--okey-proto-tile-scale, 1)) !important;
+    border-radius: 8px !important;
+    min-width: calc(40px * var(--okey-proto-tile-scale, 1)) !important;
+    text-align: center !important;
+  }
+
+  /* Taş satırları */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-rows {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: stretch !important;
+    gap: 1px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    flex: 1 0 auto !important;
+    overflow: hidden !important;
+    touch-action: none !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    touch-action: none !important;
+  }
+
+  /* Her satır — flex ile 15 eşit slot, ebeveyn genişliğine uyumlu */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack-slots-row {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    max-width: none !important;
+    overflow: hidden !important;
+    gap: 1px !important;
+    grid-template-columns: unset !important;
+    touch-action: none !important;
+  }
+
+  /* Slot — 15 eşit parça, sabit yükseklik, raf kasasına (81px) sığar */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack-slot {
+    flex: 1 0 0 !important;
+    min-width: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    height: calc(33px * var(--okey-proto-tile-scale, 1)) !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    border-radius: 2px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack-slot:not(:has(.my-game-coming-prototype-rack-tile)) {
+    background: rgba(255,255,255,0.08) !important;
+    border-radius: 2px !important;
+  }
+
+  /* Taş — slotu tam doldur, %5 geniş */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    border: 1px solid #bbbbbb !important;
+    border-radius: 3px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.95) !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: 1px 0 0 0 !important;
+    font-size: clamp(15px, 4.5vw, 19px) !important;
+    font-weight: 900 !important;
+    letter-spacing: -1px !important;
+    line-height: 1 !important;
+    position: relative !important;
+    overflow: visible !important;
+    touch-action: none !important;
+    z-index: 2 !important;
+    transform: scaleX(1.05) !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile[draggable="true"],
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile.dragging,
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile.is-dragging {
+    z-index: 999 !important;
+    cursor: grabbing !important;
+  }
+
+  /* Sürüklenen taş ve önizleme — anlık tepki, gecikme yok */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-drag-cursor-preview,
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-drag-cursor-preview .my-okey-drag-cursor-preview-tile {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  /* Alt oyuk — rakam rengiyle aynı (currentColor) */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile::after {
+    content: "" !important;
+    position: absolute !important;
+    bottom: 2px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 7px !important;
+    height: 7px !important;
+    border-radius: 50% !important;
+    background: currentColor !important;
+    opacity: 0.5 !important;
+    box-shadow: inset 0 2px 3px rgba(0,0,0,0.35) !important;
+    pointer-events: none !important;
+  }
+
+  /* Processable (ceza/işleyen) taşlarda oyuk → kırmızı gösterge */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile.processable::after {
+    background: radial-gradient(circle at 35% 35%, #ff8c8c 0 28%, #ea1b1b 38%, #a90a0a 100%) !important;
+    border: 1px solid rgba(255, 238, 238, 0.95) !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(110,0,0,0.35) !important;
+    opacity: 1 !important;
+    width: 8px !important;
+    height: 8px !important;
+  }
+
+  /* Geri Topla gizle — hem my-okey hem my-game shell için */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-okey-geri-topla-btn,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-geri-topla-btn,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-geri-topla-btn {
+    display: none !important;
+  }
+
+  /* dock — butonları gizle, sadece ıstaka kalsın */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-mobile-rack-dock-btn {
+    display: none !important;
+  }
+
+
+
+  /* Üst action butonları (Çift Aç/İşle/Diz, Seri Aç/İşle/Diz) — her zaman görünür */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-lower-strip {
+    position: relative !important;
+    margin-top: calc(6mm * var(--okey-proto-tile-scale, 1)) !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    position: absolute !important;
+    width: 100% !important;
+    left: 0 !important;
+    top: auto !important;
+    bottom: calc(67px * var(--okey-proto-tile-scale, 1) + 1mm * var(--okey-proto-tile-scale, 1)) !important;
+    background: transparent !important;
+    padding: 4px 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    z-index: 999 !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    gap: 4px !important;
+    align-items: center !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child {
+    flex-direction: column !important;
+    transform: translate(calc(-1.2cm * var(--okey-proto-tile-scale, 1)), calc(-2mm * var(--okey-proto-tile-scale, 1))) !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:nth-child(2) {
+    flex-direction: column !important;
+    transform: translate(calc(3.2cm * var(--okey-proto-tile-scale, 1)), calc(-2mm * var(--okey-proto-tile-scale, 1))) !important;
+    background: none !important;
+  }
+
+  /* Çift Aç 1cm yukarı */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:first-child .my-okey-btn-cift-ac {
+    transform: translateY(calc(-1cm * var(--okey-proto-tile-scale, 1))) !important;
+  }
+
+  /* Seri Aç 1cm yukarı */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col:nth-child(2) .my-okey-btn-seri-ac {
+    transform: translateY(calc(-1cm * var(--okey-proto-tile-scale, 1))) !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-okey-open-actions-col .my-action-btn.soft {
+    background: linear-gradient(180deg, rgba(20, 131, 162, 0.9), rgba(8, 106, 134, 0.92)) !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: calc(24px * var(--okey-proto-tile-scale, 1)) !important;
+    min-height: calc(24px * var(--okey-proto-tile-scale, 1)) !important;
+    padding: 2px 6px !important;
+    font-size: calc(10px * var(--okey-proto-tile-scale, 1)) !important;
+    font-weight: 700 !important;
+    border-radius: 4px !important;
+    white-space: nowrap !important;
+    flex: 0 0 auto !important;
+    transform: none !important;
+    width: auto !important;
+    min-width: unset !important;
+    max-width: unset !important;
+    writing-mode: horizontal-tb !important;
+  }
+
+  /* Çift Diz — sol alt, rack-top-actions'a göre absolute (ıstaka üst kenarı) */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-pair-diz {
+    position: absolute !important;
+    left: calc(10% - 1.5cm * var(--okey-proto-tile-scale, 1)) !important;
+    bottom: calc(-1mm * var(--okey-proto-tile-scale, 1)) !important;
+    font-size: calc(13.5px * var(--okey-proto-tile-scale, 1)) !important;
+    z-index: 999 !important;
+  }
+
+  /* Seri Diz — sağ alt, rack-top-actions'a göre absolute (ıstaka üst kenarı) */
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-diz {
+    position: absolute !important;
+    right: calc(10% - 1.5cm * var(--okey-proto-tile-scale, 1)) !important;
+    bottom: calc(-1mm * var(--okey-proto-tile-scale, 1)) !important;
+    font-size: calc(13.5px * var(--okey-proto-tile-scale, 1)) !important;
+    z-index: 999 !important;
+  }
+
+  :is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle {
+    margin-top: calc(-5.6cm * var(--okey-proto-tile-scale, 1)) !important;
+    transform: translate(calc(1cm * var(--okey-proto-tile-scale, 1)), calc(1.5mm * var(--okey-proto-tile-scale, 1))) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: linear-gradient(180deg, rgba(20, 131, 162, 0.9), rgba(8, 106, 134, 0.92)) !important;
+    color: white !important;
+    white-space: nowrap !important;
+    width: auto !important;
+    min-height: unset !important;
+    height: calc(17px * var(--okey-proto-tile-scale, 1)) !important;
+    padding: 1px 8px !important;
+    font-size: calc(0.7rem * var(--okey-proto-tile-scale, 1)) !important;
+    font-weight: 700 !important;
+    border: none !important;
+    border-radius: 4px !important;
+    line-height: 1 !important;
+    box-sizing: border-box !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-btn-geri-topla,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-btn-geri-topla {
+    position: relative !important;
+    top: calc(-4mm * var(--okey-proto-tile-scale, 1)) !important;
+    left: calc(-7mm * var(--okey-proto-tile-scale, 1)) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: linear-gradient(180deg, rgba(20, 131, 162, 0.9), rgba(8, 106, 134, 0.92)) !important;
+    color: white !important;
+    white-space: nowrap !important;
+    width: auto !important;
+    min-height: unset !important;
+    height: calc(17px * var(--okey-proto-tile-scale, 1)) !important;
+    padding: 1px 8px !important;
+    font-size: calc(0.7rem * var(--okey-proto-tile-scale, 1)) !important;
+    font-weight: 700 !important;
+    border: none !important;
+    border-radius: 4px !important;
+    line-height: 1 !important;
+    box-sizing: border-box !important;
+  }
+
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls .my-okey-draw-pocket {
+    position: relative !important;
+    left: calc(-13mm * var(--okey-proto-tile-scale, 1)) !important;
+  }
+
+  /* 3'lü buton grubu (Geri Topla / Seri İşle / Çift İşle) — göstergeden bağımsız,
+     el açma alanını oluşturan büyük karenin alt kenarına ortalansın */
+  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-buttons,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-buttons {
+    position: fixed !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    bottom: calc(150px * var(--okey-proto-tile-scale, 1) - 8mm * var(--okey-proto-tile-scale, 1)) !important;
+    z-index: 999 !important;
+    white-space: nowrap !important;
+  }
+
+  /* Gösterge taşı — ıstakadaki taş formatında, aynı boyut */
+  .my-okey-room-shell[data-table-active="true"] .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile {
+    height: 33px !important;
+    width: auto !important;
+    min-width: 20px !important;
+    max-width: 30px !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    border: 1px solid #bbbbbb !important;
+    border-radius: 3px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.95) !important;
+    display: inline-flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: 1px 0 0 0 !important;
+    font-size: clamp(15px, 4.5vw, 19px) !important;
+    font-weight: 900 !important;
+    letter-spacing: -1px !important;
+    line-height: 1 !important;
+    position: relative !important;
+    overflow: visible !important;
+    transform: scaleX(1.05) !important;
+  }
+  .my-okey-room-shell[data-table-active="true"] .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile::after,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile::after {
+    content: "" !important;
+    position: absolute !important;
+    bottom: 2px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 7px !important;
+    height: 7px !important;
+    border-radius: 50% !important;
+    background: currentColor !important;
+    opacity: 0.5 !important;
+    box-shadow: inset 0 2px 3px rgba(0,0,0,0.35) !important;
+    pointer-events: none !important;
+  }
+
+  /* Sağa atılan taşlar (discard pocket) — ıstakadaki taş formatında, aynı boyut */
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile {
+    height: 33px !important;
+    width: auto !important;
+    min-width: 20px !important;
+    max-width: 30px !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    border: 1px solid #bbbbbb !important;
+    border-radius: 3px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.95) !important;
+    display: inline-flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: 1px 0 0 0 !important;
+    font-size: clamp(15px, 4.5vw, 19px) !important;
+    font-weight: 900 !important;
+    letter-spacing: -1px !important;
+    line-height: 1 !important;
+    position: relative !important;
+    overflow: visible !important;
+    transform: scaleX(1.05) !important;
+  }
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile::after,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile::after {
+    content: "" !important;
+    position: absolute !important;
+    bottom: 2px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 7px !important;
+    height: 7px !important;
+    border-radius: 50% !important;
+    background: currentColor !important;
+    opacity: 0.5 !important;
+    box-shadow: inset 0 2px 3px rgba(0,0,0,0.35) !important;
+    pointer-events: none !important;
+  }
+}
+
+/* clear-btn'ları gizle (medya sorusu dışı) */
+:is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-okey-center-middle-controls .my-game-coming-prototype-board-clear-btn,
+:is(.my-okey-room-shell, .my-game-coming-room-shell)[data-table-active="true"] .my-game-coming-prototype-board-status .my-game-coming-prototype-board-clear-btn {
+  display: none !important;
+}
+
+/* Mobil (max-width:760px) — üst şeridi buton yüksekliğine indir */
+@media (max-width: 760px) {
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-room-head.my-game-coming-room-head {
+    min-height: 20px !important;
+    max-height: 24px !important;
+    height: auto !important;
+    padding: 0 5px !important;
+    gap: 2px !important;
+    overflow: visible !important;
+  }
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-room-head h3 {
+    line-height: 1 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-room-head-right {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-room-head-right > span {
+    line-height: 1 !important;
+  }
+}
+
+
