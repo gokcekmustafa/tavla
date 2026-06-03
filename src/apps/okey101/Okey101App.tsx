@@ -20597,7 +20597,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                         }}
                         aria-pressed={okeyPrototypeScorePanelOpen}
                       >
-                        {okeyPrototypeScorePanelOpen ? "Puan Kapat" : "Puan"}
+                        Puan
                       </button>
                       <button
                         className="my-action-btn soft my-okey-mobile-panel-btn"
