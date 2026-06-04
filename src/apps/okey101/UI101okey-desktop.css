@@ -36,7 +36,16 @@
   }
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile,
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
+    min-width: calc(33.6px * var(--okey-proto-tile-scale, 1)) !important;
+    width: calc(33.6px * var(--okey-proto-tile-scale, 1)) !important;
     transform: scaleX(1.05) !important;
+  }
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-slot,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-slot {
+    flex: 0 0 calc(33.6px * var(--okey-proto-tile-scale, 1)) !important;
+    width: calc(33.6px * var(--okey-proto-tile-scale, 1)) !important;
+    min-width: calc(33.6px * var(--okey-proto-tile-scale, 1)) !important;
+    max-width: calc(33.6px * var(--okey-proto-tile-scale, 1)) !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions,
