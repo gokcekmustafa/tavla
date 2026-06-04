@@ -39,4 +39,9 @@
     position: relative !important;
     left: 7cm !important;
   }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head {
+    transform: translateX(-8cm) !important;
+  }
 }
