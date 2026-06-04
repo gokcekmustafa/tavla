@@ -17,11 +17,11 @@
     display: none !important;
   }
 
-  /* Taş tasarımı — mobil dikey (portrait) ile aynı görsel stil, eni ~%24 geniş */
+  /* Taş tasarımı — mobil dikey (portrait) ile aynı görsel stil */
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile,
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile {
-    min-width: 42px !important;
-    width: 42px !important;
+    min-width: 38px !important;
+    width: 38px !important;
     background: #ffffff !important;
     border: 1px solid #bbbbbb !important;
     border-radius: 3px !important;
@@ -40,12 +40,18 @@
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
     transform: scaleX(1.05) !important;
   }
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row {
+    grid-template-columns: repeat(16, 38px) !important;
+    gap: 2px !important;
+  }
+
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot,
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot {
-    flex: 0 0 42px !important;
-    width: 42px !important;
-    min-width: 42px !important;
-    max-width: 42px !important;
+    flex: 0 0 38px !important;
+    width: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions,
