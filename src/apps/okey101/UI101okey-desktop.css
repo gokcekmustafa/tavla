@@ -44,7 +44,7 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles,
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
-    padding: 4px 6px !important;
+    padding: 4px 6px 4px 14px !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot,
