@@ -14,7 +14,7 @@
 @media (min-width: 761px) and (hover: hover) and (pointer: fine) {
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls,
   .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls {
-    display: flex !important;
+    display: none !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions,
