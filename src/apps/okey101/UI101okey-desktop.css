@@ -55,7 +55,7 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-cift-ac,
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-cift-ac {
     position: relative !important;
-    left: 3cm !important;
+    left: 2.5cm !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head,
