@@ -62,6 +62,7 @@
     top: 5mm !important;
     background: #444 !important;
     color: #fff !important;
+    font-size: 0.7rem !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle,
@@ -71,6 +72,7 @@
     top: -3.7cm !important;
     background: #444 !important;
     color: #fff !important;
+    font-size: 0.7rem !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head,
