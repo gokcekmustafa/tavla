@@ -62,6 +62,11 @@
     left: 2.5cm !important;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket {
+    margin-top: 3mm !important;
+  }
+
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-btn-geri-topla,
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-btn-geri-topla {
     position: relative !important;
