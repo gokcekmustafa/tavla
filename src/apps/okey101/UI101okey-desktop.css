@@ -93,6 +93,6 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4,
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
-    transform: translateY(1cm) !important;
+    transform: translateY(2cm) !important;
   }
 }
