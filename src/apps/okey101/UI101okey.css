@@ -7095,7 +7095,7 @@
     display: block;
     position: absolute;
     top: calc(100% + 3px);
-    right: 0;
+    right: 8cm;
     min-width: 148px;
     z-index: 100;
     pointer-events: auto;
