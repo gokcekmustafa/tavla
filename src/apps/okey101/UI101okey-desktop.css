@@ -32,13 +32,6 @@
     padding: 2px 7px !important;
   }
 
-  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle,
-  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle {
-    position: relative !important;
-    left: 2.6cm !important;
-    top: -3.7cm !important;
-  }
-
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-diz,
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-diz {
     position: relative !important;
@@ -67,6 +60,17 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-btn-geri-topla {
     position: relative !important;
     top: 5mm !important;
+    background: #444 !important;
+    color: #fff !important;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle {
+    position: relative !important;
+    left: 2.6cm !important;
+    top: -3.7cm !important;
+    background: #444 !important;
+    color: #fff !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head,
