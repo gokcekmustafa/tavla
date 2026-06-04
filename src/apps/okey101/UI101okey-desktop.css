@@ -88,7 +88,7 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3 {
-    transform: translateY(2cm) !important;
+    transform: translateY(2.1cm) !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4,
