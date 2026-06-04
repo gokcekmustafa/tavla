@@ -7125,4 +7125,7 @@
     margin: 0;
     font-size: 0.5rem;
   }
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-quick-side > .my-okey-quick-card:nth-child(2) {
+    display: none;
+  }
 }
