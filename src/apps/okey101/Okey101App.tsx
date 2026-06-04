@@ -20605,6 +20605,42 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                       >
                         Puan
                       </button>
+                      {okeyPrototypeScorePanelOpen ? (
+                        <div className="my-okey-score-popup" onClick={(e) => e.stopPropagation()}>
+                          <section className="my-okey-quick-card">
+                            <h4>Tabela</h4>
+                            <div className="my-okey-quick-score-list">
+                              {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
+                                <p key={`sc-popup-sc-${seatNo}`}>
+                                  <span>{okeyPrototypeSeatDisplayNames[seatNo] || "Bos"}</span>
+                                  <strong>{okeyPrototypeSeatHandWins[seatNo] ?? 0}</strong>
+                                </p>
+                              ))}
+                            </div>
+                            <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
+                              {OKEY_PROTOTYPE_SEATS.map((seatNo) => (
+                                <p key={`sc-popup-pn-${seatNo}`}>
+                                  <span>{okeyPrototypeSeatDisplayNames[seatNo] || "Bos"} ceza</span>
+                                  <strong>{okeyPrototypeSeatPenaltyTotals[seatNo] ?? 0}</strong>
+                                </p>
+                              ))}
+                            </div>
+                            {okeyPrototypeGameOptions.teamedPlay ? (
+                              <div className="my-okey-quick-score-list my-okey-quick-penalty-list">
+                                {okeyPrototypeTeamRows.map((team) => (
+                                  <p key={`sc-popup-tm-${team.id}`}>
+                                    <span>{team.displayLabel} ceza</span>
+                                    <strong>{team.penalty}</strong>
+                                  </p>
+                                ))}
+                              </div>
+                            ) : null}
+                            {okeyPrototypeLastHandSummary ? (
+                              <p className="my-okey-quick-last-summary">{okeyPrototypeLastHandSummary}</p>
+                            ) : null}
+                          </section>
+                        </div>
+                      ) : null}
                       <button
                         className="my-action-btn"
                         type="button"
