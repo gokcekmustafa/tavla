@@ -31,5 +31,6 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle {
     position: relative !important;
     left: 2cm !important;
+    top: -4cm !important;
   }
 }
