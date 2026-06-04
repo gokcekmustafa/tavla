@@ -20625,22 +20625,22 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                        >
                          {okeyPrototypeTemporaryScoreVisible ? okeyPrototypeLastHandSummary || "Puan" : "Puan"}
                        </button>
-                      <button
-                        className="my-action-btn"
-                        type="button"
-                        onClick={() => setOkeyPrototypeActiveMobilePanel((current) => current === "options" ? null : "options")}
-                        style={{background:"linear-gradient(180deg,#4a4a4a,#2d2d2d)",border:"1px solid rgba(255,255,255,0.15)",color:"#ddd"}}
-                      >
-                        Ayar
-                      </button>
-                      <button
-                        className="my-action-btn"
-                        type="button"
-                        onClick={() => setOkeyPrototypeActiveMobilePanel((current) => current === "chat" ? null : "chat")}
-                        style={{background:"linear-gradient(180deg,#e8870e,#c06d0a)",border:"1px solid rgba(255,200,100,0.4)",color:"#fff"}}
-                      >
-                        Sohbet
-                      </button>
+                       <button
+                         className="my-action-btn desktop-hidden"
+                         type="button"
+                         onClick={() => setOkeyPrototypeActiveMobilePanel((current) => current === "options" ? null : "options")}
+                         style={{background:"linear-gradient(180deg,#4a4a4a,#2d2d2d)",border:"1px solid rgba(255,255,255,0.15)",color:"#ddd"}}
+                       >
+                         Ayar
+                       </button>
+                       <button
+                         className="my-action-btn desktop-hidden"
+                         type="button"
+                         onClick={() => setOkeyPrototypeActiveMobilePanel((current) => current === "chat" ? null : "chat")}
+                         style={{background:"linear-gradient(180deg,#e8870e,#c06d0a)",border:"1px solid rgba(255,200,100,0.4)",color:"#fff"}}
+                       >
+                         Sohbet
+                       </button>
                     </div>
                   ) : null}
                 </div>
