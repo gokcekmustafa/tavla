@@ -7079,6 +7079,7 @@
   .my-game-coming-room-shell[data-table-active="true"] > .my-chat-card.my-room-chat-card .my-chat-list {
     display: block !important;
   }
+  .my-okey-room-head-actions > .my-action-btn:nth-child(2),
   .my-okey-room-head-actions > .my-action-btn:last-child {
     display: none;
   }
