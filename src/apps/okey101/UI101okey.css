@@ -7129,6 +7129,6 @@
     display: none !important;
   }
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status .my-okey-indicator-card {
-    display: none;
+    display: none !important;
   }
 }
