@@ -40,6 +40,12 @@
     left: 7cm !important;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-pair-diz,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-pair-diz {
+    position: relative !important;
+    left: -1cm !important;
+  }
+
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head,
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head {
     transform: translateX(-7cm) !important;
