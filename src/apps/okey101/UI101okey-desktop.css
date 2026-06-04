@@ -37,6 +37,6 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-diz,
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-diz {
     position: relative !important;
-    left: 4cm !important;
+    left: 7cm !important;
   }
 }
