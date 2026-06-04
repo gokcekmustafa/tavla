@@ -60,7 +60,7 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-btn-geri-topla {
     position: relative !important;
     top: 5mm !important;
-    background: #444 !important;
+    background: #2a6fa3 !important;
     color: #fff !important;
     font-size: 0.7rem !important;
   }
@@ -70,7 +70,7 @@
     position: relative !important;
     left: 2.6cm !important;
     top: -3.7cm !important;
-    background: #444 !important;
+    background: #2a6fa3 !important;
     color: #fff !important;
     font-size: 0.7rem !important;
   }
