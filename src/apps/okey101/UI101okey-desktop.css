@@ -36,12 +36,18 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-diz {
     position: relative !important;
     left: 8.5cm !important;
+    min-height: 31px !important;
+    background: #2a6fa3 !important;
+    color: #fff !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-pair-diz,
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-pair-diz {
     position: relative !important;
     left: -1cm !important;
+    min-height: 31px !important;
+    background: #2a6fa3 !important;
+    color: #fff !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-ac,
