@@ -25,6 +25,8 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn,
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-action-btn {
     display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle,
