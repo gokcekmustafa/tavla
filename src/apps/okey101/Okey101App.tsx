@@ -5250,8 +5250,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     text: string;
     seatNo: OkeyPrototypeSeatNo | null;
   } | null>(null);
-  const [okeyPrototypeTemporaryScoreVisible, setOkeyPrototypeTemporaryScoreVisible] = useState(false);
-  const okeyPrototypeTemporaryScoreRef = useRef<number | null>(null);
   const [okeyPrototypeSeatOpenNotices, setOkeyPrototypeSeatOpenNotices] = useState<Record<OkeyPrototypeSeatNo, string | null>>(
     () => createDefaultOkeyPrototypeSeatOpenNotices(),
   );
@@ -7116,20 +7114,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (sameTableContinuation) {
       if (okeyPrototypeSessionHandNo >= OKEY_PROTOTYPE_SET_HAND_TARGET) {
         setOkeyPrototypeSessionHandNo(1);
-    setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
-    setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
-    setOkeyPrototypeDrawHandCount(0);
-    setOkeyPrototypeLastHandSummary("");
-    setOkeyPrototypeTemporaryScoreVisible(false);
-    if (okeyPrototypeTemporaryScoreRef.current) {
-      window.clearTimeout(okeyPrototypeTemporaryScoreRef.current);
-      okeyPrototypeTemporaryScoreRef.current = null;
-    }
-        setOkeyPrototypeTemporaryScoreVisible(false);
-        if (okeyPrototypeTemporaryScoreRef.current) {
-          window.clearTimeout(okeyPrototypeTemporaryScoreRef.current);
-          okeyPrototypeTemporaryScoreRef.current = null;
-        }
+        setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
+        setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
+        setOkeyPrototypeDrawHandCount(0);
+        setOkeyPrototypeLastHandSummary("");
       } else {
         setOkeyPrototypeSessionHandNo((current) => Math.max(1, current + 1));
       }
@@ -12680,14 +12668,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       ? `El ${okeyPrototypeSessionHandNo}: Tur iptal (cezasiz).`
       : `El ${okeyPrototypeSessionHandNo}: Berabere. Ceza: ${penaltyText}`;
     setOkeyPrototypeLastHandSummary(nextHandSummary);
-    setOkeyPrototypeTemporaryScoreVisible(true);
-    if (okeyPrototypeTemporaryScoreRef.current) {
-      window.clearTimeout(okeyPrototypeTemporaryScoreRef.current);
-    }
-    okeyPrototypeTemporaryScoreRef.current = window.setTimeout(() => {
-      setOkeyPrototypeTemporaryScoreVisible(false);
-      okeyPrototypeTemporaryScoreRef.current = null;
-    }, 3000);
     const drawDiscardActorSeatNo = okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     const discardEntryAt = Date.now();
     const fallbackTile = okeyPrototypeDiscardPile[0]?.tile
@@ -20622,9 +20602,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                           setOkeyPrototypeActiveMobilePanel((current) => current === "score" ? null : "score");
                         }}
                         aria-pressed={okeyPrototypeScorePanelOpen}
-                       >
-                         {okeyPrototypeTemporaryScoreVisible ? okeyPrototypeLastHandSummary || "Puan" : "Puan"}
-                       </button>
+                      >
+                        Puan
+                      </button>
                       <button
                         className="my-action-btn"
                         type="button"
