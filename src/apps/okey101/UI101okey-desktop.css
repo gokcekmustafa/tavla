@@ -85,9 +85,4 @@
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head {
     transform: translateX(-7cm) !important;
   }
-
-  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-2,
-  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-2 {
-    transform: translateY(1cm) !important;
-  }
 }
