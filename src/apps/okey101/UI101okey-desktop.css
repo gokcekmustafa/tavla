@@ -20,8 +20,8 @@
   /* Taş tasarımı — mobil dikey (portrait) ile aynı görsel stil */
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile,
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tile {
-    min-width: 38px !important;
-    width: 38px !important;
+    min-width: 36px !important;
+    width: 36px !important;
     background: #ffffff !important;
     border: 1px solid #bbbbbb !important;
     border-radius: 3px !important;
@@ -36,22 +36,23 @@
     overflow: visible !important;
     z-index: 2 !important;
   }
-  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile,
-  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile {
-    transform: scaleX(1.05) !important;
-  }
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row,
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row {
-    grid-template-columns: repeat(16, 38px) !important;
+    grid-template-columns: repeat(16, 36px) !important;
     gap: 2px !important;
+  }
+
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-tiles {
+    padding: 4px 6px !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot,
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slot {
-    flex: 0 0 38px !important;
-    width: 38px !important;
-    min-width: 38px !important;
-    max-width: 38px !important;
+    flex: 0 0 36px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions,
