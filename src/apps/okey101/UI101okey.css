@@ -7128,4 +7128,7 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-mobile-panel-overlay {
     display: none !important;
   }
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card {
+    display: none;
+  }
 }
