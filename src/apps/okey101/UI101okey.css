@@ -7097,7 +7097,6 @@
     top: calc(100% + 3px);
     right: 0;
     min-width: 148px;
-    transform: translateX(-8cm);
     z-index: 100;
     pointer-events: auto;
   }
