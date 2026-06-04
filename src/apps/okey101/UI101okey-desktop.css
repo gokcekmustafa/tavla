@@ -58,6 +58,12 @@
     left: 2.5cm !important;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-btn-geri-topla,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-btn-geri-topla {
+    position: relative !important;
+    top: 5mm !important;
+  }
+
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head,
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack .my-okey-rack-score-strip-head {
     transform: translateX(-7cm) !important;
