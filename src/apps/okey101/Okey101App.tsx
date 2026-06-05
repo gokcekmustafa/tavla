@@ -6679,8 +6679,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   ]);
   const okeyPrototypeCanOpenPairsNow = okeyPrototypeCanAdvanceTurn
     && okeyPrototypeTurnPhase === "discard"
-    && !okeyPrototypeCurrentSeatOpened;
-  const okeyPrototypeCanUsePairOpenAction = !okeyPrototypeCurrentSeatOpened && okeyPrototypeCanOpenPairsNow;
+    && !(okeyPrototypeSeatOpenedState[okeyPrototypeSeatNoForRack as OkeyPrototypeSeatNo] ?? false)
+    && okeyPrototypeTurnSeatNo === (okeyPrototypeSeatNoForRack as OkeyPrototypeSeatNo);
+  const okeyPrototypeCanUsePairOpenAction = !(okeyPrototypeSeatOpenedState[okeyPrototypeSeatNoForRack as OkeyPrototypeSeatNo] ?? false) && okeyPrototypeCanOpenPairsNow;
   const okeyPrototypeCanUseSerialOpenAction = okeyPrototypeCanOpenSerialNow
     && (
       !okeyPrototypeCurrentSeatOpened
