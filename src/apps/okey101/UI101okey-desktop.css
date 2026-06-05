@@ -3,31 +3,11 @@
    Oyun mantığına dokunma.
    Kurallar App.css'deki base stilleri ezer. */
 
-/* ── center-middle / board-status içindeki çift clear-btn'ları gizle ── */
-.my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-game-coming-prototype-board-clear-btn,
-.my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-game-coming-prototype-board-clear-btn,
-.my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status .my-game-coming-prototype-board-clear-btn,
-.my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-status .my-game-coming-prototype-board-clear-btn {
-  display: none !important;
-}
-
 @media (min-width: 761px) and (hover: hover) and (pointer: fine) {
   /* Hayalet taşı gizle — masa sabit kalsın */
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket-ghost,
   .my-okey-room-shell[data-table-active="true"] .my-okey-draw-pocket-ghost {
     display: none !important;
-  }
-
-  /* Tahta orta alanı sabit boyut — hiçbir durumda uzayıp kısalmasın */
-  .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface,
-  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface {
-    min-height: 250px !important;
-    max-height: 250px !important;
-    overflow: hidden !important;
-  }
-  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid,
-  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
-    min-height: 360px !important;
   }
 
   /* Taş tasarımı — mobil dikey (portrait) ile aynı görsel stil */
