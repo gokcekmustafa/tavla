@@ -48,8 +48,37 @@
     padding: 4px 6px 4px 41px !important;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-center-meld-btn-tiles .my-game-coming-prototype-rack-tile,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-center-meld-btn-tiles .my-game-coming-prototype-rack-tile,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile {
+    min-width: 36px !important;
+    width: 36px !important;
+    height: 46px !important;
+    background: #ffffff !important;
+    border: 1px solid #bbbbbb !important;
+    border-radius: 3px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.95) !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: 1px 0 0 0 !important;
+    letter-spacing: -1px !important;
+    line-height: 1 !important;
+    position: relative !important;
+    overflow: visible !important;
+    z-index: 2 !important;
+  }
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile::after,
-  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile::after {
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack-slots-row .my-game-coming-prototype-rack-tile::after,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile::after,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket .my-game-coming-prototype-rack-tile::after,
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-center-meld-btn-tiles .my-game-coming-prototype-rack-tile::after,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-center-meld-btn-tiles .my-game-coming-prototype-rack-tile::after,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile::after,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-indicator-card-tile-wrap .my-game-coming-prototype-rack-tile::after {
     width: 11px !important;
     height: 11px !important;
     box-shadow: inset 0 3px 5px rgba(0,0,0,0.35) !important;
