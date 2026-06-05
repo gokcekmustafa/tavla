@@ -196,10 +196,10 @@
     color: #fff !important;
     font-size: 0.7rem !important;
     padding: 2px 0 !important;
-    width: 160px !important;
-    max-width: 160px !important;
-    min-width: 160px !important;
-    flex: 0 0 160px !important;
+    width: calc(160px - 2cm) !important;
+    max-width: calc(160px - 2cm) !important;
+    min-width: calc(160px - 2cm) !important;
+    flex: 0 0 calc(160px - 2cm) !important;
     box-sizing: border-box !important;
   }
 
