@@ -213,6 +213,8 @@
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket,
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket {
+    width: 100px !important;
+    min-height: 110px !important;
     justify-items: center !important;
     align-content: center !important;
   }
