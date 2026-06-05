@@ -211,12 +211,6 @@
     transform: translateY(2.1cm) !important;
   }
 
-  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket,
-  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket {
-    justify-items: center !important;
-    align-content: center !important;
-  }
-
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-melds,
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-melds {
     min-height: 112px !important;
