@@ -12,11 +12,6 @@
 }
 
 @media (min-width: 761px) and (hover: hover) and (pointer: fine) {
-  .my-game-coming-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls,
-  .my-okey-room-shell[data-table-active="true"] .my-okey-self-seat-inline-controls {
-    display: none !important;
-  }
-
   /* Hayalet taşı gizle — masa sabit kalsın */
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket-ghost,
   .my-okey-room-shell[data-table-active="true"] .my-okey-draw-pocket-ghost {
