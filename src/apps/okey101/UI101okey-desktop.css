@@ -181,16 +181,33 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-btn-geri-topla {
     position: relative !important;
     top: 5mm !important;
+    right: -5mm !important;
     background: #2a6fa3 !important;
     color: #fff !important;
     font-size: 0.7rem !important;
+    max-width: calc(100% - 4mm) !important;
+  }
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions > .my-okey-btn-taslari-isle,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions > .my-okey-btn-taslari-isle {
+    position: relative !important;
+    left: 2.6cm !important;
+    top: -3.2cm !important;
+    background: #2a6fa3 !important;
+    color: #fff !important;
+    font-size: 0.7rem !important;
+    padding: 2px 0 !important;
+    width: 160px !important;
+    max-width: 160px !important;
+    min-width: 160px !important;
+    flex: 0 0 160px !important;
+    box-sizing: border-box !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle,
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle {
     position: relative !important;
     left: 2.6cm !important;
-    top: -3.7cm !important;
+    top: -3.2cm !important;
     background: #2a6fa3 !important;
     color: #fff !important;
     font-size: 0.7rem !important;
@@ -211,10 +228,15 @@
     transform: translateY(2.1cm) !important;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface {
+    width: 110% !important;
+    margin-left: -5% !important;
+  }
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-melds,
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-melds {
-    min-height: 112px !important;
-    max-height: 112px !important;
+    min-height: 124px !important;
+    max-height: 124px !important;
   }
 
   /* Çift taş alanı — taşlar yanyana, gruplar alt alta */
