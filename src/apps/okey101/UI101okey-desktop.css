@@ -32,9 +32,7 @@
   }
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid,
   .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-board-grid {
-    min-height: 286px !important;
-    max-height: 286px !important;
-    overflow: hidden !important;
+    min-height: 360px !important;
   }
 
   /* Taş tasarımı — mobil dikey (portrait) ile aynı görsel stil */
