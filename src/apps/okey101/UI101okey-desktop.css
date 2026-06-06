@@ -252,6 +252,11 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket,
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket {
     z-index: 15 !important;
+    align-content: center !important;
+  }
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket-ghost,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-draw-pocket-ghost {
+    display: none !important;
   }
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
@@ -259,7 +264,6 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
     bottom: calc(40px - 2.1cm - 1cm) !important;
     transform: none !important;
-    align-content: center !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface,
