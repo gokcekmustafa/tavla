@@ -68,9 +68,9 @@
   .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-board-center-meld-btn-tiles .my-game-coming-prototype-rack-tile,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-meld .my-game-coming-prototype-rack-tile,
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-meld .my-game-coming-prototype-rack-tile {
-    min-width: 20px !important;
-    width: 20px !important;
-    height: 24px !important;
+    min-width: 16px !important;
+    width: 16px !important;
+    height: 20px !important;
     background: #ffffff !important;
     border: 1px solid #bbbbbb !important;
     border-radius: 2px !important;
@@ -79,7 +79,7 @@
     align-items: flex-start !important;
     justify-content: center !important;
     padding: 1px 0 0 0 !important;
-    font-size: 0.7rem !important;
+    font-size: 0.6rem !important;
     letter-spacing: -1px !important;
     line-height: 1 !important;
     position: relative !important;
@@ -105,6 +105,10 @@
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.35) !important;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-game-coming-prototype-rack,
+  .my-okey-room-shell[data-table-active="true"] .my-game-coming-prototype-rack {
+    margin-top: 5mm !important;
+  }
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-meld,
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-meld {
     flex-wrap: nowrap !important;
@@ -145,7 +149,8 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-diz,
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-diz {
     position: relative !important;
-    left: 8.5cm !important;
+    left: calc(8.5cm - 3mm) !important;
+    top: 6mm !important;
     min-height: 31px !important;
     background: #2a6fa3 !important;
     color: #fff !important;
@@ -154,7 +159,8 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-pair-diz,
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-pair-diz {
     position: relative !important;
-    left: -1cm !important;
+    left: calc(-1cm - 2mm) !important;
+    top: 6mm !important;
     min-height: 31px !important;
     background: #2a6fa3 !important;
     color: #fff !important;
@@ -164,24 +170,42 @@
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-seri-ac {
     position: relative !important;
     left: 5cm !important;
+    top: 1.5cm !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-cift-ac,
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-cift-ac {
     position: relative !important;
     left: 2.5cm !important;
+    top: 1.5cm !important;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls {
+    position: relative !important;
+    z-index: 10 !important;
+  }
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card {
+    transform: translateX(-4.8cm) translateY(3.7cm) !important;
+  }
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card > span,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card > span,
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card small,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-indicator-card small {
+    display: none !important;
+  }
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket,
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-draw-pocket {
     margin-top: 3mm !important;
+    transform: translateX(-3.5cm) translateY(1.9cm) !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-btn-geri-topla,
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-middle-controls .my-okey-btn-geri-topla {
     position: relative !important;
-    top: 5mm !important;
-    right: -5mm !important;
+    top: calc(5mm + 1.5cm + 3mm) !important;
+    right: calc(-5mm + 5cm - 1cm + 4mm) !important;
     background: #2a6fa3 !important;
     color: #fff !important;
     font-size: 0.7rem !important;
@@ -190,24 +214,24 @@
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions > .my-okey-btn-taslari-isle,
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions > .my-okey-btn-taslari-isle {
     position: relative !important;
-    left: 2.6cm !important;
-    top: -3.2cm !important;
+    left: calc(2.6cm + 3mm - 5cm + 1cm - 4mm) !important;
+    top: calc(-3.2cm + 1.5cm) !important;
     background: #2a6fa3 !important;
     color: #fff !important;
     font-size: 0.7rem !important;
     padding: 2px 0 !important;
-    width: calc(160px - 2.1cm) !important;
-    max-width: calc(160px - 2.1cm) !important;
-    min-width: calc(160px - 2.1cm) !important;
-    flex: 0 0 calc(160px - 2.1cm) !important;
+    width: calc(160px - 2.1cm - 1mm) !important;
+    max-width: calc(160px - 2.1cm - 1mm) !important;
+    min-width: calc(160px - 2.1cm - 1mm) !important;
+    flex: 0 0 calc(160px - 2.1cm - 1mm) !important;
     box-sizing: border-box !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle,
   .my-okey-room-shell[data-table-active="true"] .my-okey-rack-top-actions .my-okey-btn-taslari-isle {
     position: relative !important;
-    left: 2.6cm !important;
-    top: -3.2cm !important;
+    left: calc(2.6cm + 3mm - 5cm + 1cm - 4mm) !important;
+    top: calc(-3.2cm + 1.5cm) !important;
     background: #2a6fa3 !important;
     color: #fff !important;
     font-size: 0.7rem !important;
@@ -219,27 +243,56 @@
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
-  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3 {
-    transform: translateY(2.1cm) !important;
-  }
-
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4,
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
-    transform: translateY(2.1cm) !important;
+    bottom: calc(40px - 2.1cm - 1cm) !important;
+    transform: none !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface,
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-surface {
     width: 110% !important;
     margin-left: -5% !important;
+    overflow: visible !important;
   }
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-melds,
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-melds {
-    min-height: 124px !important;
-    max-height: 124px !important;
+    min-height: 56px !important;
+    max-height: 132px !important;
+    overflow-y: hidden !important;
   }
 
-  /* Çift taş alanı — taşlar yanyana, gruplar alt alta */
+  /* Tüm seat area yüksekliğini %30 büyüt */
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-area,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-area {
+    min-height: 140px !important;
+  }
+
+  /* pos-2 (sağ üst) 5cm sağa */
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-area.pos-2,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-area.pos-2 {
+    transform: translateX(5cm) !important;
+    z-index: 5 !important;
+  }
+  /* pos-3 (sağ alt) 5cm sağa + 1.5cm aşağı */
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-area.pos-3,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-area.pos-3 {
+    transform: translateX(5cm) translateY(1.5cm) !important;
+    z-index: 5 !important;
+  }
+  /* pos-4 (sol alt) 1.5cm aşağı */
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-seat-area.pos-4,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-seat-area.pos-4 {
+    transform: translateY(1.5cm) !important;
+    z-index: 5 !important;
+  }
+
+  /* Çift taş alanı — tamamen gizle */
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-columns,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-columns {
+    display: none !important;
+  }
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-pair-column-body,
   .my-okey-room-shell[data-table-active="true"] .my-okey-center-pair-column-body {
     display: flex !important;
