@@ -7004,7 +7004,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     okeyPrototypeSeatReservationHydratedRef.current = true;
     if (!okeyPrototypeSeatReservation) return;
     if (isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) {
-      resetOkeyPrototypeSeatSessionState();
+      // Page refresh: restart bot game with fresh deal
+      startLocalOkeyPrototypeBotGame();
       return;
     }
     setViewMode("table");
@@ -7028,7 +7029,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         okeyPrototypeMissingSeatReservationLastPullAtRef.current = 0;
         return;
       }
-      resetOkeyPrototypeSeatSessionState();
+      // Local bot table not found (e.g. page refresh) — hydration effect handles re-deal
       return;
     }
     const exists = Object.values(okeyPrototypeTablesByRoom).some((tables) => (

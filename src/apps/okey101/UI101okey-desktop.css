@@ -3,6 +3,13 @@
    Oyun mantığına dokunma.
    Kurallar App.css'deki base stilleri ezer. */
 
+/* Bilgisayarla Oyna butonu (oda seçici) — sadece 101 Okey */
+.my-room-picker-tabs-secondary .my-room-picker-tab:last-child {
+  background: linear-gradient(180deg, #c77dff, #9c49c9) !important;
+  color: #fff !important;
+  border-color: #b366e0 !important;
+}
+
 @media (min-width: 761px) and (hover: hover) and (pointer: fine) {
   /* Hayalet taşı gizle — masa sabit kalsın */
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-draw-pocket-ghost,
@@ -242,12 +249,17 @@
     transform: translateX(-7cm) !important;
   }
 
+  .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket,
+  .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket {
+    z-index: 15 !important;
+  }
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-3,
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4,
   .my-okey-room-shell[data-table-active="true"] .my-okey-discard-pocket.pos-4 {
     bottom: calc(40px - 2.1cm - 1cm) !important;
     transform: none !important;
+    align-content: center !important;
   }
 
   .my-game-coming-room-shell[data-table-active="true"] .my-okey-center-surface,
