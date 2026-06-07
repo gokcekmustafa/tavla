@@ -8086,7 +8086,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     return Boolean(mySeat && mySeat.sessionId === appSessionId);
   }, [roomSession, currentRoomTable, appSessionId]);
 
-  const canWriteLobbyChat = Boolean(member && !member.isBlocked && member.permissions.lobbyChat);
+  const canWriteLobbyChat = member ? Boolean(!member.isBlocked && member.permissions.lobbyChat) : true;
   const canWriteTableChat = useMemo(() => {
     if (!roomSession || !canViewTableChat || mode !== "local") return false;
     if (roomSession.role === "spectator") {
@@ -8675,11 +8675,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function sendLobbyChat(rawText: string) {
-    if (!member) {
-      setLobbyNotice("Lobi sohbetine yazmak için üye girişi yapmalısın.");
-      return;
-    }
-    if (member.isBlocked || !member.permissions.lobbyChat) {
+    if (member && (member.isBlocked || !member.permissions.lobbyChat)) {
       setLobbyNotice("Lobi sohbeti yetkiniz admin tarafından kapatıldı.");
       return;
     }
