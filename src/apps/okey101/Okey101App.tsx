@@ -8088,7 +8088,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   const canWriteLobbyChat = member ? Boolean(!member.isBlocked && member.permissions.lobbyChat) : true;
   const canWriteTableChat = useMemo(() => {
-    if (!roomSession || !canViewTableChat || mode !== "local") return false;
+    if (!roomSession || !canViewTableChat) return false;
     if (roomSession.role === "spectator") {
       const memberAllowed = member ? !member.isBlocked && member.permissions.spectatorChat : true;
       return currentRoomTable?.allowSpectatorChat !== false && memberAllowed;
