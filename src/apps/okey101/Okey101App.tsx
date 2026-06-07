@@ -8072,23 +8072,33 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }, [lobbyState.lobbyChat, lobbyChatJoinedAt]);
 
   const tableChatRows = useMemo(() => {
+    if (okeyPrototypeSeatReservation && okeyPrototypeLocalBotTable) {
+      const key = tableChatKey(okeyPrototypeLocalBotTable);
+      return normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
+    }
     if (!currentRoomTable) return [];
     const key = tableChatKey(currentRoomTable);
     const rows = normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
     if (!roomSession) return rows;
     return rows.filter((row) => row.at >= roomSession.joinedAt);
-  }, [currentRoomTable, lobbyState.tableChats, roomSession]);
+  }, [currentRoomTable, lobbyState.tableChats, roomSession, okeyPrototypeSeatReservation, okeyPrototypeLocalBotTable]);
 
   const canViewTableChat = useMemo(() => {
+    if (okeyPrototypeSeatReservation) return true;
     if (!roomSession || !currentRoomTable) return false;
     if (roomSession.role === "spectator") return true;
     const mySeat = roomSession.seat === "white" ? currentRoomTable.white : currentRoomTable.black;
     return Boolean(mySeat && mySeat.sessionId === appSessionId);
-  }, [roomSession, currentRoomTable, appSessionId]);
+  }, [roomSession, currentRoomTable, appSessionId, okeyPrototypeSeatReservation]);
 
   const canWriteLobbyChat = member ? Boolean(!member.isBlocked && member.permissions.lobbyChat) : true;
   const canWriteTableChat = useMemo(() => {
-    if (!roomSession || !canViewTableChat) return false;
+    if (!canViewTableChat) return false;
+    if (okeyPrototypeSeatReservation) {
+      if (!member) return true;
+      return Boolean(!member.isBlocked && member.permissions.tableChat);
+    }
+    if (!roomSession) return false;
     if (roomSession.role === "spectator") {
       const memberAllowed = member ? !member.isBlocked && member.permissions.spectatorChat : true;
       return currentRoomTable?.allowSpectatorChat !== false && memberAllowed;
@@ -8690,6 +8700,22 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function sendTableChat(rawText: string) {
+    const message = createOutgoingChatMessage(rawText);
+    if (!message) return;
+
+    if (okeyPrototypeSeatReservation && okeyPrototypeLocalBotTable) {
+      writeLobby((current) => {
+        const key = tableChatKey(okeyPrototypeLocalBotTable);
+        const nextTableChats = {
+          ...current.tableChats,
+          [key]: appendChatMessage(current.tableChats[key] ?? [], message, TABLE_CHAT_LIMIT),
+        };
+        return { ...current, tableChats: nextTableChats, updatedAt: Date.now() };
+      });
+      setRoomTableChatInput("");
+      return;
+    }
+
     if (!roomSession) return;
     if (roomSession.role === "player") {
       if (member && (member.isBlocked || !member.permissions.tableChat)) {
@@ -8701,8 +8727,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setLobbyNotice("İzleyici sohbeti yetkiniz kapatıldı.");
       return;
     }
-    const message = createOutgoingChatMessage(rawText);
-    if (!message) return;
 
     let blocked = false;
     let spectatorChatBlocked = false;
