@@ -8093,7 +8093,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       const memberAllowed = member ? !member.isBlocked && member.permissions.spectatorChat : true;
       return currentRoomTable?.allowSpectatorChat !== false && memberAllowed;
     }
-    return Boolean(member && !member.isBlocked && member.permissions.tableChat);
+    if (!member) return true;
+    return Boolean(!member.isBlocked && member.permissions.tableChat);
   }, [roomSession, canViewTableChat, mode, currentRoomTable, member]);
   const roomChatRows = useMemo(() => (roomChatTab === "table" ? tableChatRows : lobbyChatRows), [roomChatTab, tableChatRows, lobbyChatRows]);
   const canWriteRoomChat = roomChatTab === "table" ? canWriteTableChat : canWriteLobbyChat;
@@ -8694,13 +8695,11 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   function sendTableChat(rawText: string) {
     if (!roomSession) return;
-    if (roomSession.role === "player" && !member) {
-      setLobbyNotice("Masa sohbeti sadece üye oyuncular için açık.");
-      return;
-    }
-    if (member && (member.isBlocked || !member.permissions.tableChat)) {
-      setLobbyNotice("Masa sohbeti yetkiniz admin tarafından kapatıldı.");
-      return;
+    if (roomSession.role === "player") {
+      if (member && (member.isBlocked || !member.permissions.tableChat)) {
+        setLobbyNotice("Masa sohbeti yetkiniz admin tarafından kapatıldı.");
+        return;
+      }
     }
     if (roomSession.role === "spectator" && member && !member.permissions.spectatorChat) {
       setLobbyNotice("İzleyici sohbeti yetkiniz kapatıldı.");
