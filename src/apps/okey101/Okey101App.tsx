@@ -8069,12 +8069,16 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }, [lobbyState.lobbyChat, lobbyChatJoinedAt]);
 
   const tableChatRows = useMemo(() => {
+    if (mode === "local" && okeyPrototypeSeatReservation) {
+      const key = `okey-proto-${okeyPrototypeSeatReservation.tableId}`;
+      return normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
+    }
     if (!currentRoomTable) return [];
     const key = tableChatKey(currentRoomTable);
     const rows = normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
     if (!roomSession) return rows;
     return rows.filter((row) => row.at >= roomSession.joinedAt);
-  }, [currentRoomTable, lobbyState.tableChats, roomSession]);
+  }, [currentRoomTable, lobbyState.tableChats, roomSession, mode, okeyPrototypeSeatReservation]);
 
   const canViewTableChat = useMemo(() => {
     if (!roomSession || !currentRoomTable) return false;
@@ -8085,6 +8089,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   const canWriteLobbyChat = member ? Boolean(!member.isBlocked && member.permissions.lobbyChat) : true;
   const canWriteTableChat = useMemo(() => {
+    if (mode === "local" && okeyPrototypeSeatReservation) {
+      if (!member) return true;
+      return Boolean(!member.isBlocked && member.permissions.tableChat);
+    }
     if (!roomSession || !canViewTableChat) return false;
     if (roomSession.role === "spectator") {
       const memberAllowed = member ? !member.isBlocked && member.permissions.spectatorChat : true;
@@ -8092,7 +8100,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     if (!member) return true;
     return Boolean(!member.isBlocked && member.permissions.tableChat);
-  }, [roomSession, canViewTableChat, mode, currentRoomTable, member]);
+  }, [roomSession, canViewTableChat, mode, currentRoomTable, member, okeyPrototypeSeatReservation]);
   const roomChatRows = useMemo(() => (roomChatTab === "table" ? tableChatRows : lobbyChatRows), [roomChatTab, tableChatRows, lobbyChatRows]);
   const canWriteRoomChat = roomChatTab === "table" ? canWriteTableChat : canWriteLobbyChat;
   const roomChatInput = roomChatTab === "table" ? roomTableChatInput : roomLobbyChatInput;
@@ -8687,6 +8695,25 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   function sendTableChat(rawText: string) {
+    if (mode === "local" && okeyPrototypeSeatReservation) {
+      if (member && (member.isBlocked || !member.permissions.tableChat)) {
+        setLobbyNotice("Masa sohbeti yetkiniz admin tarafından kapatıldı.");
+        return;
+      }
+      const message = createOutgoingChatMessage(rawText);
+      if (!message) return;
+      const key = `okey-proto-${okeyPrototypeSeatReservation.tableId}`;
+      writeLobby((current) => ({
+        ...current,
+        tableChats: {
+          ...current.tableChats,
+          [key]: appendChatMessage(current.tableChats[key] ?? [], message, TABLE_CHAT_LIMIT),
+        },
+        updatedAt: Date.now(),
+      }));
+      setRoomTableChatInput("");
+      return;
+    }
     if (!roomSession) return;
     if (roomSession.role === "player") {
       if (member && (member.isBlocked || !member.permissions.tableChat)) {
