@@ -6645,62 +6645,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
           || getOkeyPrototypeJokerReplacementPlan(tile, meld).valid;
       })
     );
-    const rackTiles = okeyPrototypeTurnRackTiles;
-    const canFormMeldFromRack = (() => {
-      const meldTileIds = new Set<string>();
-      const nonJokerTiles = rackTiles.filter((t) => !isOkeyPrototypeJokerTile(t, okeyPrototypeOkeyTile));
-      const jokerTileIds = new Set(rackTiles.filter((t) => isOkeyPrototypeJokerTile(t, okeyPrototypeOkeyTile)).map((t) => t.id));
-      const jokerCount = jokerTileIds.size;
-      const groupedByColor = new Map<OkeyPrototypeNormalColor, { value: number; id: string }[]>();
-      nonJokerTiles.forEach((t) => {
-        const group = groupedByColor.get(t.color as OkeyPrototypeNormalColor) ?? [];
-        group.push({ value: t.value, id: t.id });
-        groupedByColor.set(t.color as OkeyPrototypeNormalColor, group);
-      });
-      groupedByColor.forEach((tiles) => {
-        const sorted = tiles.slice().sort((a, b) => a.value - b.value);
-        let seqStart = 0;
-        for (let i = 1; i <= sorted.length; i++) {
-          if (i < sorted.length && sorted[i].value === sorted[i - 1].value + 1) continue;
-          const seqLen = i - seqStart;
-          if (seqLen >= 2) {
-            let remainingJokers = jokerCount;
-            let needed = 3 - seqLen;
-            if (needed <= 0 || (needed <= remainingJokers)) {
-              for (let j = seqStart; j < i; j++) {
-                meldTileIds.add(sorted[j].id);
-              }
-            }
-          }
-          seqStart = i;
-        }
-      });
-      const groupedByValue = new Map<number, { value: number; id: string }[]>();
-      nonJokerTiles.forEach((t) => {
-        const group = groupedByValue.get(t.value) ?? [];
-        group.push({ value: t.value, id: t.id });
-        groupedByValue.set(t.value, group);
-      });
-      groupedByValue.forEach((tiles) => {
-        if (tiles.length >= 2) {
-          let remainingJokers = jokerCount;
-          let needed = 3 - tiles.length;
-          if (needed <= 0 || needed <= remainingJokers) {
-            tiles.forEach((t) => meldTileIds.add(t.id));
-          }
-        }
-      });
-      jokerTileIds.forEach((id) => meldTileIds.add(id));
-      return meldTileIds;
-    })();
     okeyPrototypeTurnRackTiles.forEach((tile) => {
       const canTriggerPenaltyByDiscard = canTriggerAttachableDiscardPenalty(tile);
       const canSetProcess = okeyPrototypeCurrentSeatOpened
         ? (canProcessKindDirectly(tile, "set") || okeyPrototypePairProcessTileIds.has(tile.id))
-        : (canTriggerPenaltyByDiscard || canFormMeldFromRack.has(tile.id));
+        : canTriggerPenaltyByDiscard;
       const canSeriProcess = okeyPrototypeCurrentSeatOpened
         ? canProcessKindDirectly(tile, "seri")
-        : (canTriggerPenaltyByDiscard || canFormMeldFromRack.has(tile.id));
+        : canTriggerPenaltyByDiscard;
       const hasDiscardPenaltyRisk = isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile)
         || canTriggerPenaltyByDiscard;
       if (canSetProcess || canSeriProcess || hasDiscardPenaltyRisk) {
@@ -14133,12 +14085,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         ? requiredPendingTileId
         : null;
       const slotOrder = seatNo === okeyPrototypeSeatNoForRack ? okeyPrototypeSeatRackSlots : null;
-      const pairGroupsToOpen = buildOkeyPrototypePairProcessGroups(
-        workingRack,
-        okeyPrototypeOkeyTile,
-        slotOrder,
-        requiredPairTileId,
-      );
+      const rackForPairs = workingRack.filter((tile) => !acquiredJokerTileIds.has(tile.id));
+      const pairGroupsToOpen = rackForPairs.length >= 2
+        ? buildOkeyPrototypePairProcessGroups(rackForPairs, okeyPrototypeOkeyTile, slotOrder, requiredPairTileId)
+        : [];
       if (pairGroupsToOpen.length > 0) {
         const now = Date.now();
         pairGroupsToOpen.forEach((group, index) => {
