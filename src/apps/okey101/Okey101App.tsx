@@ -4143,6 +4143,11 @@ function normalizeLobbyState(raw: unknown): LobbyState {
   const okeyPrototypeTablesByRoom = cleanedOkeyPrototype.tablesByRoom;
   const lobbyChat = normalizeChatLog(candidate.lobbyChat, LOBBY_CHAT_LIMIT);
   const activeTableChatKeys = new Set(cleaned.map((table) => tableChatKey(table)));
+  Object.values(okeyPrototypeTablesByRoom).forEach((tables) => {
+    tables.forEach((table) => {
+      activeTableChatKeys.add(`okey-proto-${table.id}`);
+    });
+  });
   const rawTableChats = candidate.tableChats && typeof candidate.tableChats === "object"
     ? candidate.tableChats as Record<string, unknown>
     : {};
