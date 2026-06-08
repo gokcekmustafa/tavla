@@ -5696,23 +5696,19 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       return [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
     }
     const occupiedSeatNos = getOkeyLobbyOccupiedSeatNos(okeyPrototypeJoinedTable);
-    const seats = occupiedSeatNos.length > 0
-      ? sortOkeyPrototypeSeatsCounterClockwise(occupiedSeatNos)
-      : sortOkeyPrototypeSeatsCounterClockwise([okeyPrototypeTurnSeat as OkeyPrototypeSeatNo]);
-    const reservedSeatNo = Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
-    if (!seats.includes(reservedSeatNo)) {
-      seats.push(reservedSeatNo);
-    }
-    const orderedSeats = sortOkeyPrototypeSeatsCounterClockwise(seats);
-    if (orderedSeats.length >= 2) {
+    if (occupiedSeatNos.length >= 2) {
+      const orderedSeats = sortOkeyPrototypeSeatsCounterClockwise(occupiedSeatNos);
       okeyPrototypeLastStableTurnSeatsRef.current = orderedSeats.slice();
       return orderedSeats;
+    }
+    if (occupiedSeatNos.length === 1) {
+      return [occupiedSeatNos[0]];
     }
     const stableFallback = okeyPrototypeLastStableTurnSeatsRef.current;
     if (stableFallback.length >= 2) {
       return stableFallback.slice();
     }
-    return orderedSeats.length > 0 ? orderedSeats : [reservedSeatNo];
+    return [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
   }, [okeyPrototypeJoinedTable, okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
   const okeyPrototypeSeatNoForRack = useMemo(() => {
     if (okeyPrototypeSeatReservation) {
@@ -10633,7 +10629,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       okeyPrototypeAutoNextHandTimerRef.current = null;
     }
     okeyPrototypeLastStartedTableKeyRef.current = "";
-    okeyPrototypeLastStableTurnSeatsRef.current = [];
     okeyPrototypePublishedLiveActionIdRef.current = "";
     okeyPrototypeAppliedLiveActionIdRef.current = "";
     okeyPrototypeAppliedLiveActionRef.current = null;
@@ -10641,7 +10636,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     okeyPrototypeSetSummaryHandKeyRef.current = "";
     setOkeyPrototypeSeatReservation(null);
     setOkeyPrototypeLocalBotTable(null);
-    setOkeyPrototypeTurnSeat(1);
     setOkeyPrototypeTurnRound(1);
     setOkeyPrototypeTurnPhase("draw");
     setOkeyPrototypeTurnHasDrawn(false);
