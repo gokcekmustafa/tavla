@@ -11104,7 +11104,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             seats: nextSeats,
             ownerUserId: nextOwner?.userId ?? "",
             ownerSessionId: nextOwner?.sessionId ?? "",
-            startedAt: table.startedAt ?? (occupiedSeatNos.length >= 4 ? Date.now() : null),
+            startedAt: null,
+            liveAction: null,
             updatedAt: Date.now(),
           };
           tables[tableIndex] = nextTable;
@@ -11162,7 +11163,8 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
               seats: nextSeats,
               ownerUserId: nextOwnerSeat?.userId ?? "",
               ownerSessionId: nextOwnerSeat?.sessionId ?? "",
-              startedAt: table.startedAt ?? (occupiedSeatNos.length >= 4 ? Date.now() : null),
+              startedAt: null,
+              liveAction: null,
               updatedAt: Date.now(),
             });
           });
