@@ -6204,8 +6204,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     && okeyPrototypeJoinedTable.started,
   );
   const okeyPrototypeCanEditGameOptions = Boolean(
-    okeyPrototypeIsTableOwner
-    && !okeyPrototypeGameStarted,
+    okeyPrototypeSeatReservation
+    && okeyPrototypeIsTableOwner
+    && (!okeyPrototypeGameStarted || isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)),
   );
   const okeyPrototypeIsLocalTurn = Boolean(okeyPrototypeSeatReservation && okeyPrototypeTurnSeat === okeyPrototypeLocalSeatNo);
   const okeyPrototypeIsBotTurn = okeyPrototypeBotModeEnabled
@@ -14481,7 +14482,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setLobbyNotice("Oyun ayarlarını sadece masa sahibi değiştirebilir.");
       return;
     }
-    if (okeyPrototypeGameStarted) {
+    if (okeyPrototypeGameStarted && !isOkeyPrototypeLocalBotTableId(okeyPrototypeSeatReservation.tableId)) {
       setLobbyNotice("Oyun başladıktan sonra ayarlar kilitlenir.");
       return;
     }
