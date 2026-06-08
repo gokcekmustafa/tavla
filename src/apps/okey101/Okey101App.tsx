@@ -4145,7 +4145,8 @@ function normalizeLobbyState(raw: unknown): LobbyState {
   const activeTableChatKeys = new Set(cleaned.map((table) => tableChatKey(table)));
   Object.values(okeyPrototypeTablesByRoom).forEach((tables) => {
     tables.forEach((table) => {
-      activeTableChatKeys.add(`okey-proto-${table.id}`);
+      const protoKey = sanitizeTableChatKey(`okey-proto-${table.id}`);
+      if (protoKey) activeTableChatKeys.add(protoKey);
     });
   });
   const rawTableChats = candidate.tableChats && typeof candidate.tableChats === "object"
@@ -8075,7 +8076,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   const tableChatRows = useMemo(() => {
     if (mode === "local" && okeyPrototypeSeatReservation) {
-      const key = `okey-proto-${okeyPrototypeSeatReservation.tableId}`;
+      const key = sanitizeTableChatKey(`okey-proto-${okeyPrototypeSeatReservation.tableId}`);
       return normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
     }
     if (!currentRoomTable) return [];
@@ -8707,7 +8708,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       }
       const message = createOutgoingChatMessage(rawText);
       if (!message) return;
-      const key = `okey-proto-${okeyPrototypeSeatReservation.tableId}`;
+      const key = sanitizeTableChatKey(`okey-proto-${okeyPrototypeSeatReservation.tableId}`);
       writeLobby((current) => ({
         ...current,
         tableChats: {
