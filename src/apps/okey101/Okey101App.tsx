@@ -11073,9 +11073,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       if (liveAction && liveAction.publicLastHandSummary) {
         setOkeyPrototypeLastHandSummary(liveAction.publicLastHandSummary);
       }
-      if (liveAction && typeof liveAction.publicHandCompleted === "boolean") {
-        setOkeyPrototypeHandCompleted(liveAction.publicHandCompleted);
-      }
       if (liveAction && liveAction.publicRackState) {
         setOkeyPrototypeRackState({ ...liveAction.publicRackState });
       }
