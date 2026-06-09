@@ -13223,6 +13223,51 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         + `Geri Topla ile tahtayi temizleyip 101 ceza yersin.`,
       );
     }
+    if (okeyPrototypeGameOptions.increasingPlay) {
+      const anyOtherSeatOpened = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
+        candidateSeatNo !== seatNo && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+      ));
+      if (anyOtherSeatOpened) {
+        let baselineForIncrease: number | null = null;
+        if (okeyPrototypeGameOptions.teamedPlay) {
+          const currentTeam = OKEY_PROTOTYPE_TEAM_SEAT_GROUPS.find(
+            (group) => (group.seats as readonly OkeyPrototypeSeatNo[]).includes(seatNo),
+          );
+          const teammateSeats: readonly OkeyPrototypeSeatNo[] = currentTeam ? currentTeam.seats : [seatNo];
+          const openedOpponentSeatNos = OKEY_PROTOTYPE_SEATS.filter((candidateSeatNo) => (
+            candidateSeatNo !== seatNo
+            && !teammateSeats.includes(candidateSeatNo)
+            && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+          ));
+          if (openedOpponentSeatNos.length > 0) {
+            const opponentOpeningPoints = openedOpponentSeatNos.map((candidateSeatNo) => {
+              const trackedPoints = Math.max(0, Math.trunc(okeyPrototypeSeatOpeningPoints[candidateSeatNo] ?? 0));
+              if (trackedPoints > 0) return trackedPoints;
+              if (okeyPrototypeLastOpeningSeatNo === candidateSeatNo && okeyPrototypeLastOpeningPoints > 0) {
+                return Math.max(0, Math.trunc(okeyPrototypeLastOpeningPoints));
+              }
+              return OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
+            });
+            baselineForIncrease = Math.max(...opponentOpeningPoints);
+          }
+        } else {
+          baselineForIncrease = okeyPrototypeLastOpeningPoints > 0
+            ? okeyPrototypeLastOpeningPoints
+            : OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
+        }
+        if (baselineForIncrease !== null) {
+          const increasingRequiredPoints = Math.max(OKEY_PROTOTYPE_OPENING_TARGET_POINTS, baselineForIncrease) + 1;
+          if (OKEY_PROTOTYPE_OPENING_TARGET_POINTS < increasingRequiredPoints) {
+            appendOkeyPrototypeAction(
+              `Artirmali oyunda cift acmak icin en az ${increasingRequiredPoints} puan gerekir. `
+              + `Cift acma puani her zaman ${OKEY_PROTOTYPE_OPENING_TARGET_POINTS} oldugu icin cift acamazsin. `
+              + `Seri acmayi dene.`,
+            );
+            return;
+          }
+        }
+      }
+    }
     const openedPairTileIds = new Set(openablePairs.flat().map((tile) => tile.id));
     const anySeatOpenedBefore = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
       candidateSeatNo !== seatNo && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
