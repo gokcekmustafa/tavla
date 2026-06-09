@@ -6973,6 +6973,18 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
 
   useEffect(() => {
     setOkeyPrototypeTableSearch("");
+    if (okeyPrototypeSelectedRoom) {
+      updateOkeyPrototypeTablesByRoom((current) => {
+        const roomTables = current[okeyPrototypeSelectedRoom.id];
+        if (!roomTables || roomTables.length === 0) return current;
+        const nextRoomTables = roomTables.filter((table) => {
+          const occupiedSeatNos = OKEY_PROTOTYPE_SEATS.filter((s) => Boolean(table.seats[s]));
+          return occupiedSeatNos.length > 0;
+        });
+        if (nextRoomTables.length === roomTables.length) return current;
+        return { ...current, [okeyPrototypeSelectedRoom.id]: nextRoomTables };
+      });
+    }
   }, [okeyPrototypeSelectedRoom?.id]);
 
   useEffect(() => {
