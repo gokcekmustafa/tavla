@@ -13021,12 +13021,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     const nextOpeningPoints = okeyPrototypeTurnOpeningPoints + openingPointsGain;
     const willOpenSeatNow = !seatAlreadyOpened;
-    if (nextOpeningPoints < OKEY_PROTOTYPE_OPENING_TARGET_POINTS && !seatAlreadyOpened) {
-      appendOkeyPrototypeAction(
-        `Uyari: Acilis puani yetmiyor (${nextOpeningPoints}/${OKEY_PROTOTYPE_OPENING_TARGET_POINTS}). `
-        + `Geri Topla ile tahtayi temizleyip 101 ceza yersin.`,
-      );
-    }
+    let increasingRequiredPoints: number | null = null;
     if (willOpenSeatNow && okeyPrototypeGameOptions.increasingPlay) {
       const anyOtherSeatOpened = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
         candidateSeatNo !== seatNo && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
@@ -13060,16 +13055,22 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             : OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
         }
         if (baselineForIncrease !== null) {
-          const requiredPoints = Math.max(OKEY_PROTOTYPE_OPENING_TARGET_POINTS, baselineForIncrease) + 1;
-          if (nextOpeningPoints < requiredPoints) {
-            appendOkeyPrototypeAction(
-              `Uyari: Artirmali oyunda acilis en az ${requiredPoints} olmali `
-              + `(senin acilisin ${nextOpeningPoints}). `
-              + `Geri Topla ile tahtayi temizleyip 101 ceza yersin.`,
-            );
-          }
+          increasingRequiredPoints = Math.max(OKEY_PROTOTYPE_OPENING_TARGET_POINTS, baselineForIncrease) + 1;
         }
       }
+    }
+    if (increasingRequiredPoints !== null && nextOpeningPoints < increasingRequiredPoints) {
+      appendOkeyPrototypeAction(
+        `Artirmali oyunda acilis en az ${increasingRequiredPoints} olmali `
+        + `(senin acilisin ${nextOpeningPoints}). `,
+      );
+      return false;
+    }
+    if (nextOpeningPoints < OKEY_PROTOTYPE_OPENING_TARGET_POINTS && !seatAlreadyOpened) {
+      appendOkeyPrototypeAction(
+        `Uyari: Acilis puani yetmiyor (${nextOpeningPoints}/${OKEY_PROTOTYPE_OPENING_TARGET_POINTS}). `
+        + `Geri Topla ile tahtayi temizleyip 101 ceza yersin.`,
+      );
     }
     const meldEntries: OkeyPrototypeMeldEntry[] = groupsForEntries.map((group, index) => ({
       id: `okey-proto-meld-${seatNo}-${timestamp}-${index}-${Math.random().toString(36).slice(2, 7)}`,
