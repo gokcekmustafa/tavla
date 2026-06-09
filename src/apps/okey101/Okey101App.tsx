@@ -5147,7 +5147,7 @@ function Okey101App() {
   const [lobbyChatInput, setLobbyChatInput] = useState("");
   const [lobbyChatAutoScroll, setLobbyChatAutoScroll] = useState(true);
   const [lobbyChatUnread, setLobbyChatUnread] = useState(0);
-  const [lobbyChatJoinedAt] = useState(() => Date.now());
+  const [lobbyChatJoinedAt, setLobbyChatJoinedAt] = useState(() => Date.now());
   const [roomChatTab, setRoomChatTab] = useState<"table" | "lobby">("table");
   const [roomTableChatInput, setRoomTableChatInput] = useState("");
   const [roomLobbyChatInput, setRoomLobbyChatInput] = useState("");
@@ -6985,6 +6985,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         return { ...current, [okeyPrototypeSelectedRoom.id]: nextRoomTables };
       });
     }
+    setLobbyChatJoinedAt(Date.now());
   }, [okeyPrototypeSelectedRoom?.id]);
 
   useEffect(() => {
@@ -8089,14 +8090,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const tableChatRows = useMemo(() => {
     if (mode === "local" && okeyPrototypeSeatReservation) {
       const key = sanitizeTableChatKey(`okey-proto-${okeyPrototypeSeatReservation.tableId}`);
-      return normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
+      const rows = normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
+      const mySeat = okeyPrototypeJoinedTable?.seats[okeyPrototypeSeatReservation.seatNo] ?? null;
+      const joinedAt = mySeat ? Number(mySeat.joinedAt) : 0;
+      return joinedAt ? rows.filter((row) => row.at >= joinedAt) : rows;
     }
     if (!currentRoomTable) return [];
     const key = tableChatKey(currentRoomTable);
     const rows = normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
     if (!roomSession) return rows;
     return rows.filter((row) => row.at >= roomSession.joinedAt);
-  }, [currentRoomTable, lobbyState.tableChats, roomSession, mode, okeyPrototypeSeatReservation]);
+  }, [currentRoomTable, lobbyState.tableChats, roomSession, mode, okeyPrototypeSeatReservation, okeyPrototypeJoinedTable]);
 
   const canViewTableChat = useMemo(() => {
     if (!roomSession || !currentRoomTable) return false;
