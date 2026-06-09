@@ -455,6 +455,8 @@ type OkeyPrototypeLobbySeatState = {
   joinedAt: number;
 };
 
+type OkeyPrototypeSeatReservation = { tableId: string; seatNo: OkeyPrototypeSeatNo; joinedAt: number };
+
 type OkeyPrototypeLobbyTableState = {
   id: string;
   roomId: string;
@@ -4152,6 +4154,10 @@ function normalizeLobbyState(raw: unknown): LobbyState {
   const rawTableChats = candidate.tableChats && typeof candidate.tableChats === "object"
     ? candidate.tableChats as Record<string, unknown>
     : {};
+  Object.keys(rawTableChats).forEach((rawKey) => {
+    const safeKey = sanitizeTableChatKey(rawKey);
+    if (safeKey && safeKey.startsWith("okey-proto-")) activeTableChatKeys.add(safeKey);
+  });
   const tableChats: Record<string, ChatMessage[]> = {};
   Object.entries(rawTableChats).forEach(([rawKey, value]) => {
     const safeKey = sanitizeTableChatKey(rawKey);
@@ -4366,22 +4372,23 @@ function loadOkeyPrototypeAutoSortModeFromSession(): OkeyPrototypeAutoSortMode {
   return normalizeOkeyPrototypeAutoSortMode(raw);
 }
 
-function loadOkeyPrototypeSeatReservationFromSession(): { tableId: string; seatNo: OkeyPrototypeSeatNo } | null {
+function loadOkeyPrototypeSeatReservationFromSession(): OkeyPrototypeSeatReservation | null {
   if (typeof window === "undefined") return null;
   const raw = safeStorageGetItem(window.sessionStorage, OKEY_PROTOTYPE_SEAT_RESERVATION_SESSION_KEY);
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as Partial<{ tableId: string; seatNo: number }>;
+    const parsed = JSON.parse(raw) as Partial<{ tableId: string; seatNo: number; joinedAt: number }>;
     const tableId = sanitizeOkeyPrototypeTableId(parsed.tableId);
     const seatNo = normalizeOkeyPrototypeSeatNo(parsed.seatNo);
     if (!tableId || !seatNo) return null;
-    return { tableId, seatNo };
+    const joinedAt = Number.isFinite(parsed.joinedAt) ? Number(parsed.joinedAt) : 0;
+    return { tableId, seatNo, joinedAt };
   } catch {
     return null;
   }
 }
 
-function saveOkeyPrototypeSeatReservationToSession(reservation: { tableId: string; seatNo: OkeyPrototypeSeatNo } | null) {
+function saveOkeyPrototypeSeatReservationToSession(reservation: OkeyPrototypeSeatReservation | null) {
   if (typeof window === "undefined") return;
   if (!reservation) {
     safeStorageRemoveItem(window.sessionStorage, OKEY_PROTOTYPE_SEAT_RESERVATION_SESSION_KEY);
@@ -4399,6 +4406,7 @@ function saveOkeyPrototypeSeatReservationToSession(reservation: { tableId: strin
     JSON.stringify({
       tableId,
       seatNo,
+      joinedAt: reservation.joinedAt,
       savedAt: Date.now(),
     }),
   );
@@ -5165,7 +5173,7 @@ function Okey101App() {
   const [okeyPrototypeTableSort, setOkeyPrototypeTableSort] = useState<"tableNo" | "occupancy" | "status">("tableNo");
   const [okeyPrototypeSelectedTableId, setOkeyPrototypeSelectedTableId] = useState("");
   const [okeyPrototypeSeatDraft, setOkeyPrototypeSeatDraft] = useState<OkeyPrototypeSeatNo>(1);
-  const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<{ tableId: string; seatNo: OkeyPrototypeSeatNo } | null>(
+  const [okeyPrototypeSeatReservation, setOkeyPrototypeSeatReservation] = useState<OkeyPrototypeSeatReservation | null>(
     () => loadOkeyPrototypeSeatReservationFromSession(),
   );
   const [okeyPrototypeLocalBotTable, setOkeyPrototypeLocalBotTable] = useState<OkeyPrototypeLobbyTableState | null>(null);
@@ -8091,8 +8099,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (mode === "local" && okeyPrototypeSeatReservation) {
       const key = sanitizeTableChatKey(`okey-proto-${okeyPrototypeSeatReservation.tableId}`);
       const rows = normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
-      const mySeat = okeyPrototypeJoinedTable?.seats[okeyPrototypeSeatReservation.seatNo] ?? null;
-      const joinedAt = mySeat ? Number(mySeat.joinedAt) : 0;
+      const joinedAt = okeyPrototypeSeatReservation.joinedAt;
       return joinedAt ? rows.filter((row) => row.at >= joinedAt) : rows;
     }
     if (!currentRoomTable) return [];
@@ -8100,7 +8107,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const rows = normalizeChatLog(lobbyState.tableChats[key] ?? [], TABLE_CHAT_LIMIT);
     if (!roomSession) return rows;
     return rows.filter((row) => row.at >= roomSession.joinedAt);
-  }, [currentRoomTable, lobbyState.tableChats, roomSession, mode, okeyPrototypeSeatReservation, okeyPrototypeJoinedTable]);
+  }, [currentRoomTable, lobbyState.tableChats, roomSession, mode, okeyPrototypeSeatReservation]);
 
   const canViewTableChat = useMemo(() => {
     if (!roomSession || !currentRoomTable) return false;
@@ -9392,6 +9399,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setOkeyPrototypeSeatReservation({
         tableId: createdTable.id,
         seatNo,
+        joinedAt: now,
       });
       setMode("local");
       setGamePickerOpen(false);
@@ -9537,6 +9545,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeSeatReservation({
       tableId: localTableId,
       seatNo: localSeatNo,
+      joinedAt: now,
     });
     setOkeyPrototypeSelectedTableId(localTableId);
     setSelectedLobbyId(roomId);
@@ -10974,6 +10983,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeSeatReservation({
       tableId: tableRow.id,
       seatNo: reservedSeat,
+      joinedAt: now,
     });
     setMode("local");
     setGamePickerOpen(false);
