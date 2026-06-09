@@ -5725,11 +5725,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     return [okeyPrototypeTurnSeat as OkeyPrototypeSeatNo];
   }, [okeyPrototypeJoinedTable, okeyPrototypeSeatReservation, okeyPrototypeTurnSeat]);
   const okeyPrototypeSeatNoForRack = useMemo(() => {
+    if (mode === "local" && okeyPrototypeTurnSeat && okeyPrototypeActiveTurnSeats.includes(okeyPrototypeTurnSeat as OkeyPrototypeSeatNo)) {
+      return okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
+    }
     if (okeyPrototypeSeatReservation) {
       return Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
     }
     return 1 as OkeyPrototypeSeatNo;
-  }, [okeyPrototypeSeatReservation]);
+  }, [okeyPrototypeSeatReservation, okeyPrototypeTurnSeat, okeyPrototypeActiveTurnSeats, mode]);
   const okeyPrototypeSeatRackTiles = useMemo(() => {
     return okeyPrototypeRackState[okeyPrototypeSeatNoForRack] ?? [];
   }, [okeyPrototypeRackState, okeyPrototypeSeatNoForRack]);
@@ -6230,7 +6233,12 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     && isOkeyPrototypeBotUserId(okeyPrototypeJoinedTable?.seats[okeyPrototypeTurnSeat as OkeyPrototypeSeatNo]?.userId ?? "");
   const okeyPrototypeCanAdvanceTurn = okeyPrototypeGameStarted
     && !okeyPrototypeHandCompleted
-    && (okeyPrototypeIsLocalTurn || okeyPrototypeIsBotTurn);
+    && (
+      okeyPrototypeIsLocalTurn
+      || okeyPrototypeIsBotTurn
+      || (mode === "local"
+        && okeyPrototypeActiveTurnSeats.includes(okeyPrototypeTurnSeat as OkeyPrototypeSeatNo))
+    );
   const okeyPrototypeCurrentSeatOpened = okeyPrototypeSeatOpenedState[okeyPrototypeTurnSeat as OkeyPrototypeSeatNo] ?? false;
   const okeyPrototypeCurrentSeatPairOpenCount = useMemo(
     () => {
