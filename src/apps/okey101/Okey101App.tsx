@@ -17680,56 +17680,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         if (nextTables.length > 0) {
           nextOkeyTablesByRoom[roomId] = nextTables.sort((left, right) => left.tableNo - right.tableNo);
         } else if (tables.length > 0) {
-          roomOkeyTablesChanged = true;
+          okeyTablesChanged = true;
         }
         if (roomOkeyTablesChanged) okeyTablesChanged = true;
-      });
-        const nextTables: OkeyPrototypeLobbyTableState[] = [];
-        tables.forEach((table) => {
-          const nextSeats: Partial<Record<OkeyPrototypeSeatNo, OkeyPrototypeLobbySeatState>> = { ...table.seats };
-          let removedMine = false;
-          OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
-            const seat = nextSeats[seatNo];
-            if (!seat) return;
-            const sameSession = sanitizeGuestId(seat.sessionId) === appSessionId;
-            const safeCurrentUserId = sanitizeGuestId(currentProfile.userId);
-            const sameUser = safeCurrentUserId && sanitizeGuestId(seat.userId) === safeCurrentUserId;
-            if (!sameSession && !sameUser) return;
-            delete nextSeats[seatNo];
-            removedMine = true;
-          });
-          if (!removedMine) {
-            nextTables.push(table);
-            return;
-          }
-          OKEY_PROTOTYPE_SEATS.forEach((seatNo) => {
-            const seat = nextSeats[seatNo];
-            if (!seat) return;
-            if (!isOkeyPrototypeBotUserId(seat.userId)) return;
-            delete nextSeats[seatNo];
-          });
-          const occupiedSeatNos = getOkeyPrototypeOccupiedSeatNos({ seats: nextSeats });
-          if (occupiedSeatNos.length === 0) {
-            okeyTablesChanged = true;
-            return;
-          }
-          const nextOwnerSeatNo = occupiedSeatNos[0];
-          const nextOwnerSeat = nextOwnerSeatNo ? nextSeats[nextOwnerSeatNo] ?? null : null;
-          nextTables.push({
-            ...table,
-            seats: nextSeats,
-            ownerUserId: nextOwnerSeat?.userId ?? "",
-            ownerSessionId: nextOwnerSeat?.sessionId ?? "",
-            startedAt: table.startedAt ?? (occupiedSeatNos.length >= 4 ? Date.now() : null),
-            updatedAt: Date.now(),
-          });
-          okeyTablesChanged = true;
-        });
-        if (nextTables.length > 0) {
-          nextOkeyTablesByRoom[roomId] = nextTables.sort((left, right) => left.tableNo - right.tableNo);
-        } else if (tables.length > 0) {
-          okeyTablesChanged = true;
-        }
       });
       const closedRoomCodes = cleared.tables
         .filter((table) => !table.white && !table.black)
