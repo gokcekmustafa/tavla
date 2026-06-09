@@ -5747,14 +5747,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (okeyPrototypeBotModeEnabled && okeyPrototypeSeatReservation) {
       return Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
     }
-    if (mode === "local" && okeyPrototypeTurnSeat && okeyPrototypeActiveTurnSeats.includes(okeyPrototypeTurnSeat as OkeyPrototypeSeatNo)) {
+    if (mode === "local"
+      && isOkeyPrototypeLocalBotTableId(okeyPrototypeJoinedTable?.id ?? "")
+      && okeyPrototypeTurnSeat
+      && okeyPrototypeActiveTurnSeats.includes(okeyPrototypeTurnSeat as OkeyPrototypeSeatNo)) {
       return okeyPrototypeTurnSeat as OkeyPrototypeSeatNo;
     }
     if (okeyPrototypeSeatReservation) {
       return Math.max(1, Math.min(4, okeyPrototypeSeatReservation.seatNo)) as OkeyPrototypeSeatNo;
     }
     return 1 as OkeyPrototypeSeatNo;
-  }, [okeyPrototypeSeatReservation, okeyPrototypeTurnSeat, okeyPrototypeActiveTurnSeats, mode, okeyPrototypeBotModeEnabled]);
+  }, [okeyPrototypeSeatReservation, okeyPrototypeTurnSeat, okeyPrototypeActiveTurnSeats, mode, okeyPrototypeBotModeEnabled, okeyPrototypeJoinedTable]);
   const okeyPrototypeSeatRackTiles = useMemo(() => {
     return okeyPrototypeRackState[okeyPrototypeSeatNoForRack] ?? [];
   }, [okeyPrototypeRackState, okeyPrototypeSeatNoForRack]);
@@ -6264,6 +6267,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       okeyPrototypeIsLocalTurn
       || okeyPrototypeIsBotTurn
       || (mode === "local"
+        && isOkeyPrototypeLocalBotTableId(okeyPrototypeJoinedTable?.id ?? "")
         && okeyPrototypeActiveTurnSeats.includes(okeyPrototypeTurnSeat as OkeyPrototypeSeatNo))
     );
   const okeyPrototypeCurrentSeatOpened = okeyPrototypeSeatOpenedState[okeyPrototypeTurnSeat as OkeyPrototypeSeatNo] ?? false;
