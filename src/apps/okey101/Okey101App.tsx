@@ -13201,36 +13201,46 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     let increasingRequiredPoints: number | null = null;
     let increasingFailed = false;
     if (willOpenSeatNow && okeyPrototypeGameOptions.increasingPlay) {
-      const anyOtherSeatOpened = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
-        candidateSeatNo !== seatNo && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+      const anyOtherSeriOpened = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
+        candidateSeatNo !== seatNo
+        && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+        && (okeyPrototypeSeatOpenModes[candidateSeatNo] ?? "none") === "seri"
       ));
-      if (anyOtherSeatOpened) {
+      if (anyOtherSeriOpened) {
         let baselineForIncrease: number | null = null;
         if (okeyPrototypeGameOptions.teamedPlay) {
           const currentTeam = OKEY_PROTOTYPE_TEAM_SEAT_GROUPS.find(
             (group) => (group.seats as readonly OkeyPrototypeSeatNo[]).includes(seatNo),
           );
           const teammateSeats: readonly OkeyPrototypeSeatNo[] = currentTeam ? currentTeam.seats : [seatNo];
-          const openedOpponentSeatNos = OKEY_PROTOTYPE_SEATS.filter((candidateSeatNo) => (
+          const openedOpponentSeriSeatNos = OKEY_PROTOTYPE_SEATS.filter((candidateSeatNo) => (
             candidateSeatNo !== seatNo
             && !teammateSeats.includes(candidateSeatNo)
             && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+            && (okeyPrototypeSeatOpenModes[candidateSeatNo] ?? "none") === "seri"
           ));
-          if (openedOpponentSeatNos.length > 0) {
-            const opponentOpeningPoints = openedOpponentSeatNos.map((candidateSeatNo) => {
+          if (openedOpponentSeriSeatNos.length > 0) {
+            const opponentOpeningPoints = openedOpponentSeriSeatNos.map((candidateSeatNo) => {
               const trackedPoints = Math.max(0, Math.trunc(okeyPrototypeSeatOpeningPoints[candidateSeatNo] ?? 0));
               if (trackedPoints > 0) return trackedPoints;
-              if (okeyPrototypeLastOpeningSeatNo === candidateSeatNo && okeyPrototypeLastOpeningPoints > 0) {
-                return Math.max(0, Math.trunc(okeyPrototypeLastOpeningPoints));
-              }
               return OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
             });
             baselineForIncrease = Math.max(...opponentOpeningPoints);
           }
         } else {
-          baselineForIncrease = okeyPrototypeLastOpeningPoints > 0
-            ? okeyPrototypeLastOpeningPoints
-            : OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
+          baselineForIncrease = Math.max(
+            ...OKEY_PROTOTYPE_SEATS
+              .filter((candidateSeatNo) => (
+                candidateSeatNo !== seatNo
+                && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+                && (okeyPrototypeSeatOpenModes[candidateSeatNo] ?? "none") === "seri"
+              ))
+              .map((candidateSeatNo) => Math.max(0, Math.trunc(okeyPrototypeSeatOpeningPoints[candidateSeatNo] ?? 0)))
+              .filter((p) => p > 0),
+          );
+          if (!Number.isFinite(baselineForIncrease) || baselineForIncrease === null || baselineForIncrease < OKEY_PROTOTYPE_OPENING_TARGET_POINTS) {
+            baselineForIncrease = OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
+          }
         }
         if (baselineForIncrease !== null) {
           increasingRequiredPoints = Math.max(OKEY_PROTOTYPE_OPENING_TARGET_POINTS, baselineForIncrease) + 1;
@@ -13398,53 +13408,60 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     }
     let increasingPairFailed = false;
     if (okeyPrototypeGameOptions.increasingPlay) {
-      const anyOtherSeatOpened = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
-        candidateSeatNo !== seatNo && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+      const anyOtherPairOpened = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
+        candidateSeatNo !== seatNo
+        && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+        && (okeyPrototypeSeatOpenModes[candidateSeatNo] ?? "none") === "pair"
       ));
-      if (anyOtherSeatOpened) {
-        let baselineForIncrease: number | null = null;
+      if (anyOtherPairOpened) {
+        let baselinePairCount: number | null = null;
         if (okeyPrototypeGameOptions.teamedPlay) {
           const currentTeam = OKEY_PROTOTYPE_TEAM_SEAT_GROUPS.find(
             (group) => (group.seats as readonly OkeyPrototypeSeatNo[]).includes(seatNo),
           );
           const teammateSeats: readonly OkeyPrototypeSeatNo[] = currentTeam ? currentTeam.seats : [seatNo];
-          const openedOpponentSeatNos = OKEY_PROTOTYPE_SEATS.filter((candidateSeatNo) => (
+          const openedOpponentPairSeatNos = OKEY_PROTOTYPE_SEATS.filter((candidateSeatNo) => (
             candidateSeatNo !== seatNo
             && !teammateSeats.includes(candidateSeatNo)
             && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+            && (okeyPrototypeSeatOpenModes[candidateSeatNo] ?? "none") === "pair"
           ));
-          if (openedOpponentSeatNos.length > 0) {
-            const opponentOpeningPoints = openedOpponentSeatNos.map((candidateSeatNo) => {
-              const trackedPoints = Math.max(0, Math.trunc(okeyPrototypeSeatOpeningPoints[candidateSeatNo] ?? 0));
-              if (trackedPoints > 0) return trackedPoints;
-              if (okeyPrototypeLastOpeningSeatNo === candidateSeatNo && okeyPrototypeLastOpeningPoints > 0) {
-                return Math.max(0, Math.trunc(okeyPrototypeLastOpeningPoints));
-              }
-              return OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
-            });
-            baselineForIncrease = Math.max(...opponentOpeningPoints);
-          }
-        } else {
-          baselineForIncrease = okeyPrototypeLastOpeningPoints > 0
-            ? okeyPrototypeLastOpeningPoints
-            : OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
-        }
-        if (baselineForIncrease !== null) {
-          const increasingRequiredPoints = Math.max(OKEY_PROTOTYPE_OPENING_TARGET_POINTS, baselineForIncrease) + 1;
-          if (OKEY_PROTOTYPE_OPENING_TARGET_POINTS < increasingRequiredPoints) {
-            increasingPairFailed = true;
-            setOkeyPrototypeSeatPenaltyTotals((current) => ({
-              ...current,
-              [seatNo]: (current[seatNo] ?? 0) + OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS,
-            }));
-            appendOkeyPrototypeAction(
-              `Artirmali oyunda cift acmak icin en az ${increasingRequiredPoints} puan gerekir. `
-              + `Cift acma puani her zaman ${OKEY_PROTOTYPE_OPENING_TARGET_POINTS} oldugu icin cift acamazsin. `
-              + `Seri acmayi dene. `
-              + `${OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS} ceza uygulandi. `
-              + `Geri Topla ile tahtayi temizleyip devam et.`,
+          if (openedOpponentPairSeatNos.length > 0) {
+            baselinePairCount = Math.max(
+              ...openedOpponentPairSeatNos.map((candidateSeatNo) => {
+                const trackedCount = Math.max(0, Math.trunc(okeyPrototypeSeatOpeningPairCounts[candidateSeatNo] ?? 0));
+                if (trackedCount > 0) return trackedCount;
+                return OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS;
+              }),
             );
           }
+        } else {
+          baselinePairCount = Math.max(
+            ...OKEY_PROTOTYPE_SEATS
+              .filter((candidateSeatNo) => (
+                candidateSeatNo !== seatNo
+                && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
+                && (okeyPrototypeSeatOpenModes[candidateSeatNo] ?? "none") === "pair"
+              ))
+              .map((candidateSeatNo) => Math.max(0, Math.trunc(okeyPrototypeSeatOpeningPairCounts[candidateSeatNo] ?? 0)))
+              .filter((c) => c > 0),
+          );
+          if (!Number.isFinite(baselinePairCount) || baselinePairCount === null) {
+            baselinePairCount = OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS;
+          }
+        }
+        if (baselinePairCount !== null && pairCount < baselinePairCount + 1) {
+          increasingPairFailed = true;
+          setOkeyPrototypeSeatPenaltyTotals((current) => ({
+            ...current,
+            [seatNo]: (current[seatNo] ?? 0) + OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS,
+          }));
+          appendOkeyPrototypeAction(
+            `Artirmali oyunda cift acmak icin en az ${baselinePairCount + 1} cift gerekir `
+            + `(senin acilisin ${pairCount} cift). `
+            + `${OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS} ceza uygulandi. `
+            + `Geri Topla ile tahtayi temizleyip devam et.`,
+          );
         }
       }
     }
