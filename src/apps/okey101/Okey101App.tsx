@@ -10815,6 +10815,9 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeTurnHasDrawn(false);
     setOkeyPrototypeTurnLockedAfterMeld(false);
     setOkeyPrototypeTurnOpeningPoints(0);
+    setOkeyPrototypeRackState({ 1: [], 2: [], 3: [], 4: [] });
+    setOkeyPrototypeRackSlotsBySeat(createEmptyOkeyPrototypeRackSlotsBySeat());
+    setOkeyPrototypeTurnSeat(1);
     setOkeyPrototypeWallTiles([]);
     setOkeyPrototypeIndicatorTile(null);
     setOkeyPrototypeOkeyTile(null);
