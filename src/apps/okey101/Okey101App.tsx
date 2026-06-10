@@ -498,6 +498,7 @@ const GUEST_STORAGE_KEY = "tavla.guestName";
 const GUEST_ID_STORAGE_KEY = "tavla.guest.id.v1";
 const GUEST_PROFILE_SESSION_KEY = "tavla.guest.profile.session.v1";
 const MEMBER_SESSION_KEY = "tavla.member.session.v1";
+const MEMBER_DATA_CACHE_KEY = "tavla.member.data.v1";
 const ACTIVE_LOBBY_ID_KEY = "okey101.active.lobby.id.v1";
 const ROOM_PICKER_SESSION_KEY = "tavla.room.picker.session.v1";
 const GAME_SELECTION_SESSION_KEY = "tavla.game.selection.session.okey101.v1";
@@ -5106,13 +5107,22 @@ function Okey101App() {
     const initialLobbyId = sanitizeLobbyId(initialRoom?.lobbyId ?? "") || sanitizeLobbyId(getInitialLobbyId(selectedGameId)) || DEFAULT_LOBBY_ID;
     const roomName = sanitizeLobbyName(initialRoom?.roomName ?? DEFAULT_LOBBY_NAME);
     const loaded = loadLobbyState(makeLobbyStateStorageKey(initialLobbyId), roomName);
-    if (loaded.lobbyName === roomName) return loaded;
-    const merged = { ...loaded, lobbyName: roomName, updatedAt: Date.now() };
+    const normalized = normalizeLobbyState(loaded);
+    if (normalized.lobbyName === roomName) {
+      if (JSON.stringify(normalized) !== JSON.stringify(loaded)) {
+        saveJson(makeLobbyStateStorageKey(initialLobbyId), normalized);
+      }
+      return normalized;
+    }
+    const merged = { ...normalized, lobbyName: roomName, updatedAt: Date.now() };
     saveJson(makeLobbyStateStorageKey(initialLobbyId), merged);
     return merged;
   });
 
-  const [member, setMember] = useState<MemberUser | null>(null);
+  const [member, setMember] = useState<MemberUser | null>(() => {
+    const cached = loadJson<MemberUser | null>(MEMBER_DATA_CACHE_KEY, null);
+    return cached && typeof cached === "object" ? (cached as MemberUser) : null;
+  });
   const [gameRules, setGameRules] = useState<GameRules>(() => createDefaultGameRules());
   const [adminUsers, setAdminUsers] = useState<MemberUser[]>([]);
   const [adminBusy, setAdminBusy] = useState(false);
@@ -17027,6 +17037,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         return;
       }
       setMember(user);
+      saveJson(MEMBER_DATA_CACHE_KEY, user);
       setMemberAvatarDraft(user.avatarId);
       setGuestName(user.displayName);
     };
@@ -17035,6 +17046,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (member) {
+      saveJson(MEMBER_DATA_CACHE_KEY, member);
+    } else {
+      safeStorageRemoveItem(window.localStorage, MEMBER_DATA_CACHE_KEY);
+    }
+  }, [member]);
 
   useEffect(() => {
     if (!member) return;
