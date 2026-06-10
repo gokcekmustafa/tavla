@@ -6639,7 +6639,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const canAttachDirectly = (kind: OkeyPrototypeMeldKind) => okeyPrototypeOpenedMelds.some((meld) => {
       if (!canProcessOkeyPrototypeMeldByKind(kind, meld, okeyPrototypeSeatOpenModes)) return false;
       if (kind === "set" && !okeyPrototypePairProcessTargetSeatNoSet.has(meld.seatNo)) return false;
-      if (kind === "set" && isOkeyPrototypePairMeldExpansionBlocked(meld, okeyPrototypeSeatOpenModes)) return false;
       return canAttachOkeyPrototypeTileToMeld(pendingTile, meld, okeyPrototypeOkeyTile).valid
         || getOkeyPrototypeJokerReplacementPlan(pendingTile, meld).valid;
     });
@@ -6708,7 +6707,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       okeyPrototypeOpenedMelds.some((meld) => {
         if (!canProcessOkeyPrototypeMeldByKind(kind, meld, okeyPrototypeSeatOpenModes)) return false;
         if (kind === "set" && !okeyPrototypePairProcessTargetSeatNoSet.has(meld.seatNo)) return false;
-        if (kind === "set" && isOkeyPrototypePairMeldExpansionBlocked(meld, okeyPrototypeSeatOpenModes)) return false;
         return canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile).valid
           || getOkeyPrototypeJokerReplacementPlan(tile, meld).valid;
       })
@@ -14288,7 +14286,6 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         const targetMeld = workingMelds.find((meld) => {
           if (kind === "set" && !okeyPrototypePairProcessTargetSeatNoSet.has(meld.seatNo)) return false;
           if (!canProcessOkeyPrototypeMeldByKind(kind, meld, okeyPrototypeSeatOpenModes)) return false;
-          if (kind === "set" && isOkeyPrototypePairMeldExpansionBlocked(meld, okeyPrototypeSeatOpenModes)) return false;
           if (kind === "seri" && okeyPrototypePairProcessTargetSeatNos.length > 0 && isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile) && meld.kind === "seri" && !isOkeyJokerInValidRackMeldGroup(tile.id)) return false;
           const validation = canAttachOkeyPrototypeTileToMeld(tile, meld, okeyPrototypeOkeyTile);
           return validation.valid;
