@@ -4689,6 +4689,9 @@ function mergeOkeyPrototypeSeatState(
   const incomingSeatSeenAt = Math.max(incomingSeatJoinedAt, incomingTableUpdatedAt);
 
   if (baseSeat && !incomingSeat) {
+    // Base tablo incoming'dan daha yeni ise base'in dolu koltugunu koru
+    // (incoming snapshot stale olabilir, henuz bu koltugu icermiyor olabilir).
+    if (preferBase) return baseSeat;
     // Koltuk bosaltilmis snapshot, koltugun son gorunme zamanindan
     // anlamli sekilde daha eskiyse stale kabul edilir.
     if (incomingTableUpdatedAt + OKEY_TABLE_OPEN_GRACE_MS < baseSeatSeenAt) {
@@ -4798,10 +4801,18 @@ function mergeOkeyPrototypeTableState(
   const maxSeatJoinedAt = occupiedSeatNos.reduce((max, seatNo) => {
     return Math.max(max, getOkeyPrototypeSeatJoinedAt(mergedSeats[seatNo]));
   }, 0);
-  const startedAt = mergeReadyStamp(base.startedAt, incoming.startedAt)
+  let startedAt = mergeReadyStamp(base.startedAt, incoming.startedAt)
     ?? (occupiedSeatNos.length >= 4
       ? Math.max(base.startedAt ?? 0, incoming.startedAt ?? 0, maxSeatJoinedAt)
       : null);
+  // Koltuk sayisi 4'ten azsa ve oyun baslamissa (startedAt set),
+  // base'de de hic 4 koltuk olmamissa oyun hic baslamamis demektir.
+  if (startedAt && occupiedSeatNos.length < 4 && !base.startedAt) {
+    const baseOccupied = getOkeyPrototypeOccupiedSeatNosFromSeats(base.seats);
+    if (baseOccupied.length < 4) {
+      startedAt = null;
+    }
+  }
   const baseLiveAction = normalizeOkeyPrototypeLiveAction(base.liveAction);
   const incomingLiveAction = normalizeOkeyPrototypeLiveAction(incoming.liveAction);
   const mergedLiveAction = (() => {
