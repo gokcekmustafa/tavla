@@ -14256,6 +14256,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         if (!tile) continue;
         if (acquiredJokerTileIds.has(tile.id)) continue;
         if (protectedSerialTileIds.has(tile.id)) continue;
+        if (isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile)) continue;
         const replacementTarget = workingMelds.find((meld) => {
           if (kind === "set" && !okeyPrototypePairProcessTargetSeatNoSet.has(meld.seatNo)) return false;
           if (!canProcessOkeyPrototypeMeldByKind(kind, meld, okeyPrototypeSeatOpenModes)) return false;
@@ -14316,7 +14317,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         ? requiredPendingTileId
         : null;
       const slotOrder = seatNo === okeyPrototypeSeatNoForRack ? okeyPrototypeSeatRackSlots : null;
-      const rackForPairs = workingRack.filter((tile) => !acquiredJokerTileIds.has(tile.id));
+      const rackForPairs = workingRack.filter((tile) => !acquiredJokerTileIds.has(tile.id) && !isOkeyPrototypeJokerTile(tile, okeyPrototypeOkeyTile));
       const pairGroupsToOpen = rackForPairs.length >= 2
         ? buildOkeyPrototypePairProcessGroups(rackForPairs, okeyPrototypeOkeyTile, slotOrder, requiredPairTileId)
         : [];
