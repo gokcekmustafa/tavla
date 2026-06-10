@@ -29,7 +29,7 @@ type MemberGameProfile = {
 type MemberGameProfiles = Record<GameId, MemberGameProfile>;
 
 type MatchOutcome = "win" | "loss" | "resign";
-type MemberRole = "user" | "admin";
+type MemberRole = "user" | "admin" | "superadmin";
 type MemberGender = "male" | "female" | "unknown";
 type MemberPermissionKey = "lobbyChat" | "tableChat" | "spectatorChat";
 type AvatarId =
@@ -224,6 +224,7 @@ function sanitizeMemberSessionKey(raw: unknown) {
 }
 
 function sanitizeMemberRole(raw: unknown): MemberRole {
+  if (raw === "superadmin") return "superadmin";
   if (raw === "admin") return "admin";
   return "user";
 }
@@ -1248,15 +1249,16 @@ export class AuthStore {
   }
 
   private async ensureBootstrapAdmin(user: StoredMemberUser): Promise<StoredMemberUser> {
-    if (user.role === "admin") return user;
+    if (user.role === "superadmin") return user;
     if (isPrimaryAdminEmail(user.email)) {
       const promoted: StoredMemberUser = {
         ...user,
-        role: "admin",
+        role: "superadmin",
       };
       await this.putUser(promoted, user);
       return promoted;
     }
+    if (user.role === "admin") return user;
     const adminCount = await this.countAdmins();
     if (adminCount > 0) return user;
     const promoted: StoredMemberUser = {
@@ -1309,7 +1311,7 @@ export class AuthStore {
     const user = await this.getById(userId);
     if (!user) return null;
     const normalized = await this.ensureBootstrapAdmin(user);
-    if (normalized.role !== "admin") return null;
+    if (normalized.role !== "admin" && normalized.role !== "superadmin") return null;
     return normalized;
   }
 
@@ -1427,7 +1429,7 @@ export class AuthStore {
       return jsonResponse({ error: "Bu gorunen ad zaten kullaniliyor." }, 409);
     }
 
-    const role: MemberRole = isPrimaryAdminEmail(email) || (await this.countAdmins()) === 0 ? "admin" : "user";
+    const role: MemberRole = isPrimaryAdminEmail(email) || (await this.countAdmins()) === 0 ? "superadmin" : "user";
     const sessionKey = createMemberSessionKey();
     const defaultGameProfiles = createDefaultMemberGameProfiles(DEFAULT_MEMBER_POINTS, createDefaultMemberStats());
     const user: StoredMemberUser = {
@@ -1810,8 +1812,8 @@ export class AuthStore {
 
     if (action === "setRole") {
       const nextRole = sanitizeMemberRole(body.role);
-      if (isPrimaryAdminEmail(target.email) && nextRole !== "admin") {
-        return jsonResponse({ error: "Ana admin hesabi daima admin kalmalidir." }, 400);
+      if (isPrimaryAdminEmail(target.email) && nextRole !== "admin" && nextRole !== "superadmin") {
+        return jsonResponse({ error: "Ana admin hesabi daima admin/superadmin kalmalidir." }, 400);
       }
       if (target.role === "admin" && nextRole === "user" && (await this.countAdmins()) <= 1) {
         return jsonResponse({ error: "Sistemde en az bir admin kalmali." }, 400);

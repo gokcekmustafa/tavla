@@ -2205,6 +2205,10 @@ function sanitizeMemberRole(raw: unknown): MemberRole {
   return "user";
 }
 
+function isAdminRole(role: MemberRole | null | undefined) {
+  return role === "admin" || role === "superadmin";
+}
+
 function isSuperAdminRole(role: MemberRole | null | undefined) {
   return role === "superadmin";
 }
@@ -8319,7 +8323,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     return sorted;
   }, [adminUsers, adminQuery, adminRoleFilter, adminSort]);
   const activeDesign = useMemo(() => {
-    if (isAdminWindow && member?.role === "admin" && adminDesignPreview) {
+    if (isAdminWindow && isAdminRole(member?.role) && adminDesignPreview) {
       return normalizeDesignConfig(designDraft, designPublished);
     }
     return normalizeDesignConfig(designPublished, createDefaultDesignConfig());
@@ -10023,7 +10027,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       if (!response.ok) return;
       const nextDesign = normalizeDesignConfig(data?.design, designPublished);
       setDesignPublished(nextDesign);
-      if (!isAdminWindow || member?.role !== "admin") {
+      if (!isAdminWindow || !isAdminRole(member?.role)) {
         setDesignDraft(nextDesign);
       }
     } catch {
@@ -10083,7 +10087,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     action: "addPoints" | "setPoints" | "setRole" | "resetStats" | "deleteUser" | "setBlocked" | "setPermission",
     payload: Record<string, unknown> = {},
   ) {
-    if (!member || member.role !== "admin") return;
+    if (!isAdminRole(member?.role)) return;
     const safeTargetUserId = sanitizeGuestId(targetUserId);
     if (!safeTargetUserId) return;
     setAdminBusy(true);
@@ -10179,7 +10183,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     action: "createLobby" | "renameLobby" | "deleteLobby",
     payload: Record<string, unknown> = {},
   ) {
-    if (!member || member.role !== "admin") return;
+    if (!isAdminRole(member?.role)) return;
     setAdminBusy(true);
     setAdminError("");
     setAdminNotice("");
@@ -10296,7 +10300,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   async function saveAdminRules() {
-    if (!member || member.role !== "admin") return;
+    if (!isAdminRole(member?.role)) return;
     setAdminBusy(true);
     setAdminError("");
     setAdminNotice("");
@@ -10509,7 +10513,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   async function publishDesignDraft() {
-    if (!member || member.role !== "admin") return;
+    if (!isAdminRole(member?.role)) return;
     setAdminDesignBusy(true);
     setAdminDesignError("");
     setAdminDesignNotice("");
@@ -10546,7 +10550,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   async function rollbackDesignVersion() {
-    if (!member || member.role !== "admin") return;
+    if (!isAdminRole(member?.role)) return;
     if (!adminDesignRollbackVersion) return;
     setAdminDesignBusy(true);
     setAdminDesignError("");
@@ -10584,7 +10588,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }
 
   async function resetDesignToDefault() {
-    if (!member || member.role !== "admin") return;
+    if (!isAdminRole(member?.role)) return;
     setAdminDesignBusy(true);
     setAdminDesignError("");
     setAdminDesignNotice("");
@@ -14895,7 +14899,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setLobbyNotice(`${sanitizeLobbyName(roomName)} odasina girildi.`);
   }
   function openAdminPanelWindow() {
-    if (!member || member.role !== "admin") return;
+    if (!isAdminRole(member?.role)) return;
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
     url.searchParams.set("admin", "1");
@@ -16999,7 +17003,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }, []);
 
   useEffect(() => {
-    if (!member || member.role !== "admin") {
+    if (!isAdminRole(member?.role)) {
       setAdminUsers([]);
       setAdminError("");
       setAdminNotice("");
@@ -17011,7 +17015,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }, [member?.id, member?.role]);
 
   useEffect(() => {
-    if (isAdminWindow && member?.role === "admin") return;
+    if (isAdminWindow && isAdminRole(member?.role)) return;
     setDesignDraft(designPublished);
   }, [designPublished, isAdminWindow, member?.role]);
 
@@ -17815,7 +17819,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
             <strong className="my-admin-title">Admin Paneli</strong>
           </div>
         </header>
-        {!member || member.role !== "admin" ? (
+        {!isAdminRole(member?.role) ? (
           <section className="my-admin-window-blocked">
             <h2>Admin girişi gerekli</h2>
             <p className="line">Bu pencereyi kullanmak için admin hesabı ile giriş yapmalısın.</p>
