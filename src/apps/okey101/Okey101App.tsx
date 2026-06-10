@@ -1849,12 +1849,49 @@ function canOkeyPrototypeTakeDiscardWhenClosed(
   return canTakeDiscardWhenClosedFromEngine(currentRack, discardedTile, okeyTile);
 }
 
+function getOkeyPrototypeJokerSeriesValues(
+  tiles: OkeyPrototypeTile[],
+  okeyTile: OkeyPrototypeTile | null = null,
+): Map<string, number> {
+  const result = new Map<string, number>();
+  const ordered = orderOkeyPrototypeSeriesTilesForDisplay(tiles, okeyTile);
+  if (!ordered) return result;
+  const firstNormalIndex = ordered.findIndex((t) => !isOkeyPrototypeJokerTile(t, okeyTile));
+  if (firstNormalIndex < 0) return result;
+  const firstNormal = ordered[firstNormalIndex];
+  if (!firstNormal) return result;
+  const firstNormalFace = getOkeyPrototypeTileRuleFace(firstNormal, okeyTile);
+  if (!firstNormalFace) return result;
+  const startValue = firstNormalFace.value - firstNormalIndex;
+  for (let i = 0; i < ordered.length; i++) {
+    const tile = ordered[i];
+    if (tile && isOkeyPrototypeJokerTile(tile, okeyTile)) {
+      result.set(tile.id, startValue + i);
+    }
+  }
+  return result;
+}
+
 function canAttachOkeyPrototypeTileToMeld(
   tile: OkeyPrototypeTile,
   meld: OkeyPrototypeMeldEntry,
   okeyTile: OkeyPrototypeTile | null = null,
 ) {
-  return canAttachTileToMeldFromEngine(tile, meld, okeyTile);
+  const validation = canAttachTileToMeldFromEngine(tile, meld, okeyTile);
+  if (!validation.valid) return validation;
+  if (meld.kind === "seri" && meld.tiles.some((t) => isOkeyPrototypeJokerTile(t, okeyTile))) {
+    const currentJokerValues = getOkeyPrototypeJokerSeriesValues(meld.tiles, okeyTile);
+    if (currentJokerValues.size > 0) {
+      const nextTiles = [...meld.tiles, tile];
+      const newJokerValues = getOkeyPrototypeJokerSeriesValues(nextTiles, okeyTile);
+      for (const [jokerId, currentValue] of currentJokerValues) {
+        if (newJokerValues.get(jokerId) !== currentValue) {
+          return { valid: false, reason: "Okeyin serideki degeri degisemez." };
+        }
+      }
+    }
+  }
+  return validation;
 }
 
 function canProcessOkeyPrototypeMeldByKind(
@@ -13147,6 +13184,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     const nextOpeningPoints = okeyPrototypeTurnOpeningPoints + openingPointsGain;
     const willOpenSeatNow = !seatAlreadyOpened;
     let increasingRequiredPoints: number | null = null;
+    let increasingFailed = false;
     if (willOpenSeatNow && okeyPrototypeGameOptions.increasingPlay) {
       const anyOtherSeatOpened = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
         candidateSeatNo !== seatNo && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
@@ -13185,11 +13223,17 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       }
     }
     if (increasingRequiredPoints !== null && nextOpeningPoints < increasingRequiredPoints) {
+      increasingFailed = true;
+      setOkeyPrototypeSeatPenaltyTotals((current) => ({
+        ...current,
+        [seatNo]: (current[seatNo] ?? 0) + OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS,
+      }));
       appendOkeyPrototypeAction(
         `Artirmali oyunda acilis en az ${increasingRequiredPoints} olmali `
-        + `(senin acilisin ${nextOpeningPoints}). `,
+        + `(senin acilisin ${nextOpeningPoints}). `
+        + `${OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS} ceza uygulandi. `
+        + `Geri Topla ile tahtayi temizleyip devam et.`,
       );
-      return false;
     }
     if (nextOpeningPoints < OKEY_PROTOTYPE_OPENING_TARGET_POINTS && !seatAlreadyOpened) {
       appendOkeyPrototypeAction(
@@ -13215,7 +13259,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (consumedPendingDiscardTile) {
       setOkeyPrototypePendingDiscardTileId("");
     }
-    const validOpeningNow = !seatAlreadyOpened && nextOpeningPoints >= OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
+    const validOpeningNow = !seatAlreadyOpened && !increasingFailed && nextOpeningPoints >= OKEY_PROTOTYPE_OPENING_TARGET_POINTS;
     setOkeyPrototypeTurnLockedAfterMeld(true);
     if (!seatAlreadyOpened) {
       setOkeyPrototypeTurnOpeningPoints(nextOpeningPoints);
@@ -13337,6 +13381,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         + `Geri Topla ile tahtayi temizleyip 101 ceza yersin.`,
       );
     }
+    let increasingPairFailed = false;
     if (okeyPrototypeGameOptions.increasingPlay) {
       const anyOtherSeatOpened = OKEY_PROTOTYPE_SEATS.some((candidateSeatNo) => (
         candidateSeatNo !== seatNo && Boolean(okeyPrototypeSeatOpenedState[candidateSeatNo])
@@ -13372,12 +13417,18 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         if (baselineForIncrease !== null) {
           const increasingRequiredPoints = Math.max(OKEY_PROTOTYPE_OPENING_TARGET_POINTS, baselineForIncrease) + 1;
           if (OKEY_PROTOTYPE_OPENING_TARGET_POINTS < increasingRequiredPoints) {
+            increasingPairFailed = true;
+            setOkeyPrototypeSeatPenaltyTotals((current) => ({
+              ...current,
+              [seatNo]: (current[seatNo] ?? 0) + OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS,
+            }));
             appendOkeyPrototypeAction(
               `Artirmali oyunda cift acmak icin en az ${increasingRequiredPoints} puan gerekir. `
               + `Cift acma puani her zaman ${OKEY_PROTOTYPE_OPENING_TARGET_POINTS} oldugu icin cift acamazsin. `
-              + `Seri acmayi dene.`,
+              + `Seri acmayi dene. `
+              + `${OKEY_PROTOTYPE_ATTACHABLE_DISCARD_PENALTY_POINTS} ceza uygulandi. `
+              + `Geri Topla ile tahtayi temizleyip devam et.`,
             );
-            return;
           }
         }
       }
@@ -13433,7 +13484,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       [seatNo]: (current[seatNo] ?? []).filter((tile) => !openedPairTileIds.has(tile.id)),
     }));
     setOkeyPrototypeOpenedMelds((current) => [...pairMeldEntries, ...current].slice(0, 40));
-    const validPairOpening = pairCount >= OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS;
+    const validPairOpening = !increasingPairFailed && pairCount >= OKEY_PROTOTYPE_PAIR_OPEN_MIN_PAIRS;
     setOkeyPrototypeAttachTargetMeldId("");
     setOkeyPrototypeMeldDraftTileIds([]);
     if (validPairOpening) {
