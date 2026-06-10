@@ -368,6 +368,11 @@ type OkeyPrototypeTile = {
   value: number;
 };
 type OkeyPrototypeRackState = Record<OkeyPrototypeSeatNo, OkeyPrototypeTile[]>;
+type OkeyPrototypeRoundRecord = {
+  handNo: number;
+  penalties: Record<OkeyPrototypeSeatNo, number>;
+  winner: OkeyPrototypeSeatNo | null;
+};
 type OkeyPrototypeTurnPhase = "draw" | "discard";
 type OkeyPrototypeDiscardEntry = {
   id: string;
@@ -5342,6 +5347,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   const [okeyPrototypeSeatHandWins, setOkeyPrototypeSeatHandWins] = useState<Record<OkeyPrototypeSeatNo, number>>(() => createDefaultOkeyPrototypeSeatWinState());
   const [okeyPrototypeSeatPenaltyTotals, setOkeyPrototypeSeatPenaltyTotals] = useState<Record<OkeyPrototypeSeatNo, number>>(() => createDefaultOkeyPrototypeSeatWinState());
   const [okeyPrototypeDrawHandCount, setOkeyPrototypeDrawHandCount] = useState(0);
+  const [okeyPrototypeRoundHistory, setOkeyPrototypeRoundHistory] = useState<OkeyPrototypeRoundRecord[]>([]);
   const [okeyPrototypeLastHandSummary, setOkeyPrototypeLastHandSummary] = useState("");
   const [okeyPrototypeScorePanelOpen, setOkeyPrototypeScorePanelOpen] = useState(false);
   const [okeyPrototypeActiveMobilePanel, setOkeyPrototypeActiveMobilePanel] = useState<"options" | "chat" | "score" | null>(null);
@@ -7258,6 +7264,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
         setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
         setOkeyPrototypeDrawHandCount(0);
+        setOkeyPrototypeRoundHistory([]);
         setOkeyPrototypeLastHandSummary("");
       } else {
         setOkeyPrototypeSessionHandNo((current) => Math.max(1, current + 1));
@@ -12880,6 +12887,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     if (!skipPenalties) {
       setOkeyPrototypeSeatPenaltyTotals(nextSeatPenaltyTotals);
     }
+    setOkeyPrototypeRoundHistory((current) => [
+      ...current,
+      {
+        handNo: okeyPrototypeSessionHandNo,
+        penalties: skipPenalties ? penaltyDelta : { ...penaltyDelta },
+        winner: null,
+      },
+    ]);
     setOkeyPrototypeHandDrawn(true);
     const nextDrawHandCount = skipDrawCounter
       ? okeyPrototypeDrawHandCount
@@ -13042,6 +13057,14 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       penaltyDelta,
     );
     setOkeyPrototypeSeatPenaltyTotals(nextSeatPenaltyTotals);
+    setOkeyPrototypeRoundHistory((current) => [
+      ...current,
+      {
+        handNo: okeyPrototypeSessionHandNo,
+        penalties: { ...penaltyDelta },
+        winner: seatNo,
+      },
+    ]);
     setOkeyPrototypeWinnerSeat(seatNo);
     const nextSeatHandWins = {
       ...okeyPrototypeSeatHandWins,
@@ -14176,6 +14199,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
       setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
       setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
       setOkeyPrototypeDrawHandCount(0);
+      setOkeyPrototypeRoundHistory([]);
       setOkeyPrototypeLastHandSummary("");
       applyOkeyPrototypeDeal(nextFirstSeat, nextDealSeed, activeSeats);
       appendOkeyPrototypeAction(`Yeni set başlatıldı (${OKEY_PROTOTYPE_SET_HAND_TARGET} el): Koltuk ${nextFirstSeat} başlıyor.`);
@@ -14201,6 +14225,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
     setOkeyPrototypeSeatHandWins(createDefaultOkeyPrototypeSeatWinState());
     setOkeyPrototypeSeatPenaltyTotals(createDefaultOkeyPrototypeSeatWinState());
     setOkeyPrototypeDrawHandCount(0);
+    setOkeyPrototypeRoundHistory([]);
     setOkeyPrototypeLastHandSummary("");
     applyOkeyPrototypeDeal(baseSeat, Date.now(), activeSeats);
     appendOkeyPrototypeAction("Tas dizilimi yenilendi.");
@@ -20949,6 +20974,38 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                 ))}
                               </div>
                             ) : null}
+                            {okeyPrototypeRoundHistory.length > 0 ? (
+                              <div className="my-okey-round-history">
+                                <h5>El Geçmişi</h5>
+                                {okeyPrototypeRoundHistory.map((record) => (
+                                  <p key={`sc-popup-rh-${record.handNo}`} className="my-okey-round-record">
+                                    <span className="my-okey-round-label">El {record.handNo}:</span>
+                                    {record.winner ? (
+                                      <span className="my-okey-round-winner">K{record.winner} kazandı</span>
+                                    ) : (
+                                      <span className="my-okey-round-draw">Berabere</span>
+                                    )}
+                                    {okeyPrototypeGameOptions.teamedPlay ? (
+                                      <span className="my-okey-round-penalties">
+                                        {OKEY_PROTOTYPE_TEAM_SEAT_GROUPS.map((group) => (
+                                          <span key={group.id} className="my-okey-round-penalty">
+                                            {group.label}: {(record.penalties[group.seats[0]] ?? 0) + (record.penalties[group.seats[1]] ?? 0)}
+                                          </span>
+                                        ))}
+                                      </span>
+                                    ) : (
+                                      <span className="my-okey-round-penalties">
+                                        {OKEY_PROTOTYPE_SEATS.map((s) => (
+                                          <span key={s} className="my-okey-round-penalty">
+                                            K{s}: {record.penalties[s] ?? 0}
+                                          </span>
+                                        ))}
+                                      </span>
+                                    )}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : null}
                             {okeyPrototypeLastHandSummary ? (
                               <p className="my-okey-quick-last-summary">{okeyPrototypeLastHandSummary}</p>
                             ) : null}
@@ -21847,6 +21904,38 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                             ))}
                           </div>
                         ) : null}
+                        {okeyPrototypeRoundHistory.length > 0 ? (
+                          <div className="my-okey-round-history">
+                            <h5>El Geçmişi</h5>
+                            {okeyPrototypeRoundHistory.map((record) => (
+                              <p key={`quick-rh-${record.handNo}`} className="my-okey-round-record">
+                                <span className="my-okey-round-label">El {record.handNo}:</span>
+                                {record.winner ? (
+                                  <span className="my-okey-round-winner">K{record.winner} kazandı</span>
+                                ) : (
+                                  <span className="my-okey-round-draw">Berabere</span>
+                                )}
+                                {okeyPrototypeGameOptions.teamedPlay ? (
+                                  <span className="my-okey-round-penalties">
+                                    {OKEY_PROTOTYPE_TEAM_SEAT_GROUPS.map((group) => (
+                                      <span key={group.id} className="my-okey-round-penalty">
+                                        {group.label}: {(record.penalties[group.seats[0]] ?? 0) + (record.penalties[group.seats[1]] ?? 0)}
+                                      </span>
+                                    ))}
+                                  </span>
+                                ) : (
+                                  <span className="my-okey-round-penalties">
+                                    {OKEY_PROTOTYPE_SEATS.map((s) => (
+                                      <span key={s} className="my-okey-round-penalty">
+                                        K{s}: {record.penalties[s] ?? 0}
+                                      </span>
+                                    ))}
+                                  </span>
+                                )}
+                              </p>
+                            ))}
+                          </div>
+                        ) : null}
                         {okeyPrototypeLastHandSummary ? (
                           <p className="my-okey-quick-last-summary">{okeyPrototypeLastHandSummary}</p>
                         ) : null}
@@ -22105,6 +22194,38 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
                                     <p key={`mobile-panel-team-penalty-${team.id}`}>
                                       <span>{team.displayLabel} ceza</span>
                                       <strong>{team.penalty}</strong>
+                                    </p>
+                                  ))}
+                                </div>
+                              ) : null}
+                              {okeyPrototypeRoundHistory.length > 0 ? (
+                                <div className="my-okey-round-history">
+                                  <h5>El Geçmişi</h5>
+                                  {okeyPrototypeRoundHistory.map((record) => (
+                                    <p key={`mobile-rh-${record.handNo}`} className="my-okey-round-record">
+                                      <span className="my-okey-round-label">El {record.handNo}:</span>
+                                      {record.winner ? (
+                                        <span className="my-okey-round-winner">K{record.winner} kazandı</span>
+                                      ) : (
+                                        <span className="my-okey-round-draw">Berabere</span>
+                                      )}
+                                      {okeyPrototypeGameOptions.teamedPlay ? (
+                                        <span className="my-okey-round-penalties">
+                                          {OKEY_PROTOTYPE_TEAM_SEAT_GROUPS.map((group) => (
+                                            <span key={group.id} className="my-okey-round-penalty">
+                                              {group.label}: {(record.penalties[group.seats[0]] ?? 0) + (record.penalties[group.seats[1]] ?? 0)}
+                                            </span>
+                                          ))}
+                                        </span>
+                                      ) : (
+                                        <span className="my-okey-round-penalties">
+                                          {OKEY_PROTOTYPE_SEATS.map((s) => (
+                                            <span key={s} className="my-okey-round-penalty">
+                                              K{s}: {record.penalties[s] ?? 0}
+                                            </span>
+                                          ))}
+                                        </span>
+                                      )}
                                     </p>
                                   ))}
                                 </div>
