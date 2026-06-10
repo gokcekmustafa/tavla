@@ -7064,6 +7064,10 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
   }, [lobbyState.okeyPrototypeTablesByRoom]);
 
   useEffect(() => {
+    writeLobby((current) => current);
+  }, [writeLobby]);
+
+  useEffect(() => {
     const interval = window.setInterval(() => {
       writeLobby((current) => current);
     }, 30_000);
