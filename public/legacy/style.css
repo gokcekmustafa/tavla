@@ -867,19 +867,11 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   border-radius: 50%;
   display: block;
   flex-shrink: 0;
-  position: relative;
   background-size: 300% 300%;
   background-repeat: no-repeat;
   background-position: 50% 0%;
   box-shadow: 0 3px 6px rgba(0,0,0,0.44);
   transition: transform 0.14s ease, box-shadow 0.16s ease, filter 0.14s ease;
-  touch-action: none;
-}
-.bar-chip::before {
-  content: "";
-  position: absolute;
-  inset: -10px;
-  border-radius: 50%;
 }
 
 .bar-chip.white {
@@ -1236,7 +1228,6 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     min-height: 100dvh;
     overflow-y: auto;
     overflow-x: hidden;
-    touch-action: manipulation;
   }
 
   .app-shell {
@@ -1350,8 +1341,8 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     border-width: 1px;
   }
 
-  .bar-zone { padding: 5px 2px; }
-  .bar-slot { padding: 6px 3px; }
+  .bar-zone { padding: 5px 1px; }
+  .bar-slot { padding: 3px 1px; }
   .bar-slot-title { font-size: 0.44rem; }
   .bar-count { font-size: 0.54rem; }
 
@@ -2345,12 +2336,5 @@ body.bot-mode .room-bar {
   body.room-mode,
   body.bot-mode {
     --checker-size: clamp(18px, 5.2vw, 25px);
-  }
-}
-
-/* ── Mobil dokunma hassasiyeti: 300ms tap gecikmesini kaldir ── */
-@media (pointer: coarse) {
-  .point, .bar-slot, .off-area, .bar-zone {
-    touch-action: manipulation;
   }
 }
