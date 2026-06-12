@@ -1228,6 +1228,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     min-height: 100dvh;
     overflow-y: auto;
     overflow-x: hidden;
+    touch-action: manipulation;
   }
 
   .app-shell {
@@ -2336,5 +2337,12 @@ body.bot-mode .room-bar {
   body.room-mode,
   body.bot-mode {
     --checker-size: clamp(18px, 5.2vw, 25px);
+  }
+}
+
+/* ── Mobil dokunma hassasiyeti: 300ms tap gecikmesini kaldir ── */
+@media (pointer: coarse) {
+  .point, .bar-slot, .off-area, .bar-zone {
+    touch-action: manipulation;
   }
 }
