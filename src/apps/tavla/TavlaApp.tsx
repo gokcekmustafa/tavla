@@ -3190,7 +3190,6 @@ function TavlaApp() {
   const [adminSelectedUserId, setAdminSelectedUserId] = useState("");
   const [mode, setMode] = useState<GameMode>("local");
   const [iframeKey, setIframeKey] = useState(1);
-  const [iframeLoaded, setIframeLoaded] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(initialRoom ? "table" : "lobby");
   const [guestName, setGuestName] = useState(getInitialGuestName);
   const [guestProfile, setGuestProfile] = useState<GuestProfile>(() => {
@@ -4026,14 +4025,6 @@ function TavlaApp() {
   useEffect(() => {
     setOkeyPrototypeTableSearch("");
   }, [okeyPrototypeSelectedRoom?.id]);
-
-  useEffect(() => {
-    setIframeLoaded(false);
-  }, [iframeUrl]);
-
-  useEffect(() => {
-    if (viewMode !== "table") setIframeLoaded(false);
-  }, [viewMode]);
 
   useEffect(() => {
     if (okeyPrototypeVisibleTableSketchRows.some((row) => row.id === okeyPrototypeSelectedTableId)) return;
@@ -13957,19 +13948,11 @@ function TavlaApp() {
 
             <section className="my-room-center-stack">
               <div className="my-game-frame my-room-board-frame">
-                {!iframeLoaded ? (
-                  <div className="my-room-board-loading">
-                    <div className="my-spinner" />
-                    <span>Oyun yükleniyor...</span>
-                  </div>
-                ) : null}
                 <iframe
-                  key={iframeKey}
                   ref={iframeRef}
                   title="Tavla Oyunu"
                   src={iframeUrl}
                   onLoad={() => {
-                    setIframeLoaded(true);
                     const frameWindow = iframeRef.current?.contentWindow ?? null;
                     syncTableChatToIframe(frameWindow);
                     syncRoomStartGateToIframe(frameWindow);
