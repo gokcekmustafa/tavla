@@ -867,11 +867,19 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   border-radius: 50%;
   display: block;
   flex-shrink: 0;
+  position: relative;
   background-size: 300% 300%;
   background-repeat: no-repeat;
   background-position: 50% 0%;
   box-shadow: 0 3px 6px rgba(0,0,0,0.44);
   transition: transform 0.14s ease, box-shadow 0.16s ease, filter 0.14s ease;
+  touch-action: manipulation;
+}
+.bar-chip::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
 }
 
 .bar-chip.white {
