@@ -11850,7 +11850,7 @@ const [okeyPrototypeMeldDraftTileIds, setOkeyPrototypeMeldDraftTileIds] = useSta
         okeyPrototypeJokerLongPressPointerIdRef.current = null;
         okeyPrototypeJokerLongPressTileIdRef.current = "";
       }
-      if (deltaX >= 2 || deltaY >= 2) {
+      if (deltaX >= 10 || deltaY >= 10) {
         okeyPrototypeTouchDragMovedRef.current = true;
       }
     }
