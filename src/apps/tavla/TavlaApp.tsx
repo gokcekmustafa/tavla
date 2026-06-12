@@ -442,7 +442,7 @@ const PRESENCE_STALE_MS = 20_000;
 const HEARTBEAT_MS = 8_000;
 // Cihaz saatleri arasındaki fark (özellikle mobil/masaüstü) seat-null merge sırasında
 // koltuğun yanlışlıkla düşmesine neden olabiliyor. Daha geniş tolerans kullanıyoruz.
-const SEAT_NULL_MERGE_GRACE_MS = 15 * 60 * 1000;
+const SEAT_NULL_MERGE_GRACE_MS = 2 * 60 * 1000;
 const DEFAULT_WIN_POINTS = 100;
 const DEFAULT_LOSS_POINTS = 0;
 const DEFAULT_RESIGN_PENALTY_POINTS = 50;
@@ -3190,6 +3190,7 @@ function TavlaApp() {
   const [adminSelectedUserId, setAdminSelectedUserId] = useState("");
   const [mode, setMode] = useState<GameMode>("local");
   const [iframeKey, setIframeKey] = useState(1);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(initialRoom ? "table" : "lobby");
   const [guestName, setGuestName] = useState(getInitialGuestName);
   const [guestProfile, setGuestProfile] = useState<GuestProfile>(() => {
@@ -4025,6 +4026,14 @@ function TavlaApp() {
   useEffect(() => {
     setOkeyPrototypeTableSearch("");
   }, [okeyPrototypeSelectedRoom?.id]);
+
+  useEffect(() => {
+    setIframeLoaded(false);
+  }, [iframeUrl]);
+
+  useEffect(() => {
+    if (viewMode !== "table") setIframeLoaded(false);
+  }, [viewMode]);
 
   useEffect(() => {
     if (okeyPrototypeVisibleTableSketchRows.some((row) => row.id === okeyPrototypeSelectedTableId)) return;
@@ -5981,7 +5990,7 @@ function TavlaApp() {
         const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
         processedMatchTokensRef.current.add(`${token}:${currentProfile.userId}`);
         sendResignCommandToIframe(token);
-        void awardResignResult(token);
+        void awardResignResult(token).catch(console.error);
         penalized = true;
       } else if (leaveContext.permissionGranted) {
         leftWithPermission = true;
@@ -6015,7 +6024,7 @@ function TavlaApp() {
 
   function openLeaveActionModal() {
     if (!roomSession || roomSession.role !== "player") {
-      void leaveRoomAndGoLobby();
+      void leaveRoomAndGoLobby().catch(console.error);
       return;
     }
     const activeTable = getActiveRoomTable();
@@ -6025,7 +6034,7 @@ function TavlaApp() {
       setLeaveActionModalOpen(true);
       return;
     }
-    void leaveRoomAndGoLobby();
+    void leaveRoomAndGoLobby().catch(console.error);
   }
 
   function closeLeaveActionModal() {
@@ -6189,7 +6198,7 @@ function TavlaApp() {
           const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
           processedMatchTokensRef.current.add(`${token}:${currentProfile.userId}`);
           sendResignCommandToIframe(token);
-          void awardResignResult(token);
+          void awardResignResult(token).catch(console.error);
           penalized = true;
         } else if (leaveContext.permissionGranted) {
           leftWithPermission = true;
@@ -9889,7 +9898,7 @@ function TavlaApp() {
         ? (wsOpen ? HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS : HTTP_SYNC_OFFLINE_BACKGROUND_RUN_INTERVAL_MS)
         : (wsOpen ? HTTP_SYNC_RUN_INTERVAL_MS : HTTP_SYNC_OFFLINE_RUN_INTERVAL_MS);
       timer = window.setTimeout(() => {
-        void tick();
+        void tick().catch(console.error);
       }, intervalMs);
     };
 
@@ -9920,7 +9929,7 @@ function TavlaApp() {
       scheduleNext();
     };
 
-    void tick();
+    void tick().catch(console.error);
 
     return () => {
       cancelled = true;
@@ -10018,13 +10027,13 @@ function TavlaApp() {
             reason: "normal",
             localColor,
           };
-          void handleLegacyMatchFinished(synthetic);
+          void handleLegacyMatchFinished(synthetic).catch(console.error);
         }
         return;
       }
 
       if (payload.type === "match-finished") {
-        void handleLegacyMatchFinished(payload);
+        void handleLegacyMatchFinished(payload).catch(console.error);
       }
     };
 
@@ -10173,7 +10182,7 @@ function TavlaApp() {
       setMemberAvatarDraft(user.avatarId);
       setGuestName(user.displayName);
     };
-    void syncMemberFromSession();
+    void syncMemberFromSession().catch(console.error);
     return () => {
       cancelled = true;
     };
@@ -10193,13 +10202,13 @@ function TavlaApp() {
       setMemberNotice("Bu hesap baska bir tarayicida acildigi icin oturum kapatildi.");
       setLobbyNotice("Bu hesap baska bir tarayicida acildigi icin oturum kapatildi.");
     };
-    void validateMemberSession();
+    void validateMemberSession().catch(console.error);
     const timer = window.setInterval(() => {
-      void validateMemberSession();
+      void validateMemberSession().catch(console.error);
     }, MEMBER_SESSION_REVALIDATE_INTERVAL_MS);
     const onVisibilityChange = () => {
       if (!document.hidden) {
-        void validateMemberSession();
+        void validateMemberSession().catch(console.error);
       }
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -10487,7 +10496,7 @@ function TavlaApp() {
           setMemberAvatarDraft(user.avatarId);
           setGuestName(user.displayName);
         };
-        void syncMemberFromSession();
+        void syncMemberFromSession().catch(console.error);
       }
     };
     window.addEventListener("storage", onStorage);
@@ -10638,7 +10647,7 @@ function TavlaApp() {
     }
     if (leavePermissionAutoLeavingRef.current) return;
     leavePermissionAutoLeavingRef.current = true;
-    void leaveRoomAndGoLobby(true);
+    void leaveRoomAndGoLobby(true).catch(console.error);
   }, [roomSession, currentRoomTable, currentProfile.userId, leaveRoomAndGoLobby]);
 
   useEffect(() => {
@@ -13605,7 +13614,7 @@ function TavlaApp() {
                     )}
                   </div>
                 </div>
-                <button className="my-action-btn soft" onClick={() => void runRealtimeHealthProbe()}>
+                <button className="my-action-btn soft" onClick={() => void runRealtimeHealthProbe().catch(console.error)}>
                   Simdi Test Et
                 </button>
                 {syncHealth.lastError ? <p className="my-error my-sync-error">{syncHealth.lastError}</p> : null}
@@ -13948,11 +13957,19 @@ function TavlaApp() {
 
             <section className="my-room-center-stack">
               <div className="my-game-frame my-room-board-frame">
+                {!iframeLoaded ? (
+                  <div className="my-room-board-loading">
+                    <div className="my-spinner" />
+                    <span>Oyun yükleniyor...</span>
+                  </div>
+                ) : null}
                 <iframe
+                  key={iframeKey}
                   ref={iframeRef}
                   title="Tavla Oyunu"
                   src={iframeUrl}
                   onLoad={() => {
+                    setIframeLoaded(true);
                     const frameWindow = iframeRef.current?.contentWindow ?? null;
                     syncTableChatToIframe(frameWindow);
                     syncRoomStartGateToIframe(frameWindow);
@@ -14261,7 +14278,7 @@ function TavlaApp() {
               Rakibe puan kaybetmeden terk etme teklif edilsin mi?
             </p>
             <div className="my-leave-action-buttons">
-              <button className="my-action-btn danger" type="button" onClick={() => void leaveNowFromModal()}>
+              <button className="my-action-btn danger" type="button" onClick={() => void leaveNowFromModal().catch(console.error)}>
                 Şimdi Terket
               </button>
               <button className="my-action-btn" type="button" onClick={offerLeaveWithoutPenaltyFromModal}>
