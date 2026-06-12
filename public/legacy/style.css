@@ -867,19 +867,16 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   border-radius: 50%;
   display: block;
   flex-shrink: 0;
-  position: relative;
   background-size: 300% 300%;
   background-repeat: no-repeat;
   background-position: 50% 0%;
   box-shadow: 0 3px 6px rgba(0,0,0,0.44);
   transition: transform 0.14s ease, box-shadow 0.16s ease, filter 0.14s ease;
+  padding: 10px;
+  margin: -10px;
+  box-sizing: content-box;
+  background-clip: content-box;
   touch-action: none;
-}
-.bar-chip::before {
-  content: "";
-  position: absolute;
-  inset: -10px;
-  border-radius: 50%;
 }
 
 .bar-chip.white {
@@ -1236,7 +1233,6 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     min-height: 100dvh;
     overflow-y: auto;
     overflow-x: hidden;
-    touch-action: manipulation;
   }
 
   .app-shell {
@@ -1362,7 +1358,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     --dice-stage-side-inset-y: 29%;
   }
 
-  .bar-chip { width: 16px; height: 16px; }
+  .bar-chip { width: 24px; height: 24px; padding: 8px; margin: -8px; }
 
   /* FIX: zar animasyonu mobilde taşmasın — padding azaltıldı */
   .center-dice-stage.white-turn { padding-right: var(--dice-stage-side-inset-x); padding-bottom: var(--dice-stage-side-inset-y); }
@@ -2348,9 +2344,9 @@ body.bot-mode .room-bar {
   }
 }
 
-/* ── Mobil dokunma hassasiyeti: 300ms tap gecikmesini kaldir ── */
+/* ── Mobil dokunma: chip gerçek padding ile genisletildi ── */
 @media (pointer: coarse) {
-  .point, .bar-slot, .off-area, .bar-zone {
-    touch-action: manipulation;
+  .bar-slot {
+    touch-action: none;
   }
 }
