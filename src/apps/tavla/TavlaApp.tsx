@@ -442,7 +442,7 @@ const PRESENCE_STALE_MS = 20_000;
 const HEARTBEAT_MS = 8_000;
 // Cihaz saatleri arasındaki fark (özellikle mobil/masaüstü) seat-null merge sırasında
 // koltuğun yanlışlıkla düşmesine neden olabiliyor. Daha geniş tolerans kullanıyoruz.
-const SEAT_NULL_MERGE_GRACE_MS = 2 * 60 * 1000;
+const SEAT_NULL_MERGE_GRACE_MS = 15 * 60 * 1000;
 const DEFAULT_WIN_POINTS = 100;
 const DEFAULT_LOSS_POINTS = 0;
 const DEFAULT_RESIGN_PENALTY_POINTS = 50;
@@ -5981,7 +5981,7 @@ function TavlaApp() {
         const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
         processedMatchTokensRef.current.add(`${token}:${currentProfile.userId}`);
         sendResignCommandToIframe(token);
-        void awardResignResult(token).catch(console.error);
+        void awardResignResult(token);
         penalized = true;
       } else if (leaveContext.permissionGranted) {
         leftWithPermission = true;
@@ -6015,7 +6015,7 @@ function TavlaApp() {
 
   function openLeaveActionModal() {
     if (!roomSession || roomSession.role !== "player") {
-      void leaveRoomAndGoLobby().catch(console.error);
+      void leaveRoomAndGoLobby();
       return;
     }
     const activeTable = getActiveRoomTable();
@@ -6025,7 +6025,7 @@ function TavlaApp() {
       setLeaveActionModalOpen(true);
       return;
     }
-    void leaveRoomAndGoLobby().catch(console.error);
+    void leaveRoomAndGoLobby();
   }
 
   function closeLeaveActionModal() {
@@ -6189,7 +6189,7 @@ function TavlaApp() {
           const token = matchLiveState.matchToken || `resign-${Date.now().toString(36)}`;
           processedMatchTokensRef.current.add(`${token}:${currentProfile.userId}`);
           sendResignCommandToIframe(token);
-          void awardResignResult(token).catch(console.error);
+          void awardResignResult(token);
           penalized = true;
         } else if (leaveContext.permissionGranted) {
           leftWithPermission = true;
@@ -9889,7 +9889,7 @@ function TavlaApp() {
         ? (wsOpen ? HTTP_SYNC_BACKGROUND_RUN_INTERVAL_MS : HTTP_SYNC_OFFLINE_BACKGROUND_RUN_INTERVAL_MS)
         : (wsOpen ? HTTP_SYNC_RUN_INTERVAL_MS : HTTP_SYNC_OFFLINE_RUN_INTERVAL_MS);
       timer = window.setTimeout(() => {
-        void tick().catch(console.error);
+        void tick();
       }, intervalMs);
     };
 
@@ -9920,7 +9920,7 @@ function TavlaApp() {
       scheduleNext();
     };
 
-    void tick().catch(console.error);
+    void tick();
 
     return () => {
       cancelled = true;
@@ -10018,13 +10018,13 @@ function TavlaApp() {
             reason: "normal",
             localColor,
           };
-          void handleLegacyMatchFinished(synthetic).catch(console.error);
+          void handleLegacyMatchFinished(synthetic);
         }
         return;
       }
 
       if (payload.type === "match-finished") {
-        void handleLegacyMatchFinished(payload).catch(console.error);
+        void handleLegacyMatchFinished(payload);
       }
     };
 
@@ -10173,7 +10173,7 @@ function TavlaApp() {
       setMemberAvatarDraft(user.avatarId);
       setGuestName(user.displayName);
     };
-    void syncMemberFromSession().catch(console.error);
+    void syncMemberFromSession();
     return () => {
       cancelled = true;
     };
@@ -10193,13 +10193,13 @@ function TavlaApp() {
       setMemberNotice("Bu hesap baska bir tarayicida acildigi icin oturum kapatildi.");
       setLobbyNotice("Bu hesap baska bir tarayicida acildigi icin oturum kapatildi.");
     };
-    void validateMemberSession().catch(console.error);
+    void validateMemberSession();
     const timer = window.setInterval(() => {
-      void validateMemberSession().catch(console.error);
+      void validateMemberSession();
     }, MEMBER_SESSION_REVALIDATE_INTERVAL_MS);
     const onVisibilityChange = () => {
       if (!document.hidden) {
-        void validateMemberSession().catch(console.error);
+        void validateMemberSession();
       }
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -10487,7 +10487,7 @@ function TavlaApp() {
           setMemberAvatarDraft(user.avatarId);
           setGuestName(user.displayName);
         };
-        void syncMemberFromSession().catch(console.error);
+        void syncMemberFromSession();
       }
     };
     window.addEventListener("storage", onStorage);
@@ -10638,7 +10638,7 @@ function TavlaApp() {
     }
     if (leavePermissionAutoLeavingRef.current) return;
     leavePermissionAutoLeavingRef.current = true;
-    void leaveRoomAndGoLobby(true).catch(console.error);
+    void leaveRoomAndGoLobby(true);
   }, [roomSession, currentRoomTable, currentProfile.userId, leaveRoomAndGoLobby]);
 
   useEffect(() => {
@@ -13605,7 +13605,7 @@ function TavlaApp() {
                     )}
                   </div>
                 </div>
-                <button className="my-action-btn soft" onClick={() => void runRealtimeHealthProbe().catch(console.error)}>
+                <button className="my-action-btn soft" onClick={() => void runRealtimeHealthProbe()}>
                   Simdi Test Et
                 </button>
                 {syncHealth.lastError ? <p className="my-error my-sync-error">{syncHealth.lastError}</p> : null}
@@ -14261,7 +14261,7 @@ function TavlaApp() {
               Rakibe puan kaybetmeden terk etme teklif edilsin mi?
             </p>
             <div className="my-leave-action-buttons">
-              <button className="my-action-btn danger" type="button" onClick={() => void leaveNowFromModal().catch(console.error)}>
+              <button className="my-action-btn danger" type="button" onClick={() => void leaveNowFromModal()}>
                 Şimdi Terket
               </button>
               <button className="my-action-btn" type="button" onClick={offerLeaveWithoutPenaltyFromModal}>

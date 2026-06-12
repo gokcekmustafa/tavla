@@ -4903,12 +4903,12 @@
   }
 
   .my-room-board-frame iframe {
-    height: clamp(300px, 60svh, 460px);
+    height: clamp(300px, 54svh, 420px);
     min-height: 280px;
   }
 
   .my-room-view-topless .my-room-board-frame iframe {
-    height: clamp(310px, 62svh, 480px);
+    height: clamp(310px, 56svh, 440px);
     min-height: 290px;
   }
 
