@@ -711,6 +711,22 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   50% { filter: drop-shadow(0 0 10px rgba(255,221,166,0.56)); }
 }
 
+@keyframes capture-flash {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 0 transparent); }
+  25% { filter: brightness(1.5) drop-shadow(0 0 16px rgba(255,200,80,0.7)); }
+  60% { filter: brightness(1.15) drop-shadow(0 0 6px rgba(255,200,80,0.3)); }
+}
+.checker-stack.capture-flash { animation: capture-flash 520ms ease-out; }
+
+@keyframes checker-arrived {
+  0% { transform: scale(1.08); opacity: 0.7; }
+  60% { transform: scale(0.96); opacity: 0.95; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.checker-stack.checker-arrived .checker:last-child {
+  animation: checker-arrived 260ms ease-out;
+}
+
 /* ── Checker stack ───────────────────────────────── */
 .checker-stack {
   display: flex;

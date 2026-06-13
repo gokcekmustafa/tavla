@@ -1880,6 +1880,20 @@ function playMove(move) {
   });
 }
 
+function postMoveVisualEffect(move, hit) {
+  if (!move || move.to === "off") return;
+  const el = document.getElementById(`stack-${move.to}`);
+  if (!el) return;
+
+  el.classList.add("checker-arrived");
+  setTimeout(() => el.classList.remove("checker-arrived"), 300);
+
+  if (hit) {
+    el.classList.add("capture-flash");
+    setTimeout(() => el.classList.remove("capture-flash"), 600);
+  }
+}
+
 function executeMove(move) {
   const hit = move.to !== "off" && isHitMove(gameState, currentPlayer, move);
   gameState      = applyMove(gameState, currentPlayer, move);
@@ -1904,6 +1918,7 @@ function executeMove(move) {
     showWinnerPopup(currentPlayer);
     clearCenterDiceStage(true);
     render();
+    postMoveVisualEffect(move, hit);
     publishRoomSnapshot("win");
     return;
   }
@@ -1920,6 +1935,7 @@ function executeMove(move) {
         availableMoves = recalculatedMoves;
         setStatus(`${playerText(currentPlayer)} zincir hamle devam ediyor.`);
         render();
+        postMoveVisualEffect(move, hit);
         publishRoomSnapshot("move-chain-step");
         playMove(pendingMoveChain.shift());
         return;
@@ -1930,6 +1946,7 @@ function executeMove(move) {
 
   if (!remainingDice.length) {
     setStatus(`${playerText(currentPlayer)} turu bitti.`);
+    postMoveVisualEffect(move, hit);
     finishTurn();
     return;
   }
@@ -1939,12 +1956,14 @@ function executeMove(move) {
   if (!availableMoves.length) {
     setStatus("Kalan zarlarla hamle yok. Sıra geçti.");
     addLog(`${playerText(currentPlayer)} pas.`);
+    postMoveVisualEffect(move, hit);
     finishTurn();
     return;
   }
 
   setStatus(`${playerText(currentPlayer)} devam et.`);
   render();
+  postMoveVisualEffect(move, hit);
   publishRoomSnapshot("move");
   maybeScheduleBotAction();
 }
