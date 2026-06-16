@@ -14036,8 +14036,10 @@ function TavlaApp({ designMode }: { designMode?: boolean }) {
                     const frameWindow = iframeRef.current?.contentWindow ?? null;
                     syncTableChatToIframe(frameWindow);
                     syncRoomStartGateToIframe(frameWindow);
-                    if (designMode && member?.role === "superadmin") {
-                      frameWindow?.postMessage({ source: "tavla-host", type: "design-enable" }, "*");
+                    if (designMode) {
+                      if (member?.role === "superadmin") {
+                        frameWindow?.postMessage({ source: "tavla-host", type: "design-enable" }, "*");
+                      }
                       void sendDesignSettingsToIframe(frameWindow);
                     }
                     window.setTimeout(() => {
