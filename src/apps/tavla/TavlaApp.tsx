@@ -9280,14 +9280,15 @@ function TavlaApp({ designMode }: { designMode?: boolean }) {
   }
 
   async function saveDesignSettings(settings: unknown) {
-    if (!memberSession?.userId || !memberSession?.sessionKey) return;
+    const ms = loadMemberSession();
+    if (!ms?.userId || !ms?.sessionKey) return;
     try {
       await fetch("/api/auth/design/tavla", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: memberSession.userId,
-          sessionKey: memberSession.sessionKey,
+          userId: ms.userId,
+          sessionKey: ms.sessionKey,
           settings,
         }),
       });
