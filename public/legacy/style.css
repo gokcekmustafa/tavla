@@ -420,6 +420,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   box-shadow:
     0 12px 24px rgba(113,79,41,0.28),
     inset 0 1px 0 rgba(255,240,214,0.3);
+  overflow: hidden;
 }
 
 .table-wrap.perspective-black {
@@ -603,7 +604,7 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ── Board grid ──────────────────────────────────── */
 .board-grid {
-  flex: 1;
+  flex: 0 1 auto;
   display: grid;
   grid-template-columns: repeat(13, minmax(0, 1fr));
   grid-template-rows: 1fr 1fr;
@@ -616,6 +617,9 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
   padding: 0;
   position: relative;
   min-height: 0;
+  width: 100%;
+  height: auto;
+  max-height: 100%;
   aspect-ratio: 572 / 390;
   box-shadow:
     inset 0 0 0 1px rgba(255,236,206,0.12),
@@ -1335,10 +1339,10 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 
   .board-grid {
     min-height: 0;
-    /* FIX: sabit min-height yerine aspect-ratio ile oran koru */
     height: auto;
-    aspect-ratio: 572 / 390;
     width: 100%;
+    max-height: 100%;
+    aspect-ratio: 572 / 390;
     grid-template-columns: repeat(13, minmax(0, 1fr));
     gap: 0;
     padding: 0;
@@ -2262,6 +2266,7 @@ body.bot-mode .activity-wrap {
   body.room-mode .board-grid,
   body.bot-mode .board-grid {
     aspect-ratio: 572 / 410;
+    max-height: 100%;
   }
 
   body.room-mode .off-area,
@@ -2316,6 +2321,7 @@ body.bot-mode .activity-wrap {
   body.room-mode .board-grid,
   body.bot-mode .board-grid {
     aspect-ratio: 572 / 460;
+    max-height: 100%;
   }
 }
 
