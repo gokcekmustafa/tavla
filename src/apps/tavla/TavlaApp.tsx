@@ -283,11 +283,24 @@ type LegacyTableChatReadyMessage = {
   type: "table-chat-ready";
 };
 
+type LegacyDesignSaveMessage = {
+  source: "tavla-legacy";
+  type: "design-save";
+  settings: unknown;
+};
+
+type LegacyDesignRequestMessage = {
+  source: "tavla-legacy";
+  type: "design-request";
+};
+
 type LegacyHostMessage =
   | LegacyHostStateMessage
   | LegacyMatchFinishedMessage
   | LegacyTableChatSendMessage
-  | LegacyTableChatReadyMessage;
+  | LegacyTableChatReadyMessage
+  | LegacyDesignSaveMessage
+  | LegacyDesignRequestMessage;
 
 type PlayerProfileModalState = {
   open: boolean;
@@ -9266,6 +9279,36 @@ function TavlaApp({ designMode }: { designMode?: boolean }) {
     );
   }
 
+  async function saveDesignSettings(settings: unknown) {
+    if (!currentProfile.userId || !currentProfile.sessionKey) return;
+    try {
+      await fetch("/api/auth/design/tavla", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentProfile.userId,
+          sessionKey: currentProfile.sessionKey,
+          settings,
+        }),
+      });
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  async function sendDesignSettingsToIframe(frameWindow: Window | null) {
+    if (!frameWindow) return;
+    try {
+      const res = await fetch("/api/auth/design/tavla");
+      const data = await res.json() as { ok?: boolean; settings?: unknown };
+      if (data.ok && data.settings) {
+        frameWindow.postMessage({ source: "tavla-host", type: "design-settings", settings: data.settings }, "*");
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   function closeProfileModal() {
     setProfileModal((prev) => ({ ...prev, open: false, loading: false }));
   }
@@ -10028,6 +10071,18 @@ function TavlaApp({ designMode }: { designMode?: boolean }) {
 
       if (payload.type === "match-finished") {
         void handleLegacyMatchFinished(payload);
+      }
+
+      if (payload.type === "design-save") {
+        if (payload.settings && typeof payload.settings === "object") {
+          void saveDesignSettings(payload.settings);
+        }
+        return;
+      }
+
+      if (payload.type === "design-request") {
+        void sendDesignSettingsToIframe(iframeRef.current?.contentWindow ?? null);
+        return;
       }
     };
 
@@ -13970,6 +14025,10 @@ function TavlaApp({ designMode }: { designMode?: boolean }) {
                     const frameWindow = iframeRef.current?.contentWindow ?? null;
                     syncTableChatToIframe(frameWindow);
                     syncRoomStartGateToIframe(frameWindow);
+                    if (designMode && member?.role === "superadmin") {
+                      frameWindow?.postMessage({ source: "tavla-host", type: "design-enable" }, "*");
+                      void sendDesignSettingsToIframe(frameWindow);
+                    }
                     window.setTimeout(() => {
                       syncRoomStartGateToIframe(iframeRef.current?.contentWindow ?? null);
                     }, ROOM_START_GATE_RESYNC_DELAY_MS);

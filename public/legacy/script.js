@@ -3708,8 +3708,12 @@ function initDesignMode() {
     designActiveProfile = detectDesignProfile();
     applyProfile(designActiveProfile);
     var btn = document.querySelector('.design-toggle-btn');
-    if (btn) btn.textContent = 'Tasarım \u2713';
+    if (btn) btn.textContent = 'Tasar\u0131m \u2713';
   }
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ source: 'tavla-legacy', type: 'design-request' }, '*');
+  }
+}
 }
 
 function loadDesignSettings() {
@@ -3813,6 +3817,9 @@ function createDesignUI() {
     toggleDesignPanel();
     var b = document.querySelector('.design-toggle-btn');
     if (b) b.textContent = 'Tasar\u0131m \u2713';
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ source: 'tavla-legacy', type: 'design-save', settings: { desktop:designData.desktop, portrait:designData.portrait, landscape:designData.landscape } }, '*');
+    }
   });
   panel.querySelector('.design-reset-btn').addEventListener('click', function() {
     DESIGN_PROFILES.forEach(function(p) {
@@ -3930,10 +3937,10 @@ function toggleDesignPanel() {
       var br = btn.getBoundingClientRect();
       var pw = Math.min(380, window.innerWidth - 16);
       var left = Math.max(4, Math.min(window.innerWidth - pw - 4, br.right + 4 - pw));
-      designPanel.style.left = left + 'px';
       designPanel.style.width = pw + 'px';
-      designPanel.style.top = (br.top - 8 < 4 ? br.bottom + 8 : br.top - 8) + 'px';
+      designPanel.style.left = left + 'px';
       designPanel.style.right = designPanel.style.bottom = 'auto';
+      designPanel.style.top = Math.max(4, br.top - 8 - 480) + 'px';
     }
     designActiveProfile = detectDesignProfile();
     var tabs = designPanel.querySelectorAll('.design-tab');
@@ -3956,6 +3963,9 @@ function applyDesignSettingsIfAny() {
     window.__designActive = true;
     designActiveProfile = detectDesignProfile();
     applyProfile(designActiveProfile);
+  }
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ source: 'tavla-legacy', type: 'design-request' }, '*');
   }
 }
 
@@ -3983,6 +3993,20 @@ if (designUrlParam) {
 } else {
   applyDesignSettingsIfAny();
 }
+
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.source === 'tavla-host' && e.data.type === 'design-enable') {
+    if (!window.__designActive) {
+      initDesignMode();
+    }
+  }
+  if (e.data && e.data.source === 'tavla-host' && e.data.type === 'design-settings') {
+    if (e.data.settings) {
+      try { localStorage.setItem('tavla-design-v2', JSON.stringify(e.data.settings)); } catch(ex) {}
+      applyDesignSettingsIfAny();
+    }
+  }
+});
 
 function entryFromBar(player, die) { return player === WHITE ? 25 - die : die; }
 function directionOf(player)       { return player === WHITE ? -1 : 1; }
