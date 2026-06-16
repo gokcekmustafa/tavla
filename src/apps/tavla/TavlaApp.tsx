@@ -9,7 +9,7 @@ type GameId = "tavla" | "okey101";
 type EntryScreen = "game" | "room" | "lobby";
 type AuthMode = "login" | "register";
 type MatchOutcome = "win" | "loss" | "resign";
-type MemberRole = "user" | "admin" | "superadmin";
+type MemberRole = "user" | "admin";
 type MemberGender = "male" | "female" | "unknown";
 type AdminRoleFilter = "all" | MemberRole;
 type AdminSortKey = "name" | "points" | "games" | "wins" | "losses" | "resigns" | "createdAt";
@@ -283,24 +283,11 @@ type LegacyTableChatReadyMessage = {
   type: "table-chat-ready";
 };
 
-type LegacyDesignSaveMessage = {
-  source: "tavla-legacy";
-  type: "design-save";
-  settings: unknown;
-};
-
-type LegacyDesignRequestMessage = {
-  source: "tavla-legacy";
-  type: "design-request";
-};
-
 type LegacyHostMessage =
   | LegacyHostStateMessage
   | LegacyMatchFinishedMessage
   | LegacyTableChatSendMessage
-  | LegacyTableChatReadyMessage
-  | LegacyDesignSaveMessage
-  | LegacyDesignRequestMessage;
+  | LegacyTableChatReadyMessage;
 
 type PlayerProfileModalState = {
   open: boolean;
@@ -1283,7 +1270,6 @@ function avatarOptionsForGender(gender: MemberGender) {
 
 function sanitizeMemberRole(raw: unknown): MemberRole {
   if (raw === "admin") return "admin";
-  if (raw === "superadmin") return "superadmin";
   return "user";
 }
 
@@ -3164,7 +3150,7 @@ function AvatarBadge(props: {
   );
 }
 
-function TavlaApp({ designMode }: { designMode?: boolean }) {
+function TavlaApp() {
   const [initialRoom] = useState<RoomSession | null>(() => getInitialRoomSession());
   const [isAdminWindow] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -4378,9 +4364,6 @@ function TavlaApp({ designMode }: { designMode?: boolean }) {
     qp.set("guest", iframeGuestName);
     qp.set("sync_ws", REALTIME_WS_BASE_URL);
     qp.set("member", member ? "1" : "0");
-    if (designMode && member?.role === "superadmin") {
-      qp.set("design", "1");
-    }
     if (roomSession) {
       qp.set("room", roomSession.code);
       qp.set("seat", roomSession.seat);
@@ -4390,7 +4373,7 @@ function TavlaApp({ designMode }: { designMode?: boolean }) {
       qp.set("observer", roomSession.role === "spectator" ? "1" : "0");
     }
     return `/legacy/index.html?${qp.toString()}`;
-  }, [mode, iframeKey, roomSession, iframeGuestName, isRoomMode, member, designMode]);
+  }, [mode, iframeKey, roomSession, iframeGuestName, isRoomMode, member]);
 
   const scopedLobbyTables = useMemo(
     () => filterTablesByLobbyScope(lobbyState.tables, lobbyState.presence, activeLobbyId),
@@ -9280,37 +9263,6 @@ function TavlaApp({ designMode }: { designMode?: boolean }) {
     );
   }
 
-  async function saveDesignSettings(settings: unknown) {
-    const ms = loadMemberSession();
-    if (!ms?.userId || !ms?.sessionKey) return;
-    try {
-      await fetch("/api/auth/design/tavla", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: ms.userId,
-          sessionKey: ms.sessionKey,
-          settings,
-        }),
-      });
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  async function sendDesignSettingsToIframe(frameWindow: Window | null) {
-    if (!frameWindow) return;
-    try {
-      const res = await fetch("/api/auth/design/tavla");
-      const data = await res.json() as { ok?: boolean; settings?: unknown };
-      if (data.ok && data.settings) {
-        frameWindow.postMessage({ source: "tavla-host", type: "design-settings", settings: data.settings }, "*");
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
-
   function closeProfileModal() {
     setProfileModal((prev) => ({ ...prev, open: false, loading: false }));
   }
@@ -10074,18 +10026,6 @@ function TavlaApp({ designMode }: { designMode?: boolean }) {
       if (payload.type === "match-finished") {
         void handleLegacyMatchFinished(payload);
       }
-
-      if (payload.type === "design-save") {
-        if (payload.settings && typeof payload.settings === "object") {
-          void saveDesignSettings(payload.settings);
-        }
-        return;
-      }
-
-      if (payload.type === "design-request") {
-        void sendDesignSettingsToIframe(iframeRef.current?.contentWindow ?? null);
-        return;
-      }
     };
 
     window.addEventListener("message", onMessage);
@@ -10238,15 +10178,6 @@ function TavlaApp({ designMode }: { designMode?: boolean }) {
       cancelled = true;
     };
   }, []);
-
-  var designAutoStartedRef = useRef(false);
-  useEffect(() => {
-    if (!designMode) return;
-    if (!member || member.role !== "superadmin") return;
-    if (designAutoStartedRef.current) return;
-    designAutoStartedRef.current = true;
-    startBotGame();
-  }, [designMode, member?.id, member?.role]);
 
   useEffect(() => {
     if (!member) return;
@@ -11533,17 +11464,6 @@ function TavlaApp({ designMode }: { designMode?: boolean }) {
             </section>
           </section>
         )}
-      </main>
-    );
-  }
-
-  if (designMode && member && member.role !== "superadmin") {
-    return (
-      <main className="my-shell" style={designCssVars}>
-        <section className="my-admin-window-blocked">
-          <h2>Tasarim modu icin super admin girisi gerekli</h2>
-          <p className="line">Bu sayfayi kullanmak icin super admin hesabi ile giris yapmalisin.</p>
-        </section>
       </main>
     );
   }
@@ -14036,12 +13956,6 @@ function TavlaApp({ designMode }: { designMode?: boolean }) {
                     const frameWindow = iframeRef.current?.contentWindow ?? null;
                     syncTableChatToIframe(frameWindow);
                     syncRoomStartGateToIframe(frameWindow);
-                    if (designMode) {
-                      if (member?.role === "superadmin") {
-                        frameWindow?.postMessage({ source: "tavla-host", type: "design-enable" }, "*");
-                      }
-                      void sendDesignSettingsToIframe(frameWindow);
-                    }
                     window.setTimeout(() => {
                       syncRoomStartGateToIframe(iframeRef.current?.contentWindow ?? null);
                     }, ROOM_START_GATE_RESYNC_DELAY_MS);

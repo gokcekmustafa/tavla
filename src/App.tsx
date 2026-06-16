@@ -10,11 +10,8 @@ const ROOT_GAME_CHOICE_KEY = "tavla.root.selected.game.v1";
 function readPathChoice(): RootGameChoice {
   if (typeof window === "undefined") return null;
   const path = window.location.pathname.toLowerCase();
-  if (path.startsWith("/tavla") || path === "/tasarim") return "tavla";
+  if (path.startsWith("/tavla")) return "tavla";
   if (path.startsWith("/okey101") || path.startsWith("/okey")) return "okey101";
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("game") === "tavla") return "tavla";
-  if (params.get("game") === "okey101") return "okey101";
   return null;
 }
 
@@ -74,15 +71,8 @@ function App() {
     return readStoredChoice();
   }, []);
   const [rootChoice, setRootChoice] = useState<RootGameChoice>(initialChoice);
-  const isDesignMode = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    if (window.location.pathname.toLowerCase() === "/tasarim") return true;
-    if (window.location.hash.toLowerCase() === "#/tasarim") return true;
-    const params = new URLSearchParams(window.location.search);
-    return params.get("design") === "1";
-  }, []);
 
-  if (rootChoice === "tavla") return <TavlaApp designMode={isDesignMode} />;
+  if (rootChoice === "tavla") return <TavlaApp />;
   if (rootChoice === "okey101") return <Okey101App />;
 
   return (

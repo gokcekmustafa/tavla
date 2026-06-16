@@ -899,12 +899,6 @@ export default {
       return await room.fetch(request);
     }
 
-    if (url.pathname === "/tasarim" || url.pathname.startsWith("/tavla")) {
-      url.pathname = "/index.html";
-      const spa = await env.ASSETS.fetch(new Request(url.toString(), request));
-      return withNoStoreForHtml(spa);
-    }
-
     return serveAssetWithSpaFallback(request, env);
   },
 };
@@ -1357,12 +1351,6 @@ export class AuthStore {
     if (request.method === "GET" && pathname === "/api/auth/design") {
       return this.handleDesign();
     }
-    if (request.method === "GET" && pathname === "/api/auth/design/tavla") {
-      return this.handleDesignTavla(url);
-    }
-    if (request.method === "POST" && pathname === "/api/auth/design/tavla") {
-      return this.handleDesignTavlaUpdate(request);
-    }
     if (request.method === "GET" && pathname === "/api/auth/me") {
       return this.handleMe(url);
     }
@@ -1584,41 +1572,6 @@ export class AuthStore {
       ok: true,
       design: settings.published,
     }, 200);
-  }
-
-  private async requireSession(url: URL): Promise<StoredMemberUser | null> {
-    const userId = sanitizeMemberId(url.searchParams.get("userId"));
-    const sessionKey = sanitizeMemberSessionKey(url.searchParams.get("sessionKey"));
-    if (!userId || !sessionKey) return null;
-    return this.requireActiveSession(userId, sessionKey);
-  }
-
-  private async handleDesignTavla(_url: URL): Promise<Response> {
-    try {
-      const raw = await this.ctx.storage.get<string>("design:tavla:global");
-      const settings = raw ? JSON.parse(raw) : null;
-      return jsonResponse({ ok: true, settings }, 200);
-    } catch (e) {
-      return jsonResponse({ ok: true, settings: null }, 200);
-    }
-  }
-
-  private async handleDesignTavlaUpdate(request: Request): Promise<Response> {
-    const payload = await parseJsonBody(request);
-    if (!payload || typeof payload !== "object") return jsonResponse({ error: "Gecersiz istek." }, 400);
-    const body = payload as Record<string, unknown>;
-    const userId = sanitizeMemberId(body.userId);
-    const sessionKey = sanitizeMemberSessionKey(body.sessionKey);
-    if (!userId || !sessionKey) return jsonResponse({ error: "Gecersiz oturum." }, 401);
-    const user = await this.requireActiveSession(userId, sessionKey);
-    if (!user) return jsonResponse({ error: "Oturum gecersiz." }, 401);
-    if (user.role !== "admin" && user.role !== "superadmin") {
-      return jsonResponse({ error: "Bu islem icin admin yetkisi gerekli." }, 403);
-    }
-    const settings = typeof body.settings === "object" && body.settings !== null ? body.settings : null;
-    if (!settings) return jsonResponse({ error: "Gecersiz ayarlar." }, 400);
-    await this.ctx.storage.put("design:tavla:global", JSON.stringify(settings));
-    return jsonResponse({ ok: true }, 200);
   }
 
   private async handleMe(url: URL): Promise<Response> {
