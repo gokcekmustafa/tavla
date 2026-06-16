@@ -1283,6 +1283,7 @@ function avatarOptionsForGender(gender: MemberGender) {
 
 function sanitizeMemberRole(raw: unknown): MemberRole {
   if (raw === "admin") return "admin";
+  if (raw === "superadmin") return "superadmin";
   return "user";
 }
 
@@ -10237,6 +10238,15 @@ function TavlaApp({ designMode }: { designMode?: boolean }) {
       cancelled = true;
     };
   }, []);
+
+  var designAutoStartedRef = useRef(false);
+  useEffect(() => {
+    if (!designMode) return;
+    if (!member || member.role !== "superadmin") return;
+    if (designAutoStartedRef.current) return;
+    designAutoStartedRef.current = true;
+    startBotGame();
+  }, [designMode, member?.id, member?.role]);
 
   useEffect(() => {
     if (!member) return;
