@@ -9,7 +9,7 @@ type GameId = "tavla" | "okey101";
 type EntryScreen = "game" | "room" | "lobby";
 type AuthMode = "login" | "register";
 type MatchOutcome = "win" | "loss" | "resign";
-type MemberRole = "user" | "admin";
+type MemberRole = "user" | "admin" | "superadmin";
 type MemberGender = "male" | "female" | "unknown";
 type AdminRoleFilter = "all" | MemberRole;
 type AdminSortKey = "name" | "points" | "games" | "wins" | "losses" | "resigns" | "createdAt";
@@ -3150,7 +3150,7 @@ function AvatarBadge(props: {
   );
 }
 
-function TavlaApp() {
+function TavlaApp({ designMode }: { designMode?: boolean }) {
   const [initialRoom] = useState<RoomSession | null>(() => getInitialRoomSession());
   const [isAdminWindow] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -4364,6 +4364,9 @@ function TavlaApp() {
     qp.set("guest", iframeGuestName);
     qp.set("sync_ws", REALTIME_WS_BASE_URL);
     qp.set("member", member ? "1" : "0");
+    if (designMode && member?.role === "superadmin") {
+      qp.set("design", "1");
+    }
     if (roomSession) {
       qp.set("room", roomSession.code);
       qp.set("seat", roomSession.seat);
@@ -4373,7 +4376,7 @@ function TavlaApp() {
       qp.set("observer", roomSession.role === "spectator" ? "1" : "0");
     }
     return `/legacy/index.html?${qp.toString()}`;
-  }, [mode, iframeKey, roomSession, iframeGuestName, isRoomMode, member]);
+  }, [mode, iframeKey, roomSession, iframeGuestName, isRoomMode, member, designMode]);
 
   const scopedLobbyTables = useMemo(
     () => filterTablesByLobbyScope(lobbyState.tables, lobbyState.presence, activeLobbyId),
@@ -11464,6 +11467,17 @@ function TavlaApp() {
             </section>
           </section>
         )}
+      </main>
+    );
+  }
+
+  if (designMode && member && member.role !== "superadmin") {
+    return (
+      <main className="my-shell" style={designCssVars}>
+        <section className="my-admin-window-blocked">
+          <h2>Tasarim modu icin super admin girisi gerekli</h2>
+          <p className="line">Bu sayfayi kullanmak icin super admin hesabi ile giris yapmalisin.</p>
+        </section>
       </main>
     );
   }

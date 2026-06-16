@@ -10,7 +10,7 @@ const ROOT_GAME_CHOICE_KEY = "tavla.root.selected.game.v1";
 function readPathChoice(): RootGameChoice {
   if (typeof window === "undefined") return null;
   const path = window.location.pathname.toLowerCase();
-  if (path.startsWith("/tavla")) return "tavla";
+  if (path.startsWith("/tavla") || path === "/tasarim") return "tavla";
   if (path.startsWith("/okey101") || path.startsWith("/okey")) return "okey101";
   return null;
 }
@@ -71,8 +71,12 @@ function App() {
     return readStoredChoice();
   }, []);
   const [rootChoice, setRootChoice] = useState<RootGameChoice>(initialChoice);
+  const isDesignMode = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return window.location.pathname.toLowerCase() === "/tasarim";
+  }, []);
 
-  if (rootChoice === "tavla") return <TavlaApp />;
+  if (rootChoice === "tavla") return <TavlaApp designMode={isDesignMode} />;
   if (rootChoice === "okey101") return <Okey101App />;
 
   return (
