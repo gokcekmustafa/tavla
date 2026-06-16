@@ -3714,7 +3714,6 @@ function initDesignMode() {
     window.parent.postMessage({ source: 'tavla-legacy', type: 'design-request' }, '*');
   }
 }
-}
 
 function loadDesignSettings() {
   try {
