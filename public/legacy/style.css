@@ -1257,13 +1257,11 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
 
   .app-shell {
     max-width: 100%;
-    /* FIX: fixed height yerine min-height — içerik taşarsa scroll çalışır */
-    min-height: 100dvh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     gap: 8px;
     padding: 8px;
-    /* FIX: floating buton için alt boşluk */
     padding-bottom: 72px;
   }
 
@@ -2149,6 +2147,9 @@ body.bot-mode .activity-wrap {
 @media (max-width: 860px) {
   .arena-layout {
     grid-template-columns: 1fr;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .right-action-panel {
@@ -2236,6 +2237,9 @@ body.bot-mode .activity-wrap {
   body.bot-mode .arena-layout {
     grid-template-columns: 1fr;
     gap: 6px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 
   body.room-mode .right-action-panel,
@@ -2297,6 +2301,9 @@ body.bot-mode .activity-wrap {
   body.bot-mode .arena-layout {
     grid-template-columns: 1fr;
     gap: 6px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 
   body.room-mode .right-action-panel,
