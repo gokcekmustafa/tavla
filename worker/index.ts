@@ -899,6 +899,12 @@ export default {
       return await room.fetch(request);
     }
 
+    if (url.pathname === "/tasarim" || url.pathname.startsWith("/tavla")) {
+      url.pathname = "/index.html";
+      const spa = await env.ASSETS.fetch(new Request(url.toString(), request));
+      return withNoStoreForHtml(spa);
+    }
+
     return serveAssetWithSpaFallback(request, env);
   },
 };
