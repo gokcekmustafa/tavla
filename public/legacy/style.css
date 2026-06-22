@@ -2379,3 +2379,17 @@ body.bot-mode .room-bar {
     touch-action: none;
   }
 }
+
+/* Landscape: çok-sütunlu layout — sonra gelen tüm tek-kolon override'larini ezer */
+@media (orientation: landscape) and (max-width: 860px) {
+  .arena-layout {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 4px;
+  }
+  body.room-mode .arena-layout,
+  body.bot-mode .arena-layout {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .left-control-panel { display: flex; flex-direction: column; width: auto; }
+  .right-action-panel { width: auto; align-self: stretch; }
+}
