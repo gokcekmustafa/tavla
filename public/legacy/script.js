@@ -149,7 +149,6 @@ buildBoard();
 attachEvents();
 initRoomMode();
 render();
-setTimeout(fitArenaToViewport, 100);
 announceRoomJoin();
 notifyHostTableChatReady();
 
@@ -2109,7 +2108,6 @@ function render() {
   renderTableChat();
   renderMoveLog();
   emitHostState();
-  requestAnimationFrame(fitArenaToViewport);
 }
 
 function renderTurnInfo() {
@@ -3664,38 +3662,4 @@ function getBotColor()             { return opponentOf(preferredPlayerColor); }
 function playerText(player)        { return player === WHITE ? "Beyaz" : "Siyah"; }
 function isBotTurn()               { return gameMode === "bot" && currentPlayer === getBotColor() && !winner; }
 function randomDie()               { return Math.floor(Math.random() * 6) + 1; }
-
-function fitArenaToViewport() {
-  var arena = document.querySelector('.arena-layout');
-  var board = document.querySelector('.board-grid');
-  if (!arena || !board) return;
-  var landscape = window.innerWidth > window.innerHeight;
-  if (!landscape) {
-    arena.style.transform = '';
-    arena.style.transformOrigin = '';
-    arena.style.marginBottom = '';
-    var sh = document.querySelector('.app-shell');
-    if (sh) sh.style.overflow = '';
-    return;
-  }
-  arena.style.transformOrigin = '';
-  var bw = board.offsetWidth;
-  var REF_BOARD = 572;
-  var s = bw / REF_BOARD;
-  if (s >= 0.9) {
-    arena.style.transform = '';
-    arena.style.transformOrigin = '';
-    arena.style.marginBottom = '';
-    var sh2 = document.querySelector('.app-shell');
-    if (sh2) sh2.style.overflow = '';
-    return;
-  }
-  arena.style.transformOrigin = 'top center';
-  arena.style.transform = 'scale(' + s + ')';
-  arena.style.marginBottom = ((s - 1) * arena.scrollHeight) + 'px';
-  var shell = document.querySelector('.app-shell');
-  shell.style.overflow = 'hidden';
-}
-
-
 
